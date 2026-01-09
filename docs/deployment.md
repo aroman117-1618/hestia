@@ -15,7 +15,7 @@ This document covers deploying Hestia from the development MacBook to the produc
 2. **SSH Key**: Copy your MacBook's public key
    ```bash
    # On MacBook:
-   ssh-copy-id andrew@hestia-server
+   ssh-copy-id andrewroman117@hestia-3.local
    ```
 
 3. **Python Environment**:
@@ -177,7 +177,7 @@ Credentials are **NOT** synced automatically for security reasons. They must be 
 
 ```bash
 # SSH to Mac Mini
-ssh andrew@hestia-server
+ssh andrewroman117@hestia-3.local
 
 # Activate environment
 cd ~/hestia
@@ -214,13 +214,13 @@ EOF
 ### SSH Connection Fails
 
 ```
-Error: Cannot connect to Mac Mini (andrew@hestia-server)
+Error: Cannot connect to Mac Mini (andrewroman117@hestia-3.local)
 ```
 
 **Solutions:**
 1. Check Tailscale: `tailscale status`
 2. Wake Mac Mini (if sleeping)
-3. Verify SSH key: `ssh -v andrew@hestia-server`
+3. Verify SSH key: `ssh -v andrewroman117@hestia-3.local`
 
 ### Package Import Fails
 
@@ -295,19 +295,19 @@ After deploying:
 
 ```bash
 # Tail main log
-ssh andrew@hestia-server 'tail -f ~/hestia/logs/hestia.log'
+ssh andrewroman117@hestia-3.local 'tail -f ~/hestia/logs/hestia.log'
 
 # View audit log
-ssh andrew@hestia-server 'tail -f ~/hestia/logs/audit.log'
+ssh andrewroman117@hestia-3.local 'tail -f ~/hestia/logs/audit.log'
 
 # Use log viewer
-ssh andrew@hestia-server 'cd ~/hestia && source .venv/bin/activate && python -m hestia.logging.viewer'
+ssh andrewroman117@hestia-3.local 'cd ~/hestia && source .venv/bin/activate && python -m hestia.logging.viewer'
 ```
 
 ### Check Service Status
 
 ```bash
-ssh andrew@hestia-server 'launchctl list | grep hestia'
+ssh andrewroman117@hestia-3.local 'launchctl list | grep hestia'
 ```
 
 ### Deployment History
