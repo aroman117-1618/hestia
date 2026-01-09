@@ -1,0 +1,7 @@
+# Never commit private keys
+*.key
+*.pem
+
+# Certificates can be committed if desired for easier device trust setup
+# But exclude by default for safety
+*.crt

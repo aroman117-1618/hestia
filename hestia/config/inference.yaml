@@ -1,0 +1,105 @@
+# Hestia Inference Configuration
+# See ADR-011 for context window management details
+
+# =============================================================================
+# LOCAL-ONLY INFERENCE ARCHITECTURE (ADR-001/ADR-010)
+# =============================================================================
+# Hestia uses local models exclusively via Ollama:
+#   1. Fast local model (Qwen 2.5 7B) for routine queries
+#   2. Large local model (Mixtral 8x7B) for complex reasoning (when 64GB available)
+# =============================================================================
+
+# Ollama connection settings
+ollama_host: "http://localhost:11434"
+
+# -----------------------------------------------------------------------------
+# Model Tier Configuration
+# -----------------------------------------------------------------------------
+
+# PRIMARY: Fast local model for routine queries (fits in 16GB RAM)
+# - Quick responses (2-5s)
+# - Good for: simple questions, summaries, basic tasks
+primary_model:
+  name: "qwen2.5:7b"
+  context_limit: 32768
+  max_tokens: 2048
+  temperature: 0.0
+  # Timeout harmonized with iOS client (iOS: 120s request, 150-240s resource)
+  # Keep server-side slightly lower to ensure response arrives before client timeout
+  request_timeout: 90.0
+
+# COMPLEX: Large local model for reasoning tasks (requires warm start)
+# - Slower responses (30-120s when warm, 5+ min cold)
+# - Good for: complex analysis, multi-step reasoning, code generation
+# NOTE: Disabled until 64GB RAM upgrade. Uncomment when hardware allows.
+complex_model:
+  name: "mixtral:8x7b-instruct-v0.1-q4_K_M"
+  context_limit: 32768
+  max_tokens: 4096
+  temperature: 0.0
+  # Long timeout for complex operations
+  # Keep under iOS resource timeout (150-240s depending on environment)
+  request_timeout: 120.0
+  # Currently disabled due to 16GB RAM constraint
+  enabled: false
+
+# -----------------------------------------------------------------------------
+# Model Router Configuration
+# -----------------------------------------------------------------------------
+
+# Default model for inference (use primary for speed)
+model_name: "qwen2.5:7b"
+
+# Routing rules
+routing:
+  # Use complex model for these patterns (when enabled)
+  complex_patterns:
+    - "analyze"
+    - "explain in detail"
+    - "step by step"
+    - "write code"
+    - "debug"
+    - "review"
+  # Minimum token count to consider complex routing
+  complex_token_threshold: 500
+
+# -----------------------------------------------------------------------------
+# Generation Parameters (defaults)
+# -----------------------------------------------------------------------------
+
+temperature: 0.0          # Deterministic by default
+max_tokens: 2048          # Max output tokens per request
+top_p: 0.9                # Nucleus sampling
+
+# -----------------------------------------------------------------------------
+# Context Window Management (ADR-011)
+# -----------------------------------------------------------------------------
+
+context_limit: 32768
+context_warning_threshold: 0.9  # Warn at 90% (28,672 tokens)
+
+# Token budget allocation (within 32K limit)
+system_prompt_budget: 2000      # System instructions
+tool_definitions_budget: 1000   # Tool schemas
+user_model_budget: 2000         # User preferences/context
+# Remaining ~27K for: conversation history + memory retrieval
+
+# -----------------------------------------------------------------------------
+# Retry Settings
+# -----------------------------------------------------------------------------
+
+max_retries: 3
+retry_base_delay: 1.0     # seconds
+retry_max_delay: 30.0     # seconds
+
+# -----------------------------------------------------------------------------
+# Timeout Settings
+# -----------------------------------------------------------------------------
+
+# Default timeouts (overridden per-model above)
+# Harmonized with iOS client timeouts to prevent race conditions:
+#   - iOS request timeout: 120s (local) / 150s (tailscale)
+#   - iOS resource timeout: 180s (local) / 240s (tailscale)
+#   - Server timeout should complete BEFORE client timeout
+request_timeout: 90.0     # seconds (fast model default, < iOS 120s)
+connect_timeout: 30.0     # seconds (allow time for Ollama to start)

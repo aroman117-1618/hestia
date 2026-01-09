@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Service identifier -->
+    <key>Label</key>
+    <string>com.hestia.ollama-keepalive</string>
+
+    <!-- Description -->
+    <key>ServiceDescription</key>
+    <string>Keeps Mixtral 8x7B model warm in Ollama to prevent cold start delays</string>
+
+    <!-- Script to run -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/andrewroman117/hestia/scripts/ollama-keepalive.sh</string>
+    </array>
+
+    <!-- Run every 10 minutes (600 seconds) -->
+    <key>StartInterval</key>
+    <integer>600</integer>
+
+    <!-- Also run at load (boot/login) -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Environment variables -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>/Users/andrewroman117</string>
+        <key>OLLAMA_HOST</key>
+        <string>http://localhost:11434</string>
+        <key>MODEL_NAME</key>
+        <string>mixtral:8x7b-instruct-v0.1-q4_K_M</string>
+    </dict>
+
+    <!-- Working directory -->
+    <key>WorkingDirectory</key>
+    <string>/Users/andrewroman117/hestia</string>
+
+    <!-- Logging -->
+    <key>StandardOutPath</key>
+    <string>/Users/andrewroman117/hestia/logs/ollama-keepalive-stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/andrewroman117/hestia/logs/ollama-keepalive-stderr.log</string>
+
+    <!-- Restart on failure -->
+    <key>KeepAlive</key>
+    <dict>
+        <!-- Only restart if it crashes, not if it exits normally -->
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <!-- Throttle restarts (wait 60s between restart attempts) -->
+    <key>ThrottleInterval</key>
+    <integer>60</integer>
+
+    <!-- Nice value (lower priority than user processes) -->
+    <key>Nice</key>
+    <integer>10</integer>
+
+    <!-- Low priority I/O -->
+    <key>LowPriorityIO</key>
+    <true/>
+</dict>
+</plist>

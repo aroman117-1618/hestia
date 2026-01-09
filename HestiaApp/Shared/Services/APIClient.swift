@@ -1,0 +1,612 @@
+import Foundation
+
+/// Real API client for connecting to the Hestia backend
+/// Supports configurable environments (local/Tailscale) and automatic retry with exponential backoff
+/// Uses certificate pinning for secure connections
+class APIClient: HestiaClientProtocol {
+    // MARK: - Singleton
+
+    static let shared = APIClient()
+
+    // MARK: - Configuration
+
+    private var baseURL: URL
+    private var deviceToken: String?
+    private var session: URLSession
+    private let config: Configuration
+
+    // MARK: - Security
+
+    /// Certificate pinning delegate for HTTPS connections
+    private let certificatePinningDelegate: CertificatePinningDelegate
+
+    // MARK: - Retry Configuration
+
+    private let maxRetries: Int
+    private let retryBaseDelay: TimeInterval
+    private let retryMaxDelay: TimeInterval
+
+    // MARK: - JSON Coding
+
+    private let encoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        encoder.dateEncodingStrategy = .iso8601
+        return encoder
+    }()
+
+    private let decoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
+    }()
+
+    // MARK: - Initialization
+
+    init(configuration: Configuration = .shared, deviceToken: String? = nil) {
+        self.config = configuration
+        self.deviceToken = deviceToken
+        self.maxRetries = configuration.maxRetries
+        self.retryBaseDelay = configuration.retryBaseDelay
+        self.retryMaxDelay = configuration.retryMaxDelay
+
+        guard let url = URL(string: configuration.apiBaseURL) else {
+            fatalError("Invalid Hestia API base URL: \(configuration.apiBaseURL)")
+        }
+        self.baseURL = url
+
+        // Initialize certificate pinning delegate
+        // In DEBUG builds, allow development bypass for self-signed certs
+        #if DEBUG
+        self.certificatePinningDelegate = CertificatePinningDelegate(allowDevelopmentBypass: true)
+        #else
+        self.certificatePinningDelegate = CertificatePinningDelegate(allowDevelopmentBypass: false)
+        #endif
+
+        let sessionConfig = URLSessionConfiguration.default
+        sessionConfig.timeoutIntervalForRequest = configuration.requestTimeout
+        sessionConfig.timeoutIntervalForResource = configuration.resourceTimeout
+
+        // Create session with certificate pinning delegate
+        self.session = URLSession(
+            configuration: sessionConfig,
+            delegate: certificatePinningDelegate,
+            delegateQueue: nil
+        )
+
+        // Listen for configuration changes
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(configurationDidChange),
+            name: .hestiaConfigurationChanged,
+            object: nil
+        )
+    }
+
+    /// Legacy initializer for compatibility
+    convenience init(baseURL: String, deviceToken: String? = nil) {
+        // Create a temporary configuration - for testing/legacy use
+        self.init(configuration: .shared, deviceToken: deviceToken)
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc private func configurationDidChange() {
+        guard let url = URL(string: config.apiBaseURL) else {
+            print("[APIClient] Warning: Invalid URL after config change: \(config.apiBaseURL)")
+            return
+        }
+        self.baseURL = url
+
+        // Recreate session with new timeouts (and certificate pinning delegate)
+        let sessionConfig = URLSessionConfiguration.default
+        sessionConfig.timeoutIntervalForRequest = config.requestTimeout
+        sessionConfig.timeoutIntervalForResource = config.resourceTimeout
+        self.session = URLSession(
+            configuration: sessionConfig,
+            delegate: certificatePinningDelegate,
+            delegateQueue: nil
+        )
+
+        print("[APIClient] Configuration updated: \(config.apiBaseURL)")
+    }
+
+    /// Set the device token for authenticated requests
+    func setDeviceToken(_ token: String) {
+        self.deviceToken = token
+    }
+
+    // MARK: - Device Registration
+
+    /// Register this device with the Hestia backend
+    /// This endpoint does not require authentication
+    func registerDevice(deviceName: String, deviceType: String) async throws -> DeviceRegistrationResponse {
+        let request = DeviceRegistrationRequest(
+            deviceName: deviceName,
+            deviceType: deviceType
+        )
+        return try await postUnauthenticated("/auth/register", body: request)
+    }
+
+    // MARK: - HestiaClientProtocol Implementation
+
+    func sendMessage(_ message: String, sessionId: String?) async throws -> HestiaResponse {
+        let request = HestiaRequest(
+            message: message,
+            sessionId: sessionId,
+            deviceId: nil,
+            contextHints: nil
+        )
+
+        return try await post("/chat", body: request)
+    }
+
+    func getCurrentMode() async throws -> HestiaMode {
+        struct ModeResponse: Codable {
+            let current: ModeInfo
+        }
+        struct ModeInfo: Codable {
+            let mode: String
+        }
+
+        let response: ModeResponse = try await get("/mode")
+        return HestiaMode(rawValue: response.current.mode) ?? .tia
+    }
+
+    func switchMode(to mode: HestiaMode) async throws {
+        struct SwitchRequest: Codable {
+            let mode: String
+        }
+        struct SwitchResponse: Codable {
+            let currentMode: String
+        }
+
+        let _: SwitchResponse = try await post("/mode/switch", body: SwitchRequest(mode: mode.rawValue))
+    }
+
+    func getSystemHealth() async throws -> SystemHealth {
+        return try await get("/health")
+    }
+
+    func getPendingMemoryReviews() async throws -> [MemoryChunk] {
+        struct PendingResponse: Codable {
+            let pending: [MemoryChunk]
+        }
+
+        let response: PendingResponse = try await get("/memory/staged")
+        return response.pending
+    }
+
+    func approveMemory(chunkId: String, notes: String?) async throws {
+        struct ApproveRequest: Codable {
+            let reviewerNotes: String?
+        }
+        struct ApproveResponse: Codable {
+            let status: String
+        }
+
+        let _: ApproveResponse = try await post(
+            "/memory/approve/\(chunkId)",
+            body: ApproveRequest(reviewerNotes: notes)
+        )
+    }
+
+    func rejectMemory(chunkId: String) async throws {
+        struct RejectResponse: Codable {
+            let status: String
+        }
+
+        let _: RejectResponse = try await post("/memory/reject/\(chunkId)", body: EmptyBody())
+    }
+
+    func createSession(mode: HestiaMode) async throws -> String {
+        struct SessionRequest: Codable {
+            let mode: String
+            let deviceId: String?
+        }
+        struct SessionResponse: Codable {
+            let sessionId: String
+        }
+
+        let response: SessionResponse = try await post(
+            "/sessions",
+            body: SessionRequest(mode: mode.rawValue, deviceId: nil)
+        )
+        return response.sessionId
+    }
+
+    func getSessionHistory(sessionId: String) async throws -> [ConversationMessage] {
+        struct HistoryResponse: Codable {
+            let messages: [MessageDTO]
+        }
+        struct MessageDTO: Codable {
+            let role: String
+            let content: String
+        }
+
+        let response: HistoryResponse = try await get("/sessions/\(sessionId)/history")
+
+        return response.messages.enumerated().map { index, dto in
+            ConversationMessage(
+                id: "\(sessionId)-\(index)",
+                role: dto.role == "user" ? .user : .assistant,
+                content: dto.content,
+                timestamp: Date(),
+                mode: nil
+            )
+        }
+    }
+
+    // MARK: - Orders API
+
+    func createOrder(_ request: OrderCreateRequest) async throws -> OrderResponse {
+        return try await post("/orders", body: request)
+    }
+
+    func listOrders(status: OrderStatus? = nil, limit: Int = 50, offset: Int = 0) async throws -> OrderListResponse {
+        var path = "/orders?limit=\(limit)&offset=\(offset)"
+        if let status = status {
+            path += "&status=\(status.rawValue)"
+        }
+        return try await get(path)
+    }
+
+    func getOrder(_ orderId: String) async throws -> OrderResponse {
+        return try await get("/orders/\(orderId)")
+    }
+
+    func updateOrder(_ orderId: String, request: OrderUpdateRequest) async throws -> OrderResponse {
+        return try await patch("/orders/\(orderId)", body: request)
+    }
+
+    func deleteOrder(_ orderId: String) async throws -> OrderDeleteResponse {
+        return try await delete("/orders/\(orderId)")
+    }
+
+    func listOrderExecutions(_ orderId: String, limit: Int = 50, offset: Int = 0) async throws -> OrderExecutionsResponse {
+        return try await get("/orders/\(orderId)/executions?limit=\(limit)&offset=\(offset)")
+    }
+
+    func executeOrderNow(_ orderId: String) async throws -> OrderExecuteResponse {
+        return try await post("/orders/\(orderId)/execute", body: EmptyBody())
+    }
+
+    // MARK: - Agent Profiles API
+
+    func listAgents() async throws -> AgentListResponse {
+        return try await get("/agents")
+    }
+
+    func getAgent(_ slotIndex: Int) async throws -> AgentProfileResponse {
+        return try await get("/agents/\(slotIndex)")
+    }
+
+    func updateAgent(_ slotIndex: Int, request: AgentUpdateRequest) async throws -> AgentProfileResponse {
+        return try await put("/agents/\(slotIndex)", body: request)
+    }
+
+    func deleteAgent(_ slotIndex: Int) async throws -> AgentDeleteResponse {
+        return try await delete("/agents/\(slotIndex)")
+    }
+
+    func uploadAgentPhoto(_ slotIndex: Int, imageData: Data, contentType: String = "image/jpeg") async throws -> AgentPhotoResponse {
+        return try await uploadMultipart("/agents/\(slotIndex)/photo", data: imageData, fieldName: "photo", contentType: contentType)
+    }
+
+    func getAgentPhoto(_ slotIndex: Int) async throws -> Data {
+        return try await downloadData("/agents/\(slotIndex)/photo")
+    }
+
+    func deleteAgentPhoto(_ slotIndex: Int) async throws -> AgentPhotoResponse {
+        return try await delete("/agents/\(slotIndex)/photo")
+    }
+
+    func listAgentSnapshots(_ slotIndex: Int) async throws -> AgentSnapshotsResponse {
+        return try await get("/agents/\(slotIndex)/snapshots")
+    }
+
+    func restoreAgentSnapshot(_ slotIndex: Int, snapshotId: String) async throws -> AgentRestoreResponse {
+        return try await post("/agents/\(slotIndex)/restore", body: AgentRestoreRequest(snapshotId: snapshotId))
+    }
+
+    // MARK: - User Profile API
+
+    func getUserProfile() async throws -> UserProfileResponse {
+        return try await get("/user/profile")
+    }
+
+    func updateUserProfile(_ request: UserProfileUpdateRequest) async throws -> UserProfileResponse {
+        return try await patch("/user/profile", body: request)
+    }
+
+    func uploadUserPhoto(imageData: Data, contentType: String = "image/jpeg") async throws -> [String: String] {
+        return try await uploadMultipart("/user/photo", data: imageData, fieldName: "photo", contentType: contentType)
+    }
+
+    func getUserPhoto() async throws -> Data {
+        return try await downloadData("/user/photo")
+    }
+
+    func deleteUserPhoto() async throws -> [String: String] {
+        return try await delete("/user/photo")
+    }
+
+    // MARK: - User Settings API
+
+    func getUserSettings() async throws -> UserSettingsResponse {
+        return try await get("/user/settings")
+    }
+
+    func updateUserSettings(_ request: UserSettingsUpdateRequest) async throws -> UserSettingsUpdateResponse {
+        return try await patch("/user/settings", body: request)
+    }
+
+    func registerPushToken(_ token: String, deviceId: String, environment: PushEnvironment = .production) async throws -> PushTokenResponse {
+        let request = PushTokenRequest(pushToken: token, deviceId: deviceId, environment: environment)
+        return try await post("/user/push-token", body: request)
+    }
+
+    func unregisterPushToken() async throws -> PushTokenResponse {
+        return try await delete("/user/push-token")
+    }
+
+    // MARK: - Private HTTP Methods
+
+    private func get<T: Decodable>(_ path: String) async throws -> T {
+        var request = URLRequest(url: baseURL.appendingPathComponent(path))
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+
+        return try await execute(request)
+    }
+
+    private func post<T: Decodable, B: Encodable>(_ path: String, body: B) async throws -> T {
+        var request = URLRequest(url: baseURL.appendingPathComponent(path))
+        request.httpMethod = "POST"
+        request.httpBody = try encoder.encode(body)
+        addHeaders(to: &request)
+
+        return try await execute(request)
+    }
+
+    private func postUnauthenticated<T: Decodable, B: Encodable>(_ path: String, body: B) async throws -> T {
+        var request = URLRequest(url: baseURL.appendingPathComponent(path))
+        request.httpMethod = "POST"
+        request.httpBody = try encoder.encode(body)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        // Note: No device token header for unauthenticated requests
+
+        return try await execute(request)
+    }
+
+    private func patch<T: Decodable, B: Encodable>(_ path: String, body: B) async throws -> T {
+        var request = URLRequest(url: baseURL.appendingPathComponent(path))
+        request.httpMethod = "PATCH"
+        request.httpBody = try encoder.encode(body)
+        addHeaders(to: &request)
+
+        return try await execute(request)
+    }
+
+    private func put<T: Decodable, B: Encodable>(_ path: String, body: B) async throws -> T {
+        var request = URLRequest(url: baseURL.appendingPathComponent(path))
+        request.httpMethod = "PUT"
+        request.httpBody = try encoder.encode(body)
+        addHeaders(to: &request)
+
+        return try await execute(request)
+    }
+
+    private func delete<T: Decodable>(_ path: String) async throws -> T {
+        var request = URLRequest(url: baseURL.appendingPathComponent(path))
+        request.httpMethod = "DELETE"
+        addHeaders(to: &request)
+
+        return try await execute(request)
+    }
+
+    private func uploadMultipart<T: Decodable>(_ path: String, data: Data, fieldName: String, contentType: String) async throws -> T {
+        var request = URLRequest(url: baseURL.appendingPathComponent(path))
+        request.httpMethod = "POST"
+
+        let boundary = UUID().uuidString
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        if let token = deviceToken {
+            request.setValue(token, forHTTPHeaderField: "X-Hestia-Device-Token")
+        }
+
+        var body = Data()
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"\(fieldName)\"; filename=\"image.jpg\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: \(contentType)\r\n\r\n".data(using: .utf8)!)
+        body.append(data)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+
+        request.httpBody = body
+
+        return try await execute(request)
+    }
+
+    private func downloadData(_ path: String) async throws -> Data {
+        var request = URLRequest(url: baseURL.appendingPathComponent(path))
+        request.httpMethod = "GET"
+
+        if let token = deviceToken {
+            request.setValue(token, forHTTPHeaderField: "X-Hestia-Device-Token")
+        }
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw HestiaError.networkUnavailable
+        }
+
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw HestiaError.serverError(statusCode: httpResponse.statusCode, message: "Failed to download data")
+        }
+
+        return data
+    }
+
+    private func addHeaders(to request: inout URLRequest) {
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        if let token = deviceToken {
+            request.setValue(token, forHTTPHeaderField: "X-Hestia-Device-Token")
+        }
+    }
+
+    private func execute<T: Decodable>(_ request: URLRequest) async throws -> T {
+        return try await executeWithRetry(request)
+    }
+
+    /// Execute request with automatic retry and exponential backoff
+    private func executeWithRetry<T: Decodable>(_ request: URLRequest, attempt: Int = 0) async throws -> T {
+        #if DEBUG
+        let attemptStr = attempt > 0 ? " (attempt \(attempt + 1)/\(maxRetries + 1))" : ""
+        print("[APIClient] \(request.httpMethod ?? "?") \(request.url?.absoluteString ?? "?")\(attemptStr)")
+        #endif
+
+        do {
+            let (data, response) = try await session.data(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw HestiaError.networkUnavailable
+            }
+
+            #if DEBUG
+            print("[APIClient] Response status: \(httpResponse.statusCode)")
+            #endif
+
+            switch httpResponse.statusCode {
+            case 200...299:
+                do {
+                    return try decoder.decode(T.self, from: data)
+                } catch {
+                    #if DEBUG
+                    if let rawJSON = String(data: data, encoding: .utf8) {
+                        print("[APIClient] Raw response: \(rawJSON)")
+                    }
+                    print("[APIClient] Decoding error: \(error)")
+                    #endif
+                    throw error
+                }
+            case 401:
+                throw HestiaError.unauthorized
+            case 429:
+                // Rate limited - extract retry-after if available
+                let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After")
+                    .flatMap { Int($0) }
+                throw HestiaError.rateLimited(retryAfterSeconds: retryAfter)
+            case 500...599:
+                // Server errors are retryable
+                throw RetryableError.serverError(httpResponse.statusCode)
+            default:
+                #if DEBUG
+                if let rawJSON = String(data: data, encoding: .utf8) {
+                    print("[APIClient] Error response: \(rawJSON)")
+                }
+                #endif
+                if let errorResponse = try? decoder.decode(ErrorResponse.self, from: data) {
+                    throw HestiaError.from(responseError: ResponseError(
+                        code: errorResponse.error?.code ?? "unknown",
+                        message: errorResponse.error?.message ?? "Unknown error"
+                    ))
+                }
+                throw HestiaError.unknown("HTTP \(httpResponse.statusCode)")
+            }
+        } catch let error as RetryableError {
+            // Retryable error - attempt retry if we haven't exceeded max
+            if attempt < maxRetries {
+                let delay = calculateRetryDelay(attempt: attempt)
+                #if DEBUG
+                print("[APIClient] Retryable error, waiting \(String(format: "%.1f", delay))s before retry...")
+                #endif
+                try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                return try await executeWithRetry(request, attempt: attempt + 1)
+            }
+            // Max retries exceeded
+            throw error.toHestiaError()
+        } catch let error as URLError {
+            // Network errors are retryable
+            if isRetryableURLError(error) && attempt < maxRetries {
+                let delay = calculateRetryDelay(attempt: attempt)
+                #if DEBUG
+                print("[APIClient] Network error (\(error.code.rawValue)), waiting \(String(format: "%.1f", delay))s before retry...")
+                #endif
+                try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                return try await executeWithRetry(request, attempt: attempt + 1)
+            }
+            // Not retryable or max retries exceeded
+            throw mapURLError(error)
+        }
+    }
+
+    /// Calculate delay for retry attempt using exponential backoff with jitter
+    private func calculateRetryDelay(attempt: Int) -> TimeInterval {
+        let baseDelay = retryBaseDelay * pow(2.0, Double(attempt))
+        let cappedDelay = min(baseDelay, retryMaxDelay)
+        // Add jitter (0-25% of delay)
+        let jitter = cappedDelay * Double.random(in: 0...0.25)
+        return cappedDelay + jitter
+    }
+
+    /// Check if a URLError is retryable
+    private func isRetryableURLError(_ error: URLError) -> Bool {
+        switch error.code {
+        case .timedOut,
+             .networkConnectionLost,
+             .notConnectedToInternet,
+             .cannotConnectToHost,
+             .dnsLookupFailed:
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// Map URLError to HestiaError
+    private func mapURLError(_ error: URLError) -> HestiaError {
+        switch error.code {
+        case .timedOut:
+            return .timeout
+        case .notConnectedToInternet, .networkConnectionLost:
+            return .networkUnavailable
+        case .cannotConnectToHost, .dnsLookupFailed:
+            return .serverUnreachable
+        default:
+            return .unknown(error.localizedDescription)
+        }
+    }
+}
+
+// MARK: - Retryable Error Type
+
+private enum RetryableError: Error {
+    case serverError(Int)
+    case networkError(URLError)
+
+    func toHestiaError() -> HestiaError {
+        switch self {
+        case .serverError(let code):
+            return .serverError(statusCode: code, message: "Server error after retries")
+        case .networkError(let error):
+            return .unknown(error.localizedDescription)
+        }
+    }
+}
+
+// MARK: - Helper Types
+
+private struct EmptyBody: Codable {}
+
+private struct ErrorResponse: Codable {
+    let error: ResponseError?
+}

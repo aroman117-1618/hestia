@@ -241,14 +241,14 @@ All failure modes are logged for pattern analysis:
 ### Hardware Configuration
 
 **Primary Host: Mac Mini M1** (current)
-- 64GB unified memory target (or current configuration)
+- 16GB unified memory
 - Dedicated to Hestia; always-on operation
-- Future upgrade path: M3 Ultra Mac Studio
+- Future upgrade path: 64GB Mac Mini/Studio (enables Mixtral 8x7B)
 
-**Model: Mixtral 8x7B**
-- Q4_K_M or Q5_K_M quantization
-- Viable within memory constraints
-- 8x22B not viable on current hardware
+**Model: Qwen 2.5 7B** (v1.0)
+- Via Ollama, local only
+- Fits comfortably in 16GB, fast inference
+- Future: Mixtral 8x7B when hardware upgraded (config change only)
 
 **Backup**: External HDD with terabytes of storage
 
@@ -299,7 +299,7 @@ All failure modes are logged for pattern analysis:
                           â”‚
 â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â–¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
 â”‚                  Inference Layer                                â”‚
-â”‚     â€¢ Mixtral 8x7B via Ollama                                   â”‚
+â”‚     â€¢ Qwen 2.5 7B via Ollama (local only)                                   â”‚
 â”‚     â€¢ Persona-specific system prompts                           â”‚
 â”‚     â€¢ Response validation                                       â”‚
 â”‚     â€¢ Retry logic with logging                                  â”‚
@@ -352,7 +352,7 @@ All failure modes are logged for pattern analysis:
 **Credential Storage** (see ADR-009 and `hestia-security-architecture.md` for complete details):
 - **macOS Keychain** with Secure Enclave integration (M1 hardware security)
 - **Three-tier partitioning**:
-  1. `hestia.operational`: API keys (Anthropic, Weather, Search) - optional biometric
+  1. `hestia.operational`: API keys (Weather, Search) - optional biometric
   2. `hestia.sensitive`: User secrets (SSN, credit cards, medical) - REQUIRES Face ID
   3. `hestia.system`: Master encryption key - REQUIRES Face ID
 - **Double encryption**: Fernet (Python) pre-encryption + Keychain's AES-256
@@ -382,11 +382,11 @@ All failure modes are logged for pattern analysis:
 - All external actions logged
 - Standing approvals possible (v1.5+, e.g., overnight research)
 
-**Cloud Escalation** (v1.5+):
-- Only when local capability insufficient
-- Anthropic API for complex tasks beyond Mixtral
-- Sensitive context handling options: strip, anonymize, or block categories
-- Monthly budget target: <$100
+**Local-Only Architecture**:
+- All inference runs locally on Qwen 2.5 7B
+- No sensitive data sent to external LLM services
+- Context limits handled via multi-stage retrieval
+- Hardware upgrade to 64GB enables Mixtral 8x7B (config change only)
 
 **Multi-User Architecture** (v2.0+):
 - Each user gets separate encryption keys
@@ -513,15 +513,11 @@ For comprehensive security architecture, see `hestia-security-architecture.md`.
 
 ### Version Roadmap
 
-| Version | Timeline | Capabilities |
-|---------|----------|--------------|
-| **v0.1** | Weeks 1-3 | Basic inference, logging infrastructure, terminal chat |
-| **v0.2** | Weeks 4-5 | Memory layer, conversation continuity |
-| **v0.3** | Weeks 6-7 | Personality tuned, basic user model |
-| **v0.4** | Weeks 8-9 | iOS app (basic), Tailscale access, multi-device |
-| **v1.0** | Week 10+ | **MVP**: Daily driver with chat, memory, learning queue, research basics |
-| **v1.x** | Ongoing | Overnight research, deeper user modeling, tool execution, mode switching |
-| **v2.0** | ~6 months | Multi-user support, secure credential storage, cloud escalation |
+| Version | Scope |
+|---------|-------|
+| **v1.0** | Core chat, memory, modes, API (23 endpoints), native app, background tasks, Activity Timeline, iOS Shortcuts |
+| **v1.5** | Menu bar + Quick Chat, Push notifications (APNs), Proactive intelligence |
+| **v2.0** | Multi-user support, per-user credential isolation |
 
 ### Iteration Cadence
 

@@ -1,0 +1,739 @@
+"""
+Request handler for Hestia orchestration.
+
+Main entry point for processing requests through the complete pipeline:
+Request -> Validation -> Memory Retrieval -> Prompt Building -> Inference -> [Tool Execution] -> Response
+"""
+
+import time
+from typing import List, Optional
+
+from hestia.logging import get_logger, LogComponent
+from hestia.inference import get_inference_client, InferenceClient, Message
+from hestia.memory import get_memory_manager, MemoryManager
+from hestia.orchestration.models import (
+    Request,
+    Response,
+    ResponseType,
+    Task,
+    Conversation,
+)
+from hestia.orchestration.state import TaskStateMachine, TaskTimeoutError
+from hestia.orchestration.mode import ModeManager, get_mode_manager
+from hestia.orchestration.prompt import PromptBuilder, get_prompt_builder
+from hestia.orchestration.validation import (
+    ValidationPipeline,
+    get_validation_pipeline,
+)
+from hestia.execution import (
+    ToolExecutor,
+    ToolCall,
+    ToolResult,
+    get_tool_executor,
+    get_tool_registry,
+    register_builtin_tools,
+)
+
+
+class RequestHandler:
+    """
+    Main entry point for all requests.
+
+    Orchestrates:
+    - Request validation
+    - Mode detection and switching
+    - Memory retrieval
+    - Prompt construction
+    - Inference
+    - Response validation
+    - Memory storage
+    """
+
+    def __init__(
+        self,
+        inference_client: Optional[InferenceClient] = None,
+        memory_manager: Optional[MemoryManager] = None,
+        mode_manager: Optional[ModeManager] = None,
+        prompt_builder: Optional[PromptBuilder] = None,
+        validation_pipeline: Optional[ValidationPipeline] = None,
+        tool_executor: Optional[ToolExecutor] = None,
+    ):
+        """
+        Initialize request handler.
+
+        All components are optional and will use singletons if not provided.
+        """
+        self._inference_client = inference_client
+        self._memory_manager = memory_manager
+        self._mode_manager = mode_manager or get_mode_manager()
+        self._prompt_builder = prompt_builder or get_prompt_builder()
+        self._validation_pipeline = validation_pipeline or get_validation_pipeline()
+        self._tool_executor = tool_executor
+
+        self.state_machine = TaskStateMachine()
+        self.logger = get_logger()
+
+        # Session conversations cache
+        self._conversations: dict[str, Conversation] = {}
+
+        # Register built-in tools
+        self._register_builtin_tools()
+
+    @property
+    def inference_client(self) -> InferenceClient:
+        """Lazy-load inference client."""
+        if self._inference_client is None:
+            self._inference_client = get_inference_client()
+        return self._inference_client
+
+    async def _get_memory_manager(self) -> MemoryManager:
+        """Get or create memory manager instance (async lazy-load)."""
+        if self._memory_manager is None:
+            self._memory_manager = await get_memory_manager()
+        return self._memory_manager
+
+    async def _get_tool_executor(self) -> ToolExecutor:
+        """Get or create tool executor."""
+        if self._tool_executor is None:
+            self._tool_executor = await get_tool_executor()
+        return self._tool_executor
+
+    def _register_builtin_tools(self) -> None:
+        """Register built-in tools with the registry."""
+        try:
+            registry = get_tool_registry()
+            # Only register if not already registered
+            if len(registry) == 0:
+                register_builtin_tools(registry)
+                self.logger.info(
+                    f"Registered {len(registry)} built-in tools",
+                    component=LogComponent.ORCHESTRATION
+                )
+        except Exception as e:
+            self.logger.warning(
+                f"Failed to register built-in tools: {e}",
+                component=LogComponent.ORCHESTRATION
+            )
+
+    def _get_or_create_conversation(self, session_id: str) -> Conversation:
+        """Get or create a conversation for a session."""
+        if session_id not in self._conversations:
+            self._conversations[session_id] = Conversation(session_id=session_id)
+        return self._conversations[session_id]
+
+    async def handle(self, request: Request) -> Response:
+        """
+        Main entry point for processing a request.
+
+        Args:
+            request: The incoming request.
+
+        Returns:
+            Response object.
+        """
+        start_time = time.time()
+
+        # Create task for state tracking
+        task = self.state_machine.create_task(request)
+
+        try:
+            # Step 1: Validate request
+            validation_result = self._validation_pipeline.validate_request(request)
+            if not validation_result.valid:
+                return self._create_error_response(
+                    request,
+                    "validation_error",
+                    validation_result.message or "Invalid request",
+                    start_time
+                )
+
+            # Step 2: Process mode switching
+            mode, cleaned_content = self._mode_manager.process_mode_switch(request.content)
+            request.mode = mode
+            request.content = cleaned_content
+
+            # Step 3: Move to processing
+            self.state_machine.start_processing(task)
+
+            # Step 4: Get conversation context
+            conversation = self._get_or_create_conversation(request.session_id)
+            conversation.mode = mode
+
+            # Step 5: Retrieve relevant memory
+            memory = await self._get_memory_manager()
+            memory_context = await memory.build_context(
+                query=request.content,
+                max_tokens=4000,
+                include_recent=True,
+            )
+
+            # Step 6: Build prompt with tool definitions
+            tool_definitions = self.get_tool_definitions()
+            tool_instructions = f"""
+## Available Tools
+
+You have access to tools for interacting with Apple ecosystem apps. When the user asks about their calendar, reminders, notes, or email, you MUST use the appropriate tool to get real data. NEVER make up placeholder information.
+
+To call a tool, respond with ONLY a JSON object in this exact format:
+{{"tool_call": {{"name": "tool_name", "arguments": {{"arg1": "value1"}}}}}}
+
+Available tools:
+{tool_definitions}
+
+IMPORTANT RULES:
+1. When asked about calendar/schedule/events - use list_events or get_today_events
+2. When asked about reminders/tasks/todos - use list_reminders or get_due_reminders
+3. When asked about notes - use list_notes or search_notes
+4. When asked about email - use get_recent_emails or search_emails
+5. NEVER say you don't have access or ask for email addresses - just use the tools
+6. If a tool fails, tell the user what went wrong
+"""
+            messages, prompt_components = self._prompt_builder.build(
+                request=request,
+                memory_context=memory_context,
+                conversation=conversation,
+                additional_system_instructions=tool_instructions,
+            )
+
+            # Check token budget
+            budget_status = self._prompt_builder.check_budget(prompt_components)
+            if budget_status["exceeded"]:
+                self.logger.warning(
+                    f"Token budget exceeded: {budget_status['total_tokens']}/{budget_status['budget']}",
+                    component=LogComponent.ORCHESTRATION,
+                    data={"request_id": request.id}
+                )
+
+            # Step 7: Run inference with retry
+            response = await self._run_inference_with_retry(
+                task=task,
+                request=request,
+                messages=messages,
+                prompt_components=prompt_components,
+            )
+
+            # Step 8: Store conversation in memory
+            await self._store_conversation(request, response, memory)
+
+            # Step 9: Update conversation history
+            conversation.add_turn(request.content, response.content)
+
+            # Step 10: Complete task
+            response.duration_ms = (time.time() - start_time) * 1000
+            self.state_machine.complete(task, response)
+
+            return response
+
+        except TaskTimeoutError as e:
+            self.state_machine.fail(task, e)
+            return self._create_error_response(
+                request,
+                "timeout",
+                "Request timed out. Please try again.",
+                start_time
+            )
+
+        except Exception as e:
+            self.state_machine.fail(task, e)
+            self.logger.error(
+                f"Request handling failed: {type(e).__name__}: {e}",
+                component=LogComponent.ORCHESTRATION,
+                data={"request_id": request.id, "error_type": type(e).__name__}
+            )
+            return self._create_error_response(
+                request,
+                "internal_error",
+                "An error occurred processing your request.",
+                start_time
+            )
+
+    async def _run_inference_with_retry(
+        self,
+        task: Task,
+        request: Request,
+        messages: list,
+        prompt_components,
+        max_retries: int = 3,
+    ) -> Response:
+        """
+        Run inference with validation and retry logic.
+
+        Args:
+            task: Current task.
+            request: Original request.
+            messages: Prompt messages.
+            prompt_components: Prompt component details.
+            max_retries: Maximum retry attempts.
+
+        Returns:
+            Validated response.
+        """
+        temperature = self._mode_manager.get_temperature(request.mode)
+        max_tokens = self._prompt_builder.estimate_response_budget(prompt_components)
+
+        for attempt in range(max_retries):
+            # Add retry guidance if not first attempt
+            current_messages = messages.copy()
+            if attempt > 0:
+                guidance = self._validation_pipeline.create_retry_guidance(
+                    validation_result,
+                    attempt
+                )
+                if guidance:
+                    current_messages.append({
+                        "role": "user",
+                        "content": guidance
+                    })
+
+            # Run inference
+            inference_response = await self.state_machine.run_with_timeout(
+                task,
+                self.inference_client.chat,
+                messages=current_messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+
+            # Check if response contains a tool call
+            content = inference_response.content
+            tool_result = await self._try_execute_tool_from_response(content, request, task)
+
+            if tool_result is not None:
+                # Tool was executed - send result back through LLM for personality-appropriate response
+                final_content = await self._format_tool_result_with_personality(
+                    tool_result, request, current_messages, temperature, max_tokens
+                )
+                response_type = ResponseType.TEXT
+            else:
+                # Check if content looks like a raw tool_call JSON that failed to execute
+                # Never show raw tool JSON to user
+                if self._looks_like_tool_call(content):
+                    final_content = "I tried to help with that, but encountered an issue executing the action. Let me try a different approach - could you rephrase your request?"
+                    response_type = ResponseType.TEXT
+                else:
+                    # No tool call detected - use original response
+                    final_content = content
+                    response_type = ResponseType.TEXT
+
+            # Create response object
+            response = Response(
+                request_id=request.id,
+                content=final_content,
+                response_type=response_type,
+                mode=request.mode,
+                tokens_in=inference_response.tokens_in,
+                tokens_out=inference_response.tokens_out,
+            )
+
+            # Validate response
+            validation_result = self._validation_pipeline.validate_response(response)
+
+            if validation_result.valid:
+                return response
+
+            # Check if we should retry
+            if not self._validation_pipeline.should_retry(validation_result, attempt + 1):
+                break
+
+            self.logger.info(
+                f"Retrying inference (attempt {attempt + 2})",
+                component=LogComponent.ORCHESTRATION,
+                data={"request_id": request.id}
+            )
+
+        # Return last response even if validation failed
+        return response
+
+    async def _store_conversation(
+        self,
+        request: Request,
+        response: Response,
+        memory: MemoryManager,
+    ) -> None:
+        """Store the conversation turn in memory."""
+        try:
+            await memory.store_exchange(
+                user_message=request.content,
+                assistant_response=response.content,
+                mode=request.mode.value,
+            )
+        except Exception as e:
+            # Don't fail the request if memory storage fails
+            self.logger.warning(
+                f"Failed to store conversation in memory: {e}",
+                component=LogComponent.ORCHESTRATION,
+                data={"request_id": request.id}
+            )
+
+    async def _try_execute_tool_from_response(
+        self,
+        content: str,
+        request: Request,
+        task: Task,
+    ) -> Optional[str]:
+        """
+        Try to parse and execute a tool call from LLM response.
+
+        Returns the formatted result if a tool was called, or None if no tool call detected.
+        """
+        import json
+        import re
+
+        # Try to find JSON tool call in response
+        # Look for {"tool_call": ...} pattern
+        try:
+            # Try direct JSON parse first
+            try:
+                data = json.loads(content.strip())
+                if "tool_call" in data:
+                    tool_call = data["tool_call"]
+                    tool_name = tool_call.get("name", "")
+                    arguments = tool_call.get("arguments", {})
+                elif "tool" in data:
+                    # Alternative format
+                    tool_name = data.get("tool", "")
+                    arguments = data.get("arguments", {})
+                else:
+                    return None
+            except json.JSONDecodeError:
+                # Try to extract JSON from mixed content
+                # Look for {"tool_call": {...}} pattern with nested braces
+                json_match = re.search(r'\{"tool_call":\s*\{[^}]*\}\}', content)
+                if not json_match:
+                    # Try alternate pattern with "name" inside
+                    json_match = re.search(r'\{"tool_call":\s*\{"name":\s*"[^"]+",\s*"arguments":\s*\{[^}]*\}\}\}', content)
+                if not json_match:
+                    # Try simpler tool format
+                    json_match = re.search(r'\{"tool":\s*"[^"]+",\s*"arguments":\s*\{[^}]*\}\}', content)
+                if not json_match:
+                    # Last resort: find any JSON object with tool_call or tool key
+                    for match in re.finditer(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', content):
+                        try:
+                            potential = json.loads(match.group())
+                            if "tool_call" in potential or "tool" in potential:
+                                json_match = match
+                                break
+                        except json.JSONDecodeError:
+                            continue
+                if not json_match:
+                    return None
+
+                data = json.loads(json_match.group())
+                if "tool_call" in data:
+                    tool_call = data["tool_call"]
+                    tool_name = tool_call.get("name", "")
+                    arguments = tool_call.get("arguments", {})
+                else:
+                    tool_name = data.get("tool", "")
+                    arguments = data.get("arguments", {})
+
+            if not tool_name:
+                return None
+
+            self.logger.info(
+                f"Detected tool call: {tool_name}",
+                component=LogComponent.ORCHESTRATION,
+                data={"request_id": request.id, "tool_name": tool_name, "arguments": arguments}
+            )
+
+            # Execute the tool
+            executor = await self._get_tool_executor()
+            call = ToolCall.create(tool_name=tool_name, arguments=arguments)
+            result = await executor.execute(call, request.id)
+
+            if result.success:
+                # Format the result for the user
+                result_data = result.output
+                if isinstance(result_data, dict):
+                    # Format nicely based on tool type
+                    if "events" in result_data:
+                        events = result_data.get("events", [])
+                        if not events:
+                            return "No events found for the requested time period."
+                        lines = [f"Found {len(events)} event(s):"]
+                        for e in events[:10]:  # Limit to 10
+                            title = e.get("title", "Untitled")
+                            start = e.get("start", "")
+                            if start:
+                                start = start.split("T")[0] if "T" in start else start
+                            lines.append(f"• {title} ({start})")
+                        return "\n".join(lines)
+                    elif "reminders" in result_data:
+                        reminders = result_data.get("reminders", [])
+                        if not reminders:
+                            return "No reminders found."
+                        lines = [f"Found {len(reminders)} reminder(s):"]
+                        for r in reminders[:10]:
+                            title = r.get("title", "Untitled")
+                            due = r.get("due", "")
+                            if due:
+                                due = f" (due: {due.split('T')[0]})" if "T" in due else f" (due: {due})"
+                            lines.append(f"• {title}{due}")
+                        return "\n".join(lines)
+                    elif "emails" in result_data:
+                        emails = result_data.get("emails", [])
+                        if not emails:
+                            return "No emails found."
+                        lines = [f"Found {len(emails)} email(s):"]
+                        for e in emails[:5]:
+                            subject = e.get("subject", "No subject")
+                            sender = e.get("sender", "Unknown")
+                            lines.append(f"• {subject} (from: {sender})")
+                        return "\n".join(lines)
+                    elif "notes" in result_data:
+                        notes = result_data.get("notes", [])
+                        if not notes:
+                            return "No notes found."
+                        lines = [f"Found {len(notes)} note(s):"]
+                        for n in notes[:10]:
+                            title = n.get("title", "Untitled")
+                            lines.append(f"• {title}")
+                        return "\n".join(lines)
+                    else:
+                        return json.dumps(result_data, indent=2)
+                else:
+                    return str(result_data)
+            else:
+                # Tool execution failed
+                error_msg = result.error or "Unknown error"
+                self.logger.warning(
+                    f"Tool execution failed: {error_msg}",
+                    component=LogComponent.ORCHESTRATION,
+                    data={"request_id": request.id, "tool_name": tool_name}
+                )
+                return f"I tried to check your {tool_name.replace('_', ' ')}, but encountered an error: {error_msg}"
+
+        except Exception as e:
+            self.logger.warning(
+                f"Error parsing/executing tool call: {e}",
+                component=LogComponent.ORCHESTRATION,
+                data={"request_id": request.id, "content_preview": content[:200]}
+            )
+            return None
+
+    def _looks_like_tool_call(self, content: str) -> bool:
+        """
+        Check if content looks like a raw tool_call JSON that shouldn't be shown to user.
+        """
+        import json
+        import re
+
+        # Quick regex check first (fast)
+        if not re.search(r'"tool_call"|"tool":', content):
+            return False
+
+        # Try to parse as JSON
+        try:
+            data = json.loads(content.strip())
+            return "tool_call" in data or "tool" in data
+        except json.JSONDecodeError:
+            # Check for embedded JSON
+            return bool(re.search(r'\{[^{}]*"tool_call"[^{}]*\}', content))
+
+    async def _format_tool_result_with_personality(
+        self,
+        tool_result: str,
+        request: Request,
+        original_messages: list,
+        temperature: float,
+        max_tokens: int,
+    ) -> str:
+        """
+        Send tool results back through the LLM to get a personality-appropriate response.
+
+        Instead of returning raw "Found 3 reminders..." text, this lets Hestia
+        present the information in her characteristic voice.
+        """
+        # Build a follow-up message with the tool result
+        # original_messages is List[Message], so we need to append Message objects
+        follow_up_messages = original_messages.copy()
+        follow_up_messages.append(Message(
+            role="assistant",
+            content=f"[I retrieved this information: {tool_result}]"
+        ))
+        follow_up_messages.append(Message(
+            role="user",
+            content="Now present this information to me naturally, in your own voice. Be concise but personable - don't just list the raw data."
+        ))
+
+        try:
+            # Run inference to get personality-appropriate response
+            formatted_response = await self.inference_client.chat(
+                messages=follow_up_messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            )
+            return formatted_response.content
+        except Exception as e:
+            # Fall back to raw result if formatting fails
+            self.logger.warning(
+                f"Failed to format tool result with personality: {e}",
+                component=LogComponent.ORCHESTRATION,
+            )
+            return tool_result
+
+    async def _execute_tool_calls(
+        self,
+        tool_calls: List[dict],
+        request: Request,
+        task: Task,
+    ) -> List[ToolResult]:
+        """
+        Execute a list of tool calls.
+
+        Args:
+            tool_calls: Tool call definitions from model response.
+            request: Original request for context.
+            task: Current task for state management.
+
+        Returns:
+            List of tool results.
+        """
+        executor = await self._get_tool_executor()
+        results = []
+
+        # Convert dict tool calls to ToolCall objects
+        calls = []
+        for tc in tool_calls:
+            call = ToolCall.create(
+                tool_name=tc.get("name", tc.get("tool_name", "")),
+                arguments=tc.get("arguments", tc.get("input", {})),
+            )
+            calls.append(call)
+
+        # Execute all tools
+        for call in calls:
+            self.logger.info(
+                f"Executing tool: {call.tool_name}",
+                component=LogComponent.ORCHESTRATION,
+                data={
+                    "request_id": request.id,
+                    "tool_name": call.tool_name,
+                    "call_id": call.id,
+                }
+            )
+
+            # Transition to AWAITING_TOOL state
+            self.state_machine.await_tool(task, call.tool_name)
+
+            # Execute the tool
+            result = await executor.execute(call, request.id)
+            results.append(result)
+
+            self.logger.info(
+                f"Tool execution completed: {call.tool_name} ({result.status.value})",
+                component=LogComponent.ORCHESTRATION,
+                data={
+                    "request_id": request.id,
+                    "tool_name": call.tool_name,
+                    "success": result.success,
+                    "duration_ms": result.duration_ms,
+                }
+            )
+
+            # Resume processing after tool execution
+            self.state_machine.resume_processing(task)
+
+        return results
+
+    def get_tool_definitions(self) -> str:
+        """
+        Get tool definitions for prompt injection.
+
+        Returns:
+            JSON string of available tools.
+        """
+        registry = get_tool_registry()
+        return registry.get_definitions_for_prompt()
+
+    def _create_error_response(
+        self,
+        request: Request,
+        error_code: str,
+        error_message: str,
+        start_time: float,
+    ) -> Response:
+        """Create an error response."""
+        return Response(
+            request_id=request.id,
+            content=error_message,
+            response_type=ResponseType.ERROR,
+            mode=request.mode,
+            error_code=error_code,
+            error_message=error_message,
+            duration_ms=(time.time() - start_time) * 1000,
+        )
+
+    async def health_check(self) -> dict:
+        """
+        Check system health.
+
+        Returns:
+            Health status dictionary.
+        """
+        health = {
+            "status": "healthy",
+            "components": {},
+        }
+
+        # Check inference
+        try:
+            inference_healthy = await self.inference_client.health_check()
+            health["components"]["inference"] = {
+                "status": "healthy" if inference_healthy else "unhealthy",
+            }
+        except Exception as e:
+            health["components"]["inference"] = {
+                "status": "unhealthy",
+                "error": str(e),
+            }
+            health["status"] = "degraded"
+
+        # Check memory
+        try:
+            memory = await self._get_memory_manager()
+            health["components"]["memory"] = {
+                "status": "healthy",
+                "vector_count": memory.vector_store.count(),
+            }
+        except Exception as e:
+            health["components"]["memory"] = {
+                "status": "unhealthy",
+                "error": str(e),
+            }
+            health["status"] = "degraded"
+
+        # State machine stats
+        health["components"]["state_machine"] = {
+            "status": "healthy",
+            "active_tasks": self.state_machine.active_task_count,
+            "state_summary": self.state_machine.get_state_summary(),
+        }
+
+        # Check tool execution
+        try:
+            registry = get_tool_registry()
+            health["components"]["tools"] = {
+                "status": "healthy",
+                "registered_tools": len(registry),
+                "tool_names": registry.list_tool_names(),
+            }
+        except Exception as e:
+            health["components"]["tools"] = {
+                "status": "unhealthy",
+                "error": str(e),
+            }
+
+        return health
+
+
+# Module-level singleton
+_request_handler: Optional[RequestHandler] = None
+
+
+async def get_request_handler() -> RequestHandler:
+    """Get or create the singleton request handler instance."""
+    global _request_handler
+    if _request_handler is None:
+        _request_handler = RequestHandler()
+    return _request_handler

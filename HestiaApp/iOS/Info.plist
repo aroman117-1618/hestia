@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Hestia</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Hestia needs calendar access to show your upcoming events and help manage your schedule.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Hestia needs full calendar access to show your upcoming events, create new events, and help manage your schedule.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Hestia uses the camera to let you customize your agent avatars.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Hestia uses Face ID to secure your conversations and personal data.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Hestia uses your photo library to let you customize your agent avatars.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>Hestia needs reminders access to help you manage tasks and to-dos.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Hestia needs full reminders access to show your tasks, create new reminders, and help you stay organized.</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Volkhov-Regular.ttf</string>
+		<string>Volkhov-Bold.ttf</string>
+	</array>
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchScreenBackground</string>
+	</dict>
+</dict>
+</plist>

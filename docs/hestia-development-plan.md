@@ -395,7 +395,7 @@ value = cm.retrieve_sensitive('test_ssn', reason='Checkpoint test')
 4. **Preview** (10 min):
    - Discuss Phase 1 (Logging) and Phase 2 (Inference)
    - How logging depends on credential sanitization
-   - How inference layer will retrieve API keys for cloud fallback
+   - How inference layer will handle context limits via multi-stage retrieval
 
 5. **Align** (5 min):
    - [ ] Security architecture matches ADR-009?
@@ -433,13 +433,20 @@ Pause development at key milestones to ensure understanding, alignment, and qual
 #### **Scheduled Checkpoints** (After Major Phases)
 
 ```
-Timeline:
+Timeline (MVP - v1.0):
 ├─ Week 1-2:  Phases 0 + 0.5 + 1  → CHECKPOINT 1: Security & Logging
-├─ Week 3-5:  Phases 2 + 3        → CHECKPOINT 2: Inference & Memory  
+├─ Week 3-5:  Phases 2 + 3        → CHECKPOINT 2: Inference & Memory
 ├─ Week 6-7:  Phase 4             → CHECKPOINT 3: Orchestration
 ├─ Week 8:    Phases 5 + 5.5      → CHECKPOINT 4: Execution & Apple
 ├─ Week 9-10: Phase 6             → CHECKPOINT 5: iOS App
-└─ Week 11+:  Phase 7             → CHECKPOINT 6: Production Ready
+├─ Week 11+:  Phase 7             → CHECKPOINT 6: Production Ready
+└─ Ongoing:   Phase 8             → Foundation iteration (stabilization)
+
+Timeline (Intelligence Layers - v1.5/v2.0):
+├─ After MVP stable:  Phases 3.6 + 4.5    → CHECKPOINT 7: Enhanced Memory & Tasks
+├─ +2-3 weeks:        Phase 8.5           → Learning from History
+├─ +2-3 weeks:        Phase 9             → CHECKPOINT 8: Proactive Intelligence
+└─ +3-4 weeks:        Phase 10            → CHECKPOINT 9: Task Decomposition (v2.0)
 ```
 
 #### **Unscheduled Triggers**
@@ -612,7 +619,7 @@ python -m hestia.logging.viewer --filter event_type=inference_request --tail 5
 2. Explain the three-stage retrieval process for large context needs
 3. Walk me through: How does auto-tagging work?
 4. What's the difference between ChromaDB and SQLite in our memory layer?
-5. When would Hestia escalate to Claude API (200K context)?
+5. What happens when context exceeds limits even after multi-stage retrieval?
 
 ---
 
@@ -886,60 +893,42 @@ Wrap Ollama in a clean interface with logging, retry logic, validation, and secu
 - [ ] Log warning if >28K tokens (90% of 32K limit)
 - [ ] Return error if request would exceed 32K
 
-#### 2.4 Variable Context Window Support (NEW)
-- [ ] Define `ContextSize` enum:
-  - `STANDARD` (32K): Local Mixtral (default, free)
-  - `LARGE` (200K): Claude Sonnet API (user approval required, ~$2-3/request)
-  - `XLARGE` (500K): Claude Opus API (cost warning, ~$8-10/request)
-- [ ] Implement automatic model selection based on context requirements
-- [ ] User can explicitly request: `@Tia [context:large] Analyze all conversations about security...`
-- [ ] Implement multi-stage retrieval as cheaper alternative:
-  - Stage 1: Retrieve relevant chunks (100 chunks × 1K = 100K tokens)
+#### 2.4 Context Window Management
+- [ ] Implement multi-stage retrieval for large context needs:
+  - Stage 1: Retrieve relevant chunks (up to 100 chunks)
   - Stage 2: Summarize each chunk (parallel, fast)
-  - Stage 3: Synthesize summaries (fits in 32K)
-- [ ] External communication gate integration (user approves cloud API usage)
-- [ ] Cost tracking: Log API usage, budget alerts
-- [ ] Fallback logic: Try multi-stage retrieval first, escalate to cloud only if necessary
+  - Stage 3: Synthesize summaries (fits in 32K context)
+- [ ] Graceful error if context still exceeds limits after retrieval
+- [ ] Log all context management decisions
 
-**Cost implications**:
-- STANDARD: $0 (local)
-- LARGE: ~$2-3 per request (occasional deep dives)
-- XLARGE: ~$8-10 per request (rare comprehensive analysis)
-
-**Expected usage distribution**: 99% STANDARD, <1% LARGE, <0.1% XLARGE
-
-#### 2.5 Configuration
-- [ ] Detect when Mixtral insufficient (context too large, task too complex)
-- [ ] Integrate Anthropic API client for fallback
-- [ ] Use CredentialManager for API key retrieval
-- [ ] Log fallback decision (why local model insufficient)
-- [ ] Track fallback usage for cost monitoring
+#### 2.5 Hardware Upgrade Path
+- [ ] Configuration flag `hardware_upgraded: false`
+- [ ] When true: swap Qwen for Mixtral in config
+- [ ] No code changes required for model swap
+- [ ] Document model requirements in inference.yaml
 
 #### 2.6 Configuration
 - [ ] Model name configurable
 - [ ] Temperature and other params configurable
 - [ ] System prompt configurable
 - [ ] Context window limits configurable
-- [ ] Cloud fallback preferences (auto/ask/never)
 - [ ] All config in `hestia/config/inference.yaml`
 
 ### Deliverables
 - `hestia/inference/client.py` with clean async interface
 - Configuration file for inference settings
 - All inference calls logged with timing and token usage
-- Secure credential handling via CredentialManager
-- Optional cloud fallback integration
+- Multi-stage retrieval for context limits
 
 ### Code Structure
 ```python
 # hestia/inference/client.py
-from hestia.security.credential_manager import CredentialManager
 
 class InferenceClient:
-    def __init__(self, credential_manager: CredentialManager, logger):
-        self.creds = credential_manager
+    def __init__(self, logger):
         self.logger = logger
-    
+        self.model = "qwen2.5:7b"  # Primary model for 16GB hardware
+
     async def complete(
         self,
         prompt: str,
@@ -954,39 +943,29 @@ class InferenceClient:
         """
         # Count tokens BEFORE sending
         token_count = self._count_tokens(prompt, system)
-        
+
         if token_count > 32000:
-            # Context window exceeded
-            return await self._fallback_to_cloud(prompt, system, temperature, max_tokens)
-        
+            # Context window exceeded - use multi-stage retrieval
+            return await self._multi_stage_retrieval(prompt, system, temperature, max_tokens)
+
         # Log request (sanitized)
         self.logger.log("inference_request", {
             "tokens": token_count,
             "temperature": temperature,
             "max_tokens": max_tokens
         })
-        
+
         # ... Ollama API call ...
-    
-    async def _fallback_to_cloud(self, prompt: str, system: str, temperature: float, max_tokens: int):
+
+    async def _multi_stage_retrieval(self, prompt: str, system: str, temperature: float, max_tokens: int):
         """
-        Fallback to Anthropic API when local model insufficient.
-        Requires credential_manager to retrieve API key securely.
+        Handle large context via multi-stage summarization.
+        All processing stays local - no cloud fallback.
         """
-        # Retrieve API key securely
-        api_key = self.creds.retrieve_operational("anthropic_api_key")
-        
-        if not api_key:
-            raise ValueError("Cloud fallback requested but no Anthropic API key configured")
-        
-        # Log fallback decision
-        self.logger.log("inference_fallback", {
-            "reason": "context_window_exceeded",
-            "severity": "MEDIUM"
-        })
-        
-        # ... Anthropic API call ...
-        # Note: API key never logged, even in errors
+        # Stage 1: Retrieve relevant chunks
+        # Stage 2: Summarize each chunk
+        # Stage 3: Synthesize summaries
+        # Returns error if still exceeds limits
 ```
 
 ### Testing Criteria
@@ -996,8 +975,7 @@ class InferenceClient:
 - [ ] Invalid responses logged with full context
 - [ ] Token counting accurate (test with known prompts)
 - [ ] Context window limit enforced
-- [ ] Cloud fallback works (if enabled)
-- [ ] API keys never appear in logs (verify grep for `sk-ant-`)
+- [ ] Multi-stage retrieval handles large context gracefully
 
 ### Claude Checkpoint
 Share:
@@ -1235,6 +1213,111 @@ Before proceeding to Phase 4, share:
 
 ---
 
+## Phase 3.6: Confidence-Tracked Preferences (v1.5)
+
+### Objective
+Extend the memory layer with confidence scoring for learned preferences. Enables preferences to decay over time without reinforcement, preventing stale information from overriding current behavior.
+
+### Why This Enhancement
+Preferences evolve—what was true six months ago may no longer apply. Without decay:
+- Old preferences accumulate and conflict with current behavior
+- User must manually correct outdated assumptions
+- System becomes less accurate over time instead of more
+
+### Tasks
+
+#### 3.6.1 Extend Preference Schema
+- [ ] Add `confidence` column to preference-related tables
+- [ ] Add `last_reinforced` timestamp column
+- [ ] Add `decay_rate` configuration (default: 10% per month)
+
+```sql
+ALTER TABLE user_preferences ADD COLUMN confidence REAL DEFAULT 1.0;
+ALTER TABLE user_preferences ADD COLUMN last_reinforced DATETIME;
+ALTER TABLE user_preferences ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP;
+```
+
+#### 3.6.2 Implement Decay Mechanics
+- [ ] Create `PreferenceDecayManager` class
+- [ ] Decay formula: `new_confidence = confidence * (1 - decay_rate)^months_since_reinforcement`
+- [ ] Run decay as background task (Phase 4.5) or on-access calculation
+- [ ] Preferences below 0.3 confidence treated as unlearned
+
+```python
+# hestia/memory/preferences.py
+class PreferenceDecayManager:
+    def calculate_current_confidence(
+        self,
+        stored_confidence: float,
+        last_reinforced: datetime,
+        decay_rate: float = 0.1  # 10% per month
+    ) -> float:
+        """Calculate current confidence with time decay."""
+        months = (datetime.now() - last_reinforced).days / 30
+        return stored_confidence * ((1 - decay_rate) ** months)
+
+    def apply_decay_batch(self) -> int:
+        """Apply decay to all preferences, return count updated."""
+        pass
+```
+
+#### 3.6.3 User Correction Feedback Loop
+- [ ] Implement explicit feedback API
+- [ ] User corrections immediately set confidence to 1.0
+- [ ] Track correction history for pattern analysis
+- [ ] Natural language: "Actually, I prefer X" → update preference
+
+```python
+async def correct_preference(
+    self,
+    preference_key: str,
+    new_value: Any,
+    reason: Optional[str] = None
+) -> None:
+    """User explicitly corrects a preference."""
+    await self.store_preference(
+        key=preference_key,
+        value=new_value,
+        confidence=1.0,
+        source="user_correction",
+        reason=reason
+    )
+```
+
+#### 3.6.4 Query Interface with Confidence Filtering
+- [ ] Filter preferences by minimum confidence
+- [ ] Return confidence with preference values
+- [ ] CLI: `python -m hestia.memory.preferences list --min-confidence 0.5`
+
+#### 3.6.5 Prompt Integration
+- [ ] High confidence (>0.7): Use directly in prompts
+- [ ] Medium confidence (0.3-0.7): Use with hedging ("You've mentioned...")
+- [ ] Low confidence (<0.3): Don't include in prompts
+
+### Deliverables
+- Extended preference schema with confidence scores
+- `PreferenceDecayManager` class
+- User correction API
+- CLI for preference management
+- Updated prompt builder to respect confidence thresholds
+
+### Testing Criteria
+- [ ] Preferences decay correctly over time (test with accelerated clock)
+- [ ] User corrections immediately set confidence to 1.0
+- [ ] Low-confidence preferences excluded from prompts
+- [ ] Batch decay completes in <1s for 1000 preferences
+
+### Claude Checkpoint
+Before proceeding to Phase 4, share:
+- Sample preference with confidence decay over simulated time
+- User correction flow demonstration
+- Query results showing confidence filtering
+
+**Depends on**: Phase 3.5 (Tag-Based Memory)
+**Time estimate**: +3-4 hours
+
+---
+
 ## Phase 4: Orchestration Layer (Week 6-7)
 ```python
 # hestia/memory/manager.py
@@ -1350,7 +1433,153 @@ class TaskStateMachine:
 Share:
 - Your state machine design
 - Prompt templates
-- Sample request â†’ response flow with logs
+- Sample request â†' response flow with logs
+
+---
+
+## Phase 4.5: Background Task Management (v1.0) - COMPLETE
+
+**Status**: IMPLEMENTED 2025-01-12
+**Tests**: 60 passing in `tests/test_tasks.py`
+**Endpoints**: 6 API endpoints in `hestia/api/routes/tasks.py`
+
+### Objective
+Enable async task execution for long-running operations like research, batch processing, and multi-step analysis. Tasks run in background without blocking conversation.
+
+### Why This Enhancement
+Some operations take too long for synchronous execution:
+- Deep research ("Research best practices for X and summarize")
+- Batch operations ("Tag all conversations from last month")
+- Multi-step analysis ("Analyze my calendar patterns over 6 months")
+
+Without background tasks, users must wait or abandon long requests.
+
+### Tasks
+
+#### 4.5.1 Task Queue Infrastructure
+- [x] Create `hestia/tasks/` module
+- [x] Implement SQLite-backed task queue
+- [x] Task persistence across process restarts
+- [x] FIFO ordering with priority support
+
+```sql
+CREATE TABLE background_tasks (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,           -- "research", "analysis", "batch"
+    description TEXT NOT NULL,
+    status TEXT DEFAULT 'pending', -- pending/running/completed/failed/cancelled
+    priority INTEGER DEFAULT 0,
+    progress REAL DEFAULT 0.0,
+    status_message TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    started_at DATETIME,
+    completed_at DATETIME,
+    result TEXT,                  -- JSON-serialized result
+    error TEXT,                   -- Error message if failed
+
+    INDEX idx_status (status),
+    INDEX idx_created (created_at)
+);
+```
+
+#### 4.5.2 Task State Machine
+- [x] Define task states: `pending`, `running`, `completed`, `failed`, `cancelled`, `awaiting_approval`
+- [x] Implement state transitions with logging
+- [x] Timeout handling per task type
+- [x] Automatic retry for transient failures
+
+```python
+# hestia/tasks/models.py
+from enum import Enum
+
+class TaskStatus(Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+class BackgroundTask:
+    id: str
+    type: str
+    description: str
+    status: TaskStatus
+    progress: float  # 0.0 to 1.0
+    status_message: str
+    result: Optional[str]
+    error: Optional[str]
+```
+
+#### 4.5.3 Task Executor
+- [x] Async executor with concurrency limit (max 2 tasks)
+- [x] Progress reporting callback
+- [x] Graceful cancellation via interrupt
+- [ ] Resource monitoring (CPU, memory) - deferred to v1.5
+
+```python
+# hestia/tasks/executor.py
+class TaskExecutor:
+    MAX_CONCURRENT = 2
+
+    async def submit(self, task: BackgroundTask) -> str:
+        """Submit task to queue, return task ID."""
+        pass
+
+    async def cancel(self, task_id: str) -> bool:
+        """Cancel a pending or running task."""
+        pass
+
+    async def get_status(self, task_id: str) -> TaskStatus:
+        """Get current task status."""
+        pass
+
+    async def run_worker(self) -> None:
+        """Main worker loop - runs in background."""
+        pass
+```
+
+#### 4.5.4 Progress Tracking
+- [x] Percentage-based progress (0-100%)
+- [x] Status messages for current step
+- [ ] ETA estimation based on progress rate - deferred to v1.5
+- [x] History of completed tasks
+
+#### 4.5.5 Notification Integration
+- [ ] Push notifications for iOS (via APNs) - Phase 6b/7
+- [x] Log entries for completion
+- [ ] Optional email summary for long tasks - deferred to v1.5
+- [ ] Webhook support for external integrations - deferred to v1.5
+
+#### 4.5.6 API Endpoints (replaces CLI tools)
+- [x] POST /v1/tasks - Create background task
+- [x] GET /v1/tasks - List tasks with filters
+- [x] GET /v1/tasks/{id} - Get task details
+- [x] POST /v1/tasks/{id}/approve - Approve awaiting task
+- [x] POST /v1/tasks/{id}/cancel - Cancel pending task
+- [x] POST /v1/tasks/{id}/retry - Retry failed task
+
+### Deliverables
+- `hestia/tasks/` module with queue, executor, and models
+- SQLite-backed persistence
+- Progress tracking with notifications
+- CLI management tools
+- Integration with orchestration layer
+
+### Testing Criteria
+- [x] Tasks survive process restart (persistence)
+- [x] Progress updates visible during execution
+- [x] Cancellation stops task gracefully within 5s
+- [x] Max 2 concurrent tasks enforced
+- [ ] Push notifications sent on completion - Phase 6b/7
+
+### Claude Checkpoint
+Before proceeding to Phase 5, share:
+- Sample task submission and progress tracking
+- Cancellation demonstration
+- Notification flow for completed task
+
+**Depends on**: Phase 4 (Orchestration)
+**Time estimate**: +5-6 hours
 
 ---
 
@@ -1406,65 +1635,79 @@ Share:
 
 ## Phase 6: Access Layer & Native App (Week 9-10)
 
+**STATUS: Phase 6a COMPLETE, Phase 6b IN PROGRESS (2025-01-11)**
+
 ### Objective
 Enable secure remote access from any device via native Swift app.
 
 ### Tasks
 
-#### 6.1 API Server
-- [ ] FastAPI application
-- [ ] Endpoint: `POST /v1/chat`
-- [ ] Request/response schemas
-- [ ] Async handling
+#### 6.1 API Server (Phase 6a - COMPLETE)
+- [x] FastAPI application with lifecycle management
+- [x] 17 endpoints across 7 route modules
+- [x] Pydantic request/response schemas
+- [x] Async handling with proper error responses
+- [x] Swagger documentation at /docs
 
-#### 6.2 Authentication
-- [ ] Device certificate generation
-- [ ] Certificate validation middleware
-- [ ] Optional TOTP for sensitive operations
-- [ ] Session management
+#### 6.2 Authentication (Phase 6a - COMPLETE)
+- [x] JWT device token authentication
+- [x] Device registration endpoint
+- [x] Auth middleware for protected routes
+- [x] Session management with history retrieval
 
 #### 6.3 Rate Limiting
-- [ ] Per-device rate limits
+- [ ] Per-device rate limits (deferred to Phase 6c)
 - [ ] Global rate limits
 - [ ] Graceful rejection with retry guidance
 
-#### 6.4 Native Swift App (Xcode Project)
-- [ ] Create HestiaApp.xcodeproj with iOS and macOS targets
-- [ ] Shared code architecture (Models, Services, ViewModels)
-- [ ] APIClient.swift for backend communication
-- [ ] AuthService.swift with Face ID / Touch ID
-- [ ] ChatView.swift matching Figma mockups
-- [ ] CommandCenterView.swift for iPad/Mac
-- [ ] Auto-lock functionality (15/30/60 minutes configurable)
-- [ ] Push notification support respecting Focus modes
+#### 6.4 Native Swift App (Phase 6b - IN PROGRESS)
+- [x] Create HestiaApp with xcodegen (project.yml)
+- [x] Shared code architecture (43+ Swift files)
+- [x] Design system (Colors, Typography, Spacing, Animations)
+- [x] HestiaClientProtocol + MockHestiaClient + APIClient
+- [x] AuthService.swift with Face ID / Touch ID
+- [x] ChatView.swift with mode-specific gradients
+- [x] Mode switching via @mentions with ripple transitions
+- [x] Typewriter text effect for responses
+- [x] CommandCenterView.swift for iPad/Mac
+- [x] MemoryReviewView.swift for ADR-002 staged memory
+- [x] SettingsView.swift with agent customization
+- [x] Custom profile images for Tia and Olly
+- [ ] **FIX: Color scheme persistence across all views**
+- [ ] **FIX: ScrollView not working properly**
+- [ ] Push notification support (deferred to v1.5)
 
 #### 6.5 iOS Shortcut Integration
-- [ ] QuickCaptureIntent.swift for Shortcuts app
+- [ ] QuickCaptureIntent.swift for Shortcuts app (deferred to v1.5)
 - [ ] Fire-and-forget input to Hestia
 - [ ] Silent processing confirmation
 
 ### Deliverables
-- `hestia/api/` module with FastAPI server
-- `HestiaApp/` Xcode project with iOS and macOS targets
-- Native app accessible at `https://hestia.your-tailnet:8443/`
-- Device certificate management scripts
-- iOS Shortcut for quick capture
+- [x] `hestia/api/` module with FastAPI server (~1,800 lines)
+- [x] `HestiaApp/` Xcode project with iOS 16+ target
+- [ ] Native app accessible via Tailscale (pending integration test)
+- [x] JWT device authentication system
+- [ ] iOS Shortcut for quick capture (v1.5)
 
 ### Testing Criteria
-- [ ] API responds to authenticated requests
-- [ ] Unauthenticated requests rejected
-- [ ] Rate limiting enforced
-- [ ] App runs on iPhone, iPad, Mac via Xcode
-- [ ] Face ID / Touch ID authentication works
-- [ ] Auto-lock triggers correctly
-- [ ] iOS Shortcut successfully sends input to Hestia
+- [x] API responds to authenticated requests
+- [x] Unauthenticated requests rejected (401)
+- [ ] Rate limiting enforced (deferred)
+- [x] App runs on iPhone Simulator via Xcode
+- [x] Face ID authentication works (skipped in simulator)
+- [ ] Auto-lock triggers correctly (pending test)
+- [ ] iOS Shortcut successfully sends input to Hestia (v1.5)
+
+### Known Issues (Next Session)
+1. **Color scheme persistence** - Mode gradients only show in ChatView, need to propagate to CommandCenter and Settings
+2. **Scrolling issue** - ScrollView not working in local build, needs investigation
 
 ### Claude Code Checkpoint
-Share:
-- API schema design
-- Authentication flow
-- SwiftUI views for review
-- Security review of exposed surface
+Completed:
+- [x] API schema design (see docs/api-contract.md)
+- [x] JWT authentication flow
+- [x] SwiftUI views for review (43+ files)
+- [ ] Security review of exposed surface (pending)
 
 ---
 
@@ -1514,10 +1757,10 @@ Connect all components, test end-to-end, and harden for continuous operation.
 
 ---
 
-## Phase 8: Iteration & Extension (Ongoing)
+## Phase 8: Foundation Iteration (Ongoing MVP)
 
 ### Objective
-Evolve the system based on actual usage.
+Iterate on MVP (Phases 0-7) based on actual usage. This phase focuses on stabilizing and refining the core assistant before adding intelligence layers.
 
 ### Activities
 - Track which tasks Hestia handles well vs. poorly
@@ -1532,6 +1775,389 @@ Use Claude Opus for:
 - Reviewing proposed changes before implementation
 - Debugging issues that require broad context
 - Strategic decisions about system evolution
+
+### Completion Criteria
+Before proceeding to intelligence layers (8.5+):
+- [ ] System stable for 2+ weeks of daily use
+- [ ] Core features (memory, inference, orchestration) working reliably
+- [ ] No critical bugs in production
+- [ ] User workflow patterns identified from usage data
+
+---
+
+## Phase 8.5: Learning from History (v1.5)
+
+### Objective
+Enable Hestia to learn from past interactions and improve over time. Tracks success/failure patterns and adapts behavior accordingly.
+
+### Why This Enhancement
+Without learning:
+- Same mistakes repeat indefinitely
+- No adaptation to user preferences
+- Routing decisions don't improve with experience
+- No visibility into what works vs. what doesn't
+
+### Tasks
+
+#### 8.5.1 Outcome Tracking
+- [ ] Add `outcome` field to completed tasks/requests
+- [ ] Track success/failure per task type
+- [ ] Store user satisfaction signals (explicit + implicit)
+- [ ] Link outcomes to prompts and routing decisions
+
+```python
+# hestia/learning/outcome.py
+class Outcome(Enum):
+    SUCCESS = "success"           # Task completed, user satisfied
+    PARTIAL = "partial"           # Task completed with issues
+    FAILURE = "failure"           # Task failed
+    ABANDONED = "abandoned"       # User gave up
+    UNKNOWN = "unknown"           # No feedback
+
+class OutcomeRecord:
+    request_id: str
+    task_type: str
+    routing_decision: str         # Which model tier used
+    outcome: Outcome
+    user_feedback: Optional[str]
+    duration_ms: int
+    token_count: int
+    timestamp: datetime
+```
+
+#### 8.5.2 Pattern Recognition
+- [ ] Identify which prompts lead to good outcomes
+- [ ] Detect recurring failure patterns
+- [ ] Cluster similar requests by success rate
+- [ ] Temporal patterns (time of day, day of week)
+
+```python
+# hestia/learning/patterns.py
+class PatternAnalyzer:
+    async def analyze_success_patterns(
+        self,
+        min_samples: int = 50,
+        time_range_days: int = 30
+    ) -> List[SuccessPattern]:
+        """Identify patterns correlated with successful outcomes."""
+        pass
+
+    async def analyze_failure_patterns(self) -> List[FailurePattern]:
+        """Identify recurring failure modes."""
+        pass
+```
+
+#### 8.5.3 Adaptive Routing
+- [ ] Update routing rules based on historical performance
+- [ ] Model-specific success rates per task type
+- [ ] Automatic threshold adjustment
+- [ ] A/B testing for routing changes
+
+#### 8.5.4 Prompt Optimization
+- [ ] Track which prompt templates work best
+- [ ] Identify effective system prompt variations
+- [ ] Optimize context injection based on outcomes
+- [ ] Regression testing for prompt changes
+
+#### 8.5.5 Analytics Dashboard
+- [ ] Success rate by task type
+- [ ] Model performance comparison
+- [ ] Failure analysis breakdown
+- [ ] Trend visualization over time
+
+### Deliverables
+- `hestia/learning/` module
+- Outcome tracking in memory layer
+- Pattern analysis pipeline
+- Performance dashboard (CLI or web)
+- Routing feedback loop
+
+### Testing Criteria
+- [ ] Outcomes recorded for all completed tasks
+- [ ] Patterns identified from 100+ interaction history
+- [ ] Routing improves measurably based on feedback
+- [ ] Dashboard shows accurate statistics
+
+### Claude Checkpoint
+Before proceeding to Phase 9, share:
+- Sample outcome records from test interactions
+- Pattern analysis report
+- Dashboard screenshot or CLI output
+
+**Depends on**: Phase 8 (stable MVP)
+**Time estimate**: +6-8 hours
+
+---
+
+## Phase 9: Proactive Intelligence (v1.5)
+
+### Objective
+Enable Hestia to anticipate needs and proactively assist—the core Jarvis-like behavior that differentiates a true assistant from a chatbot.
+
+### Why This Enhancement
+Reactive assistants only respond when asked. Proactive assistants:
+- Surface relevant information at the right time
+- Anticipate needs based on patterns
+- Save user effort by preparing in advance
+- Feel more like a partner than a tool
+
+### Tasks
+
+#### 9.1 Daily Briefing
+- [ ] Morning summary generator
+- [ ] Calendar overview (today's events, conflicts)
+- [ ] Overdue reminders and pending tasks
+- [ ] Weather-appropriate suggestions
+- [ ] Configurable delivery time
+
+```python
+# hestia/proactive/briefing.py
+class DailyBriefingGenerator:
+    async def generate_briefing(self) -> Briefing:
+        """Generate personalized morning briefing."""
+        return Briefing(
+            greeting=self._get_greeting(),
+            calendar=await self._get_calendar_summary(),
+            reminders=await self._get_pending_reminders(),
+            tasks=await self._get_action_items(),
+            weather=await self._get_weather_insight(),
+            suggestions=await self._get_proactive_suggestions()
+        )
+
+    async def schedule_delivery(self, time: str = "07:00"):
+        """Schedule daily briefing delivery."""
+        pass
+```
+
+#### 9.2 Pattern Detection
+- [ ] Identify recurring user behaviors
+- [ ] Day-of-week patterns (Friday = budget review)
+- [ ] Contextual patterns (after meetings → notes)
+- [ ] Seasonal patterns (holidays, quarterly reviews)
+
+```python
+# hestia/proactive/patterns.py
+class BehaviorPatternDetector:
+    async def detect_patterns(
+        self,
+        min_occurrences: int = 3,
+        confidence_threshold: float = 0.7
+    ) -> List[BehaviorPattern]:
+        """Identify recurring user behavior patterns."""
+        pass
+
+    async def predict_next_action(self) -> Optional[PredictedAction]:
+        """Predict what user might want to do next."""
+        pass
+```
+
+#### 9.3 Suggestion Engine
+- [ ] "You usually do X on Fridays..."
+- [ ] Contextual recommendations
+- [ ] Relevance scoring
+- [ ] Suggestion quality feedback loop
+
+#### 9.4 Interruption Policy
+- [ ] User-configurable settings:
+  - `never`: Only respond when asked
+  - `daily_briefing`: One morning notification
+  - `proactive`: Suggestions during set hours
+- [ ] Store in user preferences
+- [ ] Respect immediately without restart
+
+```python
+# hestia/proactive/policy.py
+class InterruptionPolicy(Enum):
+    NEVER = "never"
+    DAILY_ONLY = "daily_briefing"
+    PROACTIVE = "proactive"
+
+class InterruptionManager:
+    async def can_interrupt(self) -> bool:
+        """Check if Hestia can proactively notify right now."""
+        pass
+
+    async def schedule_proactive_check(self):
+        """Schedule regular proactive opportunity checks."""
+        pass
+```
+
+#### 9.5 Focus Mode Integration
+- [ ] Detect macOS/iOS Focus modes
+- [ ] Honor "Do Not Disturb"
+- [ ] Don't interrupt during calendar events
+- [ ] Batch notifications for later delivery
+
+#### 9.6 Notification Service
+- [ ] Push notifications (iOS via APNs)
+- [ ] macOS notification center
+- [ ] In-app notification queue
+- [ ] Notification history
+
+### Deliverables
+- `hestia/proactive/` module
+- Daily briefing generator
+- Pattern detection engine
+- Interruption policy system
+- Notification service integration
+
+### Testing Criteria
+- [ ] Daily briefing generates accurate summary
+- [ ] Patterns detected from simulated history
+- [ ] Interruption policy respected (test Focus mode)
+- [ ] Notifications delivered to iOS device
+
+### Claude Checkpoint
+Before proceeding to Phase 10, share:
+- Sample daily briefing output
+- Detected patterns from test data
+- Interruption policy demonstration
+- Notification flow end-to-end
+
+**Depends on**: Phase 5.5 (Apple ecosystem), Phase 4.5 (Background tasks)
+**Time estimate**: +8-10 hours
+
+---
+
+## Phase 10: Task Decomposition (v2.0)
+
+### Objective
+Enable Hestia to break complex tasks into manageable subtasks with progress tracking, checkpointing, and rollback capability.
+
+### Why This Enhancement
+Complex requests like "Plan my trip to Italy" or "Prepare for my presentation" require:
+- Multiple steps with dependencies
+- Progress tracking across days/weeks
+- Ability to pause and resume
+- Recovery from partial failures
+
+### Tasks
+
+#### 10.1 Decomposition Engine
+- [ ] LLM-based task breakdown
+- [ ] Rule-based refinement
+- [ ] Subtask validation
+- [ ] Dependency detection
+
+```python
+# hestia/decomposition/engine.py
+class DecompositionEngine:
+    async def decompose(
+        self,
+        task: str,
+        context: Optional[str] = None
+    ) -> TaskDecomposition:
+        """Break complex task into subtasks."""
+        # Use LLM to identify subtasks
+        subtasks = await self._llm_decompose(task, context)
+
+        # Validate and refine
+        subtasks = self._validate_subtasks(subtasks)
+        subtasks = self._detect_dependencies(subtasks)
+
+        return TaskDecomposition(
+            root_task=task,
+            subtasks=subtasks,
+            status=DecompStatus.PENDING
+        )
+```
+
+#### 10.2 Subtask Model
+- [ ] Description and success criteria
+- [ ] Dependencies (which must complete first)
+- [ ] Estimated effort/time
+- [ ] Assigned model tier
+
+```python
+# hestia/decomposition/models.py
+@dataclass
+class Subtask:
+    id: str
+    description: str
+    success_criteria: str
+    dependencies: List[str]  # Subtask IDs
+    status: SubtaskStatus
+    checkpoint: Optional[str]
+    result: Optional[str]
+    started_at: Optional[datetime]
+    completed_at: Optional[datetime]
+
+@dataclass
+class TaskDecomposition:
+    id: str
+    root_task: str
+    subtasks: List[Subtask]
+    current_step: int
+    status: DecompStatus  # pending/in_progress/completed/paused/failed
+    created_at: datetime
+```
+
+#### 10.3 Checkpointing
+- [ ] Save state after each subtask
+- [ ] Serialize decomposition to SQLite
+- [ ] Resume from checkpoint on restart
+- [ ] Checkpoint history (keep last N)
+
+```python
+# hestia/decomposition/checkpoint.py
+class CheckpointManager:
+    async def save_checkpoint(
+        self,
+        decomposition: TaskDecomposition,
+        subtask_id: str
+    ) -> str:
+        """Save checkpoint after subtask completion."""
+        pass
+
+    async def restore_checkpoint(
+        self,
+        decomposition_id: str,
+        checkpoint_id: Optional[str] = None  # Latest if not specified
+    ) -> TaskDecomposition:
+        """Restore decomposition from checkpoint."""
+        pass
+```
+
+#### 10.4 Rollback
+- [ ] Undo to previous checkpoint
+- [ ] Partial rollback (specific subtasks)
+- [ ] Rollback confirmation prompt
+- [ ] Audit log of rollbacks
+
+#### 10.5 Progress UI
+- [ ] Percentage complete
+- [ ] Current step display
+- [ ] ETA estimation
+- [ ] Visual progress (CLI or app)
+
+#### 10.6 Pause/Resume
+- [ ] User can pause at any point
+- [ ] Resume exactly where left off
+- [ ] Auto-pause on failure
+- [ ] Reminder to resume stalled tasks
+
+### Deliverables
+- `hestia/decomposition/` module
+- Decomposition engine with LLM + rules
+- Checkpoint/rollback system
+- Progress tracking UI
+- CLI: `python -m hestia.decomposition status <id>`
+
+### Testing Criteria
+- [ ] Complex task correctly decomposes
+- [ ] Dependencies respected in execution order
+- [ ] Checkpoint saves state correctly
+- [ ] Rollback restores previous state
+- [ ] Pause/resume works across restarts
+
+### Claude Checkpoint
+Before declaring Phase 10 complete, share:
+- Sample decomposition of "Plan a trip to Italy"
+- Checkpoint/rollback demonstration
+- Progress UI screenshot or CLI output
+
+**Depends on**: Phase 4.5 (Background tasks), Phase 8.5 (Learning)
+**Time estimate**: +10-12 hours
 
 ---
 
@@ -1653,13 +2279,12 @@ Use Claude Opus for:
 - [ ] CLI viewer
 
 ### Phase 2: Inference
-- [ ] Ollama client wrapper with CredentialManager integration
+- [ ] Ollama client wrapper (Qwen 2.5 7B)
 - [ ] Token counting for context window management
 - [ ] Retry logic
 - [ ] Response validation
-- [ ] Variable context window support (STANDARD/LARGE/XLARGE)
 - [ ] Multi-stage retrieval for large context
-- [ ] Cloud API fallback (Anthropic)
+- [ ] Hardware upgrade path documented (config-only switch to Mixtral)
 
 ### Phase 3: Memory
 - [ ] Ephemeral, vector, structured stores
@@ -1698,11 +2323,12 @@ Use Claude Opus for:
 - [ ] **CHECKPOINT 4**: Execution & Apple integration calibration ✓
 
 ### Phase 6: Access & App
-- [ ] FastAPI server
-- [ ] Certificate auth via Tailscale
+- [ ] FastAPI server (23 endpoints including task management)
+- [ ] JWT device token authentication
 - [ ] Native Swift app (iOS + macOS)
 - [ ] Face ID / Touch ID
-- [ ] iOS Shortcut integration
+- [ ] iOS Shortcut integration (fire-and-forget via /v1/tasks)
+- [ ] Activity Timeline view
 - [ ] **CHECKPOINT 5**: iOS app calibration ✓
 
 ### Phase 7: Integration
@@ -1712,5 +2338,47 @@ Use Claude Opus for:
 - [ ] Security testing (from security architecture doc)
 - [ ] **CHECKPOINT 6**: Production readiness calibration ✓
 
-### Phase 8: Iteration
-- [ ] Continuous improvement based on usage
+### Phase 8: Foundation Iteration (Ongoing MVP)
+- [ ] System stable for 2+ weeks
+- [ ] Core features working reliably
+- [ ] No critical bugs
+- [ ] User workflow patterns identified
+
+---
+
+## Intelligence Enhancement Phases (v1.5 / v2.0)
+
+### Phase 3.6: Confidence-Tracked Preferences (v1.5)
+- [ ] Confidence scoring for preferences
+- [ ] Decay mechanics (10% per month)
+- [ ] User correction feedback loop
+- [ ] Minimum confidence filtering
+
+### Phase 4.5: Background Task Management (v1.0)
+- [ ] SQLite-backed task queue
+- [ ] Progress tracking with notifications
+- [ ] Cancellation support
+- [ ] CLI management tools
+- [ ] **CHECKPOINT 7**: Enhanced memory & tasks calibration ✓
+
+### Phase 8.5: Learning from History (v1.5)
+- [ ] Success/failure outcome tracking
+- [ ] Pattern recognition pipeline
+- [ ] Adaptive routing based on history
+- [ ] Performance analytics dashboard
+
+### Phase 9: Proactive Intelligence (v1.5)
+- [ ] Daily briefing generator
+- [ ] Pattern detection engine
+- [ ] Proactive suggestions
+- [ ] Interruption policy (user-controlled)
+- [ ] Focus mode integration
+- [ ] **CHECKPOINT 8**: Proactive intelligence calibration ✓
+
+### Phase 10: Task Decomposition (v2.0)
+- [ ] Decomposition engine (LLM + rules)
+- [ ] Subtask dependency tracking
+- [ ] Checkpoint/rollback system
+- [ ] Progress UI
+- [ ] Pause/resume capability
+- [ ] **CHECKPOINT 9**: Task decomposition calibration ✓

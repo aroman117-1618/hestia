@@ -1,0 +1,90 @@
+# Hestia Execution Layer Configuration
+# Phase 5: Tool execution with sandboxing and gating
+
+# Sandbox configuration
+sandbox:
+  # Enable/disable sandbox (always enabled in production)
+  enabled: true
+
+  # Isolation mode: subprocess | docker | sandbox-exec
+  # v1.0 uses subprocess for simplicity and lower overhead
+  mode: subprocess
+
+  # Default timeout for tool execution (seconds)
+  default_timeout: 30.0
+
+  # Maximum allowed timeout (seconds)
+  max_timeout: 300.0
+
+  # Directories accessible by tools (supports ~)
+  allowed_directories:
+    - ~/hestia/data
+    - ~/hestia/logs
+    - /tmp/hestia
+    - ~/Documents
+
+  # Directories where writes are auto-approved (no staging)
+  auto_approve_write_dirs:
+    - ~/hestia/data
+
+  # Commands that are always blocked
+  blocked_commands:
+    - rm -rf
+    - sudo
+    - chmod
+    - chown
+    - mkfs
+    - dd if=
+    - shutdown
+    - reboot
+
+# External communication gate configuration
+gate:
+  # Database path for whitelist storage
+  db_path: ~/hestia/data/gate.db
+
+  # Default decision for unwhitelisted services
+  # pending = require user approval
+  # denied = block by default
+  default_decision: pending
+
+  # Pre-approved services (added to whitelist on startup)
+  # These are safe internal services
+  pre_approved:
+    - service: read_file
+      scope: all
+      notes: Built-in file reading tool
+    - service: write_file
+      scope: all
+      notes: Built-in file writing tool (with path-based staging)
+
+# Tool configuration
+tools:
+  # Maximum concurrent tool executions
+  max_concurrent: 3
+
+  # Enable built-in tools
+  builtin:
+    read_file: true
+    write_file: true
+    run_command: true
+
+  # Per-tool timeout overrides (seconds)
+  timeouts:
+    read_file: 30
+    write_file: 30
+    run_command: 60
+
+# Logging configuration for execution layer
+logging:
+  # Log all tool calls
+  log_calls: true
+
+  # Log tool results (may contain sensitive data)
+  log_results: true
+
+  # Truncate logged results at this length
+  max_result_log_length: 1000
+
+  # Log gate decisions
+  log_gate_decisions: true

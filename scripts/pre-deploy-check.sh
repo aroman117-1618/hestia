@@ -30,17 +30,17 @@ CHECKS_FAILED=0
 
 check_pass() {
     echo -e "${GREEN}✓${NC} $1"
-    ((CHECKS_PASSED++))
+    ((CHECKS_PASSED++)) || true
 }
 
 check_warn() {
     echo -e "${YELLOW}⚠${NC} $1"
-    ((CHECKS_WARNED++))
+    ((CHECKS_WARNED++)) || true
 }
 
 check_fail() {
     echo -e "${RED}✗${NC} $1"
-    ((CHECKS_FAILED++))
+    ((CHECKS_FAILED++)) || true
 }
 
 echo -e "${BLUE}========================================${NC}"
@@ -75,12 +75,17 @@ echo -e "\n${YELLOW}Scanning for credential leaks...${NC}"
 LEAK_FOUND=0
 
 # Check for Anthropic/OpenAI API keys
-if grep -rn "sk-ant-\|sk-[a-zA-Z0-9]\{20,\}" hestia/ 2>/dev/null | grep -v "\.pyc" | grep -v "__pycache__"; then
+# Use || true to prevent set -e from exiting when grep finds no matches
+API_KEY_MATCHES=$(grep -rn "sk-ant-\|sk-[a-zA-Z0-9]\{20,\}" hestia/ 2>/dev/null | grep -v "\.pyc" | grep -v "__pycache__" || true)
+if [[ -n "$API_KEY_MATCHES" ]]; then
+    echo "$API_KEY_MATCHES"
     LEAK_FOUND=1
 fi
 
 # Check for hardcoded api_key assignments (excluding pattern definitions)
-if grep -rn "api_key\s*=\s*['\"][^'\"]*['\"]" hestia/ 2>/dev/null | grep -v "\.pyc" | grep -v "__pycache__" | grep -v "REDACTED" | grep -v "pattern" | grep -v "#"; then
+HARDCODED_MATCHES=$(grep -rn "api_key\s*=\s*['\"][^'\"]*['\"]" hestia/ 2>/dev/null | grep -v "\.pyc" | grep -v "__pycache__" | grep -v "REDACTED" | grep -v "pattern" | grep -v "#" || true)
+if [[ -n "$HARDCODED_MATCHES" ]]; then
+    echo "$HARDCODED_MATCHES"
     LEAK_FOUND=1
 fi
 

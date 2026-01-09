@@ -32,7 +32,7 @@ This document defines the comprehensive security architecture for Hestia, target
    - Legal documents (contracts, NDAs)
 
 2. **High-Value Assets**:
-   - API keys (Anthropic, Weather, Search)
+   - API keys (Weather, Search)
    - User model (competency tracking, preferences)
    - Email content (potentially sensitive)
    - Calendar data (reveals schedule)
@@ -160,7 +160,6 @@ macOS Secure Enclave (M1 Chip)
         ├─► hestia.keychain-db (separate from user passwords)
         │     │
         │     ├─► hestia.operational (API keys, operational secrets)
-        │     │     ├─► anthropic_api_key (optional biometric)
         │     │     ├─► weather_api_key (optional biometric)
         │     │     └─► search_api_key (optional biometric)
         │     │
@@ -480,7 +479,7 @@ class ExternalCommunicationGate:
 
 1. **Detect** (automated):
    - Anomaly detection flags unusual API usage
-   - Example: Anthropic API called 100x/min (normal: 5x/min)
+   - Example: Weather API called 100x/min (normal: 5x/min)
 
 2. **Respond** (immediate):
    - Automatic: Revoke API key
@@ -572,6 +571,43 @@ Hestia is personal use, so no regulatory compliance required. However, we adopt 
 
 ---
 
+## Phase 10 Security Hardening (2025-01-12)
+
+### TLS/HTTPS
+- Server runs on HTTPS port 8443 with self-signed certificates
+- Certificates stored in `certs/hestia.crt` and `certs/hestia.key`
+- 4096-bit RSA keys (upgraded from 2048)
+- iOS certificate pinning via `CertificatePinning.swift`
+
+### Rate Limiting
+| Endpoint | Requests/min | Purpose |
+|----------|--------------|---------|
+| `/v1/chat` | 20 | Prevent abuse |
+| `/v1/proactive/briefing` | 5 | Expensive operation |
+| `/v1/proactive/analyze` | 2 | Very expensive operation |
+| Default | 60 | General API protection |
+
+### Security Headers
+All responses include:
+- `Strict-Transport-Security: max-age=31536000; includeSubDomains`
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `X-XSS-Protection: 1; mode=block`
+- `Content-Security-Policy: default-src 'self'`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+
+### Error Handling
+- Internal errors sanitized before returning to client
+- No stack traces or file paths in API responses
+- Full error details logged internally only
+
+### Input Validation
+- Weather location: Regex validated, max 100 chars
+- Focus mode path: Symlink attack prevention
+- API keys: Prefer Keychain over environment variables
+
+---
+
 ## Future Enhancements
 
 ### v1.5 Additions
@@ -579,6 +615,7 @@ Hestia is personal use, so no regulatory compliance required. However, we adopt 
 - Anomaly detection (ML-based access pattern analysis)
 - Bluetooth proximity unlock (YubiKey integration)
 - Encrypted cloud backup (iCloud with client-side encryption)
+- Token refresh endpoint (`/v1/auth/refresh`)
 
 ### v2.0 Additions
 - Per-user credential isolation (multi-user support)
@@ -604,5 +641,5 @@ Hestia is personal use, so no regulatory compliance required. However, we adopt 
 - **Update Triggers**: New threat identified, security incident, major version release
 - **Owner**: Andrew Roman
 
-**Last Updated**: 2025-01-08
-**Next Review**: 2025-04-08
+**Last Updated**: 2025-01-12 (Phase 10 Security Hardening Complete)
+**Next Review**: 2025-04-12
