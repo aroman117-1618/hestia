@@ -20,7 +20,7 @@ NC='\033[0m' # No Color
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-MINI_HOST="andrew@hestia-server"
+MINI_HOST="andrewroman117@hestia-3.local"
 MINI_BIN_PATH="~/.hestia/bin"
 
 echo -e "${BLUE}========================================${NC}"
