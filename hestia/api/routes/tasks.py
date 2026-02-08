@@ -23,6 +23,7 @@ from hestia.api.schemas import (
 )
 from hestia.api.middleware.auth import get_device_token
 from hestia.tasks import get_task_manager, TaskStatus, TaskSource, BackgroundTask
+from hestia.api.errors import sanitize_for_log
 from hestia.logging import get_logger, LogComponent
 
 router = APIRouter(prefix="/v1/tasks", tags=["tasks"])
@@ -117,7 +118,7 @@ async def create_task(
 
     except Exception as e:
         logger.error(
-            f"Failed to create task: {e}",
+            f"Failed to create task: {sanitize_for_log(e)}",
             component=LogComponent.API,
         )
         raise HTTPException(
@@ -207,7 +208,7 @@ async def list_tasks(
 
     except Exception as e:
         logger.error(
-            f"Failed to list tasks: {e}",
+            f"Failed to list tasks: {sanitize_for_log(e)}",
             component=LogComponent.API,
         )
         raise HTTPException(
@@ -272,7 +273,7 @@ async def get_task(
 
     except Exception as e:
         logger.error(
-            f"Failed to get task: {e}",
+            f"Failed to get task: {sanitize_for_log(e)}",
             component=LogComponent.API,
             data={"task_id": task_id},
         )
@@ -353,7 +354,7 @@ async def approve_task(
 
     except Exception as e:
         logger.error(
-            f"Failed to approve task: {e}",
+            f"Failed to approve task: {sanitize_for_log(e)}",
             component=LogComponent.API,
             data={"task_id": task_id},
         )
@@ -433,7 +434,7 @@ async def cancel_task(
 
     except Exception as e:
         logger.error(
-            f"Failed to cancel task: {e}",
+            f"Failed to cancel task: {sanitize_for_log(e)}",
             component=LogComponent.API,
             data={"task_id": task_id},
         )
@@ -516,7 +517,7 @@ async def retry_task(
 
     except Exception as e:
         logger.error(
-            f"Failed to retry task: {e}",
+            f"Failed to retry task: {sanitize_for_log(e)}",
             component=LogComponent.API,
             data={"task_id": task_id},
         )

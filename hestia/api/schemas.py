@@ -233,6 +233,7 @@ class MemorySearchResult(BaseModel):
     content: str = Field(description="Chunk content")
     relevance_score: float = Field(description="Relevance score 0.0-1.0")
     match_type: str = Field(description="How it matched (semantic/tag/etc)")
+    decay_adjusted: bool = Field(False, description="Whether temporal decay was applied to the score")
     timestamp: datetime = Field(description="When created")
     tags: ChunkTags = Field(description="Tag metadata")
 
@@ -876,3 +877,205 @@ class PushTokenResponse(BaseModel):
     unregistered: Optional[bool] = Field(None, description="For unregister")
     device_id: Optional[str] = Field(None, description="Device identifier")
     message: str = Field(description="Status message")
+
+
+# ============================================================================
+# Cloud Provider Schemas (WS1 - Cloud LLM Support)
+# ============================================================================
+
+class CloudProviderEnum(str, Enum):
+    """Supported cloud LLM providers."""
+    ANTHROPIC = "anthropic"
+    OPENAI = "openai"
+    GOOGLE = "google"
+
+
+class CloudProviderStateEnum(str, Enum):
+    """Cloud provider operational state."""
+    DISABLED = "disabled"
+    ENABLED_FULL = "enabled_full"
+    ENABLED_SMART = "enabled_smart"
+
+
+class CloudProviderAddRequest(BaseModel):
+    """Request to add a cloud provider."""
+    api_key: str = Field(
+        ...,
+        min_length=1,
+        description="API key for the provider (stored in Keychain)"
+    )
+    state: CloudProviderStateEnum = Field(
+        default=CloudProviderStateEnum.ENABLED_SMART,
+        description="Initial provider state"
+    )
+    model_id: Optional[str] = Field(
+        None,
+        description="Preferred model ID (uses provider default if omitted)"
+    )
+
+
+class CloudProviderStateUpdateRequest(BaseModel):
+    """Request to update a provider's routing state."""
+    state: CloudProviderStateEnum = Field(
+        ...,
+        description="New provider state"
+    )
+
+
+class CloudProviderModelUpdateRequest(BaseModel):
+    """Request to select a provider's active model."""
+    model_id: str = Field(
+        ...,
+        min_length=1,
+        description="Model ID to use for this provider"
+    )
+
+
+class CloudModelInfo(BaseModel):
+    """Information about a cloud model."""
+    model_id: str = Field(description="Model identifier")
+    provider: CloudProviderEnum = Field(description="Provider")
+    display_name: str = Field(description="Human-readable name")
+    context_window: int = Field(description="Maximum context window tokens")
+    max_output_tokens: int = Field(description="Maximum output tokens")
+    cost_per_1k_input: float = Field(description="Cost per 1K input tokens (USD)")
+    cost_per_1k_output: float = Field(description="Cost per 1K output tokens (USD)")
+
+
+class CloudProviderResponse(BaseModel):
+    """Cloud provider configuration (never exposes raw API key)."""
+    id: str = Field(description="Provider config identifier")
+    provider: CloudProviderEnum = Field(description="Provider type")
+    state: CloudProviderStateEnum = Field(description="Operational state")
+    active_model_id: Optional[str] = Field(None, description="Currently selected model")
+    available_models: List[str] = Field(default_factory=list, description="Available model IDs")
+    has_api_key: bool = Field(description="Whether an API key is configured")
+    health_status: str = Field(default="unknown", description="Last health check result")
+    last_health_check: Optional[datetime] = Field(None, description="Last health check timestamp")
+    created_at: datetime = Field(description="When provider was added")
+    updated_at: datetime = Field(description="Last update timestamp")
+
+
+class CloudProviderListResponse(BaseModel):
+    """Response listing cloud providers."""
+    providers: List[CloudProviderResponse] = Field(description="Configured providers")
+    count: int = Field(description="Number of providers")
+    cloud_state: str = Field(description="Effective cloud routing state")
+
+
+class CloudProviderDeleteResponse(BaseModel):
+    """Response after removing a cloud provider."""
+    provider: CloudProviderEnum = Field(description="Removed provider")
+    deleted: bool = Field(description="Whether deletion succeeded")
+    message: str = Field(description="Status message")
+
+
+class CloudUsageSummaryResponse(BaseModel):
+    """Cloud usage and cost summary."""
+    period_days: int = Field(description="Summary period in days")
+    total_requests: int = Field(default=0, description="Total cloud API requests")
+    total_tokens_in: int = Field(default=0, description="Total input tokens")
+    total_tokens_out: int = Field(default=0, description="Total output tokens")
+    total_cost_usd: float = Field(default=0.0, description="Total cost in USD")
+    by_provider: Dict[str, Any] = Field(default_factory=dict, description="Breakdown by provider")
+    by_model: Dict[str, Any] = Field(default_factory=dict, description="Breakdown by model")
+
+
+class CloudHealthCheckResponse(BaseModel):
+    """Response from a provider health check."""
+    provider: CloudProviderEnum = Field(description="Provider checked")
+    healthy: bool = Field(description="Whether the provider is reachable")
+    health_status: str = Field(description="Health status string")
+    message: str = Field(description="Status message")
+
+
+# ============================================================================
+# Voice Journaling (WS2)
+# ============================================================================
+
+class VoiceFlaggedWord(BaseModel):
+    """A word flagged by the quality checker as potentially incorrect."""
+    word: str = Field(description="The flagged word as it appears in the transcript")
+    position: int = Field(description="Character offset in the transcript (0-indexed)")
+    confidence: float = Field(description="Confidence this word is incorrect (0.0-1.0)")
+    suggestions: List[str] = Field(default_factory=list, description="Suggested corrections")
+    reason: str = Field(default="", description="Reason for flagging (e.g. homophone, proper noun)")
+
+
+class VoiceQualityCheckRequest(BaseModel):
+    """Request to quality-check a voice transcript."""
+    transcript: str = Field(description="The transcript text to check", min_length=1, max_length=10000)
+    known_entities: Optional[List[str]] = Field(
+        default=None,
+        description="Known entity names (people, events, projects) to help catch misheard proper nouns",
+    )
+
+
+class VoiceQualityCheckResponse(BaseModel):
+    """Response from quality checking a transcript."""
+    transcript: str = Field(description="The original transcript")
+    flagged_words: List[VoiceFlaggedWord] = Field(default_factory=list, description="Words flagged as potentially incorrect")
+    overall_confidence: float = Field(description="Overall confidence in transcript accuracy (0.0-1.0)")
+    needs_review: bool = Field(description="Whether the transcript should be reviewed by the user")
+
+
+class VoiceIntentType(str, Enum):
+    """Types of intents extracted from journal entries."""
+    ACTION_ITEM = "action_item"
+    REMINDER = "reminder"
+    NOTE = "note"
+    DECISION = "decision"
+    REFLECTION = "reflection"
+    FOLLOW_UP = "follow_up"
+
+
+class VoiceJournalIntent(BaseModel):
+    """A structured intent extracted from a journal transcript."""
+    id: str = Field(description="Unique intent identifier")
+    intent_type: VoiceIntentType = Field(description="Type of intent")
+    content: str = Field(description="Concise description of the intent")
+    confidence: float = Field(description="Confidence in intent extraction (0.0-1.0)")
+    entities: List[str] = Field(default_factory=list, description="Named entities referenced")
+
+
+class VoiceCrossReferenceSource(str, Enum):
+    """Sources for cross-referencing journal intents."""
+    CALENDAR = "calendar"
+    MAIL = "mail"
+    MEMORY = "memory"
+    REMINDERS = "reminders"
+
+
+class VoiceCrossReference(BaseModel):
+    """A cross-reference match from an external source."""
+    source: VoiceCrossReferenceSource = Field(description="Data source")
+    match: str = Field(description="Description of the matched item")
+    relevance: float = Field(description="Relevance score (0.0-1.0)")
+    details: Dict[str, Any] = Field(default_factory=dict, description="Source-specific details")
+
+
+class VoiceActionPlanItem(BaseModel):
+    """A single action item in the journal analysis action plan."""
+    id: str = Field(description="Unique action identifier")
+    action: str = Field(description="Human-readable action description")
+    tool_call: Optional[str] = Field(default=None, description="Tool name if executable")
+    arguments: Dict[str, Any] = Field(default_factory=dict, description="Tool arguments")
+    confidence: float = Field(description="Confidence in action plan item (0.0-1.0)")
+    intent_id: Optional[str] = Field(default=None, description="Links back to JournalIntent")
+
+
+class VoiceJournalAnalyzeRequest(BaseModel):
+    """Request to analyze a confirmed journal transcript."""
+    transcript: str = Field(description="The confirmed transcript text", min_length=1, max_length=10000)
+    mode: Optional[str] = Field(default="tia", description="Current Hestia mode (tia/mira/olly)")
+
+
+class VoiceJournalAnalyzeResponse(BaseModel):
+    """Response from journal analysis."""
+    id: str = Field(description="Unique analysis identifier")
+    transcript: str = Field(description="The analyzed transcript")
+    intents: List[VoiceJournalIntent] = Field(default_factory=list, description="Extracted intents")
+    cross_references: List[VoiceCrossReference] = Field(default_factory=list, description="Cross-reference matches")
+    action_plan: List[VoiceActionPlanItem] = Field(default_factory=list, description="Generated action plan")
+    summary: str = Field(default="", description="Brief summary of the analysis")
+    timestamp: str = Field(description="ISO 8601 timestamp of the analysis")

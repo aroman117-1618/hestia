@@ -35,6 +35,7 @@ from hestia.tasks import get_task_manager
 from hestia.orders import get_order_manager, get_order_scheduler
 from hestia.agents import get_agent_manager
 from hestia.user import get_user_manager
+from hestia.cloud import get_cloud_manager
 
 # Import routers
 from hestia.api.routes import (
@@ -50,6 +51,8 @@ from hestia.api.routes import (
     orders_router,
     agents_router,
     user_router,
+    cloud_router,
+    voice_router,
 )
 
 logger = get_logger()
@@ -132,6 +135,9 @@ async def lifespan(app: FastAPI):
         agent_manager = await get_agent_manager()
         user_manager = await get_user_manager()
 
+        # Initialize cloud provider management (WS1)
+        cloud_manager = await get_cloud_manager()
+
         logger.info(
             "Hestia API ready",
             component=LogComponent.API,
@@ -141,6 +147,7 @@ async def lifespan(app: FastAPI):
                 "order_scheduler_ready": order_scheduler is not None,
                 "agent_manager_ready": agent_manager is not None,
                 "user_manager_ready": user_manager is not None,
+                "cloud_manager_ready": cloud_manager is not None,
             }
         )
 
@@ -283,6 +290,8 @@ app.include_router(proactive_router)
 app.include_router(orders_router)
 app.include_router(agents_router)
 app.include_router(user_router)
+app.include_router(cloud_router)
+app.include_router(voice_router)
 
 
 # Root endpoint

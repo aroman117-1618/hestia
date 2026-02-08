@@ -18,6 +18,7 @@ from hestia.api.schemas import (
     ToolsHealth,
 )
 from hestia.orchestration.handler import get_request_handler
+from hestia.api.errors import sanitize_for_log
 from hestia.logging import get_logger, LogComponent
 
 router = APIRouter(prefix="/v1", tags=["health"])
@@ -114,7 +115,7 @@ async def health_check() -> HealthResponse:
 
     except Exception as e:
         logger.error(
-            f"Health check failed: {e}",
+            f"Health check failed: {sanitize_for_log(e)}",
             component=LogComponent.API,
         )
 
@@ -125,18 +126,18 @@ async def health_check() -> HealthResponse:
             components=HealthComponents(
                 inference=InferenceHealth(
                     status=HealthStatusEnum.UNHEALTHY,
-                    error=str(e),
+                    error=sanitize_for_log(e),
                 ),
                 memory=MemoryHealth(
                     status=HealthStatusEnum.UNHEALTHY,
-                    error=str(e),
+                    error=sanitize_for_log(e),
                 ),
                 state_machine=StateMachineHealth(
                     status=HealthStatusEnum.UNHEALTHY,
                 ),
                 tools=ToolsHealth(
                     status=HealthStatusEnum.UNHEALTHY,
-                    error=str(e),
+                    error=sanitize_for_log(e),
                 ),
             ),
         )

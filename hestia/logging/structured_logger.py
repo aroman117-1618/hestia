@@ -49,6 +49,9 @@ class LogComponent(Enum):
     SECURITY = "security"
     API = "api"
     SYSTEM = "system"
+    VOICE = "voice"
+    CLOUD = "cloud"
+    COUNCIL = "council"
 
 
 class EventType(Enum):

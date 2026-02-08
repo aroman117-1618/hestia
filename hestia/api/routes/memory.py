@@ -26,6 +26,7 @@ from hestia.api.schemas import (
 from hestia.api.middleware.auth import get_device_token
 from hestia.memory import get_memory_manager
 from hestia.memory.models import ConversationChunk
+from hestia.api.errors import sanitize_for_log
 from hestia.logging import get_logger, LogComponent
 
 router = APIRouter(prefix="/v1/memory", tags=["memory"])
@@ -121,7 +122,7 @@ async def get_staged_memory(
 
     except Exception as e:
         logger.error(
-            f"Failed to get staged memory: {e}",
+            f"Failed to get staged memory: {sanitize_for_log(e)}",
             component=LogComponent.API,
         )
         raise HTTPException(
@@ -194,7 +195,7 @@ async def approve_memory(
 
     except Exception as e:
         logger.error(
-            f"Failed to approve memory: {e}",
+            f"Failed to approve memory: {sanitize_for_log(e)}",
             component=LogComponent.API,
             data={"chunk_id": chunk_id},
         )
@@ -272,7 +273,7 @@ async def reject_memory(
 
     except Exception as e:
         logger.error(
-            f"Failed to reject memory: {e}",
+            f"Failed to reject memory: {sanitize_for_log(e)}",
             component=LogComponent.API,
             data={"chunk_id": chunk_id},
         )
@@ -362,7 +363,7 @@ async def search_memory(
 
     except Exception as e:
         logger.error(
-            f"Memory search failed: {e}",
+            f"Memory search failed: {sanitize_for_log(e)}",
             component=LogComponent.API,
         )
         raise HTTPException(

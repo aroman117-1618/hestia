@@ -21,6 +21,7 @@ from hestia.api.schemas import (
 from hestia.api.middleware.auth import get_device_token
 from hestia.orchestration.handler import get_request_handler
 from hestia.orchestration.models import Request, RequestSource, Mode, ResponseType
+from hestia.api.errors import sanitize_for_log
 from hestia.logging import get_logger, LogComponent
 
 router = APIRouter(prefix="/v1/chat", tags=["chat"])
@@ -148,7 +149,7 @@ async def send_message(
 
     except ValueError as e:
         logger.warning(
-            f"Chat request validation error: {e}",
+            f"Chat request validation error: {sanitize_for_log(e)}",
             component=LogComponent.API,
             data={"request_id": request_id},
         )
@@ -156,14 +157,14 @@ async def send_message(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
                 "error": "validation_error",
-                "message": str(e),
+                "message": "Invalid chat request.",
                 "request_id": request_id,
             }
         )
 
     except Exception as e:
         logger.error(
-            f"Chat request failed: {type(e).__name__}: {e}",
+            f"Chat request failed: {sanitize_for_log(e)}",
             component=LogComponent.API,
             data={"request_id": request_id},
         )

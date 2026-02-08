@@ -12,6 +12,8 @@ from .proactive import router as proactive_router
 from .orders import router as orders_router
 from .agents import router as agents_router
 from .user import router as user_router
+from .cloud import router as cloud_router
+from .voice import router as voice_router
 
 __all__ = [
     "health_router",
@@ -26,4 +28,6 @@ __all__ = [
     "orders_router",
     "agents_router",
     "user_router",
+    "cloud_router",
+    "voice_router",
 ]

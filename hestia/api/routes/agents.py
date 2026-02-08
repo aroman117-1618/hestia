@@ -29,6 +29,7 @@ from hestia.api.schemas import (
     SnapshotReasonEnum,
 )
 from hestia.agents import get_agent_manager, AgentProfile, AgentSnapshot
+from hestia.api.errors import sanitize_for_log
 from hestia.logging import get_logger, LogComponent
 
 
@@ -170,7 +171,7 @@ async def update_agent(
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            detail={"error": "invalid_request", "message": "Invalid agent parameters."},
         )
 
 
@@ -219,7 +220,7 @@ async def delete_agent(
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            detail={"error": "invalid_request", "message": "Invalid agent parameters."},
         )
 
 
@@ -284,7 +285,7 @@ async def upload_photo(
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            detail={"error": "invalid_request", "message": "Invalid agent parameters."},
         )
 
 
@@ -375,7 +376,7 @@ async def delete_photo(
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            detail={"error": "invalid_request", "message": "Invalid agent parameters."},
         )
 
 
@@ -470,7 +471,7 @@ async def restore_from_snapshot(
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            detail={"error": "invalid_request", "message": "Invalid agent parameters."},
         )
 
 

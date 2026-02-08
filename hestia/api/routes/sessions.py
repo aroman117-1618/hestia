@@ -21,6 +21,7 @@ from hestia.api.middleware.auth import get_device_token
 from hestia.orchestration.handler import get_request_handler
 from hestia.orchestration.mode import get_mode_manager, Mode
 from hestia.memory import get_memory_manager
+from hestia.api.errors import sanitize_for_log
 from hestia.logging import get_logger, LogComponent
 
 router = APIRouter(prefix="/v1/sessions", tags=["sessions"])
@@ -93,7 +94,7 @@ async def create_session(
 
     except Exception as e:
         logger.error(
-            f"Failed to create session: {e}",
+            f"Failed to create session: {sanitize_for_log(e)}",
             component=LogComponent.API,
         )
         raise HTTPException(
@@ -217,7 +218,7 @@ async def get_session_history(
 
     except Exception as e:
         logger.error(
-            f"Failed to get session history: {e}",
+            f"Failed to get session history: {sanitize_for_log(e)}",
             component=LogComponent.API,
             data={"session_id": session_id},
         )
@@ -279,7 +280,7 @@ async def end_session(
 
     except Exception as e:
         logger.error(
-            f"Failed to end session: {e}",
+            f"Failed to end session: {sanitize_for_log(e)}",
             component=LogComponent.API,
             data={"session_id": session_id},
         )

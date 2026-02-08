@@ -36,6 +36,7 @@ from hestia.orders import (
     ExecutionStatus,
     MCPResource,
 )
+from hestia.api.errors import sanitize_for_log
 from hestia.logging import get_logger, LogComponent
 
 
@@ -173,7 +174,7 @@ async def create_order(
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            detail={"error": "invalid_request", "message": "Invalid order parameters."},
         )
 
 
@@ -297,11 +298,11 @@ async def update_order(
         if "not found" in str(e).lower():
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=str(e),
+                detail={"error": "order_not_found", "message": f"Order not found: {order_id}"},
             )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            detail={"error": "invalid_request", "message": "Invalid order parameters."},
         )
 
 
@@ -444,5 +445,5 @@ async def execute_order(
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e),
+            detail={"error": "order_not_found", "message": f"Order not found: {order_id}"},
         )

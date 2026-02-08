@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from hestia.api.middleware.auth import verify_device_token
+from hestia.api.errors import sanitize_for_log
 from hestia.logging import get_logger, LogComponent
 from hestia.proactive import (
     BriefingGenerator,
@@ -161,7 +162,7 @@ async def get_briefing(device_id: str = Depends(verify_device_token)):
 
     except Exception as e:
         logger.error(
-            f"Briefing generation failed: {e}",
+            f"Briefing generation failed: {sanitize_for_log(e)}",
             component=LogComponent.API,
         )
         raise HTTPException(
