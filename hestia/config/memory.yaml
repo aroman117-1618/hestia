@@ -1,0 +1,25 @@
+# Memory Configuration
+# Temporal decay settings for relevance scoring (ADR-013 extension)
+
+temporal_decay:
+  enabled: true
+
+  # Per-chunk-type decay rates (lambda values for exponential decay)
+  # Formula: decay_factor = e^(-lambda * age_days)
+  # Higher lambda = faster decay. 0 = no decay.
+  # Half-life = ln(2) / lambda ≈ 0.693 / lambda
+  rates:
+    conversation: 0.02    # Half-life ~35 days
+    fact: 0.0             # No decay — facts persist indefinitely
+    preference: 0.005     # Half-life ~139 days
+    decision: 0.002       # Half-life ~347 days
+    action_item: 0.01     # Half-life ~69 days
+    research: 0.007       # Half-life ~99 days
+    system: 0.0           # No decay for system memories
+
+  # Floor — never decay below this relevance score
+  min_score_after_decay: 0.1
+
+  # Recency boost — memories within this window get a multiplier
+  recency_boost_hours: 24
+  recency_boost_factor: 1.2

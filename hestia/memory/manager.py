@@ -16,6 +16,7 @@ from hestia.logging import get_logger, LogComponent
 from hestia.memory.database import MemoryDatabase, get_database
 from hestia.memory.vector_store import VectorStore, get_vector_store
 from hestia.memory.tagger import AutoTagger, get_tagger
+from hestia.memory.decay import TemporalDecay, get_temporal_decay
 from hestia.memory.models import (
     ConversationChunk,
     ChunkTags,
@@ -45,6 +46,7 @@ class MemoryManager:
         database: Optional[MemoryDatabase] = None,
         vector_store: Optional[VectorStore] = None,
         tagger: Optional[AutoTagger] = None,
+        temporal_decay: Optional[TemporalDecay] = None,
     ):
         """
         Initialize memory manager.
@@ -53,10 +55,12 @@ class MemoryManager:
             database: SQLite database instance.
             vector_store: ChromaDB vector store instance.
             tagger: Auto-tagger instance.
+            temporal_decay: Temporal decay scorer for time-weighted relevance.
         """
         self._database = database
         self._vector_store = vector_store
         self._tagger = tagger
+        self._temporal_decay = temporal_decay
         self.logger = get_logger()
 
         # Current session tracking
@@ -85,12 +89,15 @@ class MemoryManager:
             self._vector_store = get_vector_store()
         if self._tagger is None:
             self._tagger = get_tagger()
+        if self._temporal_decay is None:
+            self._temporal_decay = get_temporal_decay()
 
         self.logger.info(
             "Memory manager initialized",
             component=LogComponent.MEMORY,
             data={
                 "vector_count": self._vector_store.count(),
+                "temporal_decay_enabled": self._temporal_decay.enabled,
             }
         )
 
@@ -374,17 +381,28 @@ class MemoryManager:
         # Get chunks from database with filters
         chunks = await self.database.query_chunks(memory_query, chunk_ids=chunk_ids)
 
-        # Build results with scores
+        # Build results with scores and apply temporal decay
+        decay_applied = (
+            self._temporal_decay is not None
+            and self._temporal_decay.enabled
+        )
         results = []
         for chunk in chunks:
             score = scores.get(chunk.id, 0.0)
+            if decay_applied:
+                score = self._temporal_decay.apply(
+                    relevance_score=score,
+                    chunk_type=chunk.chunk_type,
+                    chunk_timestamp=chunk.timestamp,
+                )
             results.append(MemorySearchResult(
                 chunk=chunk,
                 relevance_score=score,
-                match_type="semantic"
+                match_type="semantic",
+                decay_adjusted=decay_applied,
             ))
 
-        # Sort by relevance
+        # Sort by relevance (decay-adjusted if enabled)
         results.sort(key=lambda r: r.relevance_score, reverse=True)
 
         self.logger.log_memory_access(

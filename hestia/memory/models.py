@@ -211,6 +211,7 @@ class MemorySearchResult:
     chunk: ConversationChunk
     relevance_score: float  # 0.0 - 1.0, higher is more relevant
     match_type: str         # "semantic", "tag", "temporal", "exact"
+    decay_adjusted: bool = False  # True if temporal decay has been applied
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
@@ -219,6 +220,7 @@ class MemorySearchResult:
             "content": self.chunk.content,
             "relevance_score": self.relevance_score,
             "match_type": self.match_type,
+            "decay_adjusted": self.decay_adjusted,
             "timestamp": self.chunk.timestamp.isoformat(),
             "tags": self.chunk.tags.to_dict(),
         }
