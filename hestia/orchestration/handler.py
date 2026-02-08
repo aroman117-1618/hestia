@@ -33,6 +33,8 @@ from hestia.execution import (
     get_tool_registry,
     register_builtin_tools,
 )
+from hestia.council.manager import CouncilManager, get_council_manager
+from hestia.council.models import IntentClassification, IntentType
 
 
 class RequestHandler:
@@ -69,6 +71,7 @@ class RequestHandler:
         self._prompt_builder = prompt_builder or get_prompt_builder()
         self._validation_pipeline = validation_pipeline or get_validation_pipeline()
         self._tool_executor = tool_executor
+        self._council_manager: Optional[CouncilManager] = None
 
         self.state_machine = TaskStateMachine()
         self.logger = get_logger()
@@ -98,6 +101,12 @@ class RequestHandler:
             self._tool_executor = await get_tool_executor()
         return self._tool_executor
 
+    def _get_council_manager(self) -> CouncilManager:
+        """Get or create council manager."""
+        if self._council_manager is None:
+            self._council_manager = get_council_manager()
+        return self._council_manager
+
     def _register_builtin_tools(self) -> None:
         """Register built-in tools with the registry."""
         try:
@@ -111,7 +120,7 @@ class RequestHandler:
                 )
         except Exception as e:
             self.logger.warning(
-                f"Failed to register built-in tools: {e}",
+                f"Failed to register built-in tools: {type(e).__name__}",
                 component=LogComponent.ORCHESTRATION
             )
 
@@ -204,12 +213,29 @@ IMPORTANT RULES:
                     data={"request_id": request.id}
                 )
 
+            # Step 6.5: Council pre-inference (intent classification)
+            intent = None
+            try:
+                council = self._get_council_manager()
+                intent = await council.classify_intent(request.content)
+                task.context["intent"] = {
+                    "type": intent.primary_intent.value,
+                    "confidence": intent.confidence,
+                }
+            except Exception as e:
+                self.logger.warning(
+                    f"Council intent classification failed: {type(e).__name__}",
+                    component=LogComponent.ORCHESTRATION,
+                    data={"request_id": request.id},
+                )
+
             # Step 7: Run inference with retry
             response = await self._run_inference_with_retry(
                 task=task,
                 request=request,
                 messages=messages,
                 prompt_components=prompt_components,
+                intent=intent,
             )
 
             # Step 8: Store conversation in memory
@@ -236,7 +262,7 @@ IMPORTANT RULES:
         except Exception as e:
             self.state_machine.fail(task, e)
             self.logger.error(
-                f"Request handling failed: {type(e).__name__}: {e}",
+                f"Request handling failed: {type(e).__name__}",
                 component=LogComponent.ORCHESTRATION,
                 data={"request_id": request.id, "error_type": type(e).__name__}
             )
@@ -254,6 +280,7 @@ IMPORTANT RULES:
         messages: list,
         prompt_components,
         max_retries: int = 3,
+        intent: Optional[IntentClassification] = None,
     ) -> Response:
         """
         Run inference with validation and retry logic.
@@ -296,13 +323,63 @@ IMPORTANT RULES:
 
             # Check if response contains a tool call
             content = inference_response.content
-            tool_result = await self._try_execute_tool_from_response(content, request, task)
+
+            # Step 7.5: Council post-inference (Analyzer + Validator)
+            council_result = None
+            try:
+                council = self._get_council_manager()
+                council_result = await council.run_council(
+                    user_message=request.content,
+                    inference_response=content,
+                    mode=request.mode.value,
+                    intent=intent,
+                )
+                task.context["council"] = {
+                    "roles_executed": council_result.roles_executed,
+                    "roles_failed": council_result.roles_failed,
+                    "fallback_used": council_result.fallback_used,
+                }
+            except Exception as e:
+                self.logger.warning(
+                    f"Council post-inference failed: {type(e).__name__}",
+                    component=LogComponent.ORCHESTRATION,
+                    data={"request_id": request.id},
+                )
+
+            # Use council Analyzer for tool extraction if available
+            if (
+                council_result
+                and council_result.tool_extraction
+                and council_result.tool_extraction.tool_calls
+                and council_result.tool_extraction.confidence > 0.7
+            ):
+                tool_result = await self._execute_council_tools(
+                    council_result.tool_extraction.tool_calls, request, task
+                )
+            else:
+                # Fallback to existing regex-based tool parsing
+                tool_result = await self._try_execute_tool_from_response(content, request, task)
 
             if tool_result is not None:
-                # Tool was executed - send result back through LLM for personality-appropriate response
-                final_content = await self._format_tool_result_with_personality(
-                    tool_result, request, current_messages, temperature, max_tokens
-                )
+                # Try council Responder first, fall back to existing personality formatter
+                synthesized = None
+                try:
+                    if council_result and not council_result.fallback_used:
+                        council = self._get_council_manager()
+                        synthesized = await council.synthesize_response(
+                            user_message=request.content,
+                            tool_result=tool_result,
+                            mode=request.mode.value,
+                        )
+                except Exception:
+                    pass
+
+                if synthesized:
+                    final_content = synthesized
+                else:
+                    final_content = await self._format_tool_result_with_personality(
+                        tool_result, request, current_messages, temperature, max_tokens
+                    )
                 response_type = ResponseType.TEXT
             else:
                 # Check if content looks like a raw tool_call JSON that failed to execute
@@ -360,7 +437,7 @@ IMPORTANT RULES:
         except Exception as e:
             # Don't fail the request if memory storage fails
             self.logger.warning(
-                f"Failed to store conversation in memory: {e}",
+                f"Failed to store conversation in memory: {type(e).__name__}",
                 component=LogComponent.ORCHESTRATION,
                 data={"request_id": request.id}
             )
@@ -505,9 +582,71 @@ IMPORTANT RULES:
 
         except Exception as e:
             self.logger.warning(
-                f"Error parsing/executing tool call: {e}",
+                f"Error parsing/executing tool call: {type(e).__name__}",
                 component=LogComponent.ORCHESTRATION,
                 data={"request_id": request.id, "content_preview": content[:200]}
+            )
+            return None
+
+    async def _execute_council_tools(
+        self,
+        tool_calls: List[dict],
+        request: Request,
+        task: Task,
+    ) -> Optional[str]:
+        """
+        Execute pre-parsed tool calls from council Analyzer.
+
+        Returns formatted result string, or None if execution fails.
+        """
+        import json
+
+        try:
+            executor = await self._get_tool_executor()
+            registry = get_tool_registry()
+            results = []
+
+            for tc in tool_calls:
+                tool_name = tc.get("name", "")
+                arguments = tc.get("arguments", {})
+
+                # Validate tool exists in registry
+                if not registry.has_tool(tool_name):
+                    self.logger.warning(
+                        f"Council Analyzer suggested unknown tool: {tool_name}",
+                        component=LogComponent.ORCHESTRATION,
+                        data={"request_id": request.id},
+                    )
+                    continue
+
+                self.logger.info(
+                    f"Executing council-extracted tool: {tool_name}",
+                    component=LogComponent.ORCHESTRATION,
+                    data={"request_id": request.id, "tool_name": tool_name},
+                )
+
+                call = ToolCall.create(tool_name=tool_name, arguments=arguments)
+                result = await executor.execute(call, request.id)
+
+                if result.success:
+                    output = result.output
+                    if isinstance(output, dict):
+                        results.append(json.dumps(output, indent=2))
+                    else:
+                        results.append(str(output))
+                else:
+                    error_msg = result.error or "Unknown error"
+                    results.append(f"Tool {tool_name} failed: {error_msg}")
+
+            if results:
+                return "\n\n".join(results)
+            return None
+
+        except Exception as e:
+            self.logger.warning(
+                f"Council tool execution failed: {type(e).__name__}",
+                component=LogComponent.ORCHESTRATION,
+                data={"request_id": request.id},
             )
             return None
 
@@ -567,7 +706,7 @@ IMPORTANT RULES:
         except Exception as e:
             # Fall back to raw result if formatting fails
             self.logger.warning(
-                f"Failed to format tool result with personality: {e}",
+                f"Failed to format tool result with personality: {type(e).__name__}",
                 component=LogComponent.ORCHESTRATION,
             )
             return tool_result
