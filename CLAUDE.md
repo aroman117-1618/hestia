@@ -206,8 +206,8 @@ Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 | Phase | Status | Scope |
 |-------|--------|-------|
 | Phase 1: Bug Fixes | COMPLETE | Face ID, Notes CLI, tool call JSON |
-| **Phase 2: Quick Wins** | **NEXT** | Remove byline, remove Default Mode, move Memory to CC |
-| Phase 3: Lottie Animations | Planned | Loading animations + snarky bylines |
+| Phase 2: Quick Wins | COMPLETE | Memory already in CC, byline/Default Mode already removed |
+| **Phase 3: Lottie Animations** | **NEXT** | Loading animations + snarky bylines |
 | Phase 4: Settings Integrations | Planned | Calendar, Reminders, Notes, Mail, Weather, Stocks |
 | Phase 5: Neural Net Graph | Planned | Force-directed memory visualization (Grape library) |
 
