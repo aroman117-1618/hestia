@@ -128,13 +128,25 @@ else
     echo "⚠ launchd service not configured"
 fi
 
-# Health check (if API exists)
-sleep 1
-if curl -sf http://localhost:8443/health > /dev/null 2>&1; then
-    echo "✓ API health check passed"
+# Health check with retry (server may need a moment after reload)
+# Uses -k for self-signed cert; set HESTIA_CA_CERT for proper TLS verification
+HEALTH_CURL_OPTS="-sf"
+if [[ -n "${HESTIA_CA_CERT:-}" ]]; then
+    HEALTH_CURL_OPTS="$HEALTH_CURL_OPTS --cacert $HESTIA_CA_CERT"
 else
-    echo "⚠ API server not yet implemented or not responding"
+    HEALTH_CURL_OPTS="$HEALTH_CURL_OPTS -k"
 fi
+
+echo "Checking API health..."
+for i in 1 2 3 4 5; do
+    sleep 2
+    if curl $HEALTH_CURL_OPTS https://localhost:8443/v1/ping > /dev/null 2>&1; then
+        echo "✓ API health check passed (HTTPS)"
+        break
+    elif [[ $i -eq 5 ]]; then
+        echo "⚠ API server not responding after 10s"
+    fi
+done
 
 echo ""
 echo "Remote setup complete!"
