@@ -35,9 +35,13 @@ struct HestiaApp: App {
                 .task {
                     // Configure API client with stored token if available
                     if apiClientProvider.configureFromAuthService(authService) {
+                        #if DEBUG
                         print("[HestiaApp] API client configured with stored token")
+                        #endif
                     } else {
+                        #if DEBUG
                         print("[HestiaApp] No stored token, device registration required")
+                        #endif
                     }
                 }
         }

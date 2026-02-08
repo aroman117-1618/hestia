@@ -31,6 +31,12 @@ extension Color {
     static let cardBackground = Color.white.opacity(0.1)
     static let surfaceBackground = Color.white.opacity(0.05)
 
+    // MARK: - Cloud Provider Colors
+
+    static let anthropicBrand = Color(hex: "D4A574")
+    static let openAIBrand = Color(hex: "10A37F")
+    static let googleBrand = Color(hex: "4285F4")
+
     // MARK: - Status Colors
 
     static let healthyGreen = Color(hex: "34C759")

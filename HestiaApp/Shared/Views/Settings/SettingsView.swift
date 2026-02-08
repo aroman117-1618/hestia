@@ -28,6 +28,11 @@ struct SettingsView: View {
                             systemStatusSection
                         }
 
+                        // Cloud Providers
+                        settingsSection("Cloud Providers") {
+                            cloudProvidersSection
+                        }
+
                         // User Profile
                         settingsSection("User Profile") {
                             userProfileSection
@@ -180,6 +185,34 @@ struct SettingsView: View {
                 .frame(width: 8, height: 8)
         }
         .settingsRow()
+    }
+
+    // MARK: - Cloud Providers Section
+
+    private var cloudProvidersSection: some View {
+        NavigationLink(destination: CloudSettingsView()) {
+            HStack {
+                Image(systemName: "cloud")
+                    .foregroundColor(.white)
+                    .frame(width: 32)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Cloud LLM Providers")
+                        .foregroundColor(.white)
+
+                    Text("Configure cloud inference providers")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.6))
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.white.opacity(0.5))
+            }
+        }
+        .settingsRow()
+        .padding(.horizontal, Spacing.lg)
     }
 
     // MARK: - User Profile Section

@@ -84,7 +84,9 @@ class AuthViewModel: ObservableObject {
 
             // Configure API client with the new token
             apiClientProvider?.configure(withToken: token)
+            #if DEBUG
             print("[AuthViewModel] API client configured with new token")
+            #endif
 
             // After registration, authenticate
             await authenticate()

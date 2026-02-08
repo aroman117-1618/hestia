@@ -297,6 +297,230 @@ struct PushTokenResponse: Codable {
     let message: String
 }
 
+// MARK: - Cloud Provider API Models
+
+/// Supported cloud LLM providers
+enum APICloudProvider: String, Codable, CaseIterable {
+    case anthropic
+    case openai
+    case google
+}
+
+/// Cloud provider operational state
+enum APICloudProviderState: String, Codable, CaseIterable {
+    case disabled
+    case enabledFull = "enabled_full"
+    case enabledSmart = "enabled_smart"
+}
+
+struct CloudProviderAddRequest: Codable {
+    let provider: APICloudProvider
+    let apiKey: String
+    let state: APICloudProviderState
+    let modelId: String?
+
+    init(provider: APICloudProvider, apiKey: String, state: APICloudProviderState = .enabledSmart, modelId: String? = nil) {
+        self.provider = provider
+        self.apiKey = apiKey
+        self.state = state
+        self.modelId = modelId
+    }
+}
+
+struct CloudProviderStateUpdateRequest: Codable {
+    let state: APICloudProviderState
+}
+
+struct CloudProviderModelUpdateRequest: Codable {
+    let modelId: String
+}
+
+struct CloudModelInfo: Codable, Identifiable {
+    let modelId: String
+    let provider: APICloudProvider
+    let displayName: String
+    let contextWindow: Int
+    let maxOutputTokens: Int
+    let costPer1kInput: Double
+    let costPer1kOutput: Double
+
+    var id: String { modelId }
+}
+
+struct CloudProviderResponse: Codable, Identifiable {
+    let id: String
+    let provider: APICloudProvider
+    let state: APICloudProviderState
+    let activeModelId: String?
+    let availableModels: [String]
+    let hasApiKey: Bool
+    let healthStatus: String
+    let lastHealthCheck: Date?
+    let createdAt: Date
+    let updatedAt: Date
+}
+
+struct CloudProviderListResponse: Codable {
+    let providers: [CloudProviderResponse]
+    let count: Int
+    let cloudState: String
+}
+
+struct CloudProviderDeleteResponse: Codable {
+    let provider: APICloudProvider
+    let deleted: Bool
+    let message: String
+}
+
+struct CloudUsageSummaryResponse: Codable {
+    let periodDays: Int
+    let totalRequests: Int
+    let totalTokensIn: Int
+    let totalTokensOut: Int
+    let totalCostUsd: Double
+    let byProvider: [String: CloudUsageBreakdown]?
+    let byModel: [String: CloudUsageBreakdown]?
+}
+
+struct CloudUsageBreakdown: Codable {
+    let requests: Int?
+    let tokensIn: Int?
+    let tokensOut: Int?
+    let costUsd: Double?
+}
+
+struct CloudHealthCheckResponse: Codable {
+    let provider: APICloudProvider
+    let healthy: Bool
+    let healthStatus: String
+    let message: String
+}
+
+// MARK: - Voice Journaling API Models (WS2)
+
+/// Request body for POST /v1/voice/quality-check
+struct VoiceQualityCheckRequest: Codable {
+    let transcript: String
+    let knownEntities: [String]?
+}
+
+/// A word flagged as potentially incorrect by the quality checker
+struct VoiceFlaggedWordResponse: Codable {
+    let word: String
+    let position: Int
+    let confidence: Double
+    let suggestions: [String]
+    let reason: String
+
+    /// Unique key for ForEach identification (avoids position-only collisions)
+    var uniqueKey: String { "\(position)-\(word)" }
+}
+
+/// Response from POST /v1/voice/quality-check
+struct VoiceQualityCheckResponse: Codable {
+    let transcript: String
+    let flaggedWords: [VoiceFlaggedWordResponse]
+    let overallConfidence: Double
+    let needsReview: Bool
+}
+
+/// Request body for POST /v1/voice/journal-analyze
+struct VoiceJournalAnalyzeRequest: Codable {
+    let transcript: String
+    let mode: String?
+}
+
+/// Intent type extracted from journal entries
+enum APIVoiceIntentType: String, Codable, CaseIterable {
+    case actionItem = "action_item"
+    case reminder
+    case note
+    case decision
+    case reflection
+    case followUp = "follow_up"
+}
+
+/// Cross-reference source for journal analysis
+enum APIVoiceCrossRefSource: String, Codable, CaseIterable {
+    case calendar
+    case mail
+    case memory
+    case reminders
+}
+
+/// An intent extracted from a journal transcript
+struct VoiceJournalIntentResponse: Codable, Identifiable {
+    let id: String
+    let intentType: APIVoiceIntentType
+    let content: String
+    let confidence: Double
+    let entities: [String]
+}
+
+/// A cross-reference match from an external source
+struct VoiceCrossReferenceResponse: Codable {
+    let source: APIVoiceCrossRefSource
+    let match: String
+    let relevance: Double
+    let details: [String: AnyCodableValue]?
+}
+
+/// An action plan item from journal analysis
+struct VoiceActionPlanItemResponse: Codable, Identifiable {
+    let id: String
+    let action: String
+    let toolCall: String?
+    let arguments: [String: AnyCodableValue]?
+    let confidence: Double
+    let intentId: String?
+}
+
+/// Response from POST /v1/voice/journal-analyze
+struct VoiceJournalAnalyzeResponse: Codable, Identifiable {
+    let id: String
+    let transcript: String
+    let intents: [VoiceJournalIntentResponse]
+    let crossReferences: [VoiceCrossReferenceResponse]
+    let actionPlan: [VoiceActionPlanItemResponse]
+    let summary: String
+    let timestamp: String
+}
+
+/// Type-erased Codable value for dynamic JSON dicts (arguments, details)
+enum AnyCodableValue: Codable {
+    case string(String)
+    case int(Int)
+    case double(Double)
+    case bool(Bool)
+    case null
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let v = try? container.decode(String.self) { self = .string(v); return }
+        if let v = try? container.decode(Int.self) { self = .int(v); return }
+        if let v = try? container.decode(Double.self) { self = .double(v); return }
+        if let v = try? container.decode(Bool.self) { self = .bool(v); return }
+        if container.decodeNil() { self = .null; return }
+        throw DecodingError.dataCorruptedError(in: container, debugDescription: "Unsupported value type")
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .string(let v): try container.encode(v)
+        case .int(let v): try container.encode(v)
+        case .double(let v): try container.encode(v)
+        case .bool(let v): try container.encode(v)
+        case .null: try container.encodeNil()
+        }
+    }
+
+    var stringValue: String? {
+        if case .string(let v) = self { return v }
+        return nil
+    }
+}
+
 // MARK: - Generic API Response Wrapper
 
 struct EmptyResponse: Codable {}

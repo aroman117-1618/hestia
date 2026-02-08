@@ -6,10 +6,12 @@ struct ChatView: View {
     @EnvironmentObject var apiClientProvider: APIClientProvider
     @EnvironmentObject var authService: AuthService
     @StateObject private var viewModel = ChatViewModel()
+    @StateObject private var voiceViewModel = VoiceInputViewModel()
 
     @State private var messageText = ""
     @State private var avatarPosition: CGPoint = .zero
     @State private var scrollViewContentSize: CGSize = .zero
+    @State private var showVoiceReview = false
     @FocusState private var isInputFocused: Bool
 
     var body: some View {
@@ -62,6 +64,7 @@ struct ChatView: View {
             // Configure with real API client when available
             if apiClientProvider.isReady {
                 viewModel.configure(client: apiClientProvider.client)
+                voiceViewModel.configure(client: apiClientProvider.client)
             }
             viewModel.loadInitialGreeting(mode: appState.currentMode)
         }
@@ -69,6 +72,7 @@ struct ChatView: View {
             // Also configure when client becomes ready later
             if isReady {
                 viewModel.configure(client: apiClientProvider.client)
+                voiceViewModel.configure(client: apiClientProvider.client)
             }
         }
         .alert("Error", isPresented: $viewModel.showError) {
@@ -90,6 +94,50 @@ struct ChatView: View {
             }
         } message: {
             Text(viewModel.errorState?.userMessage ?? "An error occurred")
+        }
+        // Voice recording overlay
+        .fullScreenCover(isPresented: .init(
+            get: { voiceViewModel.phase == .recording },
+            set: { _ in }
+        )) {
+            VoiceRecordingOverlay(
+                viewModel: voiceViewModel,
+                onStop: {
+                    Task {
+                        await voiceViewModel.stopRecording()
+                        // Brief delay lets fullScreenCover dismiss before sheet presents
+                        try? await Task.sleep(nanoseconds: 300_000_000)
+                        showVoiceReview = true
+                    }
+                },
+                onCancel: {
+                    voiceViewModel.cancel()
+                }
+            )
+            .background(ClearBackgroundView())
+        }
+        // Transcript review sheet
+        .sheet(isPresented: $showVoiceReview) {
+            TranscriptReviewView(
+                viewModel: voiceViewModel,
+                onAccept: { transcript in
+                    showVoiceReview = false
+                    sendVoiceTranscript(transcript)
+                },
+                onCancel: {
+                    showVoiceReview = false
+                    voiceViewModel.cancel()
+                }
+            )
+        }
+        // Voice error alert
+        .alert("Voice Error", isPresented: $voiceViewModel.showError) {
+            Button("OK", role: .cancel) {
+                voiceViewModel.error = nil
+                voiceViewModel.showError = false
+            }
+        } message: {
+            Text(voiceViewModel.error ?? "An error occurred")
         }
     }
 
@@ -276,14 +324,30 @@ struct ChatView: View {
                 .accessibilityLabel("Message input")
                 .accessibilityHint("Type your message to \(appState.currentMode.displayName)")
 
-            // Send button
-            Button(action: sendMessage) {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 32))
-                    .foregroundColor(canSend ? .white : .white.opacity(0.3))
+            if canSend {
+                // Send button (shown when text is entered)
+                Button(action: sendMessage) {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 32))
+                        .foregroundColor(.white)
+                }
+                .accessibilityLabel("Send message")
+            } else {
+                // Mic button (shown when text field is empty)
+                Button {
+                    Task {
+                        await voiceViewModel.startRecording()
+                    }
+                } label: {
+                    Image(systemName: "mic.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.white.opacity(0.7))
+                        .frame(width: 32, height: 32)
+                }
+                .disabled(viewModel.isLoading)
+                .accessibilityLabel("Voice input")
+                .accessibilityHint("Tap to start voice recording")
             }
-            .disabled(!canSend)
-            .accessibilityLabel("Send message")
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.vertical, Spacing.md)
@@ -320,6 +384,13 @@ struct ChatView: View {
         }
     }
 
+    private func sendVoiceTranscript(_ transcript: String) {
+        guard !transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        Task {
+            await viewModel.sendMessage(transcript, appState: appState)
+        }
+    }
+
     private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
         let targetId: String?
 
@@ -350,6 +421,20 @@ private struct ScrollViewContentSizeKey: PreferenceKey {
     static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
         value = nextValue()
     }
+}
+
+// MARK: - Clear Background (for fullScreenCover transparency)
+
+private struct ClearBackgroundView: UIViewRepresentable {
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        DispatchQueue.main.async {
+            view.superview?.superview?.backgroundColor = .clear
+        }
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {}
 }
 
 // MARK: - Bouncing Dot Animation

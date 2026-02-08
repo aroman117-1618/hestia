@@ -35,7 +35,9 @@ class ChatViewModel: ObservableObject {
         guard !isConfigured else { return }
         self.client = client
         self.isConfigured = true
+        #if DEBUG
         print("[ChatViewModel] Configured with real API client")
+        #endif
     }
 
     // MARK: - Public Methods

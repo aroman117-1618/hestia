@@ -353,6 +353,51 @@ class APIClient: HestiaClientProtocol {
         return try await delete("/user/push-token")
     }
 
+    // MARK: - Cloud Providers API
+
+    func listCloudProviders() async throws -> CloudProviderListResponse {
+        return try await get("/cloud/providers")
+    }
+
+    func addCloudProvider(_ provider: APICloudProvider, apiKey: String, state: APICloudProviderState = .enabledSmart, modelId: String? = nil) async throws -> CloudProviderResponse {
+        let request = CloudProviderAddRequest(provider: provider, apiKey: apiKey, state: state, modelId: modelId)
+        return try await post("/cloud/providers", body: request)
+    }
+
+    func removeCloudProvider(_ provider: APICloudProvider) async throws -> CloudProviderDeleteResponse {
+        return try await delete("/cloud/providers/\(provider.rawValue)")
+    }
+
+    func updateCloudProviderState(_ provider: APICloudProvider, state: APICloudProviderState) async throws -> CloudProviderResponse {
+        let request = CloudProviderStateUpdateRequest(state: state)
+        return try await patch("/cloud/providers/\(provider.rawValue)/state", body: request)
+    }
+
+    func updateCloudProviderModel(_ provider: APICloudProvider, modelId: String) async throws -> CloudProviderResponse {
+        let request = CloudProviderModelUpdateRequest(modelId: modelId)
+        return try await patch("/cloud/providers/\(provider.rawValue)/model", body: request)
+    }
+
+    func getCloudUsage(days: Int = 30) async throws -> CloudUsageSummaryResponse {
+        return try await get("/cloud/usage?period_days=\(days)")
+    }
+
+    func checkCloudProviderHealth(_ provider: APICloudProvider) async throws -> CloudHealthCheckResponse {
+        return try await post("/cloud/providers/\(provider.rawValue)/health", body: EmptyBody())
+    }
+
+    // MARK: - Voice Journaling API
+
+    func voiceQualityCheck(transcript: String, knownEntities: [String]? = nil) async throws -> VoiceQualityCheckResponse {
+        let request = VoiceQualityCheckRequest(transcript: transcript, knownEntities: knownEntities)
+        return try await post("/voice/quality-check", body: request)
+    }
+
+    func voiceJournalAnalyze(transcript: String, mode: String? = nil) async throws -> VoiceJournalAnalyzeResponse {
+        let request = VoiceJournalAnalyzeRequest(transcript: transcript, mode: mode)
+        return try await post("/voice/journal-analyze", body: request)
+    }
+
     // MARK: - Private HTTP Methods
 
     private func get<T: Decodable>(_ path: String) async throws -> T {
