@@ -1,16 +1,16 @@
 """
 Inference client for Hestia.
 
-Provides async interface to local models via Ollama.
+Provides async interface to local models via Ollama and cloud providers.
 
 Features:
-- Local-only inference: routes to fast local model (Qwen 2.5 7B) or complex local (Mixtral)
+- Local inference: fast local model (Qwen 2.5 7B) or complex local (Mixtral)
+- Cloud inference: Anthropic, OpenAI, Google via CloudInferenceClient
+- Smart routing: local-first with cloud spillover (enabled_smart mode)
 - Token counting and context window management (32K budget)
 - Retry logic with exponential backoff
 - Response validation
 - Comprehensive logging
-
-Note: Cloud LLM fallback has been removed per ADR-001/ADR-010 (local-only architecture).
 """
 
 import asyncio
@@ -184,14 +184,16 @@ class TokenCounter:
 
 class InferenceClient:
     """
-    Async client for LLM inference with local model routing.
+    Async client for LLM inference with local and cloud model routing.
 
-    Tiers (local-only per ADR-001/ADR-010):
+    Tiers:
     1. Primary: Fast local model (Qwen 2.5 7B) - default
-    2. Complex: Large local model (Mixtral 8x7B) - when enabled (64GB RAM) and pattern matches
+    2. Complex: Large local model (Mixtral 8x7B) - when enabled (64GB RAM)
+    3. Cloud: Cloud LLM (Anthropic/OpenAI/Google) - when cloud enabled
 
     Features:
-    - Smart model routing based on request complexity
+    - Smart model routing based on request complexity and cloud state
+    - Cloud spillover when local fails (enabled_smart mode)
     - Token counting and context window management
     - Retry logic with exponential backoff
     - Response validation
@@ -203,6 +205,8 @@ class InferenceClient:
         config: Optional[InferenceConfig] = None,
         config_path: Optional[Path] = None,
         router: Optional[ModelRouter] = None,
+        cloud_inference_client: Optional[Any] = None,
+        cloud_manager: Optional[Any] = None,
     ):
         """
         Initialize inference client.
@@ -211,6 +215,8 @@ class InferenceClient:
             config: InferenceConfig instance. If None, loads from config_path.
             config_path: Path to YAML config. Defaults to hestia/config/inference.yaml
             router: ModelRouter instance. If None, creates default.
+            cloud_inference_client: CloudInferenceClient for cloud calls.
+            cloud_manager: CloudManager for provider/key management.
         """
         if config:
             self.config = config
@@ -227,6 +233,10 @@ class InferenceClient:
 
         # Router for model selection
         self.router = router or get_router()
+
+        # Cloud inference (lazy-loaded if not provided)
+        self._cloud_inference_client = cloud_inference_client
+        self._cloud_manager = cloud_manager
 
     async def _get_client(self, timeout: Optional[float] = None) -> httpx.AsyncClient:
         """Get or create HTTP client with optional custom timeout."""
@@ -373,7 +383,11 @@ class InferenceClient:
         max_tokens: Optional[int] = None,
     ) -> InferenceResponse:
         """
-        Call inference with smart local model routing.
+        Call inference with smart model routing (local + cloud).
+
+        Routing logic:
+        - If routing says CLOUD tier → go straight to cloud
+        - If routing says PRIMARY/COMPLEX → try local, then fall back to cloud if configured
 
         Args:
             prompt: The prompt to complete.
@@ -385,7 +399,6 @@ class InferenceClient:
         Returns:
             InferenceResponse with generated content.
         """
-        # Get routing decision (local models only per ADR-001/ADR-010)
         token_count = self._count_request_tokens(prompt, system, messages)
         routing = self.router.route(
             prompt=prompt or (messages[-1].content if messages else ""),
@@ -400,24 +413,133 @@ class InferenceClient:
                 "model": routing.model_config.name,
                 "reason": routing.reason,
                 "token_count": token_count,
+                "fallback_tier": routing.fallback_tier.value if routing.fallback_tier else None,
             },
         )
 
-        # Try local model
+        # Direct cloud routing (enabled_full or smart spillover by token count)
+        if routing.tier == ModelTier.CLOUD:
+            try:
+                response = await self._call_cloud(
+                    messages=messages,
+                    system=system,
+                    prompt=prompt,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+                self.router.record_success(ModelTier.CLOUD)
+                return response
+            except Exception as cloud_error:
+                self.router.record_failure(ModelTier.CLOUD)
+                self.logger.warning(
+                    f"Cloud inference failed: {cloud_error}",
+                    component=LogComponent.INFERENCE,
+                )
+                # If cloud was primary, try falling back to local
+                if routing.fallback_tier in (ModelTier.PRIMARY, ModelTier.COMPLEX):
+                    self.logger.info(
+                        f"Falling back from cloud to {routing.fallback_tier.value}",
+                        component=LogComponent.INFERENCE,
+                    )
+                    return await self._call_local_with_retries(
+                        prompt=prompt,
+                        model_name=self.router._get_config_for_tier(routing.fallback_tier).name,
+                        system=system,
+                        messages=messages,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        timeout=self.router._get_config_for_tier(routing.fallback_tier).request_timeout,
+                        tier=routing.fallback_tier,
+                    )
+                raise LocalModelFailed(
+                    f"Cloud inference failed and no local fallback: {cloud_error}"
+                ) from cloud_error
+
+        # Local routing (PRIMARY or COMPLEX)
+        try:
+            return await self._call_local_with_retries(
+                prompt=prompt,
+                model_name=routing.model_config.name,
+                system=system,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                timeout=routing.model_config.request_timeout,
+                tier=routing.tier,
+            )
+        except LocalModelFailed as local_error:
+            # Local failed — try cloud fallback if available
+            if routing.fallback_tier == ModelTier.CLOUD:
+                self.logger.info(
+                    f"Local model failed, attempting cloud spillover",
+                    component=LogComponent.INFERENCE,
+                    data={"local_error": str(local_error)},
+                )
+                try:
+                    response = await self._call_cloud(
+                        messages=messages,
+                        system=system,
+                        prompt=prompt,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                    )
+                    response.fallback_used = True
+                    self.router.record_success(ModelTier.CLOUD)
+                    return response
+                except Exception as cloud_error:
+                    self.router.record_failure(ModelTier.CLOUD)
+                    self.logger.error(
+                        f"Cloud spillover also failed: {cloud_error}",
+                        component=LogComponent.INFERENCE,
+                    )
+                    # Raise the original local error — cloud was just a fallback
+                    raise local_error from cloud_error
+            raise
+
+    async def _call_local_with_retries(
+        self,
+        prompt: str,
+        model_name: str,
+        system: Optional[str],
+        messages: Optional[List[Message]],
+        temperature: Optional[float],
+        max_tokens: Optional[int],
+        timeout: float,
+        tier: ModelTier,
+    ) -> InferenceResponse:
+        """
+        Call local Ollama model with retry logic.
+
+        Args:
+            prompt: The prompt text.
+            model_name: Ollama model name.
+            system: Optional system prompt.
+            messages: Optional message list.
+            temperature: Sampling temperature.
+            max_tokens: Max output tokens.
+            timeout: Request timeout.
+            tier: Which tier this is (for tracking).
+
+        Returns:
+            InferenceResponse from local model.
+
+        Raises:
+            LocalModelFailed: After all retries exhausted.
+        """
         last_error: Optional[Exception] = None
         for attempt in range(self.config.max_retries):
             try:
                 response = await self._call_ollama(
                     prompt=prompt,
-                    model_name=routing.model_config.name,
+                    model_name=model_name,
                     system=system,
                     messages=messages,
                     temperature=temperature,
                     max_tokens=max_tokens,
-                    timeout=routing.model_config.request_timeout,
+                    timeout=timeout,
                 )
-                response.tier = routing.tier.value
-                self.router.record_success(routing.tier)
+                response.tier = tier.value
+                self.router.record_success(tier)
                 return response
 
             except httpx.HTTPStatusError as e:
@@ -432,7 +554,7 @@ class InferenceClient:
                 self.logger.warning(
                     f"Local inference timeout (attempt {attempt + 1}/{self.config.max_retries})",
                     component=LogComponent.INFERENCE,
-                    data={"model": routing.model_config.name, "attempt": attempt + 1},
+                    data={"model": model_name, "attempt": attempt + 1},
                 )
 
             except httpx.ConnectError as e:
@@ -464,11 +586,99 @@ class InferenceClient:
                 )
                 await asyncio.sleep(delay)
 
-        # Local model failed - no cloud fallback (local-only architecture)
-        self.router.record_failure(routing.tier)
+        # All retries exhausted
+        self.router.record_failure(tier)
         raise LocalModelFailed(
             f"Local model failed after {self.config.max_retries} attempts: {last_error}"
         ) from last_error
+
+    async def _call_cloud(
+        self,
+        messages: Optional[List[Message]] = None,
+        system: Optional[str] = None,
+        prompt: str = "",
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+    ) -> InferenceResponse:
+        """
+        Call cloud LLM provider.
+
+        Retrieves active provider and API key from CloudManager,
+        then delegates to CloudInferenceClient.
+
+        Returns:
+            InferenceResponse with tier="cloud".
+
+        Raises:
+            LocalModelFailed: If no cloud provider is configured.
+            CloudInferenceError: If cloud call fails.
+        """
+        from hestia.cloud.client import get_cloud_inference_client, CloudInferenceError
+        from hestia.cloud.manager import get_cloud_manager
+
+        cloud_manager = self._cloud_manager
+        if cloud_manager is None:
+            cloud_manager = await get_cloud_manager()
+            self._cloud_manager = cloud_manager
+
+        cloud_client = self._cloud_inference_client
+        if cloud_client is None:
+            cloud_client = get_cloud_inference_client(
+                request_timeout=self.router.cloud_routing.request_timeout,
+            )
+            self._cloud_inference_client = cloud_client
+
+        # Get active provider
+        active_provider = await cloud_manager.get_active_provider()
+        if active_provider is None:
+            raise LocalModelFailed("No cloud provider configured or enabled")
+
+        # Get API key
+        api_key = await cloud_manager.get_api_key(active_provider.provider)
+        if not api_key:
+            raise LocalModelFailed(
+                f"No API key available for {active_provider.provider.value}"
+            )
+
+        # Build message list if only prompt provided
+        chat_messages = messages or []
+        if not chat_messages and prompt:
+            chat_messages = [Message(role="user", content=prompt)]
+
+        # Call cloud provider (wrap to sanitize any credential leaks in errors)
+        try:
+            response = await cloud_client.complete(
+                provider=active_provider.provider,
+                model_id=active_provider.active_model_id or "default",
+                api_key=api_key,
+                messages=chat_messages,
+                system=system,
+                temperature=temperature if temperature is not None else self.config.temperature,
+                max_tokens=max_tokens or self.config.max_tokens,
+            )
+        except Exception as e:
+            # Sanitize error message to prevent credential leakage in logs
+            safe_msg = str(e)
+            if api_key and len(api_key) > 8:
+                safe_msg = safe_msg.replace(api_key, "***REDACTED***")
+                safe_msg = safe_msg.replace(api_key[:8], "***")
+            raise type(e)(safe_msg) from None
+
+        # Track usage
+        try:
+            usage_record = cloud_client.build_usage_record(
+                provider=active_provider.provider,
+                model_id=active_provider.active_model_id or "default",
+                response=response,
+            )
+            await cloud_manager.record_usage(usage_record)
+        except Exception as e:
+            self.logger.warning(
+                f"Failed to record cloud usage: {e}",
+                component=LogComponent.INFERENCE,
+            )
+
+        return response
 
     async def complete(
         self,
@@ -698,9 +908,23 @@ class InferenceClient:
                 "error": str(e),
             }
 
-        # Overall status based on local only (local-only architecture per ADR-001/ADR-010)
+        # Cloud health (if configured)
+        cloud_state = self.router.cloud_routing.state
+        if cloud_state != "disabled":
+            result["cloud"] = {
+                "state": cloud_state,
+                "status": "configured",
+            }
+
+        # Overall status
         local_ok = result["local"].get("status") in ("healthy", "degraded")
-        result["status"] = "healthy" if local_ok else "unhealthy"
+        if cloud_state == "enabled_full":
+            # In full cloud mode, local being down is less critical
+            result["status"] = "healthy" if local_ok else "degraded"
+        else:
+            result["status"] = "healthy" if local_ok else "unhealthy"
+
+        result["architecture"] = "local-only" if cloud_state == "disabled" else f"hybrid ({cloud_state})"
 
         return result
 
@@ -714,7 +938,7 @@ class InferenceClient:
         """
         Stream completion tokens as they are generated.
 
-        Uses local models only (local-only architecture per ADR-001/ADR-010).
+        Uses local models only (streaming not yet supported for cloud).
 
         Args:
             prompt: The prompt to complete.

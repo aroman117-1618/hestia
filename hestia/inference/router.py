@@ -1,15 +1,15 @@
 """
-Model router for Hestia local inference.
+Model router for Hestia inference.
 
-Routes requests to the appropriate local model tier based on:
+Routes requests to the appropriate model tier based on:
 - Request complexity (token count, patterns)
 - Model availability (health checks)
+- Cloud provider state (disabled, enabled_full, enabled_smart)
 
 Tiers:
 1. Primary: Fast local model (Qwen 2.5 7B) - default for routine queries
 2. Complex: Large local model (Mixtral 8x7B) - for complex reasoning (when 64GB RAM available)
-
-Note: Cloud fallback has been removed per ADR-001/ADR-010 (local-only architecture).
+3. Cloud: Cloud LLM provider - for full cloud mode or smart spillover after local failure
 """
 
 import re
@@ -25,9 +25,10 @@ from hestia.logging import get_logger, LogComponent, EventType
 
 
 class ModelTier(Enum):
-    """Model tiers for routing (local-only)."""
+    """Model tiers for routing."""
     PRIMARY = "primary"      # Fast local (Qwen 2.5 7B)
     COMPLEX = "complex"      # Large local (Mixtral 8x7B, when 64GB available)
+    CLOUD = "cloud"          # Cloud LLM (Anthropic/OpenAI/Google)
 
 
 @dataclass
@@ -40,6 +41,21 @@ class ModelConfig:
     request_timeout: float = 60.0
     enabled: bool = True
     api_key_credential: Optional[str] = None  # For cloud models
+
+
+@dataclass
+class CloudRoutingConfig:
+    """Configuration for cloud routing."""
+    # Cloud state: "disabled", "enabled_full", "enabled_smart"
+    state: str = "disabled"
+    # Smart mode: route to cloud if token count exceeds this
+    spillover_token_threshold: int = 16000
+    # Smart mode: fall back to cloud after local retries exhausted
+    spillover_on_local_failure: bool = True
+    # Cloud-specific timeout
+    request_timeout: float = 60.0
+    # Cloud-specific retries
+    max_retries: int = 2
 
 
 @dataclass
@@ -60,17 +76,23 @@ class RoutingDecision:
 
 class ModelRouter:
     """
-    Routes inference requests to appropriate local model tier.
+    Routes inference requests to appropriate model tier.
 
-    Maintains failure counts for monitoring. All inference is local-only.
+    Supports local tiers (primary, complex) and cloud tier.
+    Cloud state can be set dynamically by CloudManager.
     """
 
-    def __init__(self, config_path: Optional[Path] = None):
+    def __init__(
+        self,
+        config_path: Optional[Path] = None,
+        cloud_state: Optional[str] = None,
+    ):
         """
         Initialize router with configuration.
 
         Args:
             config_path: Path to inference.yaml config file.
+            cloud_state: Override cloud state ("disabled", "enabled_full", "enabled_smart").
         """
         self.logger = get_logger()
 
@@ -80,16 +102,28 @@ class ModelRouter:
 
         self._load_config(config_path)
 
+        # Override cloud state if provided
+        if cloud_state is not None:
+            valid_states = {"disabled", "enabled_full", "enabled_smart"}
+            if cloud_state not in valid_states:
+                raise ValueError(
+                    f"Invalid cloud_state: {cloud_state}. Must be one of {valid_states}"
+                )
+            self.cloud_routing.state = cloud_state
+            self.cloud_model.enabled = cloud_state != "disabled"
+
         # Track failure counts for escalation
         self._failure_counts: Dict[ModelTier, int] = {
             ModelTier.PRIMARY: 0,
             ModelTier.COMPLEX: 0,
+            ModelTier.CLOUD: 0,
         }
 
         # Track last successful inference per tier
         self._last_success: Dict[ModelTier, Optional[datetime]] = {
             ModelTier.PRIMARY: None,
             ModelTier.COMPLEX: None,
+            ModelTier.CLOUD: None,
         }
 
     def _load_config(self, config_path: Path) -> None:
@@ -121,7 +155,25 @@ class ModelRouter:
             enabled=complex_data.get("enabled", False),
         )
 
-        # Cloud model removed - local-only architecture per ADR-001/ADR-010
+        # Cloud routing config
+        cloud_data = data.get("cloud", {})
+        self.cloud_routing = CloudRoutingConfig(
+            state=cloud_data.get("state", "disabled"),
+            spillover_token_threshold=cloud_data.get("spillover_token_threshold", 16000),
+            spillover_on_local_failure=cloud_data.get("spillover_on_local_failure", True),
+            request_timeout=cloud_data.get("request_timeout", 60.0),
+            max_retries=cloud_data.get("max_retries", 2),
+        )
+
+        # Cloud model config (used when routing to cloud tier)
+        self.cloud_model = ModelConfig(
+            name="cloud",  # Placeholder — actual model selected by CloudManager
+            context_limit=200000,
+            max_tokens=4096,
+            temperature=0.0,
+            request_timeout=self.cloud_routing.request_timeout,
+            enabled=self.cloud_routing.state != "disabled",
+        )
 
         # Parse routing config
         routing_data = data.get("routing", {})
@@ -140,7 +192,12 @@ class ModelRouter:
         force_tier: Optional[ModelTier] = None,
     ) -> RoutingDecision:
         """
-        Determine which local model tier to use for a request.
+        Determine which model tier to use for a request.
+
+        Cloud routing logic:
+        - disabled: local-only (primary/complex)
+        - enabled_full: always cloud
+        - enabled_smart: local first, cloud fallback on failure or high token count
 
         Args:
             prompt: The user prompt (for pattern matching).
@@ -161,7 +218,48 @@ class ModelRouter:
                     fallback_tier=self._get_fallback_tier(force_tier),
                 )
 
-        # Check for complex patterns (only if complex model is enabled, i.e., 64GB RAM available)
+        cloud_state = self.cloud_routing.state
+
+        # enabled_full: always route to cloud
+        if cloud_state == "enabled_full" and self.cloud_model.enabled:
+            return RoutingDecision(
+                tier=ModelTier.CLOUD,
+                model_config=self.cloud_model,
+                reason="cloud_full_mode",
+                fallback_tier=ModelTier.PRIMARY,
+            )
+
+        # enabled_smart: check spillover conditions
+        if cloud_state == "enabled_smart" and self.cloud_model.enabled:
+            # High token count → route directly to cloud
+            if token_count >= self.cloud_routing.spillover_token_threshold:
+                return RoutingDecision(
+                    tier=ModelTier.CLOUD,
+                    model_config=self.cloud_model,
+                    reason="cloud_smart_token_spillover",
+                    fallback_tier=ModelTier.PRIMARY,
+                )
+
+            # Otherwise: local first with cloud fallback
+            fallback = ModelTier.CLOUD if self.cloud_routing.spillover_on_local_failure else None
+
+            # Check for complex patterns
+            if self.complex_model.enabled and self._is_complex_request(prompt, token_count):
+                return RoutingDecision(
+                    tier=ModelTier.COMPLEX,
+                    model_config=self.complex_model,
+                    reason="complex_request_pattern",
+                    fallback_tier=fallback,
+                )
+
+            return RoutingDecision(
+                tier=ModelTier.PRIMARY,
+                model_config=self.primary_model,
+                reason="default_primary",
+                fallback_tier=fallback,
+            )
+
+        # disabled (or no cloud configured): local-only routing
         if self.complex_model.enabled and self._is_complex_request(prompt, token_count):
             return RoutingDecision(
                 tier=ModelTier.COMPLEX,
@@ -170,7 +268,6 @@ class ModelRouter:
                 fallback_tier=ModelTier.PRIMARY,
             )
 
-        # Default to primary model (Qwen 2.5 7B)
         return RoutingDecision(
             tier=ModelTier.PRIMARY,
             model_config=self.primary_model,
@@ -197,15 +294,42 @@ class ModelRouter:
         return {
             ModelTier.PRIMARY: self.primary_model,
             ModelTier.COMPLEX: self.complex_model,
+            ModelTier.CLOUD: self.cloud_model,
         }.get(tier)
 
     def _get_fallback_tier(self, tier: ModelTier) -> Optional[ModelTier]:
-        """Get fallback tier for a given tier (local models only)."""
+        """Get fallback tier for a given tier."""
+        cloud_state = self.cloud_routing.state
+
         if tier == ModelTier.PRIMARY:
-            return None  # No fallback for primary
+            # Primary can fall back to cloud in smart mode
+            if cloud_state == "enabled_smart" and self.cloud_routing.spillover_on_local_failure:
+                return ModelTier.CLOUD
+            return None
         elif tier == ModelTier.COMPLEX:
-            return ModelTier.PRIMARY  # Fall back to primary if complex fails
+            # Complex falls back to cloud (smart) or primary
+            if cloud_state == "enabled_smart" and self.cloud_routing.spillover_on_local_failure:
+                return ModelTier.CLOUD
+            return ModelTier.PRIMARY
+        elif tier == ModelTier.CLOUD:
+            return ModelTier.PRIMARY  # Cloud falls back to primary
         return None
+
+    def set_cloud_state(self, state: str) -> None:
+        """
+        Dynamically update cloud routing state.
+
+        Called by CloudManager when provider state changes.
+
+        Args:
+            state: "disabled", "enabled_full", or "enabled_smart"
+        """
+        self.cloud_routing.state = state
+        self.cloud_model.enabled = state != "disabled"
+        self.logger.info(
+            f"Cloud routing state updated: {state}",
+            component=LogComponent.INFERENCE,
+        )
 
     def record_success(self, tier: ModelTier) -> None:
         """Record successful inference for a tier."""
@@ -233,11 +357,15 @@ class ModelRouter:
         self._failure_counts = {
             ModelTier.PRIMARY: 0,
             ModelTier.COMPLEX: 0,
+            ModelTier.CLOUD: 0,
         }
 
     def get_status(self) -> Dict[str, Any]:
-        """Get current router status (local models only)."""
-        return {
+        """Get current router status."""
+        cloud_state = self.cloud_routing.state
+        architecture = "local-only" if cloud_state == "disabled" else f"hybrid ({cloud_state})"
+
+        status: Dict[str, Any] = {
             "primary_model": {
                 "name": self.primary_model.name,
                 "enabled": self.primary_model.enabled,
@@ -250,8 +378,17 @@ class ModelRouter:
                 "failures": self._failure_counts.get(ModelTier.COMPLEX, 0),
                 "last_success": self._last_success.get(ModelTier.COMPLEX),
             },
-            "architecture": "local-only",
+            "cloud": {
+                "state": cloud_state,
+                "enabled": self.cloud_model.enabled,
+                "failures": self._failure_counts.get(ModelTier.CLOUD, 0),
+                "last_success": self._last_success.get(ModelTier.CLOUD),
+                "spillover_token_threshold": self.cloud_routing.spillover_token_threshold,
+                "spillover_on_local_failure": self.cloud_routing.spillover_on_local_failure,
+            },
+            "architecture": architecture,
         }
+        return status
 
 
 # Module-level convenience function

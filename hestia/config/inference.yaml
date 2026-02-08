@@ -2,11 +2,13 @@
 # See ADR-011 for context window management details
 
 # =============================================================================
-# LOCAL-ONLY INFERENCE ARCHITECTURE (ADR-001/ADR-010)
+# HESTIA INFERENCE ARCHITECTURE
 # =============================================================================
-# Hestia uses local models exclusively via Ollama:
+# Local models via Ollama:
 #   1. Fast local model (Qwen 2.5 7B) for routine queries
 #   2. Large local model (Mixtral 8x7B) for complex reasoning (when 64GB available)
+# Cloud LLM providers (Anthropic, OpenAI, Google):
+#   3. Cloud inference when enabled (disabled/enabled_full/enabled_smart)
 # =============================================================================
 
 # Ollama connection settings
@@ -103,3 +105,66 @@ retry_max_delay: 30.0     # seconds
 #   - Server timeout should complete BEFORE client timeout
 request_timeout: 90.0     # seconds (fast model default, < iOS 120s)
 connect_timeout: 30.0     # seconds (allow time for Ollama to start)
+
+# -----------------------------------------------------------------------------
+# Cloud LLM Configuration
+# -----------------------------------------------------------------------------
+# States:
+#   disabled      - Local-only, no cloud calls (default)
+#   enabled_full  - All queries routed through cloud (local as fallback)
+#   enabled_smart - Local first, cloud spillover on failure or high token count
+#
+# Provider config (API keys, model selection) is managed via CloudManager
+# and the /v1/cloud/* API endpoints. This section controls routing behavior.
+
+cloud:
+  state: "disabled"
+
+  # Smart mode: route to cloud if input token count exceeds this threshold
+  # (prevents local model from choking on long contexts)
+  spillover_token_threshold: 16000
+
+  # Smart mode: fall back to cloud after local retries are exhausted
+  spillover_on_local_failure: true
+
+  # Cloud request timeout (cloud APIs are typically faster than local)
+  request_timeout: 60.0
+
+  # Cloud-specific retry count (separate from local retries)
+  max_retries: 2
+
+# -----------------------------------------------------------------------------
+# Council Configuration (WS3)
+# -----------------------------------------------------------------------------
+# Multi-role LLM council for enhanced intent classification, tool extraction,
+# response validation, and personality synthesis.
+#
+# Dual-path execution:
+#   Cloud active:   all enabled roles run in parallel via cloud API
+#   Cloud disabled: Coordinator only via SLM (fast intent classification)
+
+council:
+  enabled: true
+  cloud_parallel: true
+  local_slm_model: "qwen2.5:0.5b"
+  local_slm_timeout: 15.0
+  role_timeout: 30.0
+  fallback_to_single_agent: true
+
+  roles:
+    coordinator:
+      enabled: true
+      temperature: 0.0
+      max_tokens: 256
+    analyzer:
+      enabled: true
+      temperature: 0.0
+      max_tokens: 512
+    validator:
+      enabled: true
+      temperature: 0.0
+      max_tokens: 256
+    responder:
+      enabled: true
+      temperature: 0.3
+      max_tokens: 2048

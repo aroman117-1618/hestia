@@ -1,7 +1,7 @@
 """Inference module - LLM integration and model management.
 
-Local-only architecture: All inference runs on local models via Ollama.
-Cloud LLM fallback has been removed per ADR-001/ADR-010.
+Supports local models via Ollama and cloud providers (Anthropic, OpenAI, Google).
+Cloud routing is configurable: disabled, enabled_full, or enabled_smart.
 """
 
 from hestia.inference.client import (
@@ -26,6 +26,7 @@ from hestia.inference.router import (
     ModelTier,
     ModelConfig,
     RoutingConfig,
+    CloudRoutingConfig,
     RoutingDecision,
     get_router,
 )
@@ -54,6 +55,7 @@ __all__ = [
     "ModelTier",
     "ModelConfig",
     "RoutingConfig",
+    "CloudRoutingConfig",
     "RoutingDecision",
     "get_router",
 ]
