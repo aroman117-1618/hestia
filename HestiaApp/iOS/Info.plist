@@ -22,20 +22,24 @@
 	<string>1</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<key>NSCalendarsUsageDescription</key>
-	<string>Hestia needs calendar access to show your upcoming events and help manage your schedule.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>Hestia needs full calendar access to show your upcoming events, create new events, and help manage your schedule.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Hestia needs calendar access to show your upcoming events and help manage your schedule.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Hestia uses the camera to let you customize your agent avatars.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Hestia uses Face ID to secure your conversations and personal data.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Hestia needs microphone access to record your voice journal entries.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Hestia uses your photo library to let you customize your agent avatars.</string>
-	<key>NSRemindersUsageDescription</key>
-	<string>Hestia needs reminders access to help you manage tasks and to-dos.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>Hestia needs full reminders access to show your tasks, create new reminders, and help you stay organized.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>Hestia needs reminders access to help you manage tasks and to-dos.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Hestia uses speech recognition to transcribe your voice journal entries.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Volkhov-Regular.ttf</string>

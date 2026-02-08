@@ -49,6 +49,7 @@ enum HestiaEnvironment: String, CaseIterable {
 }
 
 /// Global configuration manager
+@MainActor
 final class Configuration: ObservableObject {
     // MARK: - Singleton
 

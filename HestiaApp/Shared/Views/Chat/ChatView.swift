@@ -417,7 +417,7 @@ struct ChatView: View {
 // MARK: - Preference Key for Content Size
 
 private struct ScrollViewContentSizeKey: PreferenceKey {
-    static var defaultValue: CGSize = .zero
+    nonisolated(unsafe) static var defaultValue: CGSize = .zero
     static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
         value = nextValue()
     }

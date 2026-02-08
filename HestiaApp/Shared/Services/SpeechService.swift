@@ -82,7 +82,9 @@ class SpeechService: ObservableObject {
         // Create transcriber and analyzer
         let transcriber = SpeechTranscriber(
             locale: Locale.current,
-            reportingOptions: [.volatileResults]
+            transcriptionOptions: [],
+            reportingOptions: [.volatileResults],
+            attributeOptions: []
         )
         self.transcriber = transcriber
 

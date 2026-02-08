@@ -35,7 +35,7 @@ final class OrdersService: ObservableObject, OrdersServiceProtocol {
 
     // MARK: - Initialization
 
-    nonisolated init(context: NSManagedObjectContext? = nil, apiClient: APIClient? = nil) {
+    init(context: NSManagedObjectContext? = nil, apiClient: APIClient? = nil) {
         self.viewContext = context ?? PersistenceController.shared.viewContext
         self.apiClient = apiClient ?? APIClient.shared
     }

@@ -3,6 +3,7 @@ import Foundation
 /// Real API client for connecting to the Hestia backend
 /// Supports configurable environments (local/Tailscale) and automatic retry with exponential backoff
 /// Uses certificate pinning for secure connections
+@MainActor
 class APIClient: HestiaClientProtocol {
     // MARK: - Singleton
 

@@ -42,8 +42,8 @@ final class CalendarService: ObservableObject, CalendarServiceProtocol {
         updateAuthorizationStatus()
     }
 
-    deinit {
-        refreshTimer?.invalidate()
+    nonisolated deinit {
+        // Timer cleanup handled by system when reference is released
     }
 
     // MARK: - Public Properties

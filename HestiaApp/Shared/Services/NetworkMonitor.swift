@@ -2,7 +2,8 @@ import Foundation
 import Network
 
 /// Monitors network connectivity
-class NetworkMonitor: ObservableObject {
+@MainActor
+class NetworkMonitor: ObservableObject, @unchecked Sendable {
     // MARK: - Published State
 
     @Published private(set) var isConnected: Bool = true
@@ -46,8 +47,8 @@ class NetworkMonitor: ObservableObject {
         startMonitoring()
     }
 
-    deinit {
-        stopMonitoring()
+    nonisolated deinit {
+        monitor.cancel()
     }
 
     // MARK: - Public Methods
@@ -55,7 +56,7 @@ class NetworkMonitor: ObservableObject {
     /// Start monitoring network changes
     func startMonitoring() {
         monitor.pathUpdateHandler = { [weak self] path in
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self?.updateStatus(path)
             }
         }

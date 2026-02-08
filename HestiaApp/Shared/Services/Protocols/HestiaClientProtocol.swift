@@ -1,6 +1,7 @@
 import Foundation
 
 /// Protocol defining the Hestia backend client interface
+@MainActor
 protocol HestiaClientProtocol {
     // MARK: - Chat
 

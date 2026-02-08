@@ -29,7 +29,7 @@ final class CertificatePinningDelegate: NSObject, URLSessionDelegate {
     private let allowDevelopmentBypass: Bool
 
     /// Logger for security events
-    private let logger: (String) -> Void
+    private let logger: @Sendable (String) -> Void
 
     // MARK: - Initialization
 
@@ -41,7 +41,7 @@ final class CertificatePinningDelegate: NSObject, URLSessionDelegate {
     init(
         fingerprints: Set<String> = [],
         allowDevelopmentBypass: Bool = false,
-        logger: @escaping (String) -> Void = { print("[CertPinning] \($0)") }
+        logger: @escaping @Sendable (String) -> Void = { print("[CertPinning] \($0)") }
     ) {
         var allFingerprints = fingerprints
 

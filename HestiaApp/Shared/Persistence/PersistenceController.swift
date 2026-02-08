@@ -7,7 +7,7 @@ final class PersistenceController: @unchecked Sendable {
     static let shared = PersistenceController()
 
     /// Preview instance for SwiftUI previews
-    static var preview: PersistenceController = {
+    static let preview: PersistenceController = {
         let controller = PersistenceController(inMemory: true)
         // Add sample data for previews
         let context = controller.container.viewContext
@@ -73,7 +73,7 @@ final class PersistenceController: @unchecked Sendable {
         }
 
         container.viewContext.automaticallyMergesChangesFromParent = true
-        container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+        container.viewContext.mergePolicy = NSMergePolicy.mergeByPropertyObjectTrump
     }
 
     // MARK: - Managed Object Model (Programmatic)

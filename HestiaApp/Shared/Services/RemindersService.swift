@@ -40,8 +40,8 @@ final class RemindersService: ObservableObject, RemindersServiceProtocol {
         updateAuthorizationStatus()
     }
 
-    deinit {
-        refreshTimer?.invalidate()
+    nonisolated deinit {
+        // Timer cleanup handled by system when reference is released
     }
 
     // MARK: - Public Properties

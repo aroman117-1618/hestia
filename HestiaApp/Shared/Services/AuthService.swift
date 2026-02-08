@@ -4,6 +4,7 @@ import Security
 import UIKit
 
 /// Service for handling authentication (Face ID / Touch ID) and device registration
+@MainActor
 class AuthService: ObservableObject {
     // MARK: - Published State
 
