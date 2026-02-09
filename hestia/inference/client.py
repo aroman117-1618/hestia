@@ -432,7 +432,7 @@ class InferenceClient:
             except Exception as cloud_error:
                 self.router.record_failure(ModelTier.CLOUD)
                 self.logger.warning(
-                    f"Cloud inference failed: {cloud_error}",
+                    f"Cloud inference failed: {type(cloud_error).__name__}",
                     component=LogComponent.INFERENCE,
                 )
                 # If cloud was primary, try falling back to local
@@ -473,7 +473,7 @@ class InferenceClient:
                 self.logger.info(
                     f"Local model failed, attempting cloud spillover",
                     component=LogComponent.INFERENCE,
-                    data={"local_error": str(local_error)},
+                    data={"local_error": type(local_error).__name__},
                 )
                 try:
                     response = await self._call_cloud(
@@ -489,7 +489,7 @@ class InferenceClient:
                 except Exception as cloud_error:
                     self.router.record_failure(ModelTier.CLOUD)
                     self.logger.error(
-                        f"Cloud spillover also failed: {cloud_error}",
+                        f"Cloud spillover also failed: {type(cloud_error).__name__}",
                         component=LogComponent.INFERENCE,
                     )
                     # Raise the original local error — cloud was just a fallback
@@ -560,7 +560,7 @@ class InferenceClient:
             except httpx.ConnectError as e:
                 last_error = e
                 self.logger.error(
-                    f"Cannot connect to Ollama: {e}",
+                    f"Cannot connect to Ollama: {type(e).__name__}",
                     component=LogComponent.INFERENCE,
                 )
                 break  # Don't retry connection errors
@@ -568,9 +568,9 @@ class InferenceClient:
             except Exception as e:
                 last_error = e
                 self.logger.error(
-                    f"Unexpected error during inference: {e}",
+                    f"Unexpected error during inference: {type(e).__name__}",
                     component=LogComponent.INFERENCE,
-                    data={"error": str(e), "attempt": attempt + 1}
+                    data={"error_type": type(e).__name__, "attempt": attempt + 1}
                 )
 
             # Exponential backoff
@@ -674,7 +674,7 @@ class InferenceClient:
             await cloud_manager.record_usage(usage_record)
         except Exception as e:
             self.logger.warning(
-                f"Failed to record cloud usage: {e}",
+                f"Failed to record cloud usage: {type(e).__name__}",
                 component=LogComponent.INFERENCE,
             )
 
@@ -750,10 +750,10 @@ class InferenceClient:
 
         except Exception as e:
             self.logger.error(
-                f"Inference failed: {e}",
+                f"Inference failed: {type(e).__name__}",
                 component=LogComponent.INFERENCE,
                 event_type=EventType.ERROR,
-                data={"error": str(e), "error_type": type(e).__name__}
+                data={"error_type": type(e).__name__}
             )
             raise
 
@@ -819,9 +819,9 @@ class InferenceClient:
 
         except Exception as e:
             self.logger.error(
-                f"Chat inference failed: {e}",
+                f"Chat inference failed: {type(e).__name__}",
                 component=LogComponent.INFERENCE,
-                data={"error": str(e), "message_count": len(messages)}
+                data={"error_type": type(e).__name__, "message_count": len(messages)}
             )
             raise
 
@@ -905,7 +905,7 @@ class InferenceClient:
             result["local"] = {
                 "status": "unhealthy",
                 "ollama_available": False,
-                "error": str(e),
+                "error": type(e).__name__,
             }
 
         # Cloud health (if configured)

@@ -42,8 +42,8 @@ struct CommandCenterView: View {
                         MemoryWidget()
                     }
 
-                    // Module 3: Neural Net Placeholder
-                    neuralNetPlaceholder
+                    // Module 3: Neural Net Graph
+                    NeuralNetView()
 
                     Spacer()
                         .frame(height: Spacing.xl)
@@ -197,34 +197,6 @@ struct CommandCenterView: View {
         .padding(.horizontal, Spacing.lg)
     }
 
-    // MARK: - Neural Net Placeholder
-
-    private var neuralNetPlaceholder: some View {
-        VStack(spacing: Spacing.md) {
-            Image(systemName: "brain.head.profile")
-                .font(.system(size: 40))
-                .foregroundColor(.white.opacity(0.3))
-
-            VStack(spacing: Spacing.xs) {
-                Text("Neural Net")
-                    .font(.headline)
-                    .foregroundColor(.white.opacity(0.7))
-
-                Text("Coming Soon")
-                    .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.4))
-
-                Text("Second half of 2026")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.3))
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(Spacing.xl)
-        .background(Color.white.opacity(0.03))
-        .cornerRadius(CornerRadius.card)
-        .padding(.horizontal, Spacing.lg)
-    }
 }
 
 // MARK: - Preview

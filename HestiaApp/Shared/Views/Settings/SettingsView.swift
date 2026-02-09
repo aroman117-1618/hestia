@@ -1,7 +1,7 @@
 import SwiftUI
 import CoreData
 
-/// Settings view with System Status, User Profile, and Agent Profiles
+/// Settings view — restructured: System Status, Security, Agent Profiles, Resources, Advanced
 struct SettingsView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.managedObjectContext) private var viewContext
@@ -23,19 +23,14 @@ struct SettingsView: View {
 
                 ScrollView {
                     VStack(spacing: Spacing.lg) {
-                        // System Status (TOP - moved from CommandCenter)
+                        // System Status (includes version)
                         settingsSection("System Status") {
                             systemStatusSection
                         }
 
-                        // Cloud Providers
-                        settingsSection("Cloud Providers") {
-                            cloudProvidersSection
-                        }
-
-                        // User Profile
-                        settingsSection("User Profile") {
-                            userProfileSection
+                        // Security (biometric, auto-lock, lock now)
+                        settingsSection("Security") {
+                            securitySettings
                         }
 
                         // Agent Profiles
@@ -43,14 +38,9 @@ struct SettingsView: View {
                             agentProfilesSection
                         }
 
-                        // Security
-                        settingsSection("Security") {
-                            securitySettings
-                        }
-
-                        // About
-                        settingsSection("About") {
-                            aboutSection
+                        // Resources (renamed from Cloud Providers)
+                        settingsSection("Resources") {
+                            resourcesSection
                         }
 
                         // Advanced / Danger Zone
@@ -67,6 +57,20 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    NavigationLink(destination: UserProfileView()) {
+                        Circle()
+                            .fill(Color.white.opacity(0.2))
+                            .frame(width: 32, height: 32)
+                            .overlay(
+                                Text("A")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundColor(.white)
+                            )
+                    }
+                }
+            }
             .onAppear {
                 Task {
                     await viewModel.refresh()
@@ -106,7 +110,7 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - System Status Section (Moved from CommandCenter)
+    // MARK: - System Status Section (with version)
 
     private var systemStatusSection: some View {
         VStack(spacing: Spacing.sm) {
@@ -169,6 +173,17 @@ struct SettingsView: View {
                 }
                 .settingsRow()
             }
+
+            // Version (moved from About section)
+            HStack {
+                Text("Version")
+                    .foregroundColor(.white.opacity(0.7))
+                Spacer()
+                Text("\(viewModel.appVersion) (\(viewModel.buildNumber))")
+                    .foregroundColor(.white.opacity(0.5))
+                    .font(.caption)
+            }
+            .settingsRow()
         }
         .padding(.horizontal, Spacing.lg)
     }
@@ -187,54 +202,20 @@ struct SettingsView: View {
         .settingsRow()
     }
 
-    // MARK: - Cloud Providers Section
+    // MARK: - Resources Section (renamed from Cloud Providers)
 
-    private var cloudProvidersSection: some View {
-        NavigationLink(destination: CloudSettingsView()) {
+    private var resourcesSection: some View {
+        NavigationLink(destination: ResourcesView()) {
             HStack {
-                Image(systemName: "cloud")
+                Image(systemName: "square.grid.2x2")
                     .foregroundColor(.white)
                     .frame(width: 32)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Cloud LLM Providers")
+                    Text("LLMs, Integrations & MCPs")
                         .foregroundColor(.white)
 
-                    Text("Configure cloud inference providers")
-                        .font(.caption)
-                        .foregroundColor(.white.opacity(0.6))
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .foregroundColor(.white.opacity(0.5))
-            }
-        }
-        .settingsRow()
-        .padding(.horizontal, Spacing.lg)
-    }
-
-    // MARK: - User Profile Section
-
-    private var userProfileSection: some View {
-        NavigationLink(destination: UserProfileView()) {
-            HStack {
-                // User avatar placeholder
-                Circle()
-                    .fill(Color.white.opacity(0.2))
-                    .frame(width: 40, height: 40)
-                    .overlay(
-                        Text("A")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.white)
-                    )
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Andrew")
-                        .foregroundColor(.white)
-
-                    Text("Edit profile, photo, notifications")
+                    Text("Manage cloud providers and connections")
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.6))
                 }
@@ -314,23 +295,31 @@ struct SettingsView: View {
         .padding(.horizontal, Spacing.lg)
     }
 
-    // MARK: - Security Settings
+    // MARK: - Security Settings (with biometric fix)
 
     private var securitySettings: some View {
         VStack(spacing: Spacing.sm) {
-            // Biometric info
+            // Biometric info — fixed: handles .none case correctly
             HStack {
                 Image(systemName: viewModel.biometricType.iconName)
-                    .foregroundColor(.white)
+                    .foregroundColor(viewModel.biometricType == .none ? .warningYellow : .white)
 
-                Text(viewModel.biometricType.displayName)
+                Text(viewModel.biometricType == .none ?
+                     "No Biometrics Available" :
+                     viewModel.biometricType.displayName)
                     .foregroundColor(.white)
 
                 Spacer()
 
-                Text("Enabled")
-                    .foregroundColor(.healthyGreen)
-                    .font(.caption)
+                if viewModel.biometricType != .none {
+                    Text("Enabled")
+                        .foregroundColor(.healthyGreen)
+                        .font(.caption)
+                } else {
+                    Text("Unavailable")
+                        .foregroundColor(.warningYellow)
+                        .font(.caption)
+                }
             }
             .settingsRow()
 
@@ -364,22 +353,6 @@ struct SettingsView: View {
                     Spacer()
                 }
                 .foregroundColor(.white)
-            }
-            .settingsRow()
-        }
-        .padding(.horizontal, Spacing.lg)
-    }
-
-    // MARK: - About Section
-
-    private var aboutSection: some View {
-        VStack(spacing: Spacing.sm) {
-            HStack {
-                Text("Version")
-                    .foregroundColor(.white)
-                Spacer()
-                Text("\(viewModel.appVersion) (\(viewModel.buildNumber))")
-                    .foregroundColor(.white.opacity(0.6))
             }
             .settingsRow()
         }

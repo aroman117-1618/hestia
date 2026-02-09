@@ -244,7 +244,12 @@ class SandboxConfig:
     def __post_init__(self):
         """Set defaults if not provided."""
         if not self.allowed_directories:
-            self.allowed_directories = ["~/hestia/data", "~/hestia/logs", "/tmp/hestia"]
+            self.allowed_directories = [
+                "~/hestia/data", "~/hestia/logs", "/tmp/hestia",
+                "~/Documents", "~/Desktop",
+                "~/Library/Mobile Documents/com~apple~CloudDocs",
+                "~/Library/Mobile Documents",
+            ]
         if not self.auto_approve_write_dirs:
             self.auto_approve_write_dirs = ["~/hestia/data"]
         if not self.blocked_commands:

@@ -24,7 +24,7 @@ You are Hestia's dedicated test runner and failure analyst. Your job is to run t
 - **Config**: `pytest.ini` with 600-second timeout (necessary for Ollama inference tests)
 - **Virtual env**: `.venv/` (Python 3.9+)
 - **Test files**: `tests/` directory
-- **Total tests**: 731 (all passing, 3 skipped)
+- **Total tests**: 784 (all passing, 3 skipped)
 
 ## Test Suite Inventory
 
@@ -47,13 +47,12 @@ You are Hestia's dedicated test runner and failure analyst. Your job is to run t
 | `test_voice.py` | 52 | Voice journaling (quality gate, journal) |
 | `test_voice_routes.py` | 25 | Voice API route tests |
 | `test_council.py` | 124 | Council models, roles, manager, handler integration |
+| `test_health.py` | 41 | HealthKit sync, metrics, coaching, chat tools |
 
 ## Source-to-Test Mapping
 
 | Source Module | Test File(s) |
 |--------------|-------------|
-| `hestia/security/` | `test_security.py` |
-| `hestia/logging/` | `test_logging.py` |
 | `hestia/inference/` | `test_inference.py` |
 | `hestia/memory/` | `test_memory.py`, `test_temporal_decay.py` |
 | `hestia/orchestration/` | `test_orchestration.py` |
@@ -69,6 +68,8 @@ You are Hestia's dedicated test runner and failure analyst. Your job is to run t
 | `hestia/api/routes/cloud.py` | `test_cloud_routes.py` |
 | `hestia/api/routes/voice.py` | `test_voice_routes.py` |
 | `hestia/council/` | `test_council.py` |
+| `hestia/health/` | `test_health.py` |
+| `hestia/api/routes/health_data.py` | `test_health.py` |
 
 ## When Invoked
 

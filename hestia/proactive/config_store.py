@@ -78,7 +78,7 @@ def load_config() -> ProactiveConfig:
 
     except json.JSONDecodeError as e:
         logger.warning(
-            f"Invalid JSON in proactive config: {e}",
+            f"Invalid JSON in proactive config: {type(e).__name__}",
             component=LogComponent.ORCHESTRATION,
         )
         # Return defaults on parse error
@@ -86,7 +86,7 @@ def load_config() -> ProactiveConfig:
 
     except Exception as e:
         logger.warning(
-            f"Failed to load proactive config: {e}",
+            f"Failed to load proactive config: {type(e).__name__}",
             component=LogComponent.ORCHESTRATION,
         )
         return ProactiveConfig()
@@ -137,7 +137,7 @@ def save_config(config: ProactiveConfig) -> bool:
 
     except Exception as e:
         logger.error(
-            f"Failed to save proactive config: {e}",
+            f"Failed to save proactive config: {type(e).__name__}",
             component=LogComponent.ORCHESTRATION,
         )
         # Clean up temp file if it exists
@@ -169,7 +169,7 @@ def delete_config() -> bool:
         return True
     except Exception as e:
         logger.error(
-            f"Failed to delete proactive config: {e}",
+            f"Failed to delete proactive config: {type(e).__name__}",
             component=LogComponent.ORCHESTRATION,
         )
         return False

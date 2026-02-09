@@ -67,7 +67,7 @@ class OrderScheduler:
 
         self.logger.info(
             "Order scheduler initialized",
-            component=LogComponent.API,
+            component=LogComponent.EXECUTION,
             data={"scheduled_orders": len(self._scheduled_jobs)},
         )
 
@@ -81,7 +81,7 @@ class OrderScheduler:
 
         self.logger.debug(
             "Order scheduler closed",
-            component=LogComponent.API,
+            component=LogComponent.EXECUTION,
         )
 
     async def __aenter__(self) -> "OrderScheduler":
@@ -118,8 +118,8 @@ class OrderScheduler:
                 await self.schedule_order(order)
             except Exception as e:
                 self.logger.error(
-                    f"Failed to schedule order {order.id}: {e}",
-                    component=LogComponent.API,
+                    f"Failed to schedule order {order.id}: {type(e).__name__}",
+                    component=LogComponent.EXECUTION,
                 )
 
     async def schedule_order(self, order: Order) -> None:
@@ -141,7 +141,7 @@ class OrderScheduler:
         if trigger is None:
             self.logger.warning(
                 f"Could not create trigger for order {order.id}",
-                component=LogComponent.API,
+                component=LogComponent.EXECUTION,
             )
             return
 
@@ -159,7 +159,7 @@ class OrderScheduler:
 
         self.logger.debug(
             f"Scheduled order: {order.id}",
-            component=LogComponent.API,
+            component=LogComponent.EXECUTION,
             data={
                 "order_id": order.id,
                 "name": order.name,
@@ -182,7 +182,7 @@ class OrderScheduler:
                 self.scheduler.remove_job(job_id)
                 self.logger.debug(
                     f"Unscheduled order: {order_id}",
-                    component=LogComponent.API,
+                    component=LogComponent.EXECUTION,
                 )
             except Exception:
                 pass  # Job may not exist
@@ -262,7 +262,7 @@ class OrderScheduler:
 
             self.logger.info(
                 f"Scheduled execution started: {execution.id}",
-                component=LogComponent.API,
+                component=LogComponent.EXECUTION,
                 data={
                     "execution_id": execution.id,
                     "order_id": order_id,
@@ -275,9 +275,9 @@ class OrderScheduler:
 
         except Exception as e:
             self.logger.error(
-                f"Failed to execute order {order_id}: {e}",
-                component=LogComponent.API,
-                data={"order_id": order_id, "error": str(e)},
+                f"Failed to execute order {order_id}: {type(e).__name__}",
+                component=LogComponent.EXECUTION,
+                data={"order_id": order_id, "error_type": type(e).__name__},
             )
 
     def get_next_execution_time(self, order_id: str) -> Optional[datetime]:

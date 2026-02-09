@@ -158,7 +158,6 @@ async def list_providers(
     description="Add a cloud provider with API key. Key is stored in Keychain.",
 )
 async def add_provider(
-    provider: CloudProviderEnum,
     request: CloudProviderAddRequest,
     device_id: str = Depends(get_device_token),
 ) -> CloudProviderResponse:
@@ -169,6 +168,8 @@ async def add_provider(
     in API responses.
     """
     try:
+        provider = request.provider
+
         # Validate API key is not obviously malformed
         if len(request.api_key.strip()) < 10:
             raise HTTPException(

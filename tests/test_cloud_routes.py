@@ -287,6 +287,7 @@ class TestAddProviderEndpoint:
         from hestia.api.schemas import CloudProviderAddRequest
 
         request = CloudProviderAddRequest(
+            provider=CloudProviderEnum.ANTHROPIC,
             api_key="sk-test-key-12345",
             state=CloudProviderStateEnum.ENABLED_SMART,
         )
@@ -297,7 +298,6 @@ class TestAddProviderEndpoint:
         ):
             mock_router.return_value = MagicMock()
             response = await add_provider(
-                provider=CloudProviderEnum.ANTHROPIC,
                 request=request,
                 device_id="test-device",
             )
@@ -318,12 +318,14 @@ class TestAddProviderEndpoint:
             api_key="sk-existing-key",
         )
 
-        request = CloudProviderAddRequest(api_key="sk-new-key")
+        request = CloudProviderAddRequest(
+            provider=CloudProviderEnum.ANTHROPIC,
+            api_key="sk-new-key",
+        )
 
         with patch("hestia.api.routes.cloud.get_cloud_manager", return_value=manager):
             with pytest.raises(HTTPException) as exc_info:
                 await add_provider(
-                    provider=CloudProviderEnum.ANTHROPIC,
                     request=request,
                     device_id="test-device",
                 )
@@ -336,6 +338,7 @@ class TestAddProviderEndpoint:
         from hestia.api.schemas import CloudProviderAddRequest
 
         request = CloudProviderAddRequest(
+            provider=CloudProviderEnum.ANTHROPIC,
             api_key="sk-test-key",
             model_id="claude-haiku-3-5-20241022",
         )
@@ -346,7 +349,6 @@ class TestAddProviderEndpoint:
         ):
             mock_router.return_value = MagicMock()
             response = await add_provider(
-                provider=CloudProviderEnum.ANTHROPIC,
                 request=request,
                 device_id="test-device",
             )
@@ -652,7 +654,7 @@ class TestSchemaValidation:
         """CloudProviderAddRequest defaults to enabled_smart."""
         from hestia.api.schemas import CloudProviderAddRequest
 
-        req = CloudProviderAddRequest(api_key="sk-test")
+        req = CloudProviderAddRequest(provider=CloudProviderEnum.ANTHROPIC, api_key="sk-test")
         assert req.state == CloudProviderStateEnum.ENABLED_SMART
 
     def test_model_update_requires_model_id(self) -> None:

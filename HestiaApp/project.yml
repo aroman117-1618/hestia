@@ -7,6 +7,14 @@ options:
   generateEmptyDirectories: true
   groupSortPosition: top
 
+packages:
+  Lottie:
+    url: https://github.com/airbnb/lottie-ios
+    from: "4.6.0"
+  Grape:
+    url: https://github.com/SwiftGraphs/Grape
+    from: "1.1.0"
+
 settings:
   base:
     MARKETING_VERSION: "1.0.0"
@@ -31,6 +39,11 @@ targets:
         type: group
         excludes:
           - "*.plist"
+    dependencies:
+      - package: Lottie
+      - package: Grape
+      - framework: HealthKit.framework
+        embed: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.hestia.app
@@ -53,6 +66,7 @@ targets:
         NSCalendarsFullAccessUsageDescription: Hestia needs full calendar access to show your upcoming events, create new events, and help manage your schedule.
         NSRemindersUsageDescription: Hestia needs reminders access to help you manage tasks and to-dos.
         NSRemindersFullAccessUsageDescription: Hestia needs full reminders access to show your tasks, create new reminders, and help you stay organized.
+        NSHealthShareUsageDescription: Hestia reads your health data to provide personalized health coaching, daily briefings, and activity insights. Your data stays on your devices and server — it is never shared with third parties.
         NSSpeechRecognitionUsageDescription: Hestia uses speech recognition to transcribe your voice journal entries.
         NSMicrophoneUsageDescription: Hestia needs microphone access to record your voice journal entries.
         UIAppFonts:

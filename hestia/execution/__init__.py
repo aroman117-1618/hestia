@@ -71,6 +71,8 @@ from .gate import (
 from .tools import (
     read_file_tool,
     write_file_tool,
+    list_directory_tool,
+    search_files_tool,
     run_command_tool,
     register_builtin_tools,
 )
@@ -107,6 +109,8 @@ __all__ = [
     # Built-in tools
     "read_file_tool",
     "write_file_tool",
+    "list_directory_tool",
+    "search_files_tool",
     "run_command_tool",
     "register_builtin_tools",
 ]

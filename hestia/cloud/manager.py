@@ -109,7 +109,7 @@ class CloudManager:
                 config.last_health_check = datetime.now(timezone.utc)
         except Exception as e:
             self.logger.warning(
-                f"Model detection failed for {provider.value}: {e}",
+                f"Model detection failed for {provider.value}: {type(e).__name__}",
                 component=LogComponent.INFERENCE,
             )
             # Use curated defaults
@@ -258,7 +258,7 @@ class CloudManager:
                 return models
         except Exception as e:
             self.logger.warning(
-                f"Model detection failed for {provider.value}: {e}",
+                f"Model detection failed for {provider.value}: {type(e).__name__}",
                 component=LogComponent.INFERENCE,
             )
 
@@ -444,7 +444,7 @@ class CloudManager:
             return healthy
         except Exception as e:
             self.logger.warning(
-                f"Health check failed for {provider.value}: {e}",
+                f"Health check failed for {provider.value}: {type(e).__name__}",
                 component=LogComponent.INFERENCE,
             )
             config.health_status = "unhealthy"
@@ -482,7 +482,7 @@ class CloudManager:
             cm.store_operational(credential_key, api_key)
         except Exception as e:
             self.logger.warning(
-                f"Keychain storage failed, using in-memory fallback: {e}",
+                f"Keychain storage failed, using in-memory fallback: {type(e).__name__}",
                 component=LogComponent.INFERENCE,
             )
 
@@ -513,7 +513,7 @@ class CloudManager:
             cm.delete_credential(credential_key)
         except Exception as e:
             self.logger.warning(
-                f"Keychain deletion failed: {e}",
+                f"Keychain deletion failed: {type(e).__name__}",
                 component=LogComponent.INFERENCE,
             )
 

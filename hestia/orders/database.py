@@ -55,7 +55,7 @@ class OrderDatabase:
 
         self.logger.info(
             f"Order database connected: {self.db_path}",
-            component=LogComponent.API,
+            component=LogComponent.EXECUTION,
         )
 
     async def _init_schema(self) -> None:
@@ -114,7 +114,7 @@ class OrderDatabase:
             self._connection = None
             self.logger.debug(
                 "Order database closed",
-                component=LogComponent.API,
+                component=LogComponent.EXECUTION,
             )
 
     async def __aenter__(self) -> "OrderDatabase":
@@ -153,7 +153,7 @@ class OrderDatabase:
 
         self.logger.debug(
             f"Stored order: {order.id}",
-            component=LogComponent.API,
+            component=LogComponent.EXECUTION,
             data={"order_id": order.id, "name": order.name},
         )
 
@@ -208,7 +208,7 @@ class OrderDatabase:
         if updated:
             self.logger.debug(
                 f"Updated order: {order.id}",
-                component=LogComponent.API,
+                component=LogComponent.EXECUTION,
             )
 
         return updated
@@ -226,7 +226,7 @@ class OrderDatabase:
         if deleted:
             self.logger.debug(
                 f"Deleted order: {order_id}",
-                component=LogComponent.API,
+                component=LogComponent.EXECUTION,
             )
 
         return deleted
@@ -296,7 +296,7 @@ class OrderDatabase:
 
         self.logger.debug(
             f"Stored execution: {execution.id}",
-            component=LogComponent.API,
+            component=LogComponent.EXECUTION,
             data={"execution_id": execution.id, "order_id": execution.order_id},
         )
 

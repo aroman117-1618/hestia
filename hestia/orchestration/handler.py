@@ -655,19 +655,19 @@ IMPORTANT RULES:
         Check if content looks like a raw tool_call JSON that shouldn't be shown to user.
         """
         import json
-        import re
 
-        # Quick regex check first (fast)
-        if not re.search(r'"tool_call"|"tool":', content):
+        # Quick substring check first (fast)
+        if '"tool_call"' not in content and '"tool":' not in content:
             return False
 
-        # Try to parse as JSON
+        # Try to parse as JSON (pure JSON response)
         try:
             data = json.loads(content.strip())
             return "tool_call" in data or "tool" in data
         except json.JSONDecodeError:
-            # Check for embedded JSON
-            return bool(re.search(r'\{[^{}]*"tool_call"[^{}]*\}', content))
+            # Mixed content: text + embedded JSON (e.g. "I'll check...\n{"tool_call": ...}")
+            # Substring match for the opening of a tool call JSON structure
+            return '{"tool_call"' in content or '{"tool":' in content
 
     async def _format_tool_result_with_personality(
         self,
@@ -824,7 +824,7 @@ IMPORTANT RULES:
         except Exception as e:
             health["components"]["inference"] = {
                 "status": "unhealthy",
-                "error": str(e),
+                "error": type(e).__name__,
             }
             health["status"] = "degraded"
 
@@ -838,7 +838,7 @@ IMPORTANT RULES:
         except Exception as e:
             health["components"]["memory"] = {
                 "status": "unhealthy",
-                "error": str(e),
+                "error": type(e).__name__,
             }
             health["status"] = "degraded"
 
@@ -860,7 +860,7 @@ IMPORTANT RULES:
         except Exception as e:
             health["components"]["tools"] = {
                 "status": "unhealthy",
-                "error": str(e),
+                "error": type(e).__name__,
             }
 
         return health

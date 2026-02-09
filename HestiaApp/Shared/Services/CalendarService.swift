@@ -28,8 +28,10 @@ final class CalendarService: ObservableObject, CalendarServiceProtocol {
     private let eventStore = EKEventStore()
     private var refreshTimer: Timer?
 
-    /// Calendars to exclude from event fetching
-    private let excludedCalendars: [String] = ["aLonati"]
+    /// Calendars to exclude from event fetching (reads from UserDefaults, falls back to default)
+    private var excludedCalendars: [String] {
+        UserDefaults.standard.stringArray(forKey: IntegrationKeys.calendarExcluded) ?? ["aLonati"]
+    }
 
     // MARK: - Initialization
 

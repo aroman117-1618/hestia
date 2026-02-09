@@ -155,12 +155,14 @@ Use Tailscale for all remote access. Devices join a private tailnet; no public e
 ### ADR-006: Docker Sandboxing for Tool Execution
 
 **Date**: [Your start date]
-**Status**: Accepted
+**Status**: Superseded (2025-01-12)
+
+**Superseded By**: Current implementation uses file-based sandboxing with path allowlists (`execution.yaml`) and subprocess isolation instead of Docker containers. Docker overhead was unnecessary for single-user local deployment.
 
 #### Context
 Hestia executes tools (run commands, read/write files). Unrestricted execution is a security risk.
 
-#### Decision
+#### Decision (Original)
 All tool execution occurs in Docker containers with limited filesystem access, no network by default, and resource constraints.
 
 #### Alternatives Considered
@@ -223,58 +225,6 @@ Build a native SwiftUI app with shared codebase across iOS and macOS.
 - Positive: Single codebase for iOS and macOS via SwiftUI
 - Negative: Requires learning Swift (but Claude Code will implement most of it)
 - Negative: Requires Xcode (but we need an IDE anyway)
-
----
-
-### ADR-007: Native Swift App (Not Electron)
-
-**Date**: [Your start date]
-**Status**: Accepted
-
-#### Context
-Need to choose between Electron (cross-platform, JavaScript) and native Swift for the client apps on iPhone, iPad, and Mac.
-
-#### Decision
-Build native Swift/SwiftUI apps with a single codebase targeting all Apple platforms.
-
-#### Alternatives Considered
-- **Electron**: Cross-platform, uses JavaScript skills, but doesn't run natively on iOS (would need web app for mobile)
-- **Progressive Web App**: Works everywhere via browser, but limited iOS push notifications and feels less native
-- **React Native**: Cross-platform including iOS, but adds complexity and another framework to learn
-
-#### Consequences
-- Positive: Native performance, clean UX, full iOS features (push notifications, Shortcuts), single codebase for all Apple devices
-- Positive: Requires Xcode anyway, which becomes the single IDE for everything
-- Negative: Swift is new to Andrew (learning curve)
-- Negative: Apple-only (no Android/Windows), but that matches the target ecosystem
-- Mitigation: Claude Code handles most implementation; Andrew learns Swift progressively
-
----
-
-### ADR-008: Two-Tool Development Stack
-
-**Date**: [Your start date]
-**Status**: Accepted
-
-#### Context
-Need to establish development tooling that's minimal but powerful, given Andrew's learning-as-we-build approach.
-
-#### Decision
-Use exactly two tools: Claude Code (AI-driven development) and Xcode (IDE for everything).
-
-#### Alternatives Considered
-- **Claude Code + VS Code + Xcode**: VS Code for non-Swift editing, but redundant since Xcode handles all file types
-- **Claude Code + Cursor**: Cursor's AI features redundant with Claude Code; adds cost
-- **Just Xcode**: Missing AI-driven development capability
-
-#### Consequences
-- Positive: Minimal cognitive overheadâ€”two tools to learn, not four
-- Positive: Xcode required for Swift anyway, so no additional IDE needed
-- Positive: Claude Code does heavy lifting; Andrew reviews and learns
-- Negative: Xcode's Python/YAML editing less polished than VS Code
-- Mitigation: Claude Code handles most editing; Xcode is mainly for browsing, building, and Git
-
----
 
 ---
 
@@ -641,10 +591,10 @@ class BackgroundTask:
 ### ADR-016: Hybrid Inference Architecture
 
 **Date**: 2025-01-09
-**Status**: Deprecated (2025-01-12)
+**Status**: Implemented (2026-02-15, via WS1 Cloud LLM)
 
-#### Deprecation Reason
-Cloud LLM fallback removed from roadmap. All inference is local-only via Qwen 2.5 7B (v1.0) or Mixtral 8x7B (post-hardware upgrade to 64GB). See updated ADR-001 and ADR-010.
+#### Status Update
+Originally deprecated (2025-01-12) when cloud fallback was removed from the roadmap. Re-implemented as part of WS1 (Cloud LLM Integration) with 3-state routing: disabled → enabled_smart → enabled_full. See ADR-025 for full details.
 
 ---
 
@@ -1120,6 +1070,146 @@ r"@tia\b|@hestia\b|hey\s+tia\b|hi\s+tia\b|hello\s+tia\b"
 - Server: `hestia/orchestration/mode.py` - `invoke_pattern` updated
 - iOS: `HestiaApp/Shared/ViewModels/ChatViewModel.swift` - `detectModeInvocation()` updated
 - Both locations must stay in sync
+
+---
+
+### ADR-025: Cloud LLM Integration (WS1)
+
+**Date**: 2026-02-10
+**Status**: Implemented
+
+#### Context
+Local-only inference (Qwen 2.5 7B on M1 16GB) is adequate for routine queries but insufficient for complex reasoning, creative writing, and multi-step analysis. Users need a way to leverage cloud LLMs while keeping local inference as the default for speed and privacy.
+
+#### Decision
+Implement 3-state cloud routing with multi-provider support:
+- **disabled** (default): Local-only, no cloud calls
+- **enabled_smart**: Local-first with cloud spillover on failure or high token count (>16K)
+- **enabled_full**: Cloud-first with local fallback
+
+Support three providers: Anthropic, OpenAI, Google. API keys stored in macOS Keychain (never returned in API responses). 7 new endpoints for provider CRUD, state management, usage tracking, and health checks.
+
+#### Alternatives Considered
+- **Single provider**: Simpler but vendor lock-in risk
+- **Always-cloud**: Defeats privacy-first design principle
+- **Token-based routing only**: Misses use cases where cloud quality is preferred regardless of token count
+
+#### Consequences
+- Positive: Best-of-both-worlds — privacy by default, cloud power when needed
+- Positive: State propagation via `_sync_router_state()` ensures consistency
+- Negative: Cloud API costs (~$0.003/1K input tokens for Anthropic)
+- Negative: Requires API key management and health monitoring
+
+---
+
+### ADR-026: Voice Journaling Pipeline (WS2)
+
+**Date**: 2026-02-10
+**Status**: Implemented
+
+#### Context
+Users want to dictate thoughts, reflections, and journal entries via voice. Raw speech-to-text transcripts are often noisy and need quality checking before analysis.
+
+#### Decision
+Implement a 3-stage voice pipeline:
+1. **iOS SpeechAnalyzer**: On-device speech-to-text (Apple Speech framework)
+2. **Quality Check**: LLM reviews transcript, flags uncertain words, returns confidence score
+3. **Journal Analysis**: LLM extracts intents, cross-references calendar/reminders/mail/memory, generates action plan
+
+Two endpoints: `/v1/voice/quality-check` and `/v1/voice/journal-analyze`.
+
+#### Consequences
+- Positive: On-device STT preserves privacy; only text sent to server
+- Positive: Quality gate prevents garbage-in-garbage-out
+- Negative: Journal analysis requires LLM call (uses cloud if enabled)
+
+---
+
+### ADR-027: Council + SLM Architecture (WS3)
+
+**Date**: 2026-02-10
+**Status**: Implemented
+
+#### Context
+Single-pass LLM inference lacks the nuance for complex requests — tool extraction, safety validation, and personality synthesis all happen in one shot. A multi-role approach can improve quality without requiring a larger model.
+
+#### Decision
+Implement a 4-role council with dual-path execution:
+- **Coordinator** (SLM: qwen2.5:0.5b, ~100ms): Intent classification — runs locally even when cloud is active
+- **Analyzer** (cloud-only): Tool extraction from LLM response
+- **Validator** (cloud-only): Quality and safety checks
+- **Responder** (cloud-only): Personality synthesis per active mode
+
+**Dual-path**: Cloud active → all 4 roles via `asyncio.gather()` parallel execution. Cloud disabled → SLM intent only, existing pipeline handles the rest.
+
+**Key design constraint**: Purely additive. Every council call wrapped in try/except. Failures fall back silently to existing pipeline. Council can never make things worse.
+
+**CHAT optimization**: When intent==CHAT with confidence>0.8, skip Analyzer/Validator/Responder (saves 3 API calls for simple conversation).
+
+#### Consequences
+- Positive: Better tool extraction, safety checks, and personality consistency
+- Positive: Zero-cost intent classification via local SLM (~100ms)
+- Positive: Purely additive — no regression risk
+- Negative: ~4 API calls per message when cloud is enabled_full
+
+---
+
+### ADR-028: Temporal Decay for Memory (WS4)
+
+**Date**: 2026-02-10
+**Status**: Implemented
+
+#### Context
+Memory search returns results purely by vector similarity, treating a conversation from 6 months ago the same as one from yesterday. Users expect recent context to be more relevant.
+
+#### Decision
+Apply exponential decay to memory search scores:
+```
+adjusted = raw_score * e^(-lambda * age_days) * recency_boost
+```
+
+Per-chunk-type lambda values (configurable in `memory.yaml`):
+- `fact`: 0.0 (never decays)
+- `system`: 0.0 (never decays)
+- `conversation`: 0.02 (half-life ~35 days)
+- `preference`: 0.005 (half-life ~139 days)
+- `decision`: 0.002 (half-life ~347 days)
+
+Recency boost: 1.2x for memories accessed within 24 hours. Minimum score floor of 0.1 prevents complete disappearance.
+
+#### Consequences
+- Positive: Recent context surfaces naturally; old conversations fade
+- Positive: Facts and system knowledge persist forever
+- Positive: Tunable per chunk type via config
+- Negative: Hard cliff at 24h recency boost boundary (acceptable trade-off)
+
+---
+
+### ADR-029: Apple HealthKit Integration
+
+**Date**: 2026-02-15
+**Status**: Implemented
+
+#### Context
+Users want Hestia to understand their health context — sleep, activity, heart rate, nutrition — to provide more personalized briefings and coaching. Apple HealthKit provides a rich data source on iOS.
+
+#### Decision
+Implement full HealthKit integration with:
+- **28 metric types** across 7 categories (activity, body, heart, sleep, nutrition, mindfulness, reproductive)
+- **Daily sync** endpoint: iOS pushes HealthKit data to server
+- **Server-side storage**: SQLite with deduplication via UNIQUE constraint
+- **Coaching preferences**: User-configurable focus areas, tone, and goals
+- **5 chat tools**: health_summary, health_trend, coaching_advice, sleep_analysis, activity_analysis
+- **Briefing integration**: Health section in morning briefings when data available
+
+Data stays on-device until user explicitly syncs. No cloud transmission of health data.
+
+#### Consequences
+- Positive: Rich health context for personalized assistance
+- Positive: Privacy-preserving — user controls what data is shared
+- Positive: Coaching preferences allow customization without exposing raw data
+- Negative: Requires HealthKit entitlement and user permission grants
+- Negative: 28 metric types adds complexity to data model
 
 ---
 

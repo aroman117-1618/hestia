@@ -40,8 +40,6 @@ from hestia.proactive.config_store import (
     save_config,
     get_proactive_config,
     update_proactive_config,
-    reset_proactive_config,
-    config_exists,
 )
 
 __all__ = [
@@ -69,6 +67,4 @@ __all__ = [
     "save_config",
     "get_proactive_config",
     "update_proactive_config",
-    "reset_proactive_config",
-    "config_exists",
 ]

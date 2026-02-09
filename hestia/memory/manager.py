@@ -292,7 +292,7 @@ class MemoryManager:
 
         except Exception as e:
             self.logger.warning(
-                f"Async tagging failed for chunk {chunk.id}: {e}",
+                f"Async tagging failed for chunk {chunk.id}: {type(e).__name__}",
                 component=LogComponent.MEMORY
             )
 

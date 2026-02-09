@@ -21,7 +21,7 @@ You are Hestia's fast codebase navigator. You find things, trace connections, an
 
 ```
 hestia/
-├── hestia/                    # Python backend (17 modules, 65 API endpoints)
+├── hestia/                    # Python backend (18 modules, 72 API endpoints)
 │   ├── security/              # CredentialManager (3-tier, Fernet + Keychain)
 │   ├── logging/               # HestiaLogger, AuditLogger, log viewer
 │   ├── inference/             # InferenceClient (Ollama + cloud, 3-state routing)
@@ -30,19 +30,20 @@ hestia/
 │   ├── orchestration/         # RequestHandler, state machine, modes, prompts
 │   ├── execution/             # ToolExecutor, sandbox, gate, tool registry
 │   ├── apple/                 # 20 Apple tools (Calendar, Reminders, Notes, Mail)
+│   ├── health/                # HealthKit sync, metrics DB, coaching, 5 chat tools
 │   ├── tasks/                 # Background task management (SQLite queue)
 │   ├── orders/                # Scheduled recurring prompts + APScheduler
 │   ├── agents/                # Agent profile management (Tia/Mira/Olly, snapshots)
 │   ├── user/                  # User settings and profile
 │   ├── proactive/             # Proactive intelligence (briefings, patterns, policy)
 │   ├── voice/                 # Voice journaling (quality gate, journal analysis)
-│   ├── council/               # 5-role council (intent classification, tool extraction, validation, synthesis)
-│   ├── api/                   # FastAPI REST API (65 endpoints)
+│   ├── council/               # 4-role council (intent classification, tool extraction, validation, synthesis)
+│   ├── api/                   # FastAPI REST API (72 endpoints)
 │   │   ├── server.py          # App lifecycle, TLS/HTTPS
 │   │   ├── schemas.py         # All Pydantic models
 │   │   ├── errors.py          # Error sanitization helpers
 │   │   ├── middleware/        # JWT auth, rate limiting
-│   │   └── routes/            # 14 route modules
+│   │   └── routes/            # 15 route modules
 │   │       ├── auth.py        # /v1/auth/*
 │   │       ├── health.py      # /v1/ping, /v1/health
 │   │       ├── chat.py        # /v1/chat
@@ -56,7 +57,8 @@ hestia/
 │   │       ├── orders.py      # /v1/orders/*
 │   │       ├── agents.py      # /v1/agents/*
 │   │       ├── user.py        # /v1/user/*
-│   │       └── proactive.py   # /v1/proactive/*
+│   │       ├── proactive.py   # /v1/proactive/*
+│   │       └── health_data.py # /v1/health_data/*
 │   └── config/                # YAML configuration files
 │       ├── inference.yaml     # Inference + cloud routing config
 │       ├── execution.yaml     # Execution layer config
@@ -79,7 +81,7 @@ hestia/
 │       ├── Utilities/         # Shared utility code
 │       └── Persistence/       # Core Data stack
 │
-├── tests/                     # 731 pytest tests (17 test files)
+├── tests/                     # 784 pytest tests (18 test files)
 ├── scripts/                   # Deployment, build, hooks, health check
 ├── docs/                      # Project documentation
 └── CLAUDE.md                  # Project context (primary reference)
@@ -114,7 +116,7 @@ Council module sits between Orchestration and Inference (called by handler, call
 - **Manager pattern**: Each module has `models.py` + `database.py` + `manager.py`
 - **Singleton factory**: `get_X_manager()` async functions for manager initialization
 - **Error sanitization**: `hestia.api.errors.sanitize_for_log(e)` in all route log messages
-- **LogComponent enum**: ACCESS, ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, CLOUD, COUNCIL
+- **LogComponent enum**: ACCESS, ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, CLOUD, COUNCIL, HEALTH
 - **Cloud routing**: 3 states (disabled, enabled_full, enabled_smart) controlled via API
 
 ## How to Answer Questions

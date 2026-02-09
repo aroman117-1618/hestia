@@ -127,6 +127,60 @@ enum ReviewStatus: String, Codable {
 
 // MARK: - Mock Data
 
+extension MemorySearchResult {
+    /// Mock search results for Neural Net graph visualization (diverse types + overlapping tags)
+    static let mockResults: [MemorySearchResult] = {
+        let chunks: [(String, String, ChunkType, [String], [String], Double)] = [
+            ("mem-001", "User prefers dark mode across all applications", .preference, ["ui", "preferences"], ["dark mode"], 0.95),
+            ("mem-002", "Hestia uses Qwen 2.5 7B as primary local model", .fact, ["infrastructure", "AI"], ["Qwen", "Ollama"], 0.92),
+            ("mem-003", "Decided to use FastAPI for the backend REST API", .decision, ["infrastructure", "architecture"], ["FastAPI", "Python"], 0.88),
+            ("mem-004", "User works ~6 hours per week on Hestia", .fact, ["schedule", "preferences"], ["andrew"], 0.85),
+            ("mem-005", "Cloud routing uses 3-state model: disabled, smart, full", .fact, ["infrastructure", "AI"], ["cloud", "routing"], 0.90),
+            ("mem-006", "Implement temporal decay for memory relevance scoring", .decision, ["AI", "architecture"], ["memory", "decay"], 0.87),
+            ("mem-007", "User prefers teach-as-we-build approach (70/30 split)", .preference, ["preferences", "communication"], ["andrew"], 0.91),
+            ("mem-008", "Security: double encryption with Fernet + Keychain AES-256", .fact, ["security", "infrastructure"], ["encryption", "Keychain"], 0.93),
+            ("mem-009", "Review council architecture for performance optimization", .actionItem, ["AI", "architecture"], ["council", "performance"], 0.72),
+            ("mem-010", "SwiftUI app targets iOS 26.0 with ObservableObject pattern", .fact, ["ui", "infrastructure"], ["SwiftUI", "iOS"], 0.89),
+            ("mem-011", "User prefers sardonic, competent AI personality", .preference, ["preferences", "communication"], ["personality"], 0.94),
+            ("mem-012", "Biometric auth via Face ID with Keychain token storage", .fact, ["security", "infrastructure"], ["Face ID", "Keychain"], 0.91),
+        ]
+
+        return chunks.map { (id, content, type, topics, entities, confidence) in
+            MemorySearchResult(
+                chunk: MemoryChunk(
+                    id: id,
+                    sessionId: "session-mock",
+                    timestamp: Date().addingTimeInterval(-Double.random(in: 3600...604800)),
+                    content: content,
+                    chunkType: type,
+                    scope: .longTerm,
+                    status: .committed,
+                    tags: ChunkTags(
+                        topics: topics,
+                        entities: entities,
+                        people: topics.contains("preferences") ? ["andrew"] : [],
+                        mode: "tia",
+                        phase: nil,
+                        status: ["active"],
+                        custom: [:]
+                    ),
+                    metadata: ChunkMetadata(
+                        hasCode: false,
+                        hasDecision: type == .decision,
+                        hasActionItem: type == .actionItem,
+                        sentiment: "neutral",
+                        confidence: confidence,
+                        tokenCount: content.count / 4,
+                        source: "conversation"
+                    )
+                ),
+                relevanceScore: confidence,
+                matchType: "semantic"
+            )
+        }
+    }()
+}
+
 extension MemoryChunk {
     static let mockPendingReviews: [MemoryChunk] = [
         MemoryChunk(

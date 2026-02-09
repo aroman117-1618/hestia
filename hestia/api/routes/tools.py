@@ -155,7 +155,7 @@ async def get_tool_details(
             description=param.description,
             required=param.required,
             default=param.default,
-            enum_values=param.enum_values,
+            enum_values=param.enum,
         )
 
     return ToolDefinition(

@@ -105,9 +105,9 @@ class AutoTagger:
 
         except Exception as e:
             self.logger.warning(
-                f"Auto-tagging failed: {e}",
+                f"Auto-tagging failed: {type(e).__name__}",
                 component=LogComponent.MEMORY,
-                data={"error": str(e)}
+                data={"error_type": type(e).__name__}
             )
             # Return empty tags on failure
             return existing_tags or ChunkTags(), ChunkMetadata()

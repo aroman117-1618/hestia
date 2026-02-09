@@ -25,14 +25,22 @@ struct LoadingView: View {
     }
 }
 
-/// Loading indicator styled as a message bubble
+/// Loading indicator styled as a message bubble — uses Lottie typing indicator
 struct LoadingBubble: View {
     var body: some View {
         HStack {
-            LoadingView()
-                .padding(Spacing.md)
-                .background(Color.assistantBubbleBackground)
-                .cornerRadius(CornerRadius.standard)
+            LottieView(
+                animationName: "typing_indicator",
+                colorOverrides: [
+                    ("**.Fill 1.Color", .white.opacity(0.7))
+                ],
+                fallbackSymbol: "ellipsis"
+            )
+            .frame(width: 48, height: 32)
+            .padding(.horizontal, Spacing.sm)
+            .padding(.vertical, Spacing.xs)
+            .background(Color.assistantBubbleBackground)
+            .cornerRadius(CornerRadius.standard)
 
             Spacer()
         }

@@ -161,10 +161,10 @@ class JournalAnalyzer:
 
         except Exception as e:
             self.logger.error(
-                f"Journal analysis failed: {e}",
+                f"Journal analysis failed: {type(e).__name__}",
                 component=LogComponent.VOICE,
             )
-            analysis.summary = f"Analysis incomplete due to error: {str(e)}"
+            analysis.summary = f"Analysis incomplete due to error: {type(e).__name__}"
 
         return analysis
 
@@ -261,7 +261,7 @@ class JournalAnalyzer:
             return refs
         except Exception as e:
             self.logger.debug(
-                f"Calendar cross-reference unavailable: {e}",
+                f"Calendar cross-reference unavailable: {type(e).__name__}",
                 component=LogComponent.VOICE,
             )
             return []
@@ -291,7 +291,7 @@ class JournalAnalyzer:
             return refs
         except Exception as e:
             self.logger.debug(
-                f"Reminders cross-reference unavailable: {e}",
+                f"Reminders cross-reference unavailable: {type(e).__name__}",
                 component=LogComponent.VOICE,
             )
             return []
@@ -324,7 +324,7 @@ class JournalAnalyzer:
             return refs
         except Exception as e:
             self.logger.debug(
-                f"Mail cross-reference unavailable: {e}",
+                f"Mail cross-reference unavailable: {type(e).__name__}",
                 component=LogComponent.VOICE,
             )
             return []
@@ -355,7 +355,7 @@ class JournalAnalyzer:
             return refs
         except Exception as e:
             self.logger.debug(
-                f"Memory cross-reference unavailable: {e}",
+                f"Memory cross-reference unavailable: {type(e).__name__}",
                 component=LogComponent.VOICE,
             )
             return []
@@ -406,14 +406,14 @@ class JournalAnalyzer:
                     intents.append(intent)
                 except (KeyError, ValueError) as e:
                     self.logger.debug(
-                        f"Skipping malformed intent: {e}",
+                        f"Skipping malformed intent: {type(e).__name__}",
                         component=LogComponent.VOICE,
                     )
             return intents
 
         except (json.JSONDecodeError, TypeError) as e:
             self.logger.warning(
-                f"Failed to parse intents response: {e}",
+                f"Failed to parse intents response: {type(e).__name__}",
                 component=LogComponent.VOICE,
             )
             return []
@@ -435,7 +435,7 @@ class JournalAnalyzer:
                     items.append(item)
                 except (KeyError, ValueError) as e:
                     self.logger.debug(
-                        f"Skipping malformed action plan item: {e}",
+                        f"Skipping malformed action plan item: {type(e).__name__}",
                         component=LogComponent.VOICE,
                     )
 
@@ -444,7 +444,7 @@ class JournalAnalyzer:
 
         except (json.JSONDecodeError, TypeError) as e:
             self.logger.warning(
-                f"Failed to parse action plan response: {e}",
+                f"Failed to parse action plan response: {type(e).__name__}",
                 component=LogComponent.VOICE,
             )
             return [], ""

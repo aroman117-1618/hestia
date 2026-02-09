@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 /// Real API client for connecting to the Hestia backend
 /// Supports configurable environments (local/Tailscale) and automatic retry with exponential backoff
@@ -20,6 +21,12 @@ class APIClient: HestiaClientProtocol {
 
     /// Certificate pinning delegate for HTTPS connections
     private let certificatePinningDelegate: CertificatePinningDelegate
+
+    // MARK: - Token Refresh
+
+    /// Called when APIClient auto-reregisters on 401, so AuthService can persist the new token
+    var onTokenRefresh: ((String) -> Void)?
+    private var isReregistering = false
 
     // MARK: - Retry Configuration
 
@@ -201,6 +208,16 @@ class APIClient: HestiaClientProtocol {
         }
 
         let _: RejectResponse = try await post("/memory/reject/\(chunkId)", body: EmptyBody())
+    }
+
+    func searchMemory(query: String, limit: Int) async throws -> [MemorySearchResult] {
+        struct SearchResponse: Codable {
+            let results: [MemorySearchResult]
+            let count: Int
+        }
+
+        let response: SearchResponse = try await get("/memory/search?q=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query)&limit=\(limit)")
+        return response.results
     }
 
     func createSession(mode: HestiaMode) async throws -> String {
@@ -399,6 +416,20 @@ class APIClient: HestiaClientProtocol {
         return try await post("/voice/journal-analyze", body: request)
     }
 
+    // MARK: - Health Data API
+
+    func syncHealthMetrics(_ request: HealthSyncRequest) async throws -> HealthSyncResponse {
+        return try await post("/health_data/sync", body: request)
+    }
+
+    func getCoachingPreferences() async throws -> CoachingPreferencesResponse {
+        return try await get("/health_data/coaching")
+    }
+
+    func updateCoachingPreferences(_ request: CoachingPreferencesUpdateRequest) async throws -> CoachingPreferencesResponse {
+        return try await post("/health_data/coaching", body: request)
+    }
+
     // MARK: - Private HTTP Methods
 
     private func get<T: Decodable>(_ path: String) async throws -> T {
@@ -545,6 +576,35 @@ class APIClient: HestiaClientProtocol {
                     throw error
                 }
             case 401:
+                // Auto-reregister: get a fresh device token and retry once
+                if !isReregistering {
+                    isReregistering = true
+                    defer { isReregistering = false }
+
+                    #if DEBUG
+                    print("[APIClient] 401 received, attempting auto-reregistration...")
+                    #endif
+
+                    do {
+                        let deviceName = UIDevice.current.name
+                        let regResponse = try await registerDevice(deviceName: deviceName, deviceType: "iOS")
+                        self.deviceToken = regResponse.token
+                        onTokenRefresh?(regResponse.token)
+
+                        #if DEBUG
+                        print("[APIClient] Re-registration successful, retrying request...")
+                        #endif
+
+                        // Rebuild original request with new token
+                        var retryRequest = request
+                        retryRequest.setValue(regResponse.token, forHTTPHeaderField: "X-Hestia-Device-Token")
+                        return try await executeWithRetry(retryRequest, attempt: attempt + 1)
+                    } catch {
+                        #if DEBUG
+                        print("[APIClient] Auto-reregistration failed: \(error)")
+                        #endif
+                    }
+                }
                 throw HestiaError.unauthorized
             case 429:
                 // Rate limited - extract retry-after if available

@@ -47,14 +47,14 @@ class OrderManager:
 
         self.logger.info(
             "Order manager initialized",
-            component=LogComponent.API,
+            component=LogComponent.EXECUTION,
         )
 
     async def close(self) -> None:
         """Close order manager resources."""
         self.logger.debug(
             "Order manager closed",
-            component=LogComponent.API,
+            component=LogComponent.EXECUTION,
         )
 
     async def __aenter__(self) -> "OrderManager":
@@ -118,7 +118,7 @@ class OrderManager:
 
         self.logger.info(
             f"Order created: {order.id}",
-            component=LogComponent.API,
+            component=LogComponent.EXECUTION,
             data={
                 "order_id": order.id,
                 "name": name,
@@ -187,7 +187,7 @@ class OrderManager:
 
         self.logger.info(
             f"Order updated: {order_id}",
-            component=LogComponent.API,
+            component=LogComponent.EXECUTION,
             data={"order_id": order_id},
         )
 
@@ -208,7 +208,7 @@ class OrderManager:
         if deleted:
             self.logger.info(
                 f"Order deleted: {order_id}",
-                component=LogComponent.API,
+                component=LogComponent.EXECUTION,
             )
 
         return deleted
@@ -260,7 +260,7 @@ class OrderManager:
 
         self.logger.info(
             f"Execution started: {execution.id}",
-            component=LogComponent.API,
+            component=LogComponent.EXECUTION,
             data={
                 "execution_id": execution.id,
                 "order_id": order_id,
@@ -307,7 +307,7 @@ class OrderManager:
 
         self.logger.info(
             f"Execution completed: {execution_id}",
-            component=LogComponent.API,
+            component=LogComponent.EXECUTION,
             data={
                 "execution_id": execution_id,
                 "order_id": execution.order_id,
@@ -346,7 +346,7 @@ class OrderManager:
 
         self.logger.warning(
             f"Execution failed: {execution_id}",
-            component=LogComponent.API,
+            component=LogComponent.EXECUTION,
             data={
                 "execution_id": execution_id,
                 "order_id": execution.order_id,
@@ -424,7 +424,7 @@ class OrderManager:
         # For now, simulate a successful execution
         self.logger.info(
             f"Order execution triggered: {order.name}",
-            component=LogComponent.API,
+            component=LogComponent.EXECUTION,
             data={
                 "order_id": order_id,
                 "execution_id": execution.id,

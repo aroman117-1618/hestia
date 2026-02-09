@@ -108,11 +108,15 @@ async def create_task(
         return _task_to_response(task)
 
     except ValueError as e:
+        logger.warning(
+            f"Invalid task request: {sanitize_for_log(e)}",
+            component=LogComponent.API,
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
                 "error": "invalid_request",
-                "message": str(e),
+                "message": "Invalid task parameters.",
             }
         )
 
@@ -335,12 +339,17 @@ async def approve_task(
 
     except ValueError as e:
         error_msg = str(e)
+        logger.warning(
+            f"Task approval failed: {sanitize_for_log(e)}",
+            component=LogComponent.API,
+            data={"task_id": task_id},
+        )
         if "not found" in error_msg.lower():
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail={
                     "error": "task_not_found",
-                    "message": error_msg,
+                    "message": f"Task '{task_id}' not found.",
                 }
             )
         else:
@@ -348,7 +357,7 @@ async def approve_task(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
                     "error": "invalid_operation",
-                    "message": error_msg,
+                    "message": "Task cannot be approved in its current state.",
                 }
             )
 
@@ -415,12 +424,17 @@ async def cancel_task(
 
     except ValueError as e:
         error_msg = str(e)
+        logger.warning(
+            f"Task cancellation failed: {sanitize_for_log(e)}",
+            component=LogComponent.API,
+            data={"task_id": task_id},
+        )
         if "not found" in error_msg.lower():
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail={
                     "error": "task_not_found",
-                    "message": error_msg,
+                    "message": f"Task '{task_id}' not found.",
                 }
             )
         else:
@@ -428,7 +442,7 @@ async def cancel_task(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
                     "error": "invalid_operation",
-                    "message": error_msg,
+                    "message": "Task cannot be cancelled in its current state.",
                 }
             )
 
@@ -498,12 +512,17 @@ async def retry_task(
 
     except ValueError as e:
         error_msg = str(e)
+        logger.warning(
+            f"Task retry failed: {sanitize_for_log(e)}",
+            component=LogComponent.API,
+            data={"task_id": task_id},
+        )
         if "not found" in error_msg.lower():
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail={
                     "error": "task_not_found",
-                    "message": error_msg,
+                    "message": f"Task '{task_id}' not found.",
                 }
             )
         else:
@@ -511,7 +530,7 @@ async def retry_task(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
                     "error": "invalid_operation",
-                    "message": error_msg,
+                    "message": "Task cannot be retried in its current state.",
                 }
             )
 

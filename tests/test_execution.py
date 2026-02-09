@@ -602,6 +602,202 @@ class TestToolExecutor:
 
 
 # ============================================================================
+# File Tools Tests
+# ============================================================================
+
+
+class TestFileTools:
+    """Tests for file tools (list_directory, search_files)."""
+
+    @pytest.mark.asyncio
+    async def test_list_directory_basic(self, temp_dir: Path):
+        """Test basic directory listing."""
+        (temp_dir / "file1.txt").write_text("hello")
+        (temp_dir / "file2.pdf").write_text("world")
+        (temp_dir / "subdir").mkdir()
+
+        sandbox = SandboxRunner(SandboxConfig(
+            allowed_directories=[str(temp_dir)],
+        ))
+        with patch(
+            "hestia.execution.tools.file_tools.get_sandbox_runner",
+            return_value=sandbox,
+        ):
+            from hestia.execution.tools.file_tools import list_directory_handler
+            result = await list_directory_handler(path=str(temp_dir))
+
+        assert result["entry_count"] == 3
+        names = [e["name"] for e in result["entries"]]
+        assert "file1.txt" in names
+        assert "file2.pdf" in names
+        assert "subdir" in names
+        # Directories should be listed first with default sort
+        assert result["entries"][0]["is_dir"] is True
+
+    @pytest.mark.asyncio
+    async def test_list_directory_hidden_excluded(self, temp_dir: Path):
+        """Test that hidden files are excluded by default."""
+        (temp_dir / ".hidden").write_text("secret")
+        (temp_dir / "visible.txt").write_text("hello")
+
+        sandbox = SandboxRunner(SandboxConfig(
+            allowed_directories=[str(temp_dir)],
+        ))
+        with patch(
+            "hestia.execution.tools.file_tools.get_sandbox_runner",
+            return_value=sandbox,
+        ):
+            from hestia.execution.tools.file_tools import list_directory_handler
+            result = await list_directory_handler(path=str(temp_dir))
+
+        assert result["entry_count"] == 1
+        assert result["entries"][0]["name"] == "visible.txt"
+
+    @pytest.mark.asyncio
+    async def test_list_directory_include_hidden(self, temp_dir: Path):
+        """Test that hidden files can be included."""
+        (temp_dir / ".hidden").write_text("secret")
+        (temp_dir / "visible.txt").write_text("hello")
+
+        sandbox = SandboxRunner(SandboxConfig(
+            allowed_directories=[str(temp_dir)],
+        ))
+        with patch(
+            "hestia.execution.tools.file_tools.get_sandbox_runner",
+            return_value=sandbox,
+        ):
+            from hestia.execution.tools.file_tools import list_directory_handler
+            result = await list_directory_handler(
+                path=str(temp_dir), include_hidden=True,
+            )
+
+        assert result["entry_count"] == 2
+
+    @pytest.mark.asyncio
+    async def test_list_directory_sandbox_violation(self):
+        """Test that listing outside sandbox raises error."""
+        sandbox = SandboxRunner(SandboxConfig(
+            allowed_directories=["/tmp/hestia-test-only"],
+        ))
+        with patch(
+            "hestia.execution.tools.file_tools.get_sandbox_runner",
+            return_value=sandbox,
+        ):
+            from hestia.execution.tools.file_tools import list_directory_handler
+            with pytest.raises(SandboxViolationError):
+                await list_directory_handler(path="/etc")
+
+    @pytest.mark.asyncio
+    async def test_list_directory_sort_by_modified(self, temp_dir: Path):
+        """Test sorting by modified time."""
+        import time
+        (temp_dir / "old.txt").write_text("old")
+        time.sleep(0.05)
+        (temp_dir / "new.txt").write_text("new")
+
+        sandbox = SandboxRunner(SandboxConfig(
+            allowed_directories=[str(temp_dir)],
+        ))
+        with patch(
+            "hestia.execution.tools.file_tools.get_sandbox_runner",
+            return_value=sandbox,
+        ):
+            from hestia.execution.tools.file_tools import list_directory_handler
+            result = await list_directory_handler(
+                path=str(temp_dir), sort_by="modified",
+            )
+
+        assert result["entries"][0]["name"] == "new.txt"
+
+    @pytest.mark.asyncio
+    async def test_search_files_basic(self, temp_dir: Path):
+        """Test basic file search."""
+        (temp_dir / "report.pdf").write_text("content")
+        (temp_dir / "data.csv").write_text("data")
+        sub = temp_dir / "subdir"
+        sub.mkdir()
+        (sub / "notes.pdf").write_text("notes")
+
+        sandbox = SandboxRunner(SandboxConfig(
+            allowed_directories=[str(temp_dir)],
+        ))
+        with patch(
+            "hestia.execution.tools.file_tools.get_sandbox_runner",
+            return_value=sandbox,
+        ):
+            from hestia.execution.tools.file_tools import search_files_handler
+            result = await search_files_handler(
+                pattern="*.pdf", directory=str(temp_dir),
+            )
+
+        assert result["result_count"] == 2
+        names = [r["name"] for r in result["results"]]
+        assert "report.pdf" in names
+        assert "notes.pdf" in names
+
+    @pytest.mark.asyncio
+    async def test_search_files_max_results(self, temp_dir: Path):
+        """Test search respects max_results limit."""
+        for i in range(10):
+            (temp_dir / f"file{i}.txt").write_text(f"content {i}")
+
+        sandbox = SandboxRunner(SandboxConfig(
+            allowed_directories=[str(temp_dir)],
+        ))
+        with patch(
+            "hestia.execution.tools.file_tools.get_sandbox_runner",
+            return_value=sandbox,
+        ):
+            from hestia.execution.tools.file_tools import search_files_handler
+            result = await search_files_handler(
+                pattern="*.txt", directory=str(temp_dir), max_results=3,
+            )
+
+        assert result["result_count"] == 3
+        assert result["truncated"] is True
+
+    @pytest.mark.asyncio
+    async def test_search_files_hidden_excluded(self, temp_dir: Path):
+        """Test that hidden files are excluded from search results."""
+        (temp_dir / ".hidden.txt").write_text("secret")
+        (temp_dir / "visible.txt").write_text("hello")
+        hidden_dir = temp_dir / ".hidden_dir"
+        hidden_dir.mkdir()
+        (hidden_dir / "deep.txt").write_text("deep secret")
+
+        sandbox = SandboxRunner(SandboxConfig(
+            allowed_directories=[str(temp_dir)],
+        ))
+        with patch(
+            "hestia.execution.tools.file_tools.get_sandbox_runner",
+            return_value=sandbox,
+        ):
+            from hestia.execution.tools.file_tools import search_files_handler
+            result = await search_files_handler(
+                pattern="*.txt", directory=str(temp_dir),
+            )
+
+        assert result["result_count"] == 1
+        assert result["results"][0]["name"] == "visible.txt"
+
+    @pytest.mark.asyncio
+    async def test_search_files_not_found_directory(self):
+        """Test search with nonexistent directory raises error."""
+        sandbox = SandboxRunner(SandboxConfig(
+            allowed_directories=["/tmp"],
+        ))
+        with patch(
+            "hestia.execution.tools.file_tools.get_sandbox_runner",
+            return_value=sandbox,
+        ):
+            from hestia.execution.tools.file_tools import search_files_handler
+            with pytest.raises(FileNotFoundError):
+                await search_files_handler(
+                    pattern="*.txt", directory="/tmp/nonexistent-hestia-dir",
+                )
+
+
+# ============================================================================
 # Integration Tests
 # ============================================================================
 

@@ -56,6 +56,20 @@ class AuthService: ObservableObject {
             lastAuthenticationTime = Date()
         }
         #endif
+
+        // Defer APIClient access to avoid @MainActor initialization deadlock
+        DispatchQueue.main.async { [weak self] in
+            APIClient.shared.onTokenRefresh = { [weak self] newToken in
+                do {
+                    try self?.saveTokenToKeychain(newToken)
+                } catch {
+                    #if DEBUG
+                    print("[AuthService] Failed to persist refreshed token: \(error)")
+                    #endif
+                }
+                self?.isDeviceRegistered = true
+            }
+        }
     }
 
     // MARK: - Biometric Authentication

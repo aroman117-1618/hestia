@@ -793,6 +793,125 @@ class AgentSyncResponse(BaseModel):
 
 
 # ============================================================================
+# V2 Agent Config Schemas (.md-based system)
+# ============================================================================
+
+
+class AgentIdentityResponse(BaseModel):
+    """Agent identity from IDENTITY.md."""
+    name: str = Field(description="Agent display name")
+    full_name: str = Field(default="", description="Full name")
+    emoji: str = Field(default="", description="Agent emoji")
+    vibe: str = Field(default="", description="Short personality descriptor")
+    avatar_path: Optional[str] = Field(None, description="Path to avatar image")
+    gradient_color_1: str = Field(description="Primary gradient color (hex)")
+    gradient_color_2: str = Field(description="Secondary gradient color (hex)")
+    invoke_pattern: str = Field(default="", description="Regex for @-mention detection")
+    temperature: float = Field(default=0.0, description="Default inference temperature")
+
+
+class AgentConfigResponse(BaseModel):
+    """V2 agent configuration response."""
+    directory_name: str = Field(description="Agent directory name (slug)")
+    name: str = Field(description="Agent display name")
+    identity: AgentIdentityResponse = Field(description="Agent identity")
+    is_default: bool = Field(description="Whether this is a built-in default agent")
+    is_archived: bool = Field(default=False, description="Whether archived")
+    has_bootstrap: bool = Field(default=False, description="Whether onboarding is pending")
+    config_version: str = Field(default="1.0", description="Config schema version")
+    created_at: datetime = Field(description="Creation timestamp")
+    updated_at: datetime = Field(description="Last update timestamp")
+    files: Dict[str, bool] = Field(description="Map of config files to whether they have content")
+
+
+class AgentConfigListResponse(BaseModel):
+    """V2 agent list response."""
+    agents: List[AgentConfigResponse] = Field(description="Agent list")
+    count: int = Field(description="Total count")
+    default_agent: str = Field(description="Default agent name")
+
+
+class AgentCreateRequest(BaseModel):
+    """Request to create a new agent."""
+    name: str = Field(
+        ...,
+        min_length=1,
+        max_length=50,
+        description="Agent display name"
+    )
+    slug: Optional[str] = Field(
+        None,
+        max_length=50,
+        description="Directory name (auto-generated from name if not provided)"
+    )
+
+
+class AgentConfigFileResponse(BaseModel):
+    """Response containing a single config file's content."""
+    agent_name: str = Field(description="Agent directory name")
+    file_name: str = Field(description="Config file name (e.g., ANIMA.md)")
+    content: str = Field(description="File content")
+    writable_by_agent: bool = Field(description="Whether agent can modify this file")
+    requires_confirmation: bool = Field(description="Whether agent modification needs user confirmation")
+
+
+class AgentConfigFileUpdateRequest(BaseModel):
+    """Request to update a config file."""
+    content: str = Field(
+        ...,
+        description="New file content"
+    )
+    source: str = Field(
+        default="user",
+        description="Who is making the change: 'user', 'agent', or 'system'"
+    )
+    confirmed: bool = Field(
+        default=False,
+        description="Whether user confirmed this change (required for agent-initiated edits to sensitive files)"
+    )
+
+
+class AgentArchiveResponse(BaseModel):
+    """Response after archiving an agent."""
+    agent_name: str = Field(description="Archived agent name")
+    message: str = Field(description="Status message")
+
+
+class ChatContextModel(BaseModel):
+    """Workspace context for v2 chat API."""
+    active_tab: Optional[str] = Field(None, description="Currently active tab (calendar, notes, files, etc.)")
+    selected_text: Optional[str] = Field(None, description="User-selected text in canvas")
+    attached_files: Optional[List[Dict[str, Any]]] = Field(
+        None,
+        description="Files attached via @ mention or drag-and-drop. Each has 'path' and optional 'content_preview'."
+    )
+    referenced_items: Optional[List[Dict[str, Any]]] = Field(
+        None,
+        description="Referenced items (calendar events, notes, etc.). Each has 'type', 'id', and 'summary' or 'title'."
+    )
+    panel_context: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Soft context from visible panels. Has 'visible_panels' list and optional metadata."
+    )
+
+
+class DailyNoteResponse(BaseModel):
+    """A daily note entry."""
+    date: str = Field(description="Note date (YYYY-MM-DD)")
+    content: str = Field(description="Note content")
+    agent_name: str = Field(description="Agent directory name")
+
+
+class DailyNoteAppendRequest(BaseModel):
+    """Request to append to a daily note."""
+    content: str = Field(
+        ...,
+        min_length=1,
+        description="Content to append"
+    )
+
+
+# ============================================================================
 # User Settings Schemas (Phase 6b - User Settings API)
 # ============================================================================
 
@@ -899,6 +1018,10 @@ class CloudProviderStateEnum(str, Enum):
 
 class CloudProviderAddRequest(BaseModel):
     """Request to add a cloud provider."""
+    provider: CloudProviderEnum = Field(
+        ...,
+        description="Cloud provider type (anthropic, openai, google)"
+    )
     api_key: str = Field(
         ...,
         min_length=1,
@@ -929,17 +1052,6 @@ class CloudProviderModelUpdateRequest(BaseModel):
         min_length=1,
         description="Model ID to use for this provider"
     )
-
-
-class CloudModelInfo(BaseModel):
-    """Information about a cloud model."""
-    model_id: str = Field(description="Model identifier")
-    provider: CloudProviderEnum = Field(description="Provider")
-    display_name: str = Field(description="Human-readable name")
-    context_window: int = Field(description="Maximum context window tokens")
-    max_output_tokens: int = Field(description="Maximum output tokens")
-    cost_per_1k_input: float = Field(description="Cost per 1K input tokens (USD)")
-    cost_per_1k_output: float = Field(description="Cost per 1K output tokens (USD)")
 
 
 class CloudProviderResponse(BaseModel):

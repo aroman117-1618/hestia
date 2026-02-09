@@ -30,6 +30,8 @@
 	<string>Hestia uses the camera to let you customize your agent avatars.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Hestia uses Face ID to secure your conversations and personal data.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Hestia reads your health data to provide personalized health coaching, daily briefings, and activity insights. Your data stays on your devices and server — it is never shared with third parties.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Hestia needs microphone access to record your voice journal entries.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

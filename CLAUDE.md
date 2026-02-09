@@ -30,7 +30,7 @@
 |-------|-------|---------|
 | @hestia-explorer | Haiku | Phase 1: Find code, trace architecture |
 | @hestia-tester | Sonnet | Phase 3: Run tests, diagnose failures |
-| @hestia-reviewer | Sonnet | Phase 4: Code review before commits |
+| @hestia-reviewer | Sonnet | Phase 2: Plan audit, Phase 4: Code audit, Session retro + docs check |
 | @hestia-deployer | Sonnet | Deploy to Mac Mini when requested |
 
 Definitions: `.claude/agents/`. Read-only specialists — diagnose and report, never modify code.
@@ -41,6 +41,23 @@ Definitions: `.claude/agents/`. Read-only specialists — diagnose and report, n
 |--------|---------|---------|
 | `scripts/validate-security-edit.sh` | Before security file edits | Catches plaintext secrets, wildcard CORS, bare excepts |
 | `scripts/auto-test.sh` | After Python source edits | Runs matching test file automatically |
+
+---
+
+## Server Management
+
+After ANY backend code change, always kill stale server processes before restarting. Use `lsof -i :8443 | grep LISTEN` to find and `kill -9` old PIDs. Never assume the running server has picked up code changes without a full restart cycle.
+
+## Context Continuity
+
+This is a multi-session project (Hestia). Key references:
+- Project plans and workstreams are in `docs/`
+- Previous session context may be compacted — check docs and CLAUDE.md FIRST before searching transcripts
+- Current workstreams: ALL COMPLETE. Cloud API live-tested (Anthropic enabled_full). iCloud file system tools added. UI Phase 3 COMPLETE. UI Phase 4 COMPLETE (Integrations UI, API contract rewrite). Apple HealthKit integration COMPLETE. Next: UI Phase 5 or feature requests.
+
+## Debugging Approach
+
+When diagnosing issues, consider the FULL stack (backend process permissions, server state, iOS simulator limitations) before assuming the problem is in the code layer you're currently editing. Ask clarifying questions about the runtime environment before proposing fixes.
 
 ---
 
@@ -57,7 +74,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | Hardware | Mac Mini M1 (16GB) |
 | Model | Qwen 2.5 7B (Ollama, local) + cloud providers (Anthropic/OpenAI/Google) |
 | SLM | qwen2.5:0.5b (council intent classification, ~100ms) |
-| Backend | Python 3.9+, FastAPI, 65 endpoints across 14 route modules |
+| Backend | Python 3.9+, FastAPI, 72 endpoints across 15 route modules |
 | Storage | ChromaDB (vectors) + SQLite (structured) + macOS Keychain (credentials) |
 | App | Native Swift/SwiftUI (iOS 26.0+) |
 | API | REST on port 8443 with JWT auth, HTTPS with self-signed cert |
@@ -68,9 +85,11 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 **MVP (v1.0): Phases 0-7 COMPLETE.** All core layers built and deployed.
 **Intelligence (v1.5):** WS1 Cloud LLM, WS2 Voice, WS3 Council, WS4 Temporal Decay — ALL COMPLETE.
-**Next:** UI Phase 2 quick wins, then Lottie animations, then Settings integrations.
+**UI Phase 3 (Lottie, Settings, Neural Net): COMPLETE.**
+**UI Phase 4 (Integrations UI, API contract rewrite): COMPLETE.**
+**Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
 
-731 tests passing (3 skipped). Full details: `python -m pytest tests/ -v`
+784+ tests passing (3 skipped). Full details: `python -m pytest tests/ -v`
 
 ---
 
@@ -78,13 +97,24 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 - **Type hints**: Always. Every function signature.
 - **Async/await**: For all I/O (database, inference, network).
-- **Logging**: `HestiaLogger` with correct `LogComponent` per module (ACCESS, ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, CLOUD, COUNCIL).
+- **Logging**: `HestiaLogger` with correct `LogComponent` per module (ACCESS, ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, CLOUD, COUNCIL, HEALTH).
 - **Config**: YAML files, never hardcode.
 - **Error handling in routes**: `sanitize_for_log(e)` from `hestia.api.errors` in logs (never raw `{e}`). Generic messages in HTTP responses (never `detail=str(e)`).
 - **File naming**: `snake_case.py` (Python), UpperCamelCase.swift (iOS).
 - **Manager pattern**: `models.py` + `database.py` + `manager.py` per module. Singleton via `get_X_manager()` async factory.
 - **iOS patterns**: `@MainActor ObservableObject` with `@Published`. DesignSystem tokens. No force-unwraps. `[weak self]` in closures. `#if DEBUG` for all `print()`.
 - **New module checklist**: (1) `LogComponent` enum, (2) `auto-test.sh` mapping, (3) `validate-security-edit.sh` if creds, (4) sub-agent definitions, (5) project structure in CLAUDE.md.
+
+## Testing
+
+Always run the full test suite (`python -m pytest`) after making changes and ensure all tests pass before considering a task complete. If tests are failing at session end, explicitly note which tests fail and why in a summary.
+
+## iOS / Swift Specifics
+
+- Simulator has Face ID limitations — use mock auth for development builds
+- Asset catalogs must have matching JSON metadata files; don't just copy images
+- Always verify SwiftUI previews compile after changes
+- Mac Mini deployment target: `andrewroman117@hestia-3.local` (via Tailscale)
 
 ## Security Posture
 
@@ -108,7 +138,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 ```
 hestia/
-├── hestia/                          # Python backend — 17 modules
+├── hestia/                          # Python backend — 18 modules
 │   ├── security/                    # CredentialManager (Keychain + Fernet)
 │   ├── logging/                     # HestiaLogger, AuditLogger, LogComponent enum
 │   ├── inference/                   # InferenceClient (Ollama + cloud), ModelRouter (3-state)
@@ -118,32 +148,35 @@ hestia/
 │   ├── orchestration/               # RequestHandler, StateMachine, ModeManager, PromptBuilder
 │   ├── execution/                   # ToolExecutor, ToolRegistry, Sandbox, CommGate
 │   ├── apple/                       # 20 tools (Calendar, Reminders, Notes, Mail)
+│   ├── health/                      # HealthKit sync, metrics DB, coaching, 5 chat tools
 │   ├── tasks/                       # BackgroundTask lifecycle + approval workflow
 │   ├── orders/                      # Scheduled prompts + APScheduler
 │   ├── agents/                      # AgentProfile CRUD + snapshots (Tia/Mira/Olly)
 │   ├── user/                        # UserProfile + settings + push tokens
 │   ├── proactive/                   # Briefings, PatternDetector, InterruptionPolicy
 │   ├── voice/                       # TranscriptQualityChecker, JournalAnalyzer (3-stage)
-│   ├── api/                         # FastAPI — 65 endpoints, 14 route modules
+│   ├── api/                         # FastAPI — 72 endpoints, 15 route modules
 │   │   ├── errors.py                # sanitize_for_log(), safe_error_detail()
 │   │   ├── schemas.py               # All Pydantic request/response models
 │   │   ├── server.py                # App lifecycle, manager initialization
 │   │   ├── middleware/auth.py        # JWT device authentication
 │   │   └── routes/                  # auth, health, chat, mode, memory, sessions, tools,
-│   │                                # tasks, cloud, voice, orders, agents, user, proactive
+│   │                                # tasks, cloud, voice, orders, agents, user, proactive, health_data
 │   └── config/                      # inference.yaml, execution.yaml, memory.yaml
 ├── hestia-cli-tools/                # Swift CLIs (keychain, calendar, reminders, notes)
 ├── HestiaApp/                       # iOS SwiftUI app
 │   ├── Shared/
 │   │   ├── App/                     # Entry point, ContentView
 │   │   ├── DesignSystem/            # Colors, Typography, Spacing, Animations
-│   │   ├── Models/                  # APIModels, CloudProvider, Order, AgentProfile
-│   │   ├── Services/                # APIClient, AuthService, SpeechService, CalendarService
-│   │   ├── ViewModels/              # Chat, CommandCenter, CloudSettings, VoiceInput, Settings
-│   │   ├── Views/                   # Chat (+ Voice overlay), CommandCenter, Settings (+ Cloud)
+│   │   ├── Models/                  # APIModels, CloudProvider, Order, AgentProfile, MemoryChunk, HealthModels
+│   │   ├── Resources/Animations/    # Lottie JSONs (ai_blob, typing_indicator)
+│   │   ├── Services/                # APIClient, AuthService, SpeechService, CalendarService, HealthKitService
+│   │   ├── ViewModels/              # Chat, CommandCenter, CloudSettings, Integrations, NeuralNet, Resources, Settings
+│   │   ├── Views/                   # Chat, CommandCenter (+ NeuralNet), Settings (+ Resources, Integrations), Auth
+│   │   ├── Views/Common/            # LottieAnimationView, LoadingView, GradientBackground
 │   │   └── Persistence/             # Core Data stack
 │   └── project.yml                  # xcodegen config (iOS 26.0, Swift 6.1)
-├── tests/                           # 731 tests, 17 files
+├── tests/                           # 784+ tests, 18 files
 ├── scripts/                         # deploy, test-api, auto-test, validate-security, ollama
 ├── .claude/                         # agents/, output-styles/, settings
 ├── docs/                            # api-contract, decision-log, security-architecture
@@ -152,7 +185,7 @@ hestia/
 
 ---
 
-## API Summary (65 endpoints, 14 route modules)
+## API Summary (72 endpoints, 15 route modules)
 
 | Module | Endpoints | Key Routes |
 |--------|-----------|------------|
@@ -168,6 +201,7 @@ hestia/
 | Agents | 10 | `/v1/agents/{slot}` CRUD + photos + snapshots + sync |
 | User | 9 | `/v1/user/profile`, `photo`, `settings`, `push-token` |
 | Proactive | 6 | `/v1/proactive/briefing`, `policy`, `patterns`, `notifications` |
+| Health Data | 7 | `/v1/health_data/sync`, `summary`, `trend`, `coaching` |
 
 Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 
@@ -207,14 +241,13 @@ Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 |-------|--------|-------|
 | Phase 1: Bug Fixes | COMPLETE | Face ID, Notes CLI, tool call JSON |
 | Phase 2: Quick Wins | COMPLETE | Memory already in CC, byline/Default Mode already removed |
-| **Phase 3: Lottie Animations** | **NEXT** | Loading animations + snarky bylines |
-| Phase 4: Settings Integrations | Planned | Calendar, Reminders, Notes, Mail, Weather, Stocks |
-| Phase 5: Neural Net Graph | Planned | Force-directed memory visualization (Grape library) |
+| Phase 3: Lottie + Neural Net | COMPLETE | Lottie animations, Settings restructure, 3D Neural Net graph |
+| Phase 4: Settings Integrations | COMPLETE | IntegrationsView (Calendar, Reminders, Notes, Mail), API contract rewrite |
+| Apple HealthKit Integration | COMPLETE | 27 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools, iOS HealthKitService |
 
 ### Known Issues (Mac Mini)
-- GET /v1/tools → 500 (Apple CLI init, pre-existing)
-- POST /v1/sessions → 500 (orchestration handler init, pre-existing)
 - Council needs `qwen2.5:0.5b` pulled on Mac Mini
+- Server must be restarted after code deploys (no hot-reload)
 
 ---
 
@@ -226,7 +259,23 @@ python -m hestia.api.server            # Start server
 python -m pytest tests/ -v             # Run tests
 ./scripts/test-api.sh                  # API smoke tests (14)
 ./scripts/deploy-to-mini.sh            # Deploy to Mac Mini
+./scripts/pre-session.sh               # Headless pre-session health check
+./scripts/post-commit.sh               # Headless post-commit lint + test
 ```
+
+## Skills (Slash Commands)
+
+| Skill | Command | Purpose |
+|-------|---------|---------|
+| Restart | `/restart` | Kill stale server, restart, health check, run tests |
+| Pickup | `/pickup` | Read session handoff, validate environment, resume context |
+| Handoff | `/handoff` | Write structured session handoff notes for next session |
+| Preflight | `/preflight` | Full stack validation with auto-remediation |
+| Bug Fix | `/bugfix` | Autonomous test-driven fix pipeline (one-at-a-time verification) |
+| Scaffold | `/scaffold` | Parallel multi-agent feature buildout with interface contracts |
+| Audit | `/audit` | Deep architecture, security, and project management audit |
+
+Definitions: `.claude/skills/`
 
 ---
 

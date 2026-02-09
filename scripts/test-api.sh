@@ -256,6 +256,99 @@ else
     print_result 1 "Unauthorized access should return 401 (got HTTP $HTTP_CODE)"
 fi
 
+# ── Live Cloud Tests (opt-in, costs money) ──────────────────────────────────
+if [ "${HESTIA_CLOUD_TEST:-0}" = "1" ]; then
+    echo ""
+    echo "══════════════════════════════════════"
+    echo " Live Cloud Tests (HESTIA_CLOUD_TEST=1)"
+    echo "══════════════════════════════════════"
+
+    CLOUD_KEY="${HESTIA_CLOUD_API_KEY:-}"
+    CLOUD_PROVIDER="${HESTIA_CLOUD_PROVIDER:-anthropic}"
+
+    if [ -z "$CLOUD_KEY" ]; then
+        echo -e "${YELLOW}  SKIP${NC}: Set HESTIA_CLOUD_API_KEY to run live cloud tests"
+    else
+        # Test 15: Add cloud provider with real key
+        echo ""
+        echo "Test 15: Add cloud provider ($CLOUD_PROVIDER)"
+        RESPONSE=$(curl -s $CURL_OPTS -w "\n%{http_code}" -X POST "$BASE_URL/v1/cloud/providers" \
+            -H "Content-Type: application/json" \
+            -H "X-Hestia-Device-Token: $TOKEN" \
+            -d "{\"provider\": \"$CLOUD_PROVIDER\", \"api_key\": \"$CLOUD_KEY\", \"state\": \"enabled_full\"}")
+        HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+
+        if [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "409" ]; then
+            if [ "$HTTP_CODE" = "409" ]; then
+                echo "  Provider already exists, continuing with existing config"
+            fi
+            print_result 0 "Add cloud provider ($HTTP_CODE)"
+        else
+            print_result 1 "Add cloud provider (HTTP $HTTP_CODE)"
+        fi
+
+        # Test 16: Set state to enabled_full
+        echo ""
+        echo "Test 16: Set cloud state to enabled_full"
+        RESPONSE=$(curl -s $CURL_OPTS -w "\n%{http_code}" -X PATCH "$BASE_URL/v1/cloud/providers/$CLOUD_PROVIDER/state" \
+            -H "Content-Type: application/json" \
+            -H "X-Hestia-Device-Token: $TOKEN" \
+            -d '{"state": "enabled_full"}')
+        HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+
+        if [ "$HTTP_CODE" = "200" ]; then
+            print_result 0 "Set cloud state to enabled_full"
+        else
+            print_result 1 "Set cloud state (HTTP $HTTP_CODE)"
+        fi
+
+        # Test 17: Health check (expect healthy)
+        echo ""
+        echo "Test 17: Cloud health check (live)"
+        RESPONSE=$(curl -s $CURL_OPTS -w "\n%{http_code}" -X POST "$BASE_URL/v1/cloud/providers/$CLOUD_PROVIDER/health" \
+            -H "X-Hestia-Device-Token: $TOKEN")
+        HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+        HEALTHY=$(echo "$RESPONSE" | head -n1 | python3 -c "import sys, json; print(json.load(sys.stdin).get('healthy', False))" 2>/dev/null || echo "false")
+
+        if [ "$HTTP_CODE" = "200" ] && [ "$HEALTHY" = "True" ]; then
+            print_result 0 "Cloud health check: healthy"
+        else
+            print_result 1 "Cloud health check (HTTP $HTTP_CODE, healthy=$HEALTHY)"
+        fi
+
+        # Test 18: End-to-end cloud chat
+        echo ""
+        echo "Test 18: Cloud chat (end-to-end inference)"
+        RESPONSE=$(curl -s $CURL_OPTS -w "\n%{http_code}" --max-time 120 -X POST "$BASE_URL/v1/chat" \
+            -H "Content-Type: application/json" \
+            -H "X-Hestia-Device-Token: $TOKEN" \
+            -d '{"message": "Reply with exactly: cloud test ok"}')
+        HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+
+        if [ "$HTTP_CODE" = "200" ]; then
+            CONTENT=$(echo "$RESPONSE" | head -n1 | python3 -c "import sys, json; print(json.load(sys.stdin).get('content', '')[:80])" 2>/dev/null || echo "?")
+            print_result 0 "Cloud chat response received"
+            echo "  Response: $CONTENT"
+        else
+            print_result 1 "Cloud chat (HTTP $HTTP_CODE)"
+        fi
+
+        # Test 19: Verify usage tracking
+        echo ""
+        echo "Test 19: Cloud usage tracking"
+        RESPONSE=$(curl -s $CURL_OPTS -w "\n%{http_code}" "$BASE_URL/v1/cloud/usage?period_days=1" \
+            -H "X-Hestia-Device-Token: $TOKEN")
+        HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+        REQUESTS=$(echo "$RESPONSE" | head -n1 | python3 -c "import sys, json; print(json.load(sys.stdin).get('total_requests', 0))" 2>/dev/null || echo "0")
+
+        if [ "$HTTP_CODE" = "200" ] && [ "$REQUESTS" -gt "0" ] 2>/dev/null; then
+            print_result 0 "Usage tracking: $REQUESTS requests recorded"
+        else
+            print_result 1 "Usage tracking (HTTP $HTTP_CODE, requests=$REQUESTS)"
+        fi
+    fi
+fi
+
 echo ""
 echo "======================================"
 echo -e "${GREEN}All tests passed!${NC}"

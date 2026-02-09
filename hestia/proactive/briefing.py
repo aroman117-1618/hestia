@@ -80,7 +80,7 @@ class BriefingGenerator:
                 return key
         except Exception as e:
             self.logger.debug(
-                f"Keychain lookup failed: {e}",
+                f"Keychain lookup failed: {type(e).__name__}",
                 component=LogComponent.ORCHESTRATION,
             )
 
@@ -122,12 +122,14 @@ class BriefingGenerator:
         reminders_task = self._get_reminders_data()
         tasks_task = self._get_tasks_data()
         weather_task = self._get_weather_data() if self.config.weather_enabled else asyncio.sleep(0)
+        health_task = self._get_health_data()
 
         results = await asyncio.gather(
             calendar_task,
             reminders_task,
             tasks_task,
             weather_task,
+            health_task,
             return_exceptions=True,
         )
 
@@ -136,6 +138,7 @@ class BriefingGenerator:
         reminders_data = results[1] if not isinstance(results[1], Exception) else None
         tasks_data = results[2] if not isinstance(results[2], Exception) else None
         weather_data = results[3] if not isinstance(results[3], Exception) else None
+        health_data = results[4] if not isinstance(results[4], Exception) else None
 
         # Build briefing
         briefing = Briefing(
@@ -158,6 +161,10 @@ class BriefingGenerator:
         # Add weather section
         if weather_data:
             self._add_weather_section(briefing, weather_data)
+
+        # Add health section
+        if health_data:
+            self._add_health_section(briefing, health_data)
 
         # Add pattern-based suggestions
         if patterns:
@@ -216,7 +223,7 @@ class BriefingGenerator:
             }
         except Exception as e:
             self.logger.warning(
-                f"Failed to get calendar data: {e}",
+                f"Failed to get calendar data: {type(e).__name__}",
                 component=LogComponent.ORCHESTRATION,
             )
             return None
@@ -244,7 +251,7 @@ class BriefingGenerator:
             }
         except Exception as e:
             self.logger.warning(
-                f"Failed to get reminders data: {e}",
+                f"Failed to get reminders data: {type(e).__name__}",
                 component=LogComponent.ORCHESTRATION,
             )
             return None
@@ -265,7 +272,7 @@ class BriefingGenerator:
             }
         except Exception as e:
             self.logger.warning(
-                f"Failed to get tasks data: {e}",
+                f"Failed to get tasks data: {type(e).__name__}",
                 component=LogComponent.ORCHESTRATION,
             )
             return None
@@ -364,7 +371,7 @@ class BriefingGenerator:
                 }
         except Exception as e:
             self.logger.warning(
-                f"Failed to get weather data: {e}",
+                f"Failed to get weather data: {type(e).__name__}",
                 component=LogComponent.ORCHESTRATION,
             )
             return None
@@ -502,6 +509,81 @@ class BriefingGenerator:
                 priority=50,
                 icon="cloud.sun",
             ))
+
+    async def _get_health_data(self) -> Optional[Dict[str, Any]]:
+        """Get today's health summary from synced HealthKit data."""
+        try:
+            from hestia.health import get_health_manager
+
+            manager = await get_health_manager()
+            summary = await manager.get_daily_summary()
+
+            if not summary or not summary.get("categories"):
+                return None
+
+            return summary
+        except Exception as e:
+            self.logger.warning(
+                f"Failed to get health data: {type(e).__name__}",
+                component=LogComponent.ORCHESTRATION,
+            )
+            return None
+
+    def _add_health_section(self, briefing: Briefing, data: Dict[str, Any]) -> None:
+        """Add health information to briefing."""
+        briefing.health_data = data
+
+        parts = []
+        categories = data.get("categories", {})
+
+        # Activity highlights
+        activity = categories.get("activity", {})
+        if activity:
+            steps = activity.get("stepCount")
+            if steps:
+                parts.append(f"You walked {int(steps.get('total', 0)):,} steps")
+
+            calories = activity.get("activeEnergyBurned")
+            if calories:
+                parts.append(f"burned {int(calories.get('total', 0))} active calories")
+
+            exercise = activity.get("appleExerciseTime")
+            if exercise:
+                mins = int(exercise.get("total", 0))
+                if mins > 0:
+                    parts.append(f"{mins} minutes of exercise")
+
+        # Sleep
+        sleep = categories.get("sleep", {})
+        if sleep:
+            sleep_data = sleep.get("sleepAnalysis")
+            if sleep_data:
+                total_mins = sleep_data.get("total", 0)
+                if total_mins > 0:
+                    hours = total_mins / 60
+                    parts.append(f"slept {hours:.1f} hours")
+
+        # Heart rate
+        heart = categories.get("heart", {})
+        if heart:
+            rhr = heart.get("restingHeartRate")
+            if rhr:
+                parts.append(f"resting HR {int(rhr.get('avg', 0))} bpm")
+
+        if not parts:
+            return
+
+        briefing.health_summary = ", ".join(parts) + "."
+
+        # Capitalize first letter
+        briefing.health_summary = briefing.health_summary[0].upper() + briefing.health_summary[1:]
+
+        briefing.sections.append(BriefingSection(
+            title="Health",
+            content=briefing.health_summary,
+            priority=65,  # Between tasks (60) and reminders (70)
+            icon="heart.fill",
+        ))
 
     def _add_suggestions(
         self,

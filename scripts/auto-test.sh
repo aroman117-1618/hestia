@@ -16,8 +16,6 @@ fi
 
 # Map source modules to test files
 declare -A MODULE_TO_TEST
-MODULE_TO_TEST["hestia/security/"]="tests/test_security.py"
-MODULE_TO_TEST["hestia/logging/"]="tests/test_logging.py"
 MODULE_TO_TEST["hestia/inference/"]="tests/test_inference.py"
 MODULE_TO_TEST["hestia/memory/"]="tests/test_memory.py"
 MODULE_TO_TEST["hestia/orchestration/"]="tests/test_orchestration.py"
@@ -30,11 +28,11 @@ MODULE_TO_TEST["hestia/user/"]="tests/test_user.py"
 MODULE_TO_TEST["hestia/proactive/"]="tests/test_proactive.py"
 MODULE_TO_TEST["hestia/api/routes/cloud.py"]="tests/test_cloud_routes.py"
 MODULE_TO_TEST["hestia/api/routes/voice.py"]="tests/test_voice_routes.py"
-MODULE_TO_TEST["hestia/api/"]="tests/test_cloud_routes.py"
 MODULE_TO_TEST["hestia/cloud/"]="tests/test_cloud.py tests/test_cloud_client.py"
 MODULE_TO_TEST["hestia/voice/"]="tests/test_voice.py"
 MODULE_TO_TEST["hestia/council/"]="tests/test_council.py"
-MODULE_TO_TEST["hestia/slm/"]="tests/test_slm.py"
+MODULE_TO_TEST["hestia/health/"]="tests/test_health.py"
+MODULE_TO_TEST["hestia/api/routes/health_data.py"]="tests/test_health.py"
 
 # Find matching test file
 TEST_FILE=""

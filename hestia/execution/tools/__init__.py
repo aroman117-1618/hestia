@@ -4,12 +4,20 @@ Built-in tools for Hestia execution layer.
 Provides core tools: read_file, write_file, run_command, plus Apple ecosystem tools.
 """
 
-from .file_tools import read_file_tool, write_file_tool, get_file_tools
+from .file_tools import (
+    read_file_tool,
+    write_file_tool,
+    list_directory_tool,
+    search_files_tool,
+    get_file_tools,
+)
 from .shell_tools import run_command_tool, get_shell_tools
 
 __all__ = [
     "read_file_tool",
     "write_file_tool",
+    "list_directory_tool",
+    "search_files_tool",
     "run_command_tool",
     "get_file_tools",
     "get_shell_tools",
@@ -40,4 +48,13 @@ def register_builtin_tools(registry) -> None:
         pass
     except Exception as e:
         # Don't fail tool registration if Apple tools fail
+        pass
+
+    # Health analysis tools (query HealthKit data synced from iOS)
+    try:
+        from hestia.health.tools import register_health_tools
+        count = register_health_tools(registry)
+    except ImportError:
+        pass
+    except Exception:
         pass

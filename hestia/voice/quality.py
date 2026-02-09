@@ -141,7 +141,7 @@ class TranscriptQualityChecker:
 
         except Exception as e:
             self.logger.warning(
-                f"Quality check failed, returning unchecked transcript: {e}",
+                f"Quality check failed, returning unchecked transcript: {type(e).__name__}",
                 component=LogComponent.VOICE,
             )
             # On failure, return the transcript as-is with moderate confidence
@@ -208,7 +208,7 @@ class TranscriptQualityChecker:
 
         except (json.JSONDecodeError, KeyError, TypeError) as e:
             self.logger.warning(
-                f"Failed to parse quality check response: {e}",
+                f"Failed to parse quality check response: {type(e).__name__}",
                 component=LogComponent.VOICE,
             )
             # Return with moderate confidence on parse failure

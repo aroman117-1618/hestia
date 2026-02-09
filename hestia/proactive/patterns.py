@@ -133,7 +133,7 @@ class PatternDetector:
 
         except Exception as e:
             self.logger.error(
-                f"Pattern analysis failed: {e}",
+                f"Pattern analysis failed: {type(e).__name__}",
                 component=LogComponent.ORCHESTRATION,
             )
             return list(self._patterns.values())

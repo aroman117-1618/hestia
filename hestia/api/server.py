@@ -36,6 +36,7 @@ from hestia.orders import get_order_manager, get_order_scheduler
 from hestia.agents import get_agent_manager
 from hestia.user import get_user_manager
 from hestia.cloud import get_cloud_manager
+from hestia.health import get_health_manager
 
 # Import routers
 from hestia.api.routes import (
@@ -53,7 +54,9 @@ from hestia.api.routes import (
     user_router,
     cloud_router,
     voice_router,
+    health_data_router,
 )
+from hestia.api.routes.agents_v2 import router as agents_v2_router
 
 logger = get_logger()
 
@@ -138,6 +141,13 @@ async def lifespan(app: FastAPI):
         # Initialize cloud provider management (WS1)
         cloud_manager = await get_cloud_manager()
 
+        # Initialize health data management
+        health_manager = await get_health_manager()
+
+        # Initialize v2 agent config system (.md-based)
+        from hestia.agents.config_loader import get_config_loader
+        config_loader = await get_config_loader()
+
         logger.info(
             "Hestia API ready",
             component=LogComponent.API,
@@ -148,6 +158,8 @@ async def lifespan(app: FastAPI):
                 "agent_manager_ready": agent_manager is not None,
                 "user_manager_ready": user_manager is not None,
                 "cloud_manager_ready": cloud_manager is not None,
+                "health_manager_ready": health_manager is not None,
+                "config_loader_ready": config_loader is not None,
             }
         )
 
@@ -159,6 +171,11 @@ async def lifespan(app: FastAPI):
             "Hestia API shutting down",
             component=LogComponent.API,
         )
+        # Clean up v2 config system
+        from hestia.agents.config_loader import close_config_loader
+        from hestia.agents.config_writer import close_config_writer
+        await close_config_loader()
+        await close_config_writer()
 
 
 # Create FastAPI app
@@ -292,6 +309,8 @@ app.include_router(agents_router)
 app.include_router(user_router)
 app.include_router(cloud_router)
 app.include_router(voice_router)
+app.include_router(health_data_router)
+app.include_router(agents_v2_router)
 
 
 # Root endpoint

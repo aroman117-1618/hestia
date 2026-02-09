@@ -89,6 +89,11 @@ class MockHestiaClient: HestiaClientProtocol {
         }
     }
 
+    func searchMemory(query: String, limit: Int) async throws -> [MemorySearchResult] {
+        try await simulateDelay()
+        return MemorySearchResult.mockResults
+    }
+
     // MARK: - Session
 
     func createSession(mode: HestiaMode) async throws -> String {

@@ -167,7 +167,7 @@ async def get_briefing(device_id: str = Depends(verify_device_token)):
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate briefing: {str(e)}",
+            detail="Failed to generate briefing.",
         )
 
 

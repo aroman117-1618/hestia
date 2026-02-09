@@ -32,6 +32,9 @@ protocol HestiaClientProtocol {
     /// Reject a staged memory update
     func rejectMemory(chunkId: String) async throws
 
+    /// Search memory chunks (for Neural Net graph)
+    func searchMemory(query: String, limit: Int) async throws -> [MemorySearchResult]
+
     // MARK: - Session
 
     /// Create a new session

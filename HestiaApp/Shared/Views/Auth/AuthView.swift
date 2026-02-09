@@ -16,7 +16,7 @@ struct AuthView: View {
             VStack(spacing: Spacing.xl) {
                 Spacer()
 
-                // Logo / Avatar
+                // Logo / Avatar — Lottie AI Blob
                 avatarSection
 
                 // Title
@@ -36,9 +36,9 @@ struct AuthView: View {
             }
             .padding(.horizontal, Spacing.xl)
 
-            // Loading overlay
+            // Loading overlay — Lottie animation + snarky rotating bylines
             if viewModel.isLoading {
-                LoadingOverlay(message: viewModel.isDeviceRegistered ? "Authenticating..." : "Setting up...")
+                snarkyLoadingOverlay
             }
         }
         .alert("Authentication Error", isPresented: $viewModel.showError) {
@@ -62,16 +62,14 @@ struct AuthView: View {
 
     private var avatarSection: some View {
         VStack(spacing: Spacing.md) {
-            // Hestia avatar
-            Circle()
-                .fill(Color.white.opacity(0.2))
-                .frame(width: Size.Avatar.xlarge, height: Size.Avatar.xlarge)
-                .overlay(
-                    Text("H")
-                        .font(.system(size: 48, weight: .bold))
-                        .foregroundColor(.white)
-                )
-                .shadow(color: .black.opacity(0.3), radius: 10, x: 0, y: 5)
+            // Lottie AI Blob — morphing, organic, alive
+            LottieView(
+                animationName: "ai_blob",
+                fallbackSymbol: "brain.head.profile",
+                fallbackColor: .white.opacity(0.6)
+            )
+            .frame(width: Size.Avatar.xlarge, height: Size.Avatar.xlarge)
+            .shadow(color: .black.opacity(0.3), radius: 10, x: 0, y: 5)
         }
     }
 
@@ -81,13 +79,43 @@ struct AuthView: View {
                 .font(.greeting)
                 .foregroundColor(.white)
 
-            Text(viewModel.isDeviceRegistered ?
-                 "Welcome back, Boss." :
-                 "Your personal AI assistant")
-                .font(.subheading)
-                .foregroundColor(.white.opacity(0.8))
+            // Only show byline for returning users
+            if viewModel.isDeviceRegistered {
+                Text("Welcome back, Boss.")
+                    .font(.subheading)
+                    .foregroundColor(.white.opacity(0.8))
+            }
         }
     }
+
+    // MARK: - Snarky Loading Overlay
+
+    /// Rotating snarky bylines during authentication/registration
+    private var snarkyLoadingOverlay: some View {
+        ZStack {
+            // Dim background
+            Color.black.opacity(0.7)
+                .ignoresSafeArea()
+
+            VStack(spacing: Spacing.lg) {
+                // Lottie animation
+                LottieView(
+                    animationName: "ai_blob",
+                    speed: 1.5,
+                    fallbackSymbol: "brain.head.profile"
+                )
+                .frame(width: 120, height: 120)
+
+                // Rotating snarky bylines using TimelineView for auto-cleanup
+                SnarkyBylineView(
+                    isRegistration: !viewModel.isDeviceRegistered
+                )
+            }
+        }
+        .transition(.opacity)
+    }
+
+    // MARK: - Buttons
 
     private var authenticateButton: some View {
         Button {
@@ -133,6 +161,51 @@ struct AuthView: View {
         }
         .disabled(viewModel.isLoading)
         .accessibilityLabel("Get started with Hestia")
+    }
+}
+
+// MARK: - Snarky Byline View (TimelineView for auto-cleanup)
+
+/// Rotates through snarky loading messages using TimelineView
+struct SnarkyBylineView: View {
+    let isRegistration: Bool
+
+    private let authBylines = [
+        "Authenticating...",
+        "Debating...",
+        "Grabbing groceries...",
+        "Scrolling Instagram...",
+        "Consulting the council...",
+        "Warming up neurons...",
+        "Checking your vibe...",
+        "Reticulating splines...",
+    ]
+
+    private let setupBylines = [
+        "Setting up...",
+        "Unpacking boxes...",
+        "Reading the manual...",
+        "Calibrating sass levels...",
+        "Brewing coffee...",
+        "Almost there...",
+    ]
+
+    private var bylines: [String] {
+        isRegistration ? setupBylines : authBylines
+    }
+
+    @State private var currentIndex = 0
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 2.5)) { timeline in
+            Text(bylines[currentIndex % bylines.count])
+                .font(.subheadline)
+                .foregroundColor(.white.opacity(0.8))
+                .animation(.easeInOut(duration: 0.3), value: currentIndex)
+                .onChange(of: timeline.date) { _ in
+                    currentIndex += 1
+                }
+        }
     }
 }
 

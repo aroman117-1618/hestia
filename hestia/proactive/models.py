@@ -72,6 +72,9 @@ class Briefing:
     weather_summary: Optional[str] = None
     weather_data: Optional[Dict[str, Any]] = None
 
+    health_summary: Optional[str] = None
+    health_data: Optional[Dict[str, Any]] = None
+
     suggestions: List[str] = field(default_factory=list)
 
     def to_text(self) -> str:
@@ -108,6 +111,10 @@ class Briefing:
             "weather": {
                 "summary": self.weather_summary,
                 "data": self.weather_data,
+            },
+            "health": {
+                "summary": self.health_summary,
+                "data": self.health_data,
             },
             "suggestions": self.suggestions,
             "sections": [

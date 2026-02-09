@@ -17,11 +17,16 @@ sandbox:
   max_timeout: 300.0
 
   # Directories accessible by tools (supports ~)
+  # NOTE: iCloud Drive paths allow READ and STAGED WRITES only.
+  # All writes outside ~/hestia/data require explicit user approval.
   allowed_directories:
     - ~/hestia/data
     - ~/hestia/logs
     - /tmp/hestia
     - ~/Documents
+    - ~/Desktop
+    - ~/Library/Mobile Documents/com~apple~CloudDocs  # iCloud Drive
+    - ~/Library/Mobile Documents                       # iCloud app containers
 
   # Directories where writes are auto-approved (no staging)
   auto_approve_write_dirs:
@@ -57,6 +62,12 @@ gate:
     - service: write_file
       scope: all
       notes: Built-in file writing tool (with path-based staging)
+    - service: list_directory
+      scope: all
+      notes: Built-in directory listing tool
+    - service: search_files
+      scope: all
+      notes: Built-in file search tool
 
 # Tool configuration
 tools:

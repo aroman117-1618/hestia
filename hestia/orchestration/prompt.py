@@ -2,7 +2,12 @@
 Prompt builder for Hestia.
 
 Constructs prompts with system instructions, memory context,
-and conversation history while respecting token budgets.
+conversation history, and workspace context while respecting
+token budgets.
+
+Supports two prompt sources:
+- Legacy mode system (hardcoded PERSONAS in mode.py) — used by v1 API
+- .md config system (ANIMA.md + AGENT.md + USER.md) — used by v2 API
 """
 
 from dataclasses import dataclass, field
@@ -57,6 +62,7 @@ class PromptBuilder:
     HISTORY_BUDGET = 20000    # Conversation history
     MEMORY_BUDGET = 4000      # RAG-retrieved memory
     USER_INPUT_BUDGET = 3000  # User's current message
+    CONTEXT_BUDGET = 4000     # Workspace context (@ mentions, files, etc.)
 
     # Warning threshold
     WARNING_THRESHOLD = 0.9  # Warn at 90% usage
@@ -127,6 +133,119 @@ class PromptBuilder:
             parts.append(f"\nAdditional Instructions:\n{additional_instructions}")
 
         return "\n".join(parts)
+
+    def build_system_prompt_from_config(
+        self,
+        agent_config: Any,
+        additional_instructions: Optional[str] = None,
+    ) -> str:
+        """
+        Build system prompt from an AgentConfig (.md-based system).
+
+        Assembles the prompt from ANIMA.md (personality) + AGENT.md (rules)
+        + USER.md (preferences) + TOOLS.md (environment) + MEMORY.md (long-term).
+
+        This is the v2 replacement for build_system_prompt() which uses
+        hardcoded PERSONAS. Falls back to legacy PERSONAS if agent_config
+        is None or has no content.
+
+        Args:
+            agent_config: AgentConfig object with loaded .md content.
+            additional_instructions: Optional extra instructions.
+
+        Returns:
+            Complete system prompt assembled from .md files.
+        """
+        if agent_config is None:
+            # Fall back to legacy system
+            return self.build_system_prompt(Mode.TIA, additional_instructions)
+
+        # AgentConfig.system_prompt assembles from .md files
+        base_prompt = agent_config.system_prompt
+
+        parts = [base_prompt]
+
+        if additional_instructions:
+            parts.append(f"\n## Additional Instructions\n\n{additional_instructions}")
+
+        return "\n".join(parts)
+
+    def build_context_block(
+        self,
+        context: Optional[Dict[str, Any]] = None,
+        max_tokens: Optional[int] = None,
+    ) -> str:
+        """
+        Build workspace context block from chat context payload.
+
+        Formats @ mentions, attached files, referenced items, and
+        panel context into a structured block for the system prompt.
+
+        Args:
+            context: Chat context dict from v2 API (active_tab,
+                     selected_text, attached_files, referenced_items,
+                     panel_context).
+            max_tokens: Maximum tokens for context block.
+
+        Returns:
+            Formatted context block, or empty string if no context.
+        """
+        max_tokens = max_tokens or self.CONTEXT_BUDGET
+
+        if not context:
+            return ""
+
+        parts = ["## Workspace Context\n"]
+
+        # Active tab
+        active_tab = context.get("active_tab")
+        if active_tab:
+            parts.append(f"The user is currently viewing the **{active_tab}** tab.\n")
+
+        # Selected text
+        selected_text = context.get("selected_text")
+        if selected_text:
+            truncated = selected_text[:1000] + "..." if len(selected_text) > 1000 else selected_text
+            parts.append(f"### Selected Text\n\n> {truncated}\n")
+
+        # Attached files
+        attached_files = context.get("attached_files", [])
+        if attached_files:
+            parts.append("### Referenced Files\n")
+            for f in attached_files[:5]:  # Max 5 files
+                path = f.get("path", "unknown")
+                preview = f.get("content_preview", "")
+                if preview:
+                    # Smart truncation for file content
+                    if len(preview) > 2000:
+                        preview = preview[:2000] + "\n\n[...truncated, ask to see more]"
+                    parts.append(f"**{path}:**\n```\n{preview}\n```\n")
+                else:
+                    parts.append(f"- {path}\n")
+
+        # Referenced items (calendar events, notes, etc.)
+        referenced_items = context.get("referenced_items", [])
+        if referenced_items:
+            parts.append("### Referenced Items\n")
+            for item in referenced_items[:10]:  # Max 10 items
+                item_type = item.get("type", "unknown")
+                summary = item.get("summary") or item.get("title") or item.get("id", "")
+                parts.append(f"- [{item_type}] {summary}\n")
+
+        # Panel context (soft context from visible panels)
+        panel_context = context.get("panel_context", {})
+        if panel_context:
+            visible = panel_context.get("visible_panels", [])
+            if visible:
+                parts.append(f"\nVisible panels: {', '.join(visible)}\n")
+            date_range = panel_context.get("calendar_date_range")
+            if date_range:
+                parts.append(f"Calendar showing: {date_range}\n")
+
+        full_context = "\n".join(parts)
+
+        # Truncate to budget
+        return self._truncate_to_budget(full_context, max_tokens)
 
     def build_memory_context(
         self,
@@ -200,6 +319,8 @@ class PromptBuilder:
         memory_context: str = "",
         conversation: Optional[Conversation] = None,
         additional_system_instructions: Optional[str] = None,
+        agent_config: Any = None,
+        chat_context: Optional[Dict[str, Any]] = None,
     ) -> tuple[List[Message], PromptComponents]:
         """
         Build complete prompt for inference.
@@ -209,17 +330,27 @@ class PromptBuilder:
             memory_context: Retrieved memory content.
             conversation: Optional conversation for history.
             additional_system_instructions: Extra system instructions.
+            agent_config: Optional AgentConfig for .md-based prompt assembly.
+                          If provided, overrides the legacy PERSONAS system.
+            chat_context: Optional workspace context from v2 chat API
+                          (active_tab, selected_text, attached_files, etc.).
 
         Returns:
             Tuple of (messages list, prompt components).
         """
         mode = request.mode
 
-        # Build system prompt
-        system_prompt = self.build_system_prompt(
-            mode=mode,
-            additional_instructions=additional_system_instructions,
-        )
+        # Build system prompt — prefer .md config if available
+        if agent_config is not None:
+            system_prompt = self.build_system_prompt_from_config(
+                agent_config=agent_config,
+                additional_instructions=additional_system_instructions,
+            )
+        else:
+            system_prompt = self.build_system_prompt(
+                mode=mode,
+                additional_instructions=additional_system_instructions,
+            )
 
         # Build memory context
         formatted_memory = self.build_memory_context(memory_context)
@@ -244,14 +375,18 @@ class PromptBuilder:
         )
         components.user_tokens = self._count_tokens(request.content)
 
+        # Build workspace context (v2 API)
+        formatted_context = self.build_context_block(chat_context)
+
         # Build messages list
         messages = []
 
-        # System message (includes memory context)
+        # System message (includes memory + workspace context)
+        full_system = system_prompt
+        if formatted_context:
+            full_system = f"{full_system}\n\n{formatted_context}"
         if formatted_memory:
-            full_system = f"{system_prompt}\n\n{formatted_memory}"
-        else:
-            full_system = system_prompt
+            full_system = f"{full_system}\n\n{formatted_memory}"
 
         messages.append(Message(role="system", content=full_system))
 
