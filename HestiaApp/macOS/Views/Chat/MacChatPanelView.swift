@@ -1,0 +1,208 @@
+import SwiftUI
+import HestiaShared
+
+struct MacChatPanelView: View {
+    @EnvironmentObject var appState: AppState
+    @StateObject private var viewModel = MacChatViewModel()
+    @State private var messageText: String = ""
+
+    var body: some View {
+        VStack(spacing: MacSpacing.md) {
+            // Agent tab bar
+            agentTabBar
+
+            // Chat window
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(viewModel.messages) { message in
+                            MacMessageBubble(
+                                message: message,
+                                reactions: viewModel.reactions[message.id] ?? [],
+                                onReaction: { reaction in
+                                    viewModel.toggleReaction(reaction, for: message.id)
+                                }
+                            )
+                            .id(message.id)
+                        }
+
+                        // Typing indicator
+                        if viewModel.isTyping, let typingText = viewModel.currentTypingText {
+                            typingBubble(typingText)
+                        }
+                    }
+                    .padding(.horizontal, 15)
+                }
+                .onChange(of: viewModel.messages.count) {
+                    if let lastId = viewModel.messages.last?.id {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            proxy.scrollTo(lastId, anchor: .bottom)
+                        }
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            // Error banner
+            if viewModel.showError, let error = viewModel.errorState {
+                errorBanner(error)
+            }
+
+            // Input bar
+            MacMessageInputBar(messageText: $messageText) {
+                let text = messageText
+                messageText = ""
+                Task {
+                    await viewModel.sendMessage(text, appState: appState)
+                }
+            }
+        }
+        .frame(minWidth: MacSize.chatPanelWidth)
+        .background(chatBackground)
+        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
+        .task {
+            viewModel.loadInitialGreeting(mode: appState.currentMode)
+        }
+    }
+
+    // MARK: - Agent Tab Bar
+
+    private var agentTabBar: some View {
+        HStack(spacing: MacSpacing.md) {
+            HStack(spacing: 5) {
+                // Tia (active)
+                agentTab(mode: .tia, isActive: appState.currentMode == .tia)
+                // Mira (inactive)
+                agentTab(mode: .mira, isActive: appState.currentMode == .mira)
+            }
+
+            // Add session
+            Button {} label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 15))
+                    .foregroundStyle(MacColors.textSecondary)
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+        }
+        .padding(.vertical, 2)
+        .frame(height: 69)
+        .overlay(alignment: .bottom) {
+            MacColors.primaryBorder.frame(height: 1)
+        }
+        .padding(.horizontal, MacSpacing.lg)
+    }
+
+    private func agentTab(mode: HestiaMode, isActive: Bool) -> some View {
+        Button {
+            Task {
+                await viewModel.switchMode(to: mode, appState: appState)
+            }
+        } label: {
+            HStack(spacing: MacSpacing.sm) {
+                // Avatar circle
+                Circle()
+                    .fill(MacColors.aiAvatarBackground)
+                    .frame(width: MacSize.agentTabAvatarSize, height: MacSize.agentTabAvatarSize)
+                    .overlay {
+                        Image(systemName: "sparkle")
+                            .font(.system(size: 10))
+                            .foregroundStyle(MacColors.amberAccent)
+                    }
+
+                Text(mode.displayName)
+                    .font(MacTypography.label)
+                    .foregroundStyle(isActive ? MacColors.textPrimaryAlt : MacColors.textSecondary)
+            }
+            .padding(.horizontal, MacSpacing.sm)
+            .padding(.vertical, MacSpacing.xs)
+            .background(isActive ? MacColors.activeTabBackground : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.tab))
+            .opacity(isActive ? 1 : 0.5)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Typing Bubble
+
+    private func typingBubble(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: MacSpacing.lg) {
+            aiAvatar
+            VStack(alignment: .leading, spacing: MacSpacing.xs) {
+                Text("Tia")
+                    .font(MacTypography.senderLabel)
+                    .foregroundStyle(MacColors.textSender)
+                    .padding(.horizontal, MacSpacing.sm)
+                Text(text)
+                    .font(MacTypography.chatMessage)
+                    .foregroundStyle(MacColors.textPrimary)
+                    .padding(.horizontal, MacSpacing.lg)
+                    .padding(.vertical, MacSpacing.md)
+                    .background(MacColors.aiBubbleBackground)
+                    .clipShape(UnevenRoundedRectangle(
+                        topLeadingRadius: MacCornerRadius.chatBubble,
+                        bottomLeadingRadius: 0,
+                        bottomTrailingRadius: MacCornerRadius.chatBubble,
+                        topTrailingRadius: MacCornerRadius.chatBubble
+                    ))
+            }
+            Spacer(minLength: 96)
+        }
+        .padding(.vertical, MacSpacing.sm)
+    }
+
+    private var aiAvatar: some View {
+        Circle()
+            .fill(MacColors.aiAvatarBackground)
+            .frame(width: MacSize.chatAvatarSize, height: MacSize.chatAvatarSize)
+            .overlay {
+                Circle().strokeBorder(MacColors.aiAvatarBorder, lineWidth: 1)
+            }
+            .overlay {
+                Image(systemName: "sparkle")
+                    .font(.system(size: 16))
+                    .foregroundStyle(MacColors.amberAccent)
+            }
+    }
+
+    // MARK: - Error Banner
+
+    private func errorBanner(_ error: HestiaError) -> some View {
+        HStack {
+            Image(systemName: "exclamationmark.triangle")
+                .foregroundStyle(MacColors.healthRed)
+            Text(error.localizedDescription)
+                .font(MacTypography.metadata)
+                .foregroundStyle(MacColors.textSecondary)
+                .lineLimit(1)
+            Spacer()
+            Button("Dismiss") { viewModel.dismissError() }
+                .font(MacTypography.metadata)
+                .buttonStyle(.plain)
+                .foregroundStyle(MacColors.amberAccent)
+        }
+        .padding(.horizontal, MacSpacing.md)
+        .padding(.vertical, MacSpacing.sm)
+        .background(MacColors.healthRedBg)
+    }
+
+    // MARK: - Chat Background
+
+    private var chatBackground: some View {
+        ZStack {
+            MacColors.windowBackground
+            RadialGradient(
+                colors: [
+                    Color(red: 28/255, green: 12/255, blue: 2/255),
+                    Color(red: 225/255, green: 113/255, blue: 0).opacity(0.15)
+                ],
+                center: .center,
+                startRadius: 0,
+                endRadius: 400
+            )
+            .opacity(0.2)
+            Color.black.opacity(0.15)
+        }
+    }
+}

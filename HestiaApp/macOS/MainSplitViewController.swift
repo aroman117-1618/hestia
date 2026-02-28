@@ -3,35 +3,30 @@ import SwiftUI
 import HestiaShared
 
 class MainSplitViewController: NSSplitViewController {
-    private let sidebarItem: NSSplitViewItem
-    private let canvasItem: NSSplitViewItem
+    private let mainItem: NSSplitViewItem
     private let chatItem: NSSplitViewItem
 
-    @MainActor
-    private let selectedTab = SelectedTab()
+    private let workspaceState = WorkspaceState()
+    private let appState = AppState()
+    private let authService = AuthService()
 
     override init(nibName nibNameOrNil: NSNib.Name?, bundle nibBundleOrNil: Bundle?) {
-        // Sidebar
-        let sidebarView = SidebarView(selectedTab: selectedTab)
-        let sidebarHost = NSHostingController(rootView: sidebarView)
-        sidebarItem = NSSplitViewItem(sidebarWithViewController: sidebarHost)
-        sidebarItem.minimumThickness = 200
-        sidebarItem.maximumThickness = 400
-        sidebarItem.canCollapse = true
-        sidebarItem.collapseBehavior = .preferResizingSplitViewWithFixedSiblings
+        // Main content: icon sidebar + content area
+        let rootView = WorkspaceRootView()
+            .environment(workspaceState)
+            .environmentObject(appState)
+        let mainHost = NSHostingController(rootView: rootView)
+        mainItem = NSSplitViewItem(contentListWithViewController: mainHost)
+        mainItem.minimumThickness = 600
 
-        // Canvas
-        let canvasView = CanvasView(selectedTab: selectedTab)
-        let canvasHost = NSHostingController(rootView: canvasView)
-        canvasItem = NSSplitViewItem(contentListWithViewController: canvasHost)
-        canvasItem.minimumThickness = 400
-
-        // Chat panel
-        let chatView = ChatPanelView()
+        // Chat panel (520px from Figma)
+        let chatView = MacChatPanelView()
+            .environment(workspaceState)
+            .environmentObject(appState)
         let chatHost = NSHostingController(rootView: chatView)
         chatItem = NSSplitViewItem(contentListWithViewController: chatHost)
-        chatItem.minimumThickness = 280
-        chatItem.maximumThickness = 500
+        chatItem.minimumThickness = MacSize.chatPanelWidth
+        chatItem.maximumThickness = MacSize.chatPanelWidth + 30
         chatItem.canCollapse = true
         chatItem.collapseBehavior = .preferResizingSplitViewWithFixedSiblings
 
@@ -49,20 +44,11 @@ class MainSplitViewController: NSSplitViewController {
         splitView.isVertical = true
         splitView.dividerStyle = .thin
 
-        addSplitViewItem(sidebarItem)
-        addSplitViewItem(canvasItem)
+        addSplitViewItem(mainItem)
         addSplitViewItem(chatItem)
     }
 
     // MARK: - Panel Toggle
-
-    func toggleSidebar() {
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.25
-            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            sidebarItem.animator().isCollapsed.toggle()
-        }
-    }
 
     func toggleChatPanel() {
         NSAnimationContext.runAnimationGroup { context in
@@ -70,5 +56,6 @@ class MainSplitViewController: NSSplitViewController {
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
             chatItem.animator().isCollapsed.toggle()
         }
+        workspaceState.isChatPanelVisible = !chatItem.isCollapsed
     }
 }

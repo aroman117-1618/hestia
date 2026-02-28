@@ -2,7 +2,7 @@ import SwiftUI
 import HestiaShared
 
 /// Architecture Field Guide — explains how Hestia works internally
-struct WikiView: View {
+struct WikiFieldGuideView: View {
     @EnvironmentObject var appState: AppState
     @State private var selectedTopic: WikiTopic = .overview
     
@@ -364,7 +364,7 @@ When offline, Hestia gracefully degrades:
         }
         .padding(Spacing.md)
         .background(Color.white.opacity(0.1))
-        .cornerRadius(CornerRadius.medium)
+        .cornerRadius(CornerRadius.card)
     }
 }
 
@@ -405,10 +405,10 @@ enum WikiTopic: String, CaseIterable, Identifiable {
 
 // MARK: - Preview
 
-struct WikiView_Previews: PreviewProvider {
+struct WikiFieldGuideView_Previews: PreviewProvider {
     static var previews: some View {
         NavigationView {
-            WikiView()
+            WikiFieldGuideView()
                 .environmentObject(AppState())
         }
     }

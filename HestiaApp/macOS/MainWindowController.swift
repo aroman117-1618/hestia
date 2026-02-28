@@ -14,6 +14,7 @@ class MainWindowController: NSWindowController {
         window.title = "Hestia Workspace"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
+        window.backgroundColor = NSColor(red: 13/255, green: 8/255, blue: 2/255, alpha: 1)
         window.setFrameAutosaveName("HestiaWorkspaceMainWindow")
         window.contentViewController = splitVC
         window.center()
@@ -23,27 +24,45 @@ class MainWindowController: NSWindowController {
 
     // MARK: - Keyboard Shortcuts
 
-    @IBAction func toggleSidebar(_ sender: Any?) {
-        guard let splitVC = contentViewController as? MainSplitViewController else { return }
-        splitVC.toggleSidebar()
-    }
-
     @IBAction func toggleChatPanel(_ sender: Any?) {
         guard let splitVC = contentViewController as? MainSplitViewController else { return }
         splitVC.toggleChatPanel()
     }
 
     override func keyDown(with event: NSEvent) {
-        // Cmd+B: toggle sidebar
-        if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "b" {
-            toggleSidebar(nil)
+        guard event.modifierFlags.contains(.command) else {
+            super.keyDown(with: event)
             return
         }
-        // Cmd+\: toggle chat panel
-        if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "\\" {
+
+        switch event.charactersIgnoringModifiers {
+        case "\\":
             toggleChatPanel(nil)
-            return
+        case "1":
+            switchView(to: .command)
+        case "2":
+            switchView(to: .explorer)
+        case "3":
+            switchView(to: .health)
+        default:
+            super.keyDown(with: event)
         }
-        super.keyDown(with: event)
     }
+
+    private func switchView(to view: WorkspaceView) {
+        guard let splitVC = contentViewController as? MainSplitViewController else { return }
+        // Access the workspace state through the split view controller isn't ideal,
+        // but we post a notification that the SwiftUI views can observe
+        NotificationCenter.default.post(
+            name: .workspaceViewSwitch,
+            object: nil,
+            userInfo: ["view": view.rawValue]
+        )
+    }
+}
+
+// MARK: - Notification for keyboard-driven view switching
+
+extension Notification.Name {
+    static let workspaceViewSwitch = Notification.Name("workspaceViewSwitch")
 }

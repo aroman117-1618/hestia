@@ -1,0 +1,163 @@
+import SwiftUI
+import HestiaShared
+
+struct FilePreviewArea: View {
+    let selectedFile: FileNode?
+    let content: String
+    let isLoading: Bool
+    let onSelectFolder: () -> Void
+
+    @State private var selectedFormat: String = "Markdown"
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if let file = selectedFile {
+                // Header: file name + status + actions
+                fileHeader(file)
+
+                // Format tabs
+                formatTabs
+
+                // Content
+                if isLoading {
+                    Spacer()
+                    ProgressView()
+                    Spacer()
+                } else {
+                    ScrollView {
+                        Text(content)
+                            .font(isCodeFile(file) ? MacTypography.code : MacTypography.body)
+                            .foregroundStyle(MacColors.textPrimary)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(MacSpacing.xxl)
+                    }
+                }
+            } else {
+                // Empty state
+                Spacer()
+                VStack(spacing: MacSpacing.lg) {
+                    Image(systemName: "doc.text.magnifyingglass")
+                        .font(.system(size: 36, weight: .light))
+                        .foregroundStyle(MacColors.textSecondary)
+                    Text("Select a file to preview")
+                        .font(MacTypography.body)
+                        .foregroundStyle(MacColors.textSecondary)
+                    Button("Open Folder", action: onSelectFolder)
+                        .font(MacTypography.bodyMedium)
+                        .foregroundStyle(MacColors.buttonTextDark)
+                        .padding(.horizontal, MacSpacing.xxl)
+                        .padding(.vertical, MacSpacing.sm)
+                        .background(MacColors.amberAccent)
+                        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
+                        .buttonStyle(.plain)
+                }
+                Spacer()
+            }
+        }
+    }
+
+    private func fileHeader(_ file: FileNode) -> some View {
+        VStack(spacing: MacSpacing.lg) {
+            HStack {
+                // File name + chevron
+                HStack(spacing: MacSpacing.sm) {
+                    Text(file.name)
+                        .font(.system(size: 28))
+                        .foregroundStyle(MacColors.textPrimary)
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 14))
+                        .foregroundStyle(MacColors.textSecondary)
+                }
+
+                // Status badge
+                HStack(spacing: MacSpacing.sm) {
+                    Circle()
+                        .fill(MacColors.healthGreen)
+                        .frame(width: 6, height: 6)
+                    Text("Active")
+                        .font(MacTypography.label)
+                        .foregroundStyle(MacColors.textPrimary)
+                }
+                .padding(.horizontal, 9)
+                .padding(.vertical, 1)
+                .background(MacColors.aiBubbleBackground)
+                .overlay {
+                    RoundedRectangle(cornerRadius: MacCornerRadius.search)
+                        .strokeBorder(MacColors.subtleBorder, lineWidth: 1)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
+
+                Spacer()
+
+                // Share button
+                Button {
+                    // Share action
+                } label: {
+                    Text("Share")
+                        .font(MacTypography.bodyMedium)
+                        .foregroundStyle(MacColors.buttonTextDark)
+                        .padding(.horizontal, MacSpacing.lg)
+                        .padding(.vertical, MacSpacing.sm)
+                        .background(MacColors.amberAccent)
+                        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
+                }
+                .buttonStyle(.plain)
+
+                // More menu
+                Button {} label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 14))
+                        .foregroundStyle(MacColors.textSecondary)
+                        .frame(width: 38, height: 38)
+                        .background(MacColors.panelBackground)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: MacCornerRadius.search)
+                                .strokeBorder(MacColors.aiAvatarBorder, lineWidth: 1)
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.top, MacSpacing.xl)
+        .padding(.horizontal, MacSpacing.xxl)
+    }
+
+    private var formatTabs: some View {
+        HStack(spacing: 0) {
+            ForEach(["Markdown", "PDF", "CSV"], id: \.self) { format in
+                Button {
+                    selectedFormat = format
+                } label: {
+                    VStack(spacing: 0) {
+                        Text(format)
+                            .font(MacTypography.bodyMedium)
+                            .foregroundStyle(
+                                selectedFormat == format
+                                    ? MacColors.amberAccent
+                                    : MacColors.textInactive
+                            )
+                            .frame(height: 46)
+
+                        // Active underline
+                        Rectangle()
+                            .fill(selectedFormat == format ? MacColors.amberAccent : Color.clear)
+                            .frame(height: 2)
+                    }
+                    .padding(.horizontal, MacSpacing.lg)
+                }
+                .buttonStyle(.plain)
+            }
+            Spacer()
+        }
+        .overlay(alignment: .bottom) {
+            MacColors.divider.frame(height: 1)
+        }
+    }
+
+    private func isCodeFile(_ file: FileNode) -> Bool {
+        let codeExtensions = ["swift", "py", "js", "ts", "json", "yaml", "yml", "csv"]
+        return codeExtensions.contains(file.path.pathExtension.lowercased())
+    }
+}

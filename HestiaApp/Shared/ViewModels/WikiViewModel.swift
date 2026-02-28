@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import HestiaShared
 
 /// ViewModel for the Wiki documentation hub
 @MainActor

@@ -119,8 +119,13 @@ targets:
         type: group
         excludes:
           - "*.plist"
+      - path: macOS/Fonts
+        type: folder
+        buildPhase: resources
     dependencies:
       - package: HestiaShared
+      - framework: EventKit.framework
+        embed: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.hestia.workspace
@@ -137,6 +142,8 @@ targets:
         CFBundleDisplayName: Hestia Workspace
         NSPrincipalClass: NSApplication
         LSMinimumSystemVersion: "15.0"
+        ATSApplicationFontsPath: Fonts
+        NSCalendarsUsageDescription: Hestia Workspace needs calendar access to show your upcoming events in the Command Center.
 
   HestiaAppTests:
     type: bundle.unit-test
