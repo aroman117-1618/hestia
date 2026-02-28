@@ -89,9 +89,28 @@ Use the appropriate specialist sub-agent:
 - **@hestia-explorer**: Find code, trace architecture (Haiku — fast & cheap)
 - **@hestia-deployer**: Deploy to Mac Mini (Sonnet)
 
+## Strategic Skills (Opt-In)
+
+These are invoked explicitly — not enforced on every task:
+- **/discovery [topic]**: Deep research with SWOT, argue/refute, priority matrix. Outputs to `docs/discoveries/`.
+- **/plan-audit**: CISO/CTO/CPO critique before building. Outputs to `docs/plans/`.
+- **/codebase-audit**: Full-stack executive health assessment. Outputs to `docs/audits/`.
+- **/retrospective**: Session learning audit and friction analysis. Outputs to `docs/retrospectives/`.
+- **/handoff**: Session wrap-up with doc spot-check and workspace cleanup.
+
+## Sprint Tracking
+
+Check `SPRINT.md` for current sprint status. Skills save their outputs to structured directories. The typical strategic workflow is:
+
+```
+/discovery → /plan-audit → /scaffold or manual → /retrospective → /handoff
+```
+
 ## Andrew's Working Style
 
 - ~6 hours/week, so efficiency matters
 - 70% teach-as-we-build, 30% just-make-it-work
 - Prefers thorough explanations when learning, concise when executing
-- Uses Claude Code + Xcode as primary tools
+- Prefers to focus on planning and leave execution to the agent
+- Uses Claude Code (API billing) + Xcode as primary tools
+- See `CHEATSHEET.md` for quick reference

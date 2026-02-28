@@ -53,7 +53,8 @@ After ANY backend code change, always kill stale server processes before restart
 This is a multi-session project (Hestia). Key references:
 - Project plans and workstreams are in `docs/`
 - Previous session context may be compacted — check docs and CLAUDE.md FIRST before searching transcripts
-- Current workstreams: ALL COMPLETE. Wiki feature COMPLETE (2026-02-28). 3 pre-existing health test failures remain. Next: feature-driven work.
+- Current workstreams: ALL COMPLETE. Wiki feature COMPLETE (2026-02-28). 3 pre-existing health test failures remain.
+- **2026-02-28:** Claude Code config refresh — new skills (/discovery, /plan-audit, /codebase-audit, /retrospective), upgraded /handoff, CI/CD pipeline, cheat sheet, sprint tracker. Direct API billing active. See `SPRINT.md` for current sprint status.
 
 ## Debugging Approach
 
@@ -79,7 +80,8 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | App | Native Swift/SwiftUI (iOS 26.0+) |
 | API | REST on port 8443 with JWT auth, HTTPS with self-signed cert |
 | Remote | Tailscale (`andrewroman117@hestia-3.local`) |
-| Dev Tools | Claude Code + Xcode |
+| Dev Tools | Claude Code (API billing) + Xcode |
+| CI/CD | GitHub Actions → Mac Mini (auto-deploy on push to main) |
 
 ## Current Status
 
@@ -268,17 +270,32 @@ python -m pytest tests/ -v             # Run tests
 
 ## Skills (Slash Commands)
 
+### Strategic (opt-in for planning/analysis work)
+
 | Skill | Command | Purpose |
 |-------|---------|---------|
+| Discovery | `/discovery` | Deep research with SWOT, argue/refute, priority matrix |
+| Plan Audit | `/plan-audit` | CISO/CTO/CPO critique of proposed plans |
+| Codebase Audit | `/codebase-audit` | Full-stack health assessment with executive panel |
+| Retrospective | `/retrospective` | Session learning audit, friction analysis, optimization |
+
+### Operational (day-to-day development)
+
+| Skill | Command | Purpose |
+|-------|---------|---------|
+| Handoff | `/handoff` | Wrap up session — handoff notes, doc spot-check, workspace cleanup |
 | Restart | `/restart` | Kill stale server, restart, health check, run tests |
-| Pickup | `/pickup` | Read session handoff, validate environment, resume context |
-| Handoff | `/handoff` | Write structured session handoff notes for next session |
 | Preflight | `/preflight` | Full stack validation with auto-remediation |
 | Bug Fix | `/bugfix` | Autonomous test-driven fix pipeline (one-at-a-time verification) |
 | Scaffold | `/scaffold` | Parallel multi-agent feature buildout with interface contracts |
-| Audit | `/audit` | Deep architecture, security, and project management audit |
 
-Definitions: `.claude/skills/`
+### Sprint Workflow (typical sequence)
+
+```
+/discovery [topic]  →  /plan-audit  →  /scaffold or manual  →  /retrospective  →  /handoff
+```
+
+Definitions: `.claude/skills/`. Output saved to `docs/discoveries/`, `docs/plans/`, `docs/audits/`, `docs/retrospectives/`.
 
 ---
 
@@ -291,6 +308,9 @@ Definitions: `.claude/skills/`
 | Security Architecture | `docs/hestia-security-architecture.md` |
 | Development Plan | `docs/hestia-development-plan.md` |
 | UI Data Models | `docs/ui-data-models.md` |
+| Cheat Sheet | `CHEATSHEET.md` |
+| Sprint Tracker | `SPRINT.md` |
+| Config Refresh Plan | `claude-config-refresh-plan.md` |
 | Session Log Archive | `docs/archive/session-log-2025-01-08-to-2026-02-08.md` |
 
 ---

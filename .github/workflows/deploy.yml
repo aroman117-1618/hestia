@@ -1,0 +1,88 @@
+name: Hestia Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # Manual trigger via GitHub UI or CLI
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false  # Never cancel an in-progress deploy
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: github.ref == 'refs/heads/main'
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.MAC_MINI_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          echo "${{ secrets.MAC_MINI_HOST }} ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG" >> ~/.ssh/known_hosts 2>/dev/null || true
+          # Disable strict host checking for Tailscale (IP may change)
+          echo -e "Host ${{ secrets.MAC_MINI_HOST }}\n  StrictHostKeyChecking no\n  UserKnownHostsFile /dev/null" >> ~/.ssh/config
+
+      - name: Deploy to Mac Mini
+        env:
+          MAC_MINI_HOST: ${{ secrets.MAC_MINI_HOST }}
+          MAC_MINI_USER: andrewroman117
+        run: |
+          # Sync codebase (excluding dev artifacts)
+          rsync -avz --delete \
+            --exclude '.venv/' \
+            --exclude '__pycache__/' \
+            --exclude '.git/' \
+            --exclude 'logs/' \
+            --exclude 'data/' \
+            --exclude '.build/' \
+            --exclude 'node_modules/' \
+            --exclude '.env' \
+            -e "ssh -o StrictHostKeyChecking=no" \
+            ./ ${MAC_MINI_USER}@${MAC_MINI_HOST}:~/hestia/
+
+      - name: Remote setup and restart
+        env:
+          MAC_MINI_HOST: ${{ secrets.MAC_MINI_HOST }}
+          MAC_MINI_USER: andrewroman117
+        run: |
+          ssh -o StrictHostKeyChecking=no ${MAC_MINI_USER}@${MAC_MINI_HOST} << 'DEPLOY_SCRIPT'
+            set -e
+            cd ~/hestia
+
+            # Install dependencies
+            source .venv/bin/activate
+            pip install -r requirements.txt -q
+
+            # Run full test suite (including integration — Ollama available here)
+            python -m pytest tests/ -v --timeout=120
+
+            # Restart server
+            lsof -i :8443 | grep LISTEN | awk '{print $2}' | xargs kill -9 2>/dev/null || true
+            sleep 2
+            nohup python -m hestia.api.server > /dev/null 2>&1 &
+
+            # Health check with retry
+            for i in 1 2 3 4 5; do
+              sleep 3
+              if curl -sk https://localhost:8443/v1/ping | grep -q "pong"; then
+                echo "Health check passed (attempt $i)"
+                exit 0
+              fi
+              echo "Attempt $i failed, retrying..."
+            done
+            echo "Health check failed after 5 attempts"
+            exit 1
+          DEPLOY_SCRIPT
+
+      - name: Deployment summary
+        if: success()
+        run: echo "Deployed $(git rev-parse --short HEAD) to Mac Mini successfully"

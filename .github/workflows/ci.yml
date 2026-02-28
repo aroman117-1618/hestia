@@ -1,0 +1,35 @@
+name: Hestia CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests (excluding integration)
+        run: python -m pytest tests/ -v --timeout=60 -m "not integration"
+        # Integration tests require Ollama (local LLM) — skip on CI runner
+        # These run on Mac Mini during deploy
+
+      - name: Type check
+        run: |
+          pip install pyright
+          pyright hestia/ --pythonversion 3.11
+        continue-on-error: true  # Advisory, not blocking (yet)
