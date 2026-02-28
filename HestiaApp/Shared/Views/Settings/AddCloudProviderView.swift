@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// Sheet for adding a new cloud provider with API key
 struct AddCloudProviderView: View {

@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// Widget showing pending memory reviews in Command Center
 struct MemoryWidget: View {

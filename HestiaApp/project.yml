@@ -3,6 +3,7 @@ options:
   bundleIdPrefix: com.hestia
   deploymentTarget:
     iOS: "26.0"
+    macOS: "15.0"
   xcodeVersion: "26.0"
   generateEmptyDirectories: true
   groupSortPosition: top
@@ -14,6 +15,8 @@ packages:
   Grape:
     url: https://github.com/SwiftGraphs/Grape
     from: "1.1.0"
+  HestiaShared:
+    path: ../HestiaShared
 
 settings:
   base:
@@ -35,6 +38,39 @@ targets:
     sources:
       - path: Shared
         type: group
+        excludes:
+          # Models moved to HestiaShared
+          - "Models/APIModels.swift"
+          - "Models/AgentProfile.swift"
+          - "Models/CalendarEvent.swift"
+          - "Models/CloudProvider.swift"
+          - "Models/HealthModels.swift"
+          - "Models/HestiaError.swift"
+          - "Models/HestiaMode.swift"
+          - "Models/MemoryChunk.swift"
+          - "Models/Message.swift"
+          - "Models/Order.swift"
+          - "Models/Response.swift"
+          - "Models/SystemHealth.swift"
+          - "Models/UserProfile.swift"
+          # Services moved to HestiaShared
+          - "Services/APIClient.swift"
+          - "Services/APIClientProvider.swift"
+          - "Services/AuthService.swift"
+          - "Services/CertificatePinning.swift"
+          - "Services/MockHestiaClient.swift"
+          - "Services/NetworkMonitor.swift"
+          - "Services/Protocols/HestiaClientProtocol.swift"
+          # DesignSystem moved to HestiaShared
+          - "DesignSystem/Colors.swift"
+          - "DesignSystem/Typography.swift"
+          - "DesignSystem/Spacing.swift"
+          - "DesignSystem/Animations.swift"
+          # App files moved to HestiaShared
+          - "App/AppState.swift"
+          - "App/Configuration.swift"
+          # Utilities moved to HestiaShared
+          - "Utilities/Constants.swift"
       - path: iOS
         type: group
         excludes:
@@ -42,6 +78,7 @@ targets:
     dependencies:
       - package: Lottie
       - package: Grape
+      - package: HestiaShared
       - framework: HealthKit.framework
         embed: false
     settings:
@@ -74,6 +111,33 @@ targets:
           - Volkhov-Bold.ttf
         ITSAppUsesNonExemptEncryption: false
 
+  HestiaWorkspace:
+    type: application
+    platform: macOS
+    sources:
+      - path: macOS
+        type: group
+        excludes:
+          - "*.plist"
+    dependencies:
+      - package: HestiaShared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.hestia.workspace
+        INFOPLIST_FILE: macOS/Info.plist
+        CODE_SIGN_ENTITLEMENTS: macOS/HestiaWorkspace.entitlements
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        COMBINE_HIDPI_IMAGES: YES
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGNING_ALLOWED: NO
+    info:
+      path: macOS/Info.plist
+      properties:
+        CFBundleDisplayName: Hestia Workspace
+        NSPrincipalClass: NSApplication
+        LSMinimumSystemVersion: "15.0"
+
   HestiaAppTests:
     type: bundle.unit-test
     platform: iOS
@@ -82,9 +146,11 @@ targets:
         type: group
     dependencies:
       - target: HestiaApp
+      - package: HestiaShared
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.hestia.app.tests
+        GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/HestiaApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/HestiaApp"
         BUNDLE_LOADER: "$(TEST_HOST)"
 
@@ -99,6 +165,18 @@ schemes:
       config: Debug
       targets:
         - HestiaAppTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+  HestiaWorkspace:
+    build:
+      targets:
+        HestiaWorkspace: all
+    run:
+      config: Debug
     profile:
       config: Release
     analyze:

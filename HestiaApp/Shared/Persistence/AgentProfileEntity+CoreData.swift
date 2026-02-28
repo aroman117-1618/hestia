@@ -1,4 +1,5 @@
 import CoreData
+import HestiaShared
 
 @objc(AgentProfileEntity)
 public class AgentProfileEntity: NSManagedObject {

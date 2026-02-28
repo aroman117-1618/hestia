@@ -141,11 +141,12 @@ class APIClient: HestiaClientProtocol {
 
     // MARK: - HestiaClientProtocol Implementation
 
-    func sendMessage(_ message: String, sessionId: String?) async throws -> HestiaResponse {
+    func sendMessage(_ message: String, sessionId: String?, forceLocal: Bool = false) async throws -> HestiaResponse {
         let request = HestiaRequest(
             message: message,
             sessionId: sessionId,
             deviceId: nil,
+            forceLocal: forceLocal,
             contextHints: nil
         )
 
@@ -428,6 +429,30 @@ class APIClient: HestiaClientProtocol {
 
     func updateCoachingPreferences(_ request: CoachingPreferencesUpdateRequest) async throws -> CoachingPreferencesResponse {
         return try await post("/health_data/coaching", body: request)
+    }
+
+    // MARK: - Wiki API
+
+    func getWikiArticles(type: String? = nil) async throws -> WikiArticleListResponse {
+        let path = type != nil ? "/wiki/articles?type=\(type!)" : "/wiki/articles"
+        return try await get(path)
+    }
+
+    func getWikiArticle(id: String) async throws -> WikiArticle {
+        return try await get("/wiki/articles/\(id)")
+    }
+
+    func generateWikiArticle(type: String, moduleName: String? = nil) async throws -> WikiGenerateResponse {
+        let request = WikiGenerateRequest(articleType: type, moduleName: moduleName)
+        return try await post("/wiki/generate", body: request)
+    }
+
+    func generateAllWikiArticles() async throws -> WikiGenerateAllResponse {
+        return try await post("/wiki/generate-all", body: EmptyBody())
+    }
+
+    func refreshWikiStatic() async throws -> WikiRefreshResponse {
+        return try await post("/wiki/refresh-static", body: EmptyBody())
     }
 
     // MARK: - Private HTTP Methods

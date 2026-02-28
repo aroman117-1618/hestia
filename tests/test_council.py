@@ -677,6 +677,7 @@ def _make_manager(
     analyzer_enabled: bool = True,
     validator_enabled: bool = True,
     responder_enabled: bool = True,
+    force_local_roles: bool = False,
 ) -> CouncilManager:
     """Create a CouncilManager with mock inference client."""
     config = CouncilConfig(
@@ -687,6 +688,7 @@ def _make_manager(
         responder_enabled=responder_enabled,
         role_timeout=5.0,
         local_slm_timeout=5.0,
+        force_local_roles=force_local_roles,
     )
     client = _make_mock_client(cloud_active=cloud_active)
     manager = CouncilManager(config=config, inference_client=client)

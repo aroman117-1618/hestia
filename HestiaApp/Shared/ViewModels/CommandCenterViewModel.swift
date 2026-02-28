@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 import Combine
 import CoreData
 

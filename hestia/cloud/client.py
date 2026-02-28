@@ -342,7 +342,16 @@ class CloudInferenceClient:
         temperature: float,
         max_tokens: int,
     ) -> InferenceResponse:
-        """Call Google Gemini generateContent API."""
+        """Call Google Gemini generateContent API.
+
+        SECURITY NOTE (ADR-023): Google's REST endpoint requires the API key
+        as a query parameter (?key=...). Header-based auth is not supported.
+        The key may appear in server access logs.
+        """
+        self.logger.warning(
+            "Google API key sent as URL query param (REST API limitation). See ADR-023.",
+            component=LogComponent.SECURITY,
+        )
         client = await self._get_client()
 
         # Gemini format: contents array with role "user"/"model"

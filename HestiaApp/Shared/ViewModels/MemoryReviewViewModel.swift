@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 import Combine
 
 /// ViewModel for the Memory Review screen (ADR-002)

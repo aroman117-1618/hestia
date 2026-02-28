@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// Initial authentication / device registration view
 struct AuthView: View {

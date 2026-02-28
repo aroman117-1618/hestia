@@ -45,6 +45,20 @@ Guidelines:
 Respond with ONLY the JSON object, no other text."""
 
 
+# Patterns that indicate sensitive content (PII, health, financial)
+SENSITIVE_PATTERNS = [
+    # Health data
+    r'\b(blood pressure|glucose|medication|diagnosis|symptoms|doctor|therapy|heart rate|cholesterol|bmi|body mass)\b',
+    # Financial data
+    r'\b(salary|income|bank account|credit card|mortgage|debt|net worth|tax return|401k|ira)\b',
+    # Personal identifiers
+    r'\b\d{3}-\d{2}-\d{4}\b',                          # SSN format
+    r'\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b',    # Card number format
+    # Explicit privacy markers
+    r'\b(private|confidential|secret|don\'t share|between us|off the record)\b',
+]
+
+
 class AutoTagger:
     """
     Automatically extracts tags from conversation content using LLM.
@@ -136,6 +150,8 @@ class AutoTagger:
             has_decision=data.get("has_decision", False),
             has_action_item=data.get("has_action_item", False),
             sentiment=data.get("sentiment"),
+            is_sensitive=data.get("is_sensitive", False),
+            sensitive_reason=data.get("sensitive_reason"),
         )
 
         return tags, metadata
@@ -201,6 +217,13 @@ class AutoTagger:
                 tags.entities.extend(matches[:5])
 
         tags.entities = list(set(tags.entities))[:20]
+
+        # Detect sensitive content
+        for pattern in SENSITIVE_PATTERNS:
+            if re.search(pattern, content_lower, re.IGNORECASE):
+                metadata.is_sensitive = True
+                metadata.sensitive_reason = "pii_detected"
+                break
 
         return tags, metadata
 

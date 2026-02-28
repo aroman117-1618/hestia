@@ -76,7 +76,14 @@ class CouncilManager:
         return self._inference_client
 
     def _is_cloud_active(self) -> bool:
-        """Check if cloud routing is active."""
+        """Check if cloud routing is active and council is allowed to use cloud.
+
+        When force_local_roles is True (default), council always uses the local
+        SLM regardless of the inference routing state. This prevents council
+        from sending user data to cloud providers.
+        """
+        if self.config.force_local_roles:
+            return False
         try:
             return self.inference_client.router.cloud_routing.state != "disabled"
         except Exception:

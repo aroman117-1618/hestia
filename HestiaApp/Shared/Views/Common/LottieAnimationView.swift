@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 import Lottie
 
 /// Reusable Lottie animation wrapper with accessibility support

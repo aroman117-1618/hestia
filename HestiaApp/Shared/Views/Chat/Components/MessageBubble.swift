@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// A single message bubble in the chat
 struct MessageBubble: View {

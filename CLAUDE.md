@@ -53,7 +53,7 @@ After ANY backend code change, always kill stale server processes before restart
 This is a multi-session project (Hestia). Key references:
 - Project plans and workstreams are in `docs/`
 - Previous session context may be compacted — check docs and CLAUDE.md FIRST before searching transcripts
-- Current workstreams: ALL COMPLETE. Cloud API live-tested (Anthropic enabled_full). iCloud file system tools added. UI Phase 3 COMPLETE. UI Phase 4 COMPLETE (Integrations UI, API contract rewrite). Apple HealthKit integration COMPLETE. Next: UI Phase 5 or feature requests.
+- Current workstreams: ALL COMPLETE. Wiki feature COMPLETE (2026-02-28). 3 pre-existing health test failures remain. Next: feature-driven work.
 
 ## Debugging Approach
 
@@ -74,7 +74,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | Hardware | Mac Mini M1 (16GB) |
 | Model | Qwen 2.5 7B (Ollama, local) + cloud providers (Anthropic/OpenAI/Google) |
 | SLM | qwen2.5:0.5b (council intent classification, ~100ms) |
-| Backend | Python 3.9+, FastAPI, 72 endpoints across 15 route modules |
+| Backend | Python 3.9+, FastAPI, 77 endpoints across 16 route modules |
 | Storage | ChromaDB (vectors) + SQLite (structured) + macOS Keychain (credentials) |
 | App | Native Swift/SwiftUI (iOS 26.0+) |
 | API | REST on port 8443 with JWT auth, HTTPS with self-signed cert |
@@ -89,7 +89,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 **UI Phase 4 (Integrations UI, API contract rewrite): COMPLETE.**
 **Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
 
-784+ tests passing (3 skipped). Full details: `python -m pytest tests/ -v`
+892 tests (886 passing, 3 skipped, 3 pre-existing health failures). Full details: `python -m pytest tests/ -v`
 
 ---
 
@@ -97,7 +97,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 - **Type hints**: Always. Every function signature.
 - **Async/await**: For all I/O (database, inference, network).
-- **Logging**: `HestiaLogger` with correct `LogComponent` per module (ACCESS, ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, CLOUD, COUNCIL, HEALTH).
+- **Logging**: `HestiaLogger` with correct `LogComponent` per module (ACCESS, ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, CLOUD, COUNCIL, HEALTH, WIKI).
 - **Config**: YAML files, never hardcode.
 - **Error handling in routes**: `sanitize_for_log(e)` from `hestia.api.errors` in logs (never raw `{e}`). Generic messages in HTTP responses (never `detail=str(e)`).
 - **File naming**: `snake_case.py` (Python), UpperCamelCase.swift (iOS).
@@ -138,7 +138,7 @@ Always run the full test suite (`python -m pytest`) after making changes and ens
 
 ```
 hestia/
-├── hestia/                          # Python backend — 18 modules
+├── hestia/                          # Python backend — 19 modules
 │   ├── security/                    # CredentialManager (Keychain + Fernet)
 │   ├── logging/                     # HestiaLogger, AuditLogger, LogComponent enum
 │   ├── inference/                   # InferenceClient (Ollama + cloud), ModelRouter (3-state)
@@ -155,28 +155,29 @@ hestia/
 │   ├── user/                        # UserProfile + settings + push tokens
 │   ├── proactive/                   # Briefings, PatternDetector, InterruptionPolicy
 │   ├── voice/                       # TranscriptQualityChecker, JournalAnalyzer (3-stage)
-│   ├── api/                         # FastAPI — 72 endpoints, 15 route modules
+│   ├── wiki/                        # Architecture field guide (AI-generated + static docs)
+│   ├── api/                         # FastAPI — 77 endpoints, 16 route modules
 │   │   ├── errors.py                # sanitize_for_log(), safe_error_detail()
 │   │   ├── schemas.py               # All Pydantic request/response models
 │   │   ├── server.py                # App lifecycle, manager initialization
 │   │   ├── middleware/auth.py        # JWT device authentication
 │   │   └── routes/                  # auth, health, chat, mode, memory, sessions, tools,
-│   │                                # tasks, cloud, voice, orders, agents, user, proactive, health_data
-│   └── config/                      # inference.yaml, execution.yaml, memory.yaml
+│   │                                # tasks, cloud, voice, orders, agents, user, proactive, health_data, wiki
+│   └── config/                      # inference.yaml, execution.yaml, memory.yaml, wiki.yaml
 ├── hestia-cli-tools/                # Swift CLIs (keychain, calendar, reminders, notes)
 ├── HestiaApp/                       # iOS SwiftUI app
 │   ├── Shared/
 │   │   ├── App/                     # Entry point, ContentView
 │   │   ├── DesignSystem/            # Colors, Typography, Spacing, Animations
-│   │   ├── Models/                  # APIModels, CloudProvider, Order, AgentProfile, MemoryChunk, HealthModels
+│   │   ├── Models/                  # APIModels, CloudProvider, Order, AgentProfile, MemoryChunk, HealthModels, WikiModels
 │   │   ├── Resources/Animations/    # Lottie JSONs (ai_blob, typing_indicator)
 │   │   ├── Services/                # APIClient, AuthService, SpeechService, CalendarService, HealthKitService
-│   │   ├── ViewModels/              # Chat, CommandCenter, CloudSettings, Integrations, NeuralNet, Resources, Settings
-│   │   ├── Views/                   # Chat, CommandCenter (+ NeuralNet), Settings (+ Resources, Integrations), Auth
+│   │   ├── ViewModels/              # Chat, CommandCenter, CloudSettings, Integrations, NeuralNet, Resources, Settings, Wiki
+│   │   ├── Views/                   # Chat, CommandCenter (+ NeuralNet), Settings (+ Resources, Integrations, Wiki), Auth
 │   │   ├── Views/Common/            # LottieAnimationView, LoadingView, GradientBackground
 │   │   └── Persistence/             # Core Data stack
 │   └── project.yml                  # xcodegen config (iOS 26.0, Swift 6.1)
-├── tests/                           # 784+ tests, 18 files
+├── tests/                           # 892 tests, 19 files
 ├── scripts/                         # deploy, test-api, auto-test, validate-security, ollama
 ├── .claude/                         # agents/, output-styles/, settings
 ├── docs/                            # api-contract, decision-log, security-architecture
@@ -185,7 +186,7 @@ hestia/
 
 ---
 
-## API Summary (72 endpoints, 15 route modules)
+## API Summary (77 endpoints, 16 route modules)
 
 | Module | Endpoints | Key Routes |
 |--------|-----------|------------|
@@ -202,6 +203,7 @@ hestia/
 | User | 9 | `/v1/user/profile`, `photo`, `settings`, `push-token` |
 | Proactive | 6 | `/v1/proactive/briefing`, `policy`, `patterns`, `notifications` |
 | Health Data | 7 | `/v1/health_data/sync`, `summary`, `trend`, `coaching` |
+| Wiki | 5 | `/v1/wiki/articles`, `generate`, `generate-all`, `refresh-static` |
 
 Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 
@@ -244,6 +246,7 @@ Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 | Phase 3: Lottie + Neural Net | COMPLETE | Lottie animations, Settings restructure, 3D Neural Net graph |
 | Phase 4: Settings Integrations | COMPLETE | IntegrationsView (Calendar, Reminders, Notes, Mail), API contract rewrite |
 | Apple HealthKit Integration | COMPLETE | 27 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools, iOS HealthKitService |
+| Wiki / Architecture Field Guide | COMPLETE | AI-generated narratives, module deep dives, ADR browser, roadmap, Mermaid diagrams, iOS tabbed UI |
 
 ### Known Issues (Mac Mini)
 - Council needs `qwen2.5:0.5b` pulled on Mac Mini

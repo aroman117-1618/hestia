@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 import CoreData
 
 /// Settings view — restructured: System Status, Security, Agent Profiles, Resources, Advanced
@@ -41,6 +42,11 @@ struct SettingsView: View {
                         // Resources (renamed from Cloud Providers)
                         settingsSection("Resources") {
                             resourcesSection
+                        }
+
+                        // Knowledge (Wiki)
+                        settingsSection("Knowledge") {
+                            knowledgeSection
                         }
 
                         // Advanced / Danger Zone
@@ -216,6 +222,34 @@ struct SettingsView: View {
                         .foregroundColor(.white)
 
                     Text("Manage cloud providers and connections")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.6))
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.white.opacity(0.5))
+            }
+        }
+        .settingsRow()
+        .padding(.horizontal, Spacing.lg)
+    }
+
+    // MARK: - Knowledge Section
+
+    private var knowledgeSection: some View {
+        NavigationLink(destination: WikiView().environmentObject(appState)) {
+            HStack {
+                Image(systemName: "book")
+                    .foregroundColor(.white)
+                    .frame(width: 32)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Architecture Field Guide")
+                        .foregroundColor(.white)
+
+                    Text("Explore how Hestia works, inside the app")
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.6))
                 }

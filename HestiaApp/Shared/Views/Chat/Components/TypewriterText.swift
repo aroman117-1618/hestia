@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 import Combine
 
 /// A text view that displays content character by character

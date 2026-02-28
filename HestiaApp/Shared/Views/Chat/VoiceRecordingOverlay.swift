@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// Overlay shown during voice recording with pulsing animation and live transcript.
 struct VoiceRecordingOverlay: View {

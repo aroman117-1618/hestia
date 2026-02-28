@@ -1,0 +1,107 @@
+# Hestia Wiki Configuration
+# Architecture field guide — AI-generated and static documentation
+
+# Generation settings
+generation:
+  # Temperature for narrative content (overview, modules)
+  narrative_temperature: 0.3
+  # Temperature for diagrams (deterministic)
+  diagram_temperature: 0.0
+  # Max tokens for overview
+  overview_max_tokens: 4096
+  # Max tokens for module deep dives
+  module_max_tokens: 2048
+  # Max tokens for diagrams
+  diagram_max_tokens: 2048
+
+# Module inventory with display names and SF Symbol icons
+# These are the 19 Hestia backend modules
+modules:
+  security:
+    display_name: "Security Layer"
+    subtitle: "Credentials, encryption, and access control"
+    icon: "lock.shield"
+  logging:
+    display_name: "Logging Layer"
+    subtitle: "Structured observability for everything"
+    icon: "doc.text.magnifyingglass"
+  inference:
+    display_name: "Inference Layer"
+    subtitle: "Local and cloud model routing"
+    icon: "cpu"
+  cloud:
+    display_name: "Cloud Providers"
+    subtitle: "Anthropic, OpenAI, and Google integration"
+    icon: "cloud"
+  council:
+    display_name: "Council"
+    subtitle: "Multi-role intent classification"
+    icon: "person.3"
+  memory:
+    display_name: "Memory Layer"
+    subtitle: "How Hestia remembers"
+    icon: "brain"
+  orchestration:
+    display_name: "Orchestration"
+    subtitle: "Request handling and state machines"
+    icon: "gearshape.2"
+  execution:
+    display_name: "Execution Layer"
+    subtitle: "Tool sandbox and communication gate"
+    icon: "terminal"
+  apple:
+    display_name: "Apple Ecosystem"
+    subtitle: "Calendar, Reminders, Notes, Mail"
+    icon: "apple.logo"
+  health:
+    display_name: "HealthKit Integration"
+    subtitle: "28 metric types and coaching"
+    icon: "heart.fill"
+  tasks:
+    display_name: "Background Tasks"
+    subtitle: "Lifecycle and approval workflow"
+    icon: "checklist"
+  orders:
+    display_name: "Scheduled Orders"
+    subtitle: "Prompts on a schedule"
+    icon: "clock.arrow.circlepath"
+  agents:
+    display_name: "Agent Profiles"
+    subtitle: "Tia, Mira, and Olly personas"
+    icon: "theatermasks"
+  user:
+    display_name: "User Profile"
+    subtitle: "Settings and preferences"
+    icon: "person.circle"
+  proactive:
+    display_name: "Proactive Intelligence"
+    subtitle: "Briefings and pattern detection"
+    icon: "sparkles"
+  voice:
+    display_name: "Voice Journaling"
+    subtitle: "Transcript analysis and quality gate"
+    icon: "waveform"
+  api:
+    display_name: "API Layer"
+    subtitle: "72 endpoints across 15 route modules"
+    icon: "network"
+  persona:
+    display_name: "Persona Engine"
+    subtitle: "Mode-specific prompts and behavior"
+    icon: "person.text.rectangle"
+  wiki:
+    display_name: "Wiki Module"
+    subtitle: "This very documentation system"
+    icon: "book"
+
+# Diagram types to generate
+diagrams:
+  - type: "architecture"
+    title: "System Architecture"
+    subtitle: "How the layers connect"
+  - type: "request-lifecycle"
+    title: "Request Lifecycle"
+    subtitle: "A chat message's journey"
+  - type: "data-flow"
+    title: "Data Flow"
+    subtitle: "Where data lives and moves"

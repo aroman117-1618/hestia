@@ -1,6 +1,8 @@
 import XCTest
+import HestiaShared
 @testable import HestiaApp
 
+@MainActor
 final class HestiaAppTests: XCTestCase {
 
     // MARK: - Model Tests

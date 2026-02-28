@@ -1,4 +1,5 @@
 import CoreData
+import HestiaShared
 
 @objc(OrderEntity)
 public class OrderEntity: NSManagedObject {

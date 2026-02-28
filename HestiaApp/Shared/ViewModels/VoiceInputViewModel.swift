@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// ViewModel managing the voice journaling flow.
 ///

@@ -101,6 +101,10 @@ class ChatRequest(BaseModel):
         None,
         description="Device identifier"
     )
+    force_local: bool = Field(
+        False,
+        description="Force local inference, bypass cloud routing"
+    )
     context_hints: Dict[str, Any] = Field(
         default_factory=dict,
         description="Additional context hints"
@@ -181,6 +185,8 @@ class ChunkMetadata(BaseModel):
     confidence: float = Field(1.0, description="Confidence score 0.0-1.0")
     token_count: int = Field(0, description="Token count of content")
     source: Optional[str] = Field(None, description="Source of the chunk")
+    is_sensitive: bool = Field(False, description="Contains PII, health, or financial data")
+    sensitive_reason: Optional[str] = Field(None, description="Why flagged: pii_detected, user_flagged, health_data")
 
 
 class MemoryChunk(BaseModel):
@@ -225,6 +231,19 @@ class MemoryApprovalResponse(BaseModel):
     chunk_id: str = Field(description="Chunk identifier")
     status: str = Field(description="New status (committed/rejected)")
     scope: Optional[str] = Field(None, description="New scope if committed")
+
+
+class MemorySensitiveRequest(BaseModel):
+    """Request to mark a memory chunk as sensitive or non-sensitive."""
+    is_sensitive: bool = Field(description="Whether the chunk contains sensitive data")
+    reason: Optional[str] = Field(None, description="Why flagged: user_flagged, pii_detected, health_data")
+
+
+class MemorySensitiveResponse(BaseModel):
+    """Response after updating memory sensitivity."""
+    chunk_id: str = Field(description="Chunk identifier")
+    is_sensitive: bool = Field(description="Current sensitivity status")
+    reason: Optional[str] = Field(None, description="Flagging reason")
 
 
 class MemorySearchResult(BaseModel):

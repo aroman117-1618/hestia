@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 import PhotosUI
 
 /// View for editing user profile information

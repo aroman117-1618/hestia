@@ -193,6 +193,7 @@ class CouncilConfig:
     """Configuration for council behavior, loaded from inference.yaml."""
 
     enabled: bool = True
+    force_local_roles: bool = True  # Council always uses local SLM, never cloud
     cloud_parallel: bool = True
     local_slm_model: str = "qwen2.5:0.5b"
     local_slm_timeout: float = 15.0
@@ -226,6 +227,7 @@ class CouncilConfig:
 
         return cls(
             enabled=data.get("enabled", True),
+            force_local_roles=data.get("force_local_roles", True),
             cloud_parallel=data.get("cloud_parallel", True),
             local_slm_model=data.get("local_slm_model", "qwen2.5:0.5b"),
             local_slm_timeout=data.get("local_slm_timeout", 15.0),

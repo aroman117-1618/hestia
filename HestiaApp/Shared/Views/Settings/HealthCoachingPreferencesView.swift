@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// View for configuring health coaching preferences.
 ///
@@ -527,7 +528,11 @@ class HealthCoachingPreferencesViewModel: ObservableObject {
         healthService.setup()
 
         // Ensure authorization
-        guard healthService.isAuthorized || await healthService.requestAuthorization() else {
+        var authorized = healthService.isAuthorized
+        if !authorized {
+            authorized = await healthService.requestAuthorization()
+        }
+        guard authorized else {
             errorMessage = "HealthKit authorization required"
             showError = true
             return

@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// Card for an automation/standing order toggle
 struct AutomationCard: View {

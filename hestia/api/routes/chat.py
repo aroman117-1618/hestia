@@ -107,6 +107,9 @@ async def send_message(
         # Override the auto-generated ID with ours
         internal_request.id = request_id
 
+        # Wire privacy control
+        internal_request.force_local = request.force_local
+
         # Add context hints if provided
         if request.context_hints:
             internal_request.context_hints = request.context_hints

@@ -1,4 +1,5 @@
 import CoreData
+import HestiaShared
 
 /// Core Data persistence controller for HestiaApp
 final class PersistenceController: @unchecked Sendable {

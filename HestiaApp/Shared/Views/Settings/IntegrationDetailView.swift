@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 import UIKit
 import EventKit
 

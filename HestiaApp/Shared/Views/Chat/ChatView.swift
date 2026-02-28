@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// Main chat interface view with bottom-anchored messages (like iMessage)
 struct ChatView: View {
@@ -308,8 +309,22 @@ struct ChatView: View {
 
     private var inputBar: some View {
         HStack(spacing: Spacing.md) {
+            // Private mode toggle
+            Button(action: { viewModel.forceLocal.toggle() }) {
+                Image(systemName: viewModel.forceLocal ? "lock.fill" : "lock.open")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(viewModel.forceLocal ? .warningYellow : .white.opacity(0.4))
+            }
+            .accessibilityLabel(viewModel.forceLocal ? "Private mode on" : "Private mode off")
+            .accessibilityHint("Toggle private mode to keep this message local")
+
             // Text input
-            TextField("Message \(appState.currentMode.displayName)...", text: $messageText)
+            TextField(
+                viewModel.forceLocal
+                    ? "Private — stays local..."
+                    : "Message \(appState.currentMode.displayName)...",
+                text: $messageText
+            )
                 .font(.inputField)
                 .foregroundColor(.white)
                 .padding(.horizontal, Spacing.md)
@@ -329,7 +344,7 @@ struct ChatView: View {
                 Button(action: sendMessage) {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.system(size: 32))
-                        .foregroundColor(.white)
+                        .foregroundColor(viewModel.forceLocal ? .warningYellow : .white)
                 }
                 .accessibilityLabel("Send message")
             } else {

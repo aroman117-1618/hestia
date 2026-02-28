@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// Widget showing orders list with inline add form
 struct OrdersWidget: View {

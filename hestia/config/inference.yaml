@@ -134,17 +134,24 @@ cloud:
   max_retries: 2
 
 # -----------------------------------------------------------------------------
+# Logging Configuration
+# -----------------------------------------------------------------------------
+
+logging:
+  retention_days: 30        # Days to retain log files (metadata only, no content)
+
+# -----------------------------------------------------------------------------
 # Council Configuration (WS3)
 # -----------------------------------------------------------------------------
 # Multi-role LLM council for enhanced intent classification, tool extraction,
 # response validation, and personality synthesis.
 #
-# Dual-path execution:
-#   Cloud active:   all enabled roles run in parallel via cloud API
-#   Cloud disabled: Coordinator only via SLM (fast intent classification)
+# Privacy: force_local_roles=true ensures council never sends data to cloud.
+# When true, all roles use the local SLM regardless of cloud routing state.
 
 council:
   enabled: true
+  force_local_roles: true   # Council always uses local SLM, never cloud providers
   cloud_parallel: true
   local_slm_model: "qwen2.5:0.5b"
   local_slm_timeout: 15.0

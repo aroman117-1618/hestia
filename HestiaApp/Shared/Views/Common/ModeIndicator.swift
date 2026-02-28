@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// Displays the current mode with a colored indicator
 struct ModeIndicator: View {

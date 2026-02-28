@@ -1,4 +1,5 @@
 import Foundation
+import HestiaShared
 import CoreData
 import Combine
 

@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// Input bar for composing messages
 struct MessageInputBar: View {

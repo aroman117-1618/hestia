@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 import Combine
 
 /// ViewModel for the main chat interface
@@ -13,6 +14,7 @@ class ChatViewModel: ObservableObject {
     @Published var errorState: HestiaError?
     @Published var showError: Bool = false
     @Published var modeSwitchTrigger: Bool = false  // For ripple animation
+    @Published var forceLocal: Bool = false  // Per-message private mode toggle
 
     // MARK: - Private State
 
@@ -92,8 +94,12 @@ class ChatViewModel: ObservableObject {
         isLoading = true
 
         do {
+            // Capture and reset private mode toggle
+            let wasForceLocal = forceLocal
+            forceLocal = false
+
             // Send to backend
-            let response = try await client.sendMessage(text, sessionId: sessionId)
+            let response = try await client.sendMessage(text, sessionId: sessionId, forceLocal: wasForceLocal)
 
             // Store session ID if new
             if sessionId == nil {

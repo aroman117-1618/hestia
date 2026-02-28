@@ -54,6 +54,7 @@ struct HestiaRequest: Codable {
     let message: String
     let sessionId: String?
     let deviceId: String?
+    let forceLocal: Bool
     let contextHints: [String: String]?
 }
 

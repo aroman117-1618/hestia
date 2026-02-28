@@ -17,7 +17,7 @@ class MockHestiaClient: HestiaClientProtocol {
 
     // MARK: - Chat
 
-    func sendMessage(_ message: String, sessionId: String?) async throws -> HestiaResponse {
+    func sendMessage(_ message: String, sessionId: String?, forceLocal: Bool = false) async throws -> HestiaResponse {
         // Simulate network delay
         let delay = Double.random(in: networkDelayRange)
         try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))

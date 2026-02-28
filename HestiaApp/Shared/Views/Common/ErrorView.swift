@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// Inline error message
 struct ErrorBanner: View {

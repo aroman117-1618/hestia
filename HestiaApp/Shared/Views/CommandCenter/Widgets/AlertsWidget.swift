@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// Widget showing recent order execution alerts (last 48 hours)
 struct AlertsWidget: View {

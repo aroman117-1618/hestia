@@ -1,0 +1,137 @@
+import SwiftUI
+import HestiaShared
+
+/// Module list tab — scrollable cards for each Hestia backend module
+struct WikiModuleListView: View {
+    @ObservedObject var viewModel: WikiViewModel
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: Spacing.md) {
+                if viewModel.moduleArticles.isEmpty {
+                    emptyState
+                } else {
+                    ForEach(viewModel.moduleArticles) { article in
+                        NavigationLink(destination: WikiArticleDetailView(article: article, viewModel: viewModel)) {
+                            moduleCard(article)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, Spacing.lg)
+            .padding(.bottom, Spacing.xxl)
+        }
+    }
+
+    // MARK: - Module Card
+
+    private func moduleCard(_ article: WikiArticle) -> some View {
+        HStack(spacing: Spacing.md) {
+            // Module icon
+            Image(systemName: article.moduleIcon)
+                .font(.system(size: 20))
+                .foregroundColor(.white)
+                .frame(width: 40, height: 40)
+                .background(Color.white.opacity(0.15))
+                .cornerRadius(CornerRadius.small)
+
+            // Title and subtitle
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(article.title)
+                        .font(.cardTitle)
+                        .foregroundColor(.white)
+
+                    if article.isPending {
+                        Circle()
+                            .fill(Color.white.opacity(0.3))
+                            .frame(width: 6, height: 6)
+                    }
+                }
+
+                Text(article.subtitle)
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.6))
+                    .lineLimit(1)
+            }
+
+            Spacer()
+
+            // Read time badge
+            if article.isGenerated {
+                Text(article.readTimeBadge)
+                    .font(.caption2)
+                    .foregroundColor(.white.opacity(0.4))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.white.opacity(0.1))
+                    .cornerRadius(4)
+            }
+
+            Image(systemName: "chevron.right")
+                .foregroundColor(.white.opacity(0.3))
+                .font(.caption)
+        }
+        .settingsRow()
+    }
+
+    // MARK: - Empty State
+
+    private var emptyState: some View {
+        VStack(spacing: Spacing.lg) {
+            Spacer()
+                .frame(height: Spacing.xxl)
+
+            Image(systemName: "puzzlepiece")
+                .font(.system(size: 48))
+                .foregroundColor(.white.opacity(0.2))
+
+            VStack(spacing: Spacing.sm) {
+                Text("Module Deep Dives")
+                    .font(.headline)
+                    .foregroundColor(.white.opacity(0.6))
+
+                Text("Generate field guide entries for each of Hestia's 19 backend modules.")
+                    .font(.subheadline)
+                    .foregroundColor(.white.opacity(0.4))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, Spacing.xl)
+            }
+
+            Button {
+                Task {
+                    await viewModel.generateAll()
+                }
+            } label: {
+                HStack(spacing: Spacing.sm) {
+                    if viewModel.isGenerating {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(0.8)
+                    } else {
+                        Image(systemName: "sparkles")
+                    }
+                    Text("Generate All (~$0.80)")
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.white)
+                .padding(.horizontal, Spacing.lg)
+                .padding(.vertical, Spacing.sm)
+                .background(Color.white.opacity(0.2))
+                .cornerRadius(CornerRadius.small)
+            }
+            .disabled(viewModel.isGenerating)
+        }
+    }
+}
+
+// MARK: - Preview
+
+struct WikiModuleListView_Previews: PreviewProvider {
+    static var previews: some View {
+        NavigationView {
+            WikiModuleListView(viewModel: WikiViewModel())
+        }
+        .preferredColorScheme(.dark)
+    }
+}

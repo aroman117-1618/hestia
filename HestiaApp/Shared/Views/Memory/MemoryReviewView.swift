@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// View for reviewing and approving staged memory updates (ADR-002)
 struct MemoryReviewView: View {

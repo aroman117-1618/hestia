@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 import CoreData
 
 /// Command Center view with modular widgets: Calendar, Orders, Neural Net

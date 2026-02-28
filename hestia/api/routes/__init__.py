@@ -15,6 +15,7 @@ from .user import router as user_router
 from .cloud import router as cloud_router
 from .voice import router as voice_router
 from .health_data import router as health_data_router
+from .wiki import router as wiki_router
 
 __all__ = [
     "health_router",
@@ -32,4 +33,5 @@ __all__ = [
     "cloud_router",
     "voice_router",
     "health_data_router",
+    "wiki_router",
 ]

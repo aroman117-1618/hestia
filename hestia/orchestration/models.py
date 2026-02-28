@@ -70,6 +70,9 @@ class Request:
     device_id: Optional[str] = None
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
+    # Privacy control
+    force_local: bool = False
+
     # Optional context hints
     context_hints: Dict[str, Any] = field(default_factory=dict)
 

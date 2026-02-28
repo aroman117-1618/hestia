@@ -572,6 +572,7 @@ class MemoryManager:
         query: str,
         max_tokens: int = 4000,
         include_recent: bool = True,
+        cloud_safe: bool = False,
     ) -> str:
         """
         Build context string for inference from relevant memories.
@@ -580,6 +581,8 @@ class MemoryManager:
             query: Current user query for relevance filtering.
             max_tokens: Maximum tokens to include.
             include_recent: Whether to include recent conversation.
+            cloud_safe: If True, exclude chunks marked as sensitive.
+                        Use when context will be sent to a cloud provider.
 
         Returns:
             Formatted context string.
@@ -592,6 +595,8 @@ class MemoryManager:
         if results:
             context_parts.append("## Relevant Memory\n")
             for result in results:
+                if cloud_safe and result.chunk.metadata.is_sensitive:
+                    continue
                 if estimated_tokens > max_tokens * 0.6:
                     break
                 chunk_text = f"- [{result.chunk.timestamp.strftime('%Y-%m-%d')}] {result.chunk.content[:500]}\n"
@@ -604,6 +609,8 @@ class MemoryManager:
             if recent:
                 context_parts.append("\n## Recent Conversation\n")
                 for chunk in reversed(recent):  # Oldest first
+                    if cloud_safe and chunk.metadata.is_sensitive:
+                        continue
                     if estimated_tokens > max_tokens:
                         break
                     chunk_text = f"{chunk.content[:300]}\n"
@@ -611,6 +618,36 @@ class MemoryManager:
                     estimated_tokens += len(chunk_text.split()) * 1.3
 
         return "".join(context_parts)
+
+    async def flag_sensitive(
+        self,
+        chunk_id: str,
+        is_sensitive: bool = True,
+        reason: str = "user_flagged",
+    ) -> Optional[ConversationChunk]:
+        """
+        Manually mark a memory chunk as sensitive or non-sensitive.
+
+        Args:
+            chunk_id: ID of the chunk to update.
+            is_sensitive: Whether the chunk is sensitive.
+            reason: Why it was flagged (e.g., 'user_flagged', 'pii_detected').
+
+        Returns:
+            Updated chunk, or None if not found.
+        """
+        chunk = await self.database.get_chunk(chunk_id)
+        if chunk is None:
+            return None
+        chunk.metadata.is_sensitive = is_sensitive
+        chunk.metadata.sensitive_reason = reason if is_sensitive else None
+        await self.database.update_chunk(chunk)
+        self.logger.info(
+            f"Memory chunk sensitivity updated: is_sensitive={is_sensitive}",
+            component=LogComponent.MEMORY,
+            data={"chunk_id": chunk_id, "reason": reason},
+        )
+        return chunk
 
 
 # Module-level singleton

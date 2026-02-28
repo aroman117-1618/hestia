@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// Loading indicator with animated dots
 struct LoadingView: View {

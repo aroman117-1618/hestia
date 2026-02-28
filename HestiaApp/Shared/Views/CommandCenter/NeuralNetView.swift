@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 import SceneKit
 
 /// Interactive 3D Neural Net graph visualization using SceneKit

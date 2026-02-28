@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 // Color+Hex extension is already in Colors.swift
 // This file provides additional color utilities

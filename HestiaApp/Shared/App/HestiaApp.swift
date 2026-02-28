@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 import CoreData
 
 @main
@@ -11,6 +12,9 @@ struct HestiaApp: App {
     let persistenceController = PersistenceController.shared
 
     init() {
+        // Configure shared package with iOS device info
+        APIClient.configure(deviceInfo: IOSDeviceInfoProvider())
+
         // Load custom fonts
         FontLoader.loadFonts()
 

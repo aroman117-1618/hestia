@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// Integration management — shows Calendar, Reminders, Notes, Mail with permission status
 struct IntegrationsView: View {

@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// Resources hub — LLMs, Integrations, and MCPs in a tabbed view
 struct ResourcesView: View {

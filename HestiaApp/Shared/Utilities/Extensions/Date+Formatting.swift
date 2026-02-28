@@ -1,4 +1,5 @@
 import Foundation
+import HestiaShared
 
 extension Date {
     /// Format as time only (e.g., "3:45 PM")

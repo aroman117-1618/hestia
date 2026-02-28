@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// Detail view for a single cloud provider — state, model, health, usage, removal
 struct CloudProviderDetailView: View {

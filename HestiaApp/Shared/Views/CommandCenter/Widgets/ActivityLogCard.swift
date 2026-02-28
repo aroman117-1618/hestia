@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// Card showing a single activity log entry
 struct ActivityLogCard: View {

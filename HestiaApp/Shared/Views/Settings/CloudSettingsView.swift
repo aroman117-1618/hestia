@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// Cloud provider management — lists configured providers and overall cloud state
 struct CloudSettingsView: View {

@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// Card showing the next upcoming meeting from the calendar
 struct NextMeetingCard: View {

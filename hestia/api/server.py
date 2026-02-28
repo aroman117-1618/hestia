@@ -37,6 +37,7 @@ from hestia.agents import get_agent_manager
 from hestia.user import get_user_manager
 from hestia.cloud import get_cloud_manager
 from hestia.health import get_health_manager
+from hestia.wiki import get_wiki_manager
 
 # Import routers
 from hestia.api.routes import (
@@ -55,6 +56,7 @@ from hestia.api.routes import (
     cloud_router,
     voice_router,
     health_data_router,
+    wiki_router,
 )
 from hestia.api.routes.agents_v2 import router as agents_v2_router
 
@@ -144,6 +146,9 @@ async def lifespan(app: FastAPI):
         # Initialize health data management
         health_manager = await get_health_manager()
 
+        # Initialize wiki documentation system
+        wiki_manager = await get_wiki_manager()
+
         # Initialize v2 agent config system (.md-based)
         from hestia.agents.config_loader import get_config_loader
         config_loader = await get_config_loader()
@@ -159,6 +164,7 @@ async def lifespan(app: FastAPI):
                 "user_manager_ready": user_manager is not None,
                 "cloud_manager_ready": cloud_manager is not None,
                 "health_manager_ready": health_manager is not None,
+                "wiki_manager_ready": wiki_manager is not None,
                 "config_loader_ready": config_loader is not None,
             }
         )
@@ -310,6 +316,7 @@ app.include_router(user_router)
 app.include_router(cloud_router)
 app.include_router(voice_router)
 app.include_router(health_data_router)
+app.include_router(wiki_router)
 app.include_router(agents_v2_router)
 
 

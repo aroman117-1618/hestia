@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// Animated gradient background that changes with mode
 /// Animation pauses when app is backgrounded to save battery

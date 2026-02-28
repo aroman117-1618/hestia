@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// Root view that handles authentication state and main navigation
 struct RootView: View {

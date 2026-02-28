@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// Lock screen shown when app times out
 struct LockScreenView: View {

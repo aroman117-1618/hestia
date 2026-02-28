@@ -1,5 +1,6 @@
 # Python
 .venv/
+.venv-test/
 venv/
 ENV/
 env/
@@ -42,6 +43,7 @@ credentials.json
 
 # Swift build artifacts
 .build/
+HestiaShared/
 *.xcodeproj/
 xcuserdata/
 DerivedData/

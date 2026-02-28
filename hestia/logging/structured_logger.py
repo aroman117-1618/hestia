@@ -4,7 +4,7 @@ Structured logging for Hestia.
 Provides JSON-formatted logging with:
 - Request ID propagation for tracing
 - Credential sanitization
-- Log rotation (90-day retention)
+- Log rotation (configurable retention, default 30 days)
 - Severity levels
 - Component tagging
 """
@@ -53,6 +53,7 @@ class LogComponent(Enum):
     CLOUD = "cloud"
     COUNCIL = "council"
     HEALTH = "health"
+    WIKI = "wiki"
 
 
 class EventType(Enum):
@@ -213,7 +214,7 @@ class HestiaLogger:
     - JSON structured logging
     - Automatic credential sanitization
     - Request ID propagation
-    - Log rotation (90-day retention)
+    - Log rotation (configurable retention, default 30 days from inference.yaml)
     - Component-based filtering
     """
 
@@ -490,11 +491,24 @@ class HestiaLogger:
 _logger: Optional[HestiaLogger] = None
 
 
+def _read_retention_days_from_config() -> int:
+    """Read logging.retention_days from inference.yaml, default 30."""
+    try:
+        import yaml
+        config_path = Path(__file__).parent.parent / "config" / "inference.yaml"
+        with open(config_path) as f:
+            data = yaml.safe_load(f) or {}
+        return int(data.get("logging", {}).get("retention_days", 30))
+    except Exception:
+        return 30
+
+
 def get_logger() -> HestiaLogger:
     """Get or create the singleton logger instance."""
     global _logger
     if _logger is None:
-        _logger = HestiaLogger()
+        retention_days = _read_retention_days_from_config()
+        _logger = HestiaLogger(retention_days=retention_days)
     return _logger
 
 

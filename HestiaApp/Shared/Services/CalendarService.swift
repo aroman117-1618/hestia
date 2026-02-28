@@ -1,4 +1,5 @@
 import Foundation
+import HestiaShared
 import EventKit
 import Combine
 

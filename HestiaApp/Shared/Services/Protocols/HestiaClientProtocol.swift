@@ -6,7 +6,7 @@ protocol HestiaClientProtocol {
     // MARK: - Chat
 
     /// Send a message to Hestia and get a response
-    func sendMessage(_ message: String, sessionId: String?) async throws -> HestiaResponse
+    func sendMessage(_ message: String, sessionId: String?, forceLocal: Bool) async throws -> HestiaResponse
 
     // MARK: - Mode Management
 
@@ -49,7 +49,12 @@ protocol HestiaClientProtocol {
 extension HestiaClientProtocol {
     /// Send message with automatic session management
     func sendMessage(_ message: String) async throws -> HestiaResponse {
-        try await sendMessage(message, sessionId: nil)
+        try await sendMessage(message, sessionId: nil, forceLocal: false)
+    }
+
+    /// Send message without forceLocal
+    func sendMessage(_ message: String, sessionId: String?) async throws -> HestiaResponse {
+        try await sendMessage(message, sessionId: sessionId, forceLocal: false)
     }
 
     /// Approve memory without notes

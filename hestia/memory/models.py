@@ -94,6 +94,8 @@ class ChunkMetadata:
     confidence: float = 1.0             # 0.0 - 1.0
     token_count: int = 0
     source: Optional[str] = None        # "conversation", "import", "background_task"
+    is_sensitive: bool = False           # PII, health, financial data
+    sensitive_reason: Optional[str] = None  # "pii_detected", "user_flagged", "health_data"
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for storage."""
@@ -105,6 +107,8 @@ class ChunkMetadata:
             "confidence": self.confidence,
             "token_count": self.token_count,
             "source": self.source,
+            "is_sensitive": self.is_sensitive,
+            "sensitive_reason": self.sensitive_reason,
         }
 
     @classmethod
@@ -118,6 +122,8 @@ class ChunkMetadata:
             confidence=data.get("confidence", 1.0),
             token_count=data.get("token_count", 0),
             source=data.get("source"),
+            is_sensitive=data.get("is_sensitive", False),
+            sensitive_reason=data.get("sensitive_reason"),
         )
 
 

@@ -1,4 +1,5 @@
 import AVFoundation
+import HestiaShared
 import Speech
 
 /// Service wrapping Apple's SpeechAnalyzer (iOS 26+) for on-device speech-to-text.

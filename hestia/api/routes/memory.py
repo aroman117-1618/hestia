@@ -14,6 +14,8 @@ from hestia.api.schemas import (
     StagedMemoryItem,
     MemoryApprovalRequest,
     MemoryApprovalResponse,
+    MemorySensitiveRequest,
+    MemorySensitiveResponse,
     MemorySearchResponse,
     MemorySearchResult,
     ChunkTags,
@@ -56,6 +58,8 @@ def _chunk_to_staged_item(chunk: ConversationChunk, staged_at: datetime = None) 
             confidence=chunk.metadata.confidence,
             token_count=chunk.metadata.token_count,
             source=chunk.metadata.source,
+            is_sensitive=chunk.metadata.is_sensitive,
+            sensitive_reason=chunk.metadata.sensitive_reason,
         ),
         staged_at=staged_at or chunk.timestamp,
     )
@@ -371,5 +375,77 @@ async def search_memory(
             detail={
                 "error": "internal_error",
                 "message": "Memory search failed.",
+            }
+        )
+
+
+@router.patch(
+    "/{chunk_id}/sensitive",
+    response_model=MemorySensitiveResponse,
+    responses={
+        404: {"model": ErrorResponse, "description": "Chunk not found"},
+        500: {"model": ErrorResponse, "description": "Internal server error"},
+    },
+    summary="Set memory sensitivity",
+    description="Mark a memory chunk as sensitive or non-sensitive."
+)
+async def set_memory_sensitivity(
+    chunk_id: str,
+    request: MemorySensitiveRequest,
+    device_id: str = Depends(get_device_token),
+) -> MemorySensitiveResponse:
+    """
+    Manually mark a memory chunk as sensitive or non-sensitive.
+
+    Sensitive chunks are excluded from cloud-safe context windows,
+    ensuring PII, health data, and financial info stay local.
+    """
+    try:
+        memory = await get_memory_manager()
+        chunk = await memory.flag_sensitive(
+            chunk_id=chunk_id,
+            is_sensitive=request.is_sensitive,
+            reason=request.reason or "user_flagged",
+        )
+
+        if chunk is None:
+            raise ValueError("Chunk not found")
+
+        logger.info(
+            "Memory sensitivity updated",
+            component=LogComponent.API,
+            data={
+                "device_id": device_id,
+                "chunk_id": chunk_id,
+                "is_sensitive": request.is_sensitive,
+            }
+        )
+
+        return MemorySensitiveResponse(
+            chunk_id=chunk_id,
+            is_sensitive=chunk.metadata.is_sensitive,
+            reason=chunk.metadata.sensitive_reason,
+        )
+
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "chunk_not_found",
+                "message": f"Chunk '{chunk_id}' not found.",
+            }
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Failed to update sensitivity: {sanitize_for_log(e)}",
+            component=LogComponent.API,
+            data={"chunk_id": chunk_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "internal_error",
+                "message": "Failed to update memory sensitivity.",
             }
         )

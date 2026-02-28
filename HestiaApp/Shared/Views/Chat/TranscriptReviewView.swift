@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// View for reviewing and editing a voice transcript before sending.
 ///
