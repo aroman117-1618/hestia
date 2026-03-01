@@ -8,7 +8,7 @@
 The FastAPI REST API provides HTTP access to all Hestia backend capabilities including chat, memory management, mode switching, cloud LLM routing, voice journaling, proactive intelligence, scheduled orders, agent profiles (V1 slot-based + V2 markdown-based), user settings, user profile configuration, background task management, health data management, resource exploration, wiki/architecture docs, and newsfeed timeline.
 
 **Endpoints**: 116 across 20 route modules
-**Test Coverage**: 1086 tests (1083 passing, 3 skipped)
+**Test Coverage**: 1100 tests (1097 passing, 3 skipped)
 **Server**: HTTPS on port 8443 (self-signed cert)
 **Documentation**: https://localhost:8443/docs (Swagger UI)
 
