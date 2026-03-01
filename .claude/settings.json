@@ -6,6 +6,18 @@
     "pr-review-toolkit@claude-plugins-official": true
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/kill-stale-servers.sh",
+            "timeout": 10,
+            "statusMessage": "Checking for stale servers..."
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Edit|Write",

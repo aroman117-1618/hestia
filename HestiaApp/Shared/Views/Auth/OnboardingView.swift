@@ -129,10 +129,10 @@ struct OnboardingView: View {
                 QRScannerView { code in
                     viewModel.handleScannedCode(code)
                 }
-                .cornerRadius(CornerRadius.large)
+                .cornerRadius(CornerRadius.card)
 
                 // Viewfinder overlay
-                RoundedRectangle(cornerRadius: CornerRadius.large)
+                RoundedRectangle(cornerRadius: CornerRadius.card)
                     .stroke(Color.white.opacity(0.3), lineWidth: 2)
             }
             .padding(.horizontal, Spacing.lg)

@@ -1213,6 +1213,42 @@ Data stays on-device until user explicitly syncs. No cloud transmission of healt
 
 ---
 
+### ADR-030: Invite-Based Device Onboarding
+
+**Date**: 2026-02-28
+**Status**: Implemented
+
+#### Context
+Hestia's original `/v1/auth/register` endpoint allowed any device on the network to register without verification — an open enrollment model unsuitable for a personal assistant with access to sensitive data.
+
+#### Decision
+Implement invite-based registration:
+- **Server generates invite tokens** via `POST /v1/auth/invite` (requires setup_secret from Keychain)
+- **QR code payload**: `{"t":"<invite_jwt>","u":"<server_url>","f":"<cert_fingerprint>"}`
+- **One-time nonce**: Each invite token contains a UUID nonce stored in SQLite; consumed on use
+- **iOS**: AVFoundation QR scanner → parse → configure API → register → permissions onboarding
+- **macOS**: Paste JSON payload → parse → configure API → register
+- **Recovery**: `POST /v1/auth/re-invite` allows authenticated devices to generate new invites
+- **Rate limiting**: 5 invites per hour
+- **Permissions onboarding**: Apple HIG-compliant guided flow (Calendar → Reminders → Health → Notifications → Biometric) after first auth
+
+Open registration (`/v1/auth/register`) remains for backward compatibility but can be disabled via `require_invite` config flag.
+
+#### Alternatives Considered
+- **Open registration**: Simpler but insecure — any device on the network could register
+- **Manual token entry**: More tedious than QR scanning for mobile devices
+- **Bluetooth pairing**: Over-engineered for a personal server with known devices
+
+#### Consequences
+- Positive: Only invited devices can register — eliminates unauthorized enrollment
+- Positive: QR code makes mobile onboarding seamless (scan → connect)
+- Positive: Certificate fingerprint in QR payload enables trust-on-first-use TLS pinning
+- Positive: Guided permissions onboarding explains each permission request with context
+- Negative: Requires server-side QR generation (`qrcode[pil]` dependency)
+- Negative: macOS lacks camera scanner — paste workflow less elegant
+
+---
+
 ## Adding New Decisions
 
 When making a significant architectural decision:

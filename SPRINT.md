@@ -1,54 +1,82 @@
-# Current Sprint: Claude Code Config Refresh
+# Current Sprint: Wire Frontend to Backend
 
 **Started:** 2026-02-28
-**Target:** 2026-03-07
+**Target:** 3 sequential sprints (~7 sessions)
+**Plan:** `.claude/plans/nifty-exploring-rain.md`
+**Audit:** `docs/plans/wire-frontend-backend-audit-2026-02-28.md`
 
-## Topics
+## Sprint 1: DevOps & Deployment
 
-### Direct API Configuration
+### 1A. Backend Invite Endpoints
 - **Phase:** Done
-- **Discovery:** N/A — straightforward setup
-- **Key files:** `~/.zshrc` (ANTHROPIC_API_KEY export)
-- **Notes:** API billing active. Max plan kept for Remote Control sessions.
+- **Key files:** `hestia/api/routes/auth.py` (invite, register-with-invite, re-invite), `hestia/api/middleware/auth.py` (invite tokens), `hestia/api/schemas.py` (invite models)
+- **Notes:** 4 new endpoints, nonce-based one-time invites, rate limiting (5/hour), recovery via re-invite. 28 tests passing.
 
-### Remote Control (iPhone/iPad)
-- **Phase:** Execute
-- **Discovery:** N/A
-- **Key files:** `~/.zshrc` (hestia-remote alias)
-- **Blockers:** Requires Max plan (can't use with API key)
-- **Notes:** Use `unset ANTHROPIC_API_KEY` in Remote Control terminal only
-
-### Figma MCP Integration
+### 1B. iOS/macOS Onboarding Flow
 - **Phase:** Done
-- **Key files:** `.mcp.json` (Figma MCP already configured), macOS UI Automation MCP added
-- **Notes:** Figma MCP used to pull exact design context for macOS app. macOS UI Automation MCP (`macos-ui-automation-mcp`) installed for native app testing.
+- **Key files:** `HestiaApp/Shared/Views/Auth/OnboardingView.swift`, `QRScannerView.swift`, `PermissionsOnboardingView.swift`, `HestiaApp/macOS/Views/Auth/MacOnboardingView.swift`
+- **Notes:** iOS: QR scanner + multi-step flow. macOS: paste JSON payload. Both build clean with Swift 6 strict concurrency. HestiaShared SPM updated with invite models + `registerWithInvite()`.
 
-### macOS App (Hestia)
+### 1C. Permissions Harmony
 - **Phase:** Done
-- **Discovery:** Figma designs analyzed (command, explore, health screens)
-- **Key files:** `HestiaApp/macOS/` (35 Swift files), `HestiaApp/project.yml`
-- **Notes:** Renamed from HestiaWorkspace to Hestia. 3 views (Command, Explorer, Health) + chat panel + icon sidebar. UX polish complete: keyboard shortcuts (⌘1/2/3/\), sidebar hover effects, responsive layout (stat card grid, flexible chat panel), resizable chat divider with grabber, app icon matching iOS. Both schemes build clean.
+- **Key files:** `HestiaApp/Shared/Views/Auth/PermissionsOnboardingView.swift`, `HestiaApp/Shared/App/ContentView.swift`
+- **Notes:** Apple HIG-compliant guided flow: Calendar → Reminders → Health → Notifications → Biometric. One at a time, Skip option, grant summary. Integrated between auth and main app in ContentView.
 
-### Skill Redesign
-- **Phase:** Execute
-- **Discovery:** N/A — requirements defined in plan
-- **Key files:** `.claude/skills/discovery/`, `plan-audit/`, `codebase-audit/`, `retrospective/`, `handoff/`
-- **Notes:** Old /audit and /pickup archived to `_archive_*` directories
+### 1D. Tests
+- **Phase:** Done
+- **Key files:** `tests/test_auth_invite.py`
+- **Notes:** 28 tests for invite generation, expiry, nonce consumption, register-with-invite, re-invite, rate limiting, device listing. All passing.
 
-### CI/CD Pipeline
-- **Phase:** Plan
-- **Discovery:** N/A
-- **Key files:** `.github/workflows/ci.yml`, `deploy.yml`, `claude.yml`
-- **Blockers:** Need GitHub repo created, secrets added (ANTHROPIC_API_KEY, MAC_MINI_SSH_KEY, MAC_MINI_HOST)
-- **Next action:** `gh repo create hestia --private --source=.`
+## Sprint 2: Explorer — Both Platforms (~3 sessions)
 
-### Fireproof (Server Reliability)
+### 2A. Backend Explorer Module
 - **Phase:** Research
-- **Discovery:** Pending — need to investigate actual failure patterns
-- **Key files:** TBD
-- **Blockers:** Need monitoring data before building solutions
-- **Next action:** Add `/v1/health/detailed` endpoint + watchdog script
+- **Key files:** TBD — `hestia/explorer/` (new module)
+- **Notes:** Manager pattern: models.py + database.py + manager.py. Aggregates mail + notes + reminders + files + drafts via asyncio.gather(). TTL cache layer.
 
-### Onboarding Cheat Sheet
-- **Phase:** Done
-- **Key files:** `CHEATSHEET.md`
+### 2B. Backend Explorer API
+- **Phase:** Research
+- **Key files:** TBD — `hestia/api/routes/explorer.py`
+- **Notes:** 6 endpoints: resource list/detail/content, draft CRUD.
+
+### 2C. iOS Explorer View
+- **Phase:** Research
+- **Key files:** TBD — `HestiaApp/Shared/Views/Explorer/`, `HestiaApp/Shared/ViewModels/ExplorerViewModel.swift`
+- **Notes:** Section filter chips + search + resource list. New tab in ContentView.
+
+### 2D. macOS Explorer Enhancement
+- **Phase:** Research (half-time cut candidate)
+- **Notes:** Add API-backed resource loading alongside existing local file browser.
+
+### 2E. APIClient Extensions
+- **Phase:** Research
+- **Notes:** `APIClient+Explorer.swift` with 5 methods.
+
+### 2F. Tests
+- **Phase:** Research
+
+## Sprint 3: Command Center / Newsfeed (~2 sessions)
+
+### 3A. Backend Newsfeed
+- **Phase:** Not started
+- **Notes:** NewsfeedItem types: alert, insight, news, order, event, task. RSS via feedparser + APScheduler.
+
+### 3B. Backend Newsfeed API
+- **Phase:** Not started
+
+### 3C. iOS Command Center Rewrite
+- **Phase:** Not started
+- **Notes:** BriefingCard + FilterBar + NewsfeedTimeline replacing current tab layout.
+
+### 3D. macOS Command View Update
+- **Phase:** Not started
+
+### 3E-F. APIClient + Tests
+- **Phase:** Not started
+
+---
+
+## Previous Sprint: Claude Code Config Refresh (COMPLETE)
+
+All topics done: Direct API config, Figma MCP, macOS app (Hestia), Skills redesign, Cheat sheet.
+Deferred: CI/CD pipeline, Fireproof (server reliability).

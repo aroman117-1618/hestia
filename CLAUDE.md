@@ -46,20 +46,28 @@ Definitions: `.claude/agents/`. Read-only specialists — diagnose and report, n
 
 ## Server Management
 
-After ANY backend code change, always kill stale server processes before restarting. Use `lsof -i :8443 | grep LISTEN` to find and `kill -9` old PIDs. Never assume the running server has picked up code changes without a full restart cycle.
+After ANY backend code change, always kill stale server processes before restarting. Use `lsof -i :8443 | grep LISTEN` to find and `kill -9` old PIDs. Never assume the running server has picked up code changes without a full restart cycle. Stale processes are the #1 recurring time sink — old servers can run for weeks silently serving outdated code.
 
-## Context Continuity
+## Session Continuity
+
+When resuming work from a previous session, FIRST read `SESSION_HANDOFF.md` (if it exists) and any TODO files. Do NOT search through bash history or compacted transcripts to recover context — use the structured handoff documents.
 
 This is a multi-session project (Hestia). Key references:
 - Project plans and workstreams are in `docs/`
 - Previous session context may be compacted — check docs and CLAUDE.md FIRST before searching transcripts
-- Current workstreams: ALL COMPLETE. Wiki feature COMPLETE (2026-02-28). 3 pre-existing health test failures remain.
+- Current workstreams: Wire Frontend to Backend (Sprint 1 COMPLETE, Sprint 2 next). See `SPRINT.md`. 3 pre-existing health test failures remain.
 - **2026-02-28:** macOS app renamed to "Hestia" — UX polished: keyboard shortcuts (⌘1/2/3/\), sidebar hover effects, responsive layout (3-col stat grid, flexible chat panel), resizable divider with grabber, app icon from iOS source. Both Xcode schemes build clean.
 - **2026-02-28:** Claude Code config refresh — new skills (/discovery, /plan-audit, /codebase-audit, /retrospective), upgraded /handoff, CI/CD pipeline, cheat sheet, sprint tracker. Direct API billing active. See `SPRINT.md` for current sprint status.
 
 ## Debugging Approach
 
-When diagnosing issues, consider the FULL stack (backend process permissions, server state, iOS simulator limitations) before assuming the problem is in the code layer you're currently editing. Ask clarifying questions about the runtime environment before proposing fixes.
+When diagnosing bugs, consider the full stack before concluding root cause. Check:
+1. Is the server running the latest code? (kill stale processes first)
+2. Is this a backend issue or client-side issue?
+3. Are permissions (TCC, entitlements) at the system level, not just app level?
+4. What are the runtime environment constraints (simulator, sandbox, etc.)?
+
+Do NOT assume the first hypothesis is correct — validate before implementing fixes. List 3 possible root causes, run a quick diagnostic for each, then fix the confirmed cause.
 
 ---
 
@@ -76,7 +84,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | Hardware | Mac Mini M1 (16GB) |
 | Model | Qwen 2.5 7B (Ollama, local) + cloud providers (Anthropic/OpenAI/Google) |
 | SLM | qwen2.5:0.5b (council intent classification, ~100ms) |
-| Backend | Python 3.9+, FastAPI, 88 endpoints across 17 route modules |
+| Backend | Python 3.9+, FastAPI, 103 endpoints across 18 route modules |
 | Storage | ChromaDB (vectors) + SQLite (structured) + macOS Keychain (credentials) |
 | App | Native Swift/SwiftUI (iOS 26.0+) |
 | API | REST on port 8443 with JWT auth, HTTPS with self-signed cert |
@@ -92,7 +100,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 **UI Phase 4 (Integrations UI, API contract rewrite): COMPLETE.**
 **Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
 
-892 tests (886 passing, 3 skipped, 3 pre-existing health failures). Full details: `python -m pytest tests/ -v --timeout=30`
+977 tests (968+ passing, 3 skipped, 3 pre-existing health failures). Full details: `python -m pytest tests/ -v --timeout=30`
 
 **Health test failures:** `test_get_metric_trend`, `test_get_sleep_analysis`, `test_get_activity_summary` — these store data for hardcoded Feb 2026 dates but query relative to `datetime.now()` with `days=7` lookback. Data falls outside the window. Fix: use dynamic dates relative to today.
 
@@ -121,6 +129,18 @@ Always run the full test suite (`python -m pytest`) after making changes and ens
 - Always verify SwiftUI previews compile after changes
 - Mac Mini deployment target: `andrewroman117@hestia-3.local` (via Tailscale)
 
+## Multi-Target Builds (macOS + iOS)
+
+This project has both macOS and iOS targets. When creating or editing Swift files:
+- Check which targets the file belongs to before editing
+- Verify imports and APIs are available on both platforms (e.g., `OnboardingViewModel`, `APIClientProvider` may be iOS-only)
+- Use `#if os(macOS)` / `#if os(iOS)` guards when needed
+- Always build BOTH targets after changes: `xcodebuild -scheme HestiaWorkspace` and `xcodebuild -scheme HestiaApp`
+
+## Python Environment
+
+Use Python 3.12 (not 3.13+). Pin version in pyproject.toml with `requires-python = ">=3.11,<3.13"`. Python 3.14 is known to cause MCP server incompatibilities.
+
 ## Security Posture
 
 - Biometric auth (Face ID/Touch ID) for sensitive data
@@ -128,6 +148,7 @@ Always run the full test suite (`python -m pytest`) after making changes and ens
 - Double encryption (Fernet + Keychain AES-256)
 - External communication gate (nothing sent without approval)
 - JWT device auth, 90-day expiry, Keychain-stored secret
+- Invite-based device registration (QR code onboarding, one-time nonce tokens)
 - Error sanitization in all API routes
 
 ## Andrew's Context
@@ -167,7 +188,7 @@ hestia/
 │   │   ├── server.py                # App lifecycle, manager initialization
 │   │   ├── middleware/auth.py        # JWT device authentication
 │   │   └── routes/                  # auth, health, chat, mode, memory, sessions, tools,
-│   │                                # tasks, cloud, voice, orders, agents, user, proactive, health_data, wiki
+│   │                                # tasks, cloud, voice, orders, agents, agents_v2, user, user_profile, proactive, health_data, wiki
 │   └── config/                      # inference.yaml, execution.yaml, memory.yaml, wiki.yaml
 ├── hestia-cli-tools/                # Swift CLIs (keychain, calendar, reminders, notes)
 ├── HestiaApp/                       # iOS SwiftUI app
@@ -191,11 +212,11 @@ hestia/
 
 ---
 
-## API Summary (88 endpoints, 17 route modules)
+## API Summary (103 endpoints, 18 route modules)
 
 | Module | Endpoints | Key Routes |
 |--------|-----------|------------|
-| Health & Auth | 4 | `/v1/ping`, `/v1/health`, `/v1/auth/register`, `/v1/auth/refresh` |
+| Health & Auth | 7 | `/v1/ping`, `/v1/health`, `/v1/auth/register`, `/v1/auth/refresh`, `/v1/auth/invite`, `/v1/auth/register-with-invite`, `/v1/auth/re-invite` |
 | Chat & Mode | 4 | `/v1/chat`, `/v1/mode/*` |
 | Memory | 5 | `/v1/memory/staged`, `approve`, `reject`, `search` |
 | Sessions | 3 | `/v1/sessions` CRUD |
@@ -206,7 +227,8 @@ hestia/
 | Orders | 7 | `/v1/orders` CRUD + executions + execute |
 | Agents (v1) | 10 | `/v1/agents/{slot}` CRUD + photos + snapshots + sync |
 | Agents (v2) | 10 | `/v2/agents` .md-based config CRUD + notes + reload |
-| User | 9 | `/v1/user/profile`, `photo`, `settings`, `push-token` |
+| User | 10 | `/v1/user/profile`, `photo`, `settings`, `push-token`, `devices` |
+| User Profile | 11 | `/v1/user/profile/*` extended CRUD |
 | Proactive | 6 | `/v1/proactive/briefing`, `policy`, `patterns`, `notifications` |
 | Health Data | 7 | `/v1/health_data/sync`, `summary`, `trend`, `coaching` |
 | Wiki | 5 | `/v1/wiki/articles`, `generate`, `generate-all`, `refresh-static` |

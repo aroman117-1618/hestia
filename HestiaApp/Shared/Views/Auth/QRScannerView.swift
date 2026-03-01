@@ -16,7 +16,7 @@ struct QRScannerView: UIViewControllerRepresentable {
 }
 
 /// UIKit view controller wrapping AVCaptureSession for QR code detection
-class QRScannerViewController: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
+class QRScannerViewController: UIViewController, @preconcurrency AVCaptureMetadataOutputObjectsDelegate {
     var onCodeScanned: ((String) -> Void)?
 
     private var captureSession: AVCaptureSession?

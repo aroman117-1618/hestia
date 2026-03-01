@@ -25,8 +25,10 @@ class MainSplitViewController: NSSplitViewController {
                 object: nil,
                 queue: .main
             ) { [weak self] _ in
-                guard let self = self, self.authService.isDeviceRegistered else { return }
-                self.transitionToWorkspace()
+                Task { @MainActor in
+                    guard let self = self, self.authService.isDeviceRegistered else { return }
+                    self.transitionToWorkspace()
+                }
             }
         }
     }
@@ -121,9 +123,4 @@ class MainSplitViewController: NSSplitViewController {
         workspaceState.isChatPanelVisible = !chatItem.isCollapsed
     }
 
-    deinit {
-        if let observer = registrationObserver {
-            NotificationCenter.default.removeObserver(observer)
-        }
-    }
 }

@@ -54,6 +54,7 @@ class LogComponent(Enum):
     COUNCIL = "council"
     HEALTH = "health"
     WIKI = "wiki"
+    EXPLORER = "explorer"
 
 
 class EventType(Enum):

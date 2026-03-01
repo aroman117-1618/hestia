@@ -8,11 +8,18 @@ struct RootView: View {
     @State private var isLocked = false
     @State private var showingLockScreen = false
 
+    private var needsPermissionsOnboarding: Bool {
+        !UserDefaults.standard.bool(forKey: "hestia_permissions_onboarding_complete")
+    }
+
     var body: some View {
         ZStack {
             if !authService.isDeviceRegistered {
                 // First time setup — QR code onboarding
                 OnboardingView()
+            } else if authService.isAuthenticated && needsPermissionsOnboarding {
+                // Permissions onboarding (one-time, after first auth)
+                PermissionsOnboardingView()
             } else if !authService.isAuthenticated || showingLockScreen {
                 // Need to authenticate
                 LockScreenView(onUnlock: {

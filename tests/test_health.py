@@ -598,9 +598,10 @@ class TestHealthManager:
     @pytest.mark.asyncio
     async def test_get_metric_trend(self, manager):
         """Test metric trend calculation."""
-        # Store 7 days of step data
+        # Store 7 days of step data using dynamic dates relative to today
+        today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
         for i in range(7):
-            dt = datetime(2026, 2, 9 + i, tzinfo=timezone.utc)
+            dt = today - timedelta(days=6 - i)  # 6 days ago through today
             metrics_data = [
                 {
                     "metric_type": "stepCount",
@@ -658,17 +659,19 @@ class TestHealthManager:
     @pytest.mark.asyncio
     async def test_get_sleep_analysis(self, manager):
         """Test sleep analysis."""
+        today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        today_str = today.strftime("%Y-%m-%d")
         metrics_data = [
             {
                 "metric_type": "sleepAnalysis",
                 "value": 420.0,
                 "unit": "min",
-                "start_date": "2026-02-15T00:00:00+00:00",
-                "end_date": "2026-02-15T07:00:00+00:00",
+                "start_date": today.isoformat(),
+                "end_date": today.replace(hour=7).isoformat(),
                 "metadata": {"stage": "total"},
             },
         ]
-        await manager.process_sync("test-device", metrics_data, "2026-02-15")
+        await manager.process_sync("test-device", metrics_data, today_str)
 
         analysis = await manager.get_sleep_analysis(days=7)
         assert analysis["total_nights"] == 1
@@ -677,15 +680,17 @@ class TestHealthManager:
     @pytest.mark.asyncio
     async def test_get_activity_summary(self, manager):
         """Test activity summary."""
+        today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        today_str = today.strftime("%Y-%m-%d")
         metrics_data = [
             {
                 "metric_type": "stepCount",
                 "value": 10000.0,
-                "start_date": "2026-02-15T00:00:00+00:00",
-                "end_date": "2026-02-15T23:59:00+00:00",
+                "start_date": today.isoformat(),
+                "end_date": today.replace(hour=23, minute=59).isoformat(),
             },
         ]
-        await manager.process_sync("test-device", metrics_data, "2026-02-15")
+        await manager.process_sync("test-device", metrics_data, today_str)
 
         summary = await manager.get_activity_summary(days=7)
         assert summary["days"] == 7
