@@ -54,7 +54,7 @@ This is a multi-session project (Hestia). Key references:
 - Project plans and workstreams are in `docs/`
 - Previous session context may be compacted — check docs and CLAUDE.md FIRST before searching transcripts
 - Current workstreams: ALL COMPLETE. Wiki feature COMPLETE (2026-02-28). 3 pre-existing health test failures remain.
-- **2026-02-28:** macOS app (HestiaWorkspace) built — 35 Swift files, 3 views (Command/Explorer/Health), icon sidebar, chat panel. Figma-accurate rewrite from design context. macOS UI Automation MCP installed for testing. Both Xcode schemes build clean.
+- **2026-02-28:** macOS app renamed to "Hestia" — UX polished: keyboard shortcuts (⌘1/2/3/\), sidebar hover effects, responsive layout (3-col stat grid, flexible chat panel), resizable divider with grabber, app icon from iOS source. Both Xcode schemes build clean.
 - **2026-02-28:** Claude Code config refresh — new skills (/discovery, /plan-audit, /codebase-audit, /retrospective), upgraded /handoff, CI/CD pipeline, cheat sheet, sprint tracker. Direct API billing active. See `SPRINT.md` for current sprint status.
 
 ## Debugging Approach
@@ -250,7 +250,7 @@ Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 | Phase 4: Settings Integrations | COMPLETE | IntegrationsView (Calendar, Reminders, Notes, Mail), API contract rewrite |
 | Apple HealthKit Integration | COMPLETE | 27 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools, iOS HealthKitService |
 | Wiki / Architecture Field Guide | COMPLETE | AI-generated narratives, module deep dives, ADR browser, roadmap, Mermaid diagrams, iOS tabbed UI |
-| macOS App (HestiaWorkspace) | IN PROGRESS | 35 files, 3 views (Command/Explorer/Health), icon sidebar, chat panel, SwiftUI Path charts. UX polish needed. |
+| macOS App (Hestia) | COMPLETE | 35 files, 3 views (Command/Explorer/Health), icon sidebar, chat panel, keyboard shortcuts, responsive layout, app icon. |
 
 ### Known Issues (Mac Mini)
 - Council needs `qwen2.5:0.5b` pulled on Mac Mini
