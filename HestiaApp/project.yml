@@ -129,6 +129,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.hestia.workspace
+        PRODUCT_NAME: Hestia
         INFOPLIST_FILE: macOS/Info.plist
         CODE_SIGN_ENTITLEMENTS: macOS/HestiaWorkspace.entitlements
         MACOSX_DEPLOYMENT_TARGET: "15.0"
@@ -139,11 +140,11 @@ targets:
     info:
       path: macOS/Info.plist
       properties:
-        CFBundleDisplayName: Hestia Workspace
+        CFBundleDisplayName: Hestia
         NSPrincipalClass: NSApplication
         LSMinimumSystemVersion: "15.0"
         ATSApplicationFontsPath: Fonts
-        NSCalendarsUsageDescription: Hestia Workspace needs calendar access to show your upcoming events in the Command Center.
+        NSCalendarsUsageDescription: Hestia needs calendar access to show your upcoming events in the Command Center.
 
   HestiaAppTests:
     type: bundle.unit-test

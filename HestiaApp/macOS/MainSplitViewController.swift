@@ -48,6 +48,20 @@ class MainSplitViewController: NSSplitViewController {
         addSplitViewItem(chatItem)
     }
 
+    // MARK: - Divider Hit Area
+
+    override func splitView(
+        _ splitView: NSSplitView,
+        effectiveRect proposedEffectiveRect: NSRect,
+        forDrawnRect drawnRect: NSRect,
+        ofDividerAt dividerIndex: Int
+    ) -> NSRect {
+        var rect = proposedEffectiveRect
+        rect.origin.x -= 4
+        rect.size.width = 9
+        return rect
+    }
+
     // MARK: - Panel Toggle
 
     func toggleChatPanel() {

@@ -11,7 +11,7 @@ class MainWindowController: NSWindowController {
             defer: false
         )
         window.minSize = NSSize(width: 1200, height: 700)
-        window.title = "Hestia Workspace"
+        window.title = "Hestia"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.backgroundColor = NSColor(red: 13/255, green: 8/255, blue: 2/255, alpha: 1)

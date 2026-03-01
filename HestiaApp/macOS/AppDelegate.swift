@@ -45,10 +45,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // App menu
         let appMenuItem = NSMenuItem()
-        let appMenu = NSMenu(title: "HestiaWorkspace")
-        appMenu.addItem(withTitle: "About Hestia Workspace", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        let appMenu = NSMenu(title: "Hestia")
+        appMenu.addItem(withTitle: "About Hestia", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Quit Hestia Workspace", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: "Quit Hestia", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appMenuItem.submenu = appMenu
         mainMenu.addItem(appMenuItem)
 

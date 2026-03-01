@@ -60,6 +60,17 @@ struct MacChatPanelView: View {
         .frame(minWidth: 320)
         .background(chatBackground)
         .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
+        .overlay(alignment: .leading) {
+            // Divider grabber indicator
+            VStack(spacing: 3) {
+                ForEach(0..<3, id: \.self) { _ in
+                    Circle()
+                        .fill(MacColors.textSecondary.opacity(0.5))
+                        .frame(width: 4, height: 4)
+                }
+            }
+            .padding(.leading, 4)
+        }
         .task {
             viewModel.loadInitialGreeting(mode: appState.currentMode)
         }
