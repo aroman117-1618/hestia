@@ -2,13 +2,16 @@
 name: codebase-audit
 description: Full-stack SWOT analysis with CISO, CTO, and CPO critiques — comprehensive codebase health assessment
 user_invocable: true
+context: fork
 allowed_tools:
   - Bash
   - Read
   - Grep
   - Glob
   - Task
-  - TodoWrite
+  - TaskCreate
+  - TaskUpdate
+  - TaskList
 ---
 
 # Codebase Audit Skill
@@ -21,7 +24,7 @@ Run a comprehensive, critical audit of the Hestia codebase. This is not a style 
 
 1. Read `CLAUDE.md` for current project state, conventions, and architecture
 2. Use @hestia-explorer (Task with subagent_type=hestia-explorer) to map the current codebase state
-3. Create a TodoWrite plan tracking each audit section below
+3. Create a TaskCreate plan tracking each audit section below
 
 ## Phase 2: SWOT Analysis (Codebase as a Whole)
 
@@ -136,6 +139,53 @@ Cross-cutting assessment:
 - Logging levels: appropriate severity assignments?
 - HTTP status codes: semantically correct?
 
+## Phase 8: Documentation Currency & Workspace Hygiene
+
+### Documentation Accuracy
+- Verify CLAUDE.md counts match reality (modules, endpoints, tests, route modules)
+- Verify `docs/api-contract.md` matches actual routes in `hestia/api/routes/`
+- Verify `docs/hestia-decision-log.md` has entries for recent architectural decisions
+- Verify agent definitions (`.claude/agents/`) have accurate test counts, module lists, LogComponent enums
+- Verify skill definitions (`.claude/skills/`) reference correct tool names, paths, patterns
+
+### Workspace Hygiene
+- Check for orphaned untracked files (`git status`)
+- Scan for TODO/FIXME/HACK comments that are stale or untracked
+- Verify `docs/` folder structure is organized (no loose files that should be in subdirectories)
+- Check for stale files that should be archived to `docs/archive/`
+- Verify no debug artifacts, scratch files, or temporary outputs left behind
+
+## Phase 9: Multi-User & Multi-Device Readiness Assessment
+
+Assess how ready the codebase is for multi-user and multi-device scenarios:
+
+### Data Isolation
+- Are SQLite tables scoped by `user_id`? Which tables lack user scoping?
+- Are ChromaDB collections user-scoped or global?
+- Is the Keychain model per-user or per-device?
+- Are file paths (data/, logs/) user-isolated?
+
+### API Contract
+- Are all endpoints user-scoped via JWT claims?
+- Do any endpoints assume single-user (hardcoded paths, global state)?
+- Is `device_id` properly treated as sub-identity of `user_id`?
+
+### Infrastructure
+- Can the server handle concurrent users? Any shared mutable state?
+- Are sessions properly scoped per user?
+- Is memory/context properly isolated between users?
+
+### Experience Continuity
+- Can a user switch devices seamlessly?
+- Are preferences and settings portable?
+- Is conversation history tied to user or device?
+
+### Readiness Rating
+- **Ready**: Multi-user would work today
+- **Close**: Minor changes needed (add user_id columns, scope queries)
+- **Significant work**: Major refactoring needed (describe what)
+- **Not designed for it**: Fundamental architecture changes required
+
 ## Output Format
 
 Save the audit to `docs/audits/codebase-audit-[date].md` and present it:
@@ -190,6 +240,29 @@ Save the audit to `docs/audits/codebase-audit-[date].md` and present it:
 | Pattern | Expected | Actual (violations) | Files |
 |---------|----------|-------------------|-------|
 
+## Documentation Currency
+| Document | Status | Issues Found |
+|----------|--------|-------------|
+| CLAUDE.md | Current/Stale | [details] |
+| api-contract.md | Current/Stale | [details] |
+| Agent definitions | Current/Stale | [details] |
+| Skill definitions | Current/Stale | [details] |
+
+## Workspace Hygiene
+- Orphaned files: [count and list]
+- Stale TODOs: [count]
+- Archive candidates: [list]
+
+## Multi-User Readiness
+**Rating:** Ready / Close / Significant Work / Not Designed For It
+| Area | Status | Gap |
+|------|--------|-----|
+| SQLite user scoping | [status] | [gap] |
+| ChromaDB isolation | [status] | [gap] |
+| API user scoping | [status] | [gap] |
+| Session isolation | [status] | [gap] |
+| Cross-device continuity | [status] | [gap] |
+
 ## Summary
 - **CISO:** [rating] — [one-line summary]
 - **CTO:** [rating] — [one-line summary]
@@ -197,6 +270,8 @@ Save the audit to `docs/audits/codebase-audit-[date].md` and present it:
 - Critical issues: N
 - Simplification opportunities: N
 - Consistency violations: N
+- Documentation drift: N items
+- Multi-user readiness: [rating]
 ```
 
 Be specific. File paths and line numbers for every finding. Concrete fix proposals, not vague suggestions.

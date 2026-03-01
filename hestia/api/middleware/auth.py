@@ -256,6 +256,35 @@ def verify_device_token(token: str) -> dict:
         raise AuthError(f"Invalid token: {str(e)}", "invalid_token")
 
 
+async def check_device_revocation(device_id: str) -> None:
+    """
+    Check if a device has been revoked in the invite store.
+
+    Args:
+        device_id: The device ID to check.
+
+    Raises:
+        HTTPException: 401 if the device is revoked.
+    """
+    try:
+        from hestia.api.invite_store import get_invite_store
+        store = await get_invite_store()
+        if await store.is_device_revoked(device_id):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={
+                    "error": "device_revoked",
+                    "message": "Device access revoked"
+                }
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        # If invite store is unavailable, allow the request through
+        # (fail-open for availability; revocation is defense-in-depth)
+        pass
+
+
 async def get_device_token(
     x_hestia_device_token: Optional[str] = Header(None, alias="X-Hestia-Device-Token")
 ) -> str:
@@ -269,7 +298,7 @@ async def get_device_token(
         Device ID from the validated token.
 
     Raises:
-        HTTPException: If token is missing or invalid.
+        HTTPException: If token is missing, invalid, or device is revoked.
     """
     if not x_hestia_device_token:
         raise HTTPException(
@@ -282,7 +311,7 @@ async def get_device_token(
 
     try:
         payload = verify_device_token(x_hestia_device_token)
-        return payload["device_id"]
+        device_id = payload["device_id"]
     except AuthError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -291,6 +320,11 @@ async def get_device_token(
                 "message": e.message
             }
         )
+
+    # Check revocation status
+    await check_device_revocation(device_id)
+
+    return device_id
 
 
 async def get_optional_device_token(

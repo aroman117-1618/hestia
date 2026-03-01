@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Service identifier -->
+    <key>Label</key>
+    <string>com.hestia.watchdog</string>
+
+    <key>ServiceDescription</key>
+    <string>Hestia server health watchdog — restarts after 3 consecutive failures</string>
+
+    <!-- Script to run -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/andrewroman117/hestia/scripts/hestia-watchdog.sh</string>
+    </array>
+
+    <!-- Run every 5 minutes (300 seconds) -->
+    <key>StartInterval</key>
+    <integer>300</integer>
+
+    <!-- Also run at load -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Environment variables -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>/Users/andrewroman117</string>
+    </dict>
+
+    <!-- Working directory -->
+    <key>WorkingDirectory</key>
+    <string>/Users/andrewroman117/hestia</string>
+
+    <!-- Logging (watchdog script handles its own log, these are for launchd errors) -->
+    <key>StandardOutPath</key>
+    <string>/Users/andrewroman117/hestia/logs/watchdog-stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/andrewroman117/hestia/logs/watchdog-stderr.log</string>
+
+    <!-- Low priority -->
+    <key>Nice</key>
+    <integer>10</integer>
+    <key>LowPriorityIO</key>
+    <true/>
+</dict>
+</plist>

@@ -2,68 +2,81 @@
 name: retrospective
 description: Session learning audit — analyze engagement friction, debugging loops, and optimization opportunities
 user_invocable: true
+context: fork
 allowed_tools:
   - Bash
   - Read
   - Grep
   - Glob
   - Task
-  - TodoWrite
+  - TaskCreate
+  - TaskUpdate
+  - TaskList
 ---
 
 # Retrospective Skill
 
-Run a deep learning audit on the current session. This isn't just "what did we do" — it's a critical analysis of HOW we worked, where we got stuck, and what should change to prevent the same friction next time.
+Run a deep process optimization audit on the current session. This isn't about documenting what happened (that's `/handoff`) — it's about making the NEXT session better by identifying friction, missed delegation opportunities, and configuration gaps.
 
-**Purpose:** Optimize the development workflow by turning session experience into permanent improvements to CLAUDE.md, skills, agents, and documentation.
+**Purpose:** Turn session experience into permanent improvements to skills, agents, hooks, and documentation.
 
-## Phase 1: Session Inventory
+## Phase 1: Configuration Gap Analysis
 
-1. Review the full conversation history for this session
-2. Catalog:
-   - Tasks attempted (with outcomes: completed / partial / failed / abandoned)
-   - Decisions made (with reasoning quality: well-informed / rushed / wrong)
-   - Questions asked by Andrew (indicates missing context or unclear docs)
-   - Questions asked by Claude (indicates ambiguity in requirements or config)
-3. Create a TodoWrite plan tracking audit sections
+Analyze the session for problems that better configuration would have prevented:
 
-## Phase 2: Learning Audit
+1. Review the conversation history for:
+   - Errors that required manual debugging
+   - Information that was searched for but should have been in CLAUDE.md or agent definitions
+   - Tasks that were done manually but could have been automated with hooks or skills
+   - Repetitive patterns that should become skills
 
-### Key Learnings
-- What new information emerged this session?
-- What assumptions were validated or invalidated?
-- What patterns worked well and should be repeated?
-- What approaches failed and should be avoided?
+2. For each gap identified:
+   - **What happened**: The specific friction point
+   - **Root cause**: Why existing config didn't prevent it
+   - **Fix**: The exact config change (file path, content) that would prevent it next time
 
-### Engagement Friction Points
-Identify every point where the conversation stalled, went in circles, or required course correction:
-- **Clarification loops** — where did Andrew have to re-explain something?
-- **Wrong assumptions** — where did Claude go down the wrong path?
-- **Missing context** — what information was needed but not in CLAUDE.md or skills?
-- **Tool/environment issues** — what broke, what was slow, what was confusing?
+## Phase 2: First-Pass Success Analysis
 
-For each friction point: what caused it, and what documentation or config change would prevent it?
+Measure development efficiency:
 
-## Phase 3: Debugging & Troubleshooting Loop Analysis
+1. Count tasks attempted and their outcomes:
+   - **First-pass success**: Completed correctly on first attempt (no rework)
+   - **Rework needed**: Required correction after initial implementation
+   - **Failed/abandoned**: Could not be completed
 
-Identify any bug-fixing or troubleshooting sequences in the session:
-- How long did each loop take (in conversation turns)?
-- What was the root cause vs. what was initially investigated?
-- Was the debugging approach efficient, or did it spiral?
-- **For each loop:** What would have shortened it? (better error messages, more logging, clearer docs, different diagnostic approach)
+2. For each rework case:
+   - What caused the rework? (wrong assumption, missing context, unclear requirements, tool failure)
+   - What would have enabled first-pass success? (better planning, reading more code first, asking Andrew)
 
-Rate each debugging loop:
-- **Efficient** — found root cause quickly, fixed cleanly
-- **Acceptable** — some exploration needed, but reasonable
-- **Spiral** — went in circles, investigated wrong layers, wasted turns
+3. Calculate **first-pass success rate**: `first_pass / total_attempted * 100`
 
-## Phase 4: Deep-Dive Audit Reviews
+4. Identify the top 3 blockers to first-pass success and propose mitigations.
 
-If any audits were run this session (/discovery, /plan-audit, /codebase-audit), review their outputs:
-- Were the findings accurate?
-- Were any recommendations implemented?
-- Did anything get flagged that was later proven wrong?
-- Are there follow-up items that should be tracked?
+## Phase 3: Agent Orchestration Review
+
+Evaluate how effectively sub-agents were used:
+
+1. **Delegation audit**:
+   - Were @hestia-explorer, @hestia-tester, @hestia-reviewer used when they should have been?
+   - Were there missed delegation opportunities? (e.g., manual grep when explorer could have searched)
+   - Were agents used for the wrong task? (e.g., explorer for a job that needed tester)
+
+2. **Parallelism audit**:
+   - Were independent tasks run in parallel where possible?
+   - Were there sequential bottlenecks that could have been parallelized?
+
+3. **Agent effectiveness**:
+   - Did agents return useful results, or were their outputs ignored/repeated?
+   - Were agent prompts specific enough, or did they waste turns on unfocused exploration?
+
+## Phase 4: Audit Follow-Ups
+
+If any strategic skills were run this session (/discovery, /plan-audit, /codebase-audit):
+
+1. Were the findings accurate?
+2. Were recommendations implemented?
+3. Were any findings later proven wrong?
+4. Are there unresolved follow-up items that need tracking?
 
 ## Phase 5: Optimization Recommendations
 
@@ -71,95 +84,63 @@ For each issue identified, propose a concrete fix in one of these categories:
 
 ### CLAUDE.md Updates
 - What should be added, changed, or removed?
-- Be specific — write the exact text to add
+- Write the exact text to add
 
 ### Skills/Agents Updates
-- Which skill or agent files need changes?
+- Which files need changes?
 - What instructions were missing or misleading?
+- Should any new skills or hooks be created?
 
-### Documentation Updates
-- Which docs drifted from reality?
-- What new documentation is needed?
+### Hook/Script Changes
+- Should new hooks be added?
+- Should existing scripts be modified?
+- Are there events that should trigger automation?
 
 ### Workflow Improvements
 - Are there new patterns that should become skills?
 - Are there repetitive tasks that should be automated?
-- Should hook scripts be added or modified?
-
-### SPRINT.md Updates
-- Update phase markers for any topics worked on
-- Add new topics discovered during the session
-
-## Phase 6: Session Metrics
-
-Collect quantitative data:
-- Files changed: `git diff --stat` (or from conversation history)
-- Tests added or fixed
-- Decisions made (list them)
-- Skills/agents invoked (and their effectiveness)
-- Approximate conversation turns spent on each task
-- Ratio: productive turns vs. friction/debugging turns
+- Should the 4-phase workflow be adjusted for certain task types?
 
 ## Output Format
 
 Save the retrospective to `docs/retrospectives/retro-[date].md` and present it:
 
 ```markdown
-# Session Retrospective: [Date]
+# Process Retrospective: [Date]
 
-## Session Summary
-[2-3 sentence overview of what this session accomplished]
+## Configuration Gaps
+| Gap | Friction Caused | Fix (file + change) |
+|-----|----------------|---------------------|
+| [description] | [what went wrong] | [exact fix] |
 
-## Key Learnings
-1. [Learning with context]
-2. [Learning with context]
-...
+## First-Pass Success
+- **Rate**: N% (X/Y tasks succeeded first try)
+- **Top blockers**:
+  1. [blocker] — [mitigation]
+  2. [blocker] — [mitigation]
+  3. [blocker] — [mitigation]
 
-## Engagement Friction Points
-| Friction | Cause | Turns Wasted | Prevention |
-|----------|-------|-------------|------------|
-| [description] | [root cause] | ~N | [specific fix] |
-
-## Debugging Loops
-| Issue | Turns | Rating | Root Cause | Faster Path |
-|-------|-------|--------|-----------|-------------|
-| [bug] | N | Efficient/Acceptable/Spiral | [cause] | [what to do next time] |
+## Agent Orchestration
+| Observation | Category | Recommendation |
+|-------------|----------|----------------|
+| [what happened] | Missed delegation / Wrong agent / Good use | [fix] |
 
 ## Audit Follow-Ups
 | Audit | Finding | Status | Next Action |
 |-------|---------|--------|-------------|
-| [which audit] | [finding] | Implemented/Pending/Deferred | [action] |
+| [which] | [finding] | Implemented/Pending/Deferred | [action] |
 
 ## Optimization Recommendations
 
-### CLAUDE.md Changes
-| Section | Change | Rationale |
-|---------|--------|-----------|
-| [section] | [exact change] | [why] |
-
-### Skills/Agents Changes
+### Config Changes (implement now)
 | File | Change | Rationale |
 |------|--------|-----------|
 | [file] | [change] | [why] |
 
-### Documentation Changes
-| Doc | Change | Rationale |
-|-----|--------|-----------|
-| [doc] | [change] | [why] |
-
-### New Automation Opportunities
-| What | How | Effort |
-|------|-----|--------|
-| [task] | [approach] | [estimate] |
-
-## Session Metrics
-- Tasks completed: N
-- Files changed: N
-- Tests: +N added, N fixed
-- Decisions made: N
-- Productive turns: ~N
-- Friction turns: ~N
-- Efficiency ratio: N%
+### Workflow Changes (discuss with Andrew)
+| What | How | Expected Impact |
+|------|-----|-----------------|
+| [change] | [approach] | [benefit] |
 ```
 
-The goal is not to document the session — it's to make the NEXT session better. Every recommendation should be specific enough to implement immediately.
+The goal is NOT to document the session — it's to make the NEXT session measurably better. Every recommendation must be specific enough to implement immediately.

@@ -41,7 +41,7 @@ Every non-trivial task follows this structure. Do not skip phases.
 - **Type hints**: Always. On every function signature, parameter, and return type.
 - **Async/await**: For all I/O operations (database, inference, network calls).
 - **Layer architecture**: security > logging > inference > memory > orchestration > execution > API. Never import upward.
-- **Logging**: Use `HestiaLogger`, never `print()`. Include request ID in context.
+- **Logging**: Use `get_logger()` from `hestia.logging`, never `print()`. Call with no arguments. Include request ID in context.
 - **Error handling**: Specific exception types. No bare `except:`. Always log errors.
 - **Config**: Load from YAML. Never hardcode values.
 - **File naming**: `snake_case.py`
@@ -58,12 +58,12 @@ Every non-trivial task follows this structure. Do not skip phases.
 
 ## Swift/iOS Conventions
 
-- MVVM with `ObservableObject` (not `@Observable` — iOS 16+ target)
+- MVVM with `ObservableObject` (not `@Observable` — iOS 26.0+ target)
 - DesignSystem tokens: `HestiaColors`, `HestiaTypography`, `HestiaSpacing`
 - No force-unwraps (`!`) — use `guard let` / `if let`
 - `[weak self]` in closures that capture self
 - `#if DEBUG` for debug-only code
-- iOS 16+ minimum deployment target
+- iOS 26.0+ minimum deployment target
 
 ## Testing Conventions
 

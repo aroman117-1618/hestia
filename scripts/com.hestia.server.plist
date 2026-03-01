@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Service identifier -->
+    <key>Label</key>
+    <string>com.hestia.server</string>
+
+    <key>ServiceDescription</key>
+    <string>Hestia API server (FastAPI on port 8443 with TLS)</string>
+
+    <!-- Program to run -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/andrewroman117/hestia/.venv/bin/python</string>
+        <string>-m</string>
+        <string>hestia.api.server</string>
+    </array>
+
+    <!-- Working directory -->
+    <key>WorkingDirectory</key>
+    <string>/Users/andrewroman117/hestia</string>
+
+    <!-- Environment variables -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>/Users/andrewroman117</string>
+        <key>PATH</key>
+        <string>/Users/andrewroman117/hestia/.venv/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>PYTHONPATH</key>
+        <string>/Users/andrewroman117/hestia</string>
+    </dict>
+
+    <!-- Auto-start at login -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Restart on crash -->
+    <key>KeepAlive</key>
+    <true/>
+
+    <!-- Wait 30s between restart attempts -->
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
+    <!-- Logging -->
+    <key>StandardOutPath</key>
+    <string>/Users/andrewroman117/hestia/logs/server-stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/andrewroman117/hestia/logs/server-stderr.log</string>
+</dict>
+</plist>

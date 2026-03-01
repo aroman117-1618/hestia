@@ -9,7 +9,9 @@ allowed_tools:
   - Edit
   - Grep
   - Glob
-  - TodoWrite
+  - TaskCreate
+  - TaskUpdate
+  - TaskList
 ---
 
 # Session Handoff Skill

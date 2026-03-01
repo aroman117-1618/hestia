@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
     started_at TEXT NOT NULL,
     ended_at TEXT,
+    last_activity TEXT,          -- Updated on session end for audit trail
     mode TEXT,                   -- Tia, Mira, Olly
     device_id TEXT,
     summary TEXT,
@@ -493,6 +494,7 @@ class MemoryDatabase:
             """
             UPDATE sessions SET
                 ended_at = datetime('now'),
+                last_activity = datetime('now'),
                 summary = ?,
                 chunk_count = ?
             WHERE id = ?

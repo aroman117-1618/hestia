@@ -1,317 +1,121 @@
 # Hestia Deployment Guide
 
-This document covers deploying Hestia from the development MacBook to the production Mac Mini.
+## Mac Mini Production Setup
 
-## Prerequisites
+### Prerequisites
 
-### Mac Mini Setup (One-time)
+- Mac Mini M1 accessible via Tailscale (`andrewroman117@hestia-3.local`)
+- Python 3.12 venv at `~/hestia/.venv`
+- Self-signed TLS certs at `~/hestia/certs/`
+- Ollama running with `qwen2.5:7b` and `qwen2.5:0.5b` pulled
 
-1. **Tailscale**: Install and authenticate
-   ```bash
-   brew install tailscale
-   # Follow auth instructions
-   ```
+### First-Time Setup
 
-2. **SSH Key**: Copy your MacBook's public key
-   ```bash
-   # On MacBook:
-   ssh-copy-id andrewroman117@hestia-3.local
-   ```
+1. **SSH key**: `ssh-copy-id andrewroman117@hestia-3.local`
+2. **Python**: `python3 -m venv ~/hestia/.venv && source ~/.venv/bin/activate && pip install -r requirements.txt`
+3. **Install server service**: `./scripts/install-server-service.sh`
+4. **Install watchdog** (optional): `cp scripts/com.hestia.watchdog.plist ~/Library/LaunchAgents/ && launchctl load ~/Library/LaunchAgents/com.hestia.watchdog.plist`
 
-3. **Python Environment**:
-   ```bash
-   # On Mac Mini:
-   cd ~/hestia
-   python3 -m venv .venv
-   source .venv/bin/activate
-   pip install --upgrade pip
-   ```
-
-4. **Ollama**: Install and pull model
-   ```bash
-   brew install ollama
-   ollama pull mixtral:8x7b-instruct-v0.1-q4_K_M
-   ```
-
-5. **Git Repository**: Initialize bare repo
-   ```bash
-   cd ~
-   mkdir hestia && cd hestia
-   git init
-   ```
-
-6. **launchd Service** (optional):
-   ```bash
-   # Create ~/Library/LaunchAgents/com.hestia.server.plist
-   # Service will be loaded by deployment script
-   ```
-
-### MacBook Setup
-
-1. **Tailscale**: Install and authenticate
-2. **SSH Config** (optional, add to `~/.ssh/config`):
-   ```
-   Host hestia-server
-       HostName hestia-server
-       User andrew
-       IdentityFile ~/.ssh/id_ed25519
-   ```
-
-## First-Time Deployment
-
-Run the initial push script from your MacBook:
+### Manual Deployment
 
 ```bash
-cd ~/hestia
-./scripts/initial-push.sh
-```
-
-This will:
-1. Run pre-deployment checks
-2. Stage and commit all files
-3. Add Mac Mini as Git remote `mini`
-4. Push to Mac Mini (force push for initial)
-5. Run full deployment
-
-### What Gets Deployed
-
-**Included:**
-- `hestia/` - Python package
-- `scripts/` - Deployment scripts
-- `tests/` - Test suite
-- `docs/` - Documentation
-- `requirements.txt`
-- `README.md`
-- `CLAUDE.md`
-
-**Excluded (never deployed):**
-- `.venv/` - Virtual environment (created on each machine)
-- `__pycache__/` - Python cache
-- `.git/` - Git directory
-- `logs/` - Log files
-- `data/` - Data files
-- `.DS_Store` - macOS metadata
-
-## Regular Deployment Workflow
-
-For subsequent deployments after the initial push:
-
-```bash
-# Quick deploy (rsync only, no git)
 ./scripts/deploy-to-mini.sh
-
-# Or commit and push via git
-git add -A
-git commit -m "Your commit message"
-git push mini main
 ```
 
-### deploy-to-mini.sh Flow
+Performs: rsync, pip install, pytest, launchd reload (or nohup fallback), health check.
 
-1. Verify project structure
-2. Check Mac Mini connectivity
-3. Run pre-deployment checks (credential scan, type check, tests)
-4. Rsync files to Mac Mini
-5. Install/update Python dependencies
-6. Run tests
-7. Reload launchd service (if configured)
-8. Health check (if API running)
-9. Log deployment event
+### Launchd Server Service
 
-## Deploying Swift Tools
-
-Swift CLI tools (like `hestia-keychain-cli`) need to be compiled and deployed separately:
+The server runs as a persistent launchd service (auto-restart on crash, auto-start at login):
 
 ```bash
-./scripts/sync-swift-tools.sh
+# On the Mac Mini:
+./scripts/install-server-service.sh
 ```
 
-This will:
-1. Build Swift tools in release mode
-2. Copy binaries to `~/.hestia/bin/` on Mac Mini
-3. Set executable permissions
-4. Verify tools work
-
-### First Run of Swift Tools
-
-On Mac Mini, Swift tools using Secure Enclave require:
-1. **Security Approval**: System Preferences > Security & Privacy
-2. **Touch ID Setup**: If using biometric authentication
-3. **Keychain Access**: May prompt for permission
-
-## Rollback Procedure
-
-### Quick Rollback (Git)
+Copies `scripts/com.hestia.server.plist` to `~/Library/LaunchAgents/` and loads it.
 
 ```bash
-# On Mac Mini:
-cd ~/hestia
-git log --oneline -5  # Find commit to rollback to
-git checkout <commit-hash>
+# Check status
+launchctl list | grep hestia.server
 
-# Reload service
+# Stop
 launchctl unload ~/Library/LaunchAgents/com.hestia.server.plist
+
+# Start
 launchctl load ~/Library/LaunchAgents/com.hestia.server.plist
+
+# View logs
+tail -f ~/hestia/logs/server-stdout.log
+tail -f ~/hestia/logs/server-stderr.log
 ```
 
-### Full Rollback
+### Watchdog
 
-If the deployment is severely broken:
+A watchdog plist polls `/v1/ping` every 5 minutes and force-restarts after 3 consecutive failures:
 
 ```bash
-# On Mac Mini:
-cd ~/hestia
-git reset --hard HEAD~1  # Go back one commit
-pip install -r requirements.txt  # Restore dependencies
-
-# Restart service
-launchctl unload ~/Library/LaunchAgents/com.hestia.server.plist
-launchctl load ~/Library/LaunchAgents/com.hestia.server.plist
+cp scripts/com.hestia.watchdog.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.hestia.watchdog.plist
 ```
+
+Watchdog logs: `~/hestia/logs/watchdog.log`
+
+## CI/CD (GitHub Actions)
+
+### Required GitHub Secrets
+
+Two secrets must be added manually at **Settings > Secrets and variables > Actions**:
+
+| Secret | Value |
+|--------|-------|
+| `MAC_MINI_SSH_KEY` | Ed25519 private key for `andrewroman117@hestia-3.local` |
+| `MAC_MINI_HOST` | Tailscale hostname (e.g., `hestia-3.local`) |
+
+### Pipeline Flow
+
+1. **Push to main** triggers `deploy.yml`
+2. CI runs full test suite (`ci.yml`)
+3. On success: rsync to Mac Mini, pip install, pytest (with Ollama), launchd reload
+4. Health check (5 retries with 3s intervals)
+
+### SSH Configuration
+
+The deploy workflow uses `ssh-keyscan` for dynamic host key lookup (Tailscale IPs change) with `StrictHostKeyChecking=accept-new` as fallback.
+
+## What Gets Deployed
+
+**Included:** `hestia/`, `scripts/`, `tests/`, `docs/`, `requirements.txt`, `CLAUDE.md`
+
+**Excluded:** `.venv/`, `__pycache__/`, `.git/`, `logs/`, `data/`, `.DS_Store`, `.build/`, `DerivedData/`
 
 ## Credential Sync
 
-Credentials are **NOT** synced automatically for security reasons. They must be set up manually on each machine.
+Credentials are **not** synced. Set up manually on each machine via `CredentialManager`.
 
-### Setting Up Credentials on Mac Mini
+## Rollback
 
 ```bash
-# SSH to Mac Mini
-ssh andrewroman117@hestia-3.local
-
-# Activate environment
+# On Mac Mini:
 cd ~/hestia
-source .venv/bin/activate
-
-# Use Python to store credentials
-python3 << 'EOF'
-from hestia.security.credential_manager import CredentialManager
-
-cm = CredentialManager()
-
-# Store operational credentials (API keys)
-cm.store_operational("anthropic_api_key", "your-key-here")
-
-# Store sensitive credentials (requires biometric on access)
-cm.store_sensitive("ssn", "xxx-xx-xxxx", reason="Initial setup")
-EOF
-```
-
-### Verifying Credentials
-
-```bash
-python3 << 'EOF'
-from hestia.security.credential_manager import CredentialManager
-
-cm = CredentialManager()
-key = cm.retrieve_operational("anthropic_api_key")
-print(f"Key present: {key is not None}")
-EOF
-```
-
-## Common Issues and Solutions
-
-### SSH Connection Fails
-
-```
-Error: Cannot connect to Mac Mini (andrewroman117@hestia-3.local)
-```
-
-**Solutions:**
-1. Check Tailscale: `tailscale status`
-2. Wake Mac Mini (if sleeping)
-3. Verify SSH key: `ssh -v andrewroman117@hestia-3.local`
-
-### Package Import Fails
-
-```
-Error: Package import failed
-```
-
-**Solutions:**
-1. Check venv is activated
-2. Reinstall dependencies: `pip install -r requirements.txt`
-3. Check for syntax errors: `python -m py_compile hestia/__init__.py`
-
-### Credential Leak Detected
-
-```
-Error: Possible credential leak detected
-```
-
-**Solutions:**
-1. Review flagged files
-2. Remove hardcoded credentials
-3. Use CredentialManager instead
-4. Add sensitive files to `.gitignore`
-
-### launchd Service Won't Start
-
-**Check service status:**
-```bash
-launchctl list | grep hestia
-```
-
-**Check logs:**
-```bash
-tail -f ~/hestia/logs/hestia.log
-```
-
-**Manual restart:**
-```bash
+git log --oneline -5
+git checkout <commit-hash>
 launchctl unload ~/Library/LaunchAgents/com.hestia.server.plist
 launchctl load ~/Library/LaunchAgents/com.hestia.server.plist
 ```
 
-### Tests Failing
-
-Tests are non-blocking warnings. To investigate:
-
-```bash
-# Run with verbose output
-python -m pytest tests/ -v
-
-# Run specific test
-python -m pytest tests/test_logging.py -v
-```
-
-## Deployment Checklist
-
-Before deploying:
-- [ ] All changes committed locally
-- [ ] Pre-deployment checks pass
-- [ ] No credentials in code
-- [ ] Tests pass (or expected failures documented)
-
-After deploying:
-- [ ] Package imports successfully on Mac Mini
-- [ ] Service running (if applicable)
-- [ ] Health check passes (if API running)
-- [ ] Logs show expected startup messages
-
 ## Monitoring
 
-### View Logs
-
 ```bash
-# Tail main log
-ssh andrewroman117@hestia-3.local 'tail -f ~/hestia/logs/hestia.log'
+# Server logs
+ssh andrewroman117@hestia-3.local 'tail -f ~/hestia/logs/server-stderr.log'
 
-# View audit log
-ssh andrewroman117@hestia-3.local 'tail -f ~/hestia/logs/audit.log'
+# Watchdog logs
+ssh andrewroman117@hestia-3.local 'tail -f ~/hestia/logs/watchdog.log'
 
-# Use log viewer
-ssh andrewroman117@hestia-3.local 'cd ~/hestia && source .venv/bin/activate && python -m hestia.logging.viewer'
-```
-
-### Check Service Status
-
-```bash
+# Service status
 ssh andrewroman117@hestia-3.local 'launchctl list | grep hestia'
-```
 
-### Deployment History
-
-```bash
+# Deployment history
 cat ~/hestia/logs/deployments.log
 ```

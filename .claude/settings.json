@@ -11,9 +11,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/kill-stale-servers.sh",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/session-startup.sh",
             "timeout": 10,
-            "statusMessage": "Checking for stale servers..."
+            "statusMessage": "Running session startup checks..."
           }
         ]
       }
@@ -40,6 +40,28 @@
             "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/auto-test.sh",
             "timeout": 120,
             "statusMessage": "Running related tests..."
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/pre-compact-handoff.sh",
+            "timeout": 5,
+            "statusMessage": "Preserving session context..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Check if Python code was modified in this session. If Python files were edited but no test results appear in the conversation, return {\"decision\": \"block\", \"reason\": \"Tests not run after code changes — run pytest before stopping\"}. Otherwise return {\"decision\": \"approve\"}."
           }
         ]
       }

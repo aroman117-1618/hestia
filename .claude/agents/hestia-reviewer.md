@@ -1,6 +1,7 @@
 ---
 name: hestia-reviewer
-description: "Reviews plans, code, and project health for Hestia. Three modes: (1) plan audit — critical analysis before building, (2) code audit — post-implementation review of changed files, (3) retro — session retrospective + docs currency check. Specify mode in your prompt."
+description: "Reviews plans, code, and project health for Hestia. Use proactively after implementing features to audit code quality, security, and convention compliance. Three modes: (1) plan audit — critical analysis before building, (2) code audit — post-implementation review of changed files, (3) retro — session retrospective + docs currency check. Specify mode in your prompt."
+memory: project
 tools:
   - Read
   - Grep
@@ -27,10 +28,10 @@ When invoked, determine the mode from the caller's prompt:
 
 ## Project Context
 
-- **Backend**: Python 3.9+ / FastAPI with 17 modules, 65 API endpoints, 743 tests
+- **Backend**: Python 3.9+ / FastAPI with 20 modules, 109 API endpoints, 1018 tests
 - **iOS**: SwiftUI app (iOS 26.0+ target, ObservableObject pattern — NOT @Observable)
 - **Error handling**: All routes use `sanitize_for_log(e)` from `hestia.api.errors` (never raw `{e}` in logs, never `detail=str(e)` in HTTP responses)
-- **Logging**: `HestiaLogger` with `LogComponent` enum (ACCESS, ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, CLOUD, COUNCIL)
+- **Logging**: `get_logger()` from `hestia.logging` (no arguments) with `LogComponent` enum (ACCESS, ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, CLOUD, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED)
 - **Server**: HTTPS on port 8443 with self-signed cert, JWT auth
 - **Cloud routing**: 3-state (disabled → enabled_smart → enabled_full), state sync via `_sync_router_state()`
 - **Council**: 4-role dual-path (cloud parallel or SLM-only), purely additive with try/except fallbacks
@@ -241,7 +242,7 @@ Review the conversation history and assess:
 | Module | Path | Manager | Tests |
 |--------|------|---------|-------|
 | Security | `hestia/security/` | CredentialManager | — |
-| Logging | `hestia/logging/` | HestiaLogger, AuditLogger | — |
+| Logging | `hestia/logging/` | get_logger(), AuditLogger | — |
 | Inference | `hestia/inference/` | InferenceClient | 22 |
 | Cloud | `hestia/cloud/` | CloudManager, CloudInferenceClient | 48 + 39 |
 | Memory | `hestia/memory/` | MemoryManager, TemporalDecay | 33 + 45 |
@@ -251,12 +252,15 @@ Review the conversation history and assess:
 | Tasks | `hestia/tasks/` | TaskManager | 60 |
 | Orders | `hestia/orders/` | OrderManager | 27 |
 | Agents | `hestia/agents/` | AgentManager | 28 |
-| User | `hestia/user/` | UserManager | 41 |
+| User | `hestia/user/` | UserManager | 41 + 57 (profile) |
 | Proactive | `hestia/proactive/` | ProactiveBriefingManager | 29 |
 | Voice | `hestia/voice/` | JournalManager, QualityGate | 52 + 25 |
 | Council | `hestia/council/` | CouncilManager (4-role, dual-path) | 124 |
 | Health | `hestia/health/` | HealthManager, HealthDatabase, 5 chat tools | 41 |
-| API | `hestia/api/` | 15 route modules, 72 endpoints | 39 (cloud) + 25 (voice) |
+| Wiki | `hestia/wiki/` | WikiManager | ~30 |
+| Explorer | `hestia/explorer/` | ExplorerManager | 41 |
+| Newsfeed | `hestia/newsfeed/` | NewsfeedManager | ~20 |
+| API | `hestia/api/` | 19 route modules, 109 endpoints | 39 (cloud) + 25 (voice) + 28 (auth) |
 
 ## Review Process
 

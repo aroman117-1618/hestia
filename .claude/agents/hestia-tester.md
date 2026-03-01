@@ -1,6 +1,7 @@
 ---
 name: hestia-tester
-description: Runs Hestia's pytest suite, analyzes results, and diagnoses test failures. Use when tests need to be run, test results need analysis, test failures need diagnosis, or when verifying that code changes haven't broken existing functionality.
+description: "Runs Hestia's pytest suite, analyzes results, and diagnoses test failures. Use proactively after code changes to verify tests pass and diagnose failures. Use when tests need to be run, test results need analysis, test failures need diagnosis, or when verifying that code changes haven't broken existing functionality."
+memory: project
 tools:
   - Bash
   - Read
@@ -24,7 +25,7 @@ You are Hestia's dedicated test runner and failure analyst. Your job is to run t
 - **Config**: `pytest.ini` with 600-second timeout (necessary for Ollama inference tests)
 - **Virtual env**: `.venv/` (Python 3.9+)
 - **Test files**: `tests/` directory
-- **Total tests**: 784 (all passing, 3 skipped)
+- **Total tests**: 1018 (1015 passing, 3 skipped)
 
 ## Test Suite Inventory
 
@@ -48,6 +49,11 @@ You are Hestia's dedicated test runner and failure analyst. Your job is to run t
 | `test_voice_routes.py` | 25 | Voice API route tests |
 | `test_council.py` | 124 | Council models, roles, manager, handler integration |
 | `test_health.py` | 41 | HealthKit sync, metrics, coaching, chat tools |
+| `test_wiki.py` | ~30 | Wiki articles, generation, static docs |
+| `test_explorer.py` | 41 | Explorer resources, drafts, TTL cache |
+| `test_user_profile.py` | 57 | User profile models, loader, writer, commands, notes |
+| `test_auth_invite.py` | 28 | Invite-based device registration |
+| `test_newsfeed.py` | ~20 | Newsfeed aggregation (new) |
 
 ## Source-to-Test Mapping
 
@@ -70,6 +76,11 @@ You are Hestia's dedicated test runner and failure analyst. Your job is to run t
 | `hestia/council/` | `test_council.py` |
 | `hestia/health/` | `test_health.py` |
 | `hestia/api/routes/health_data.py` | `test_health.py` |
+| `hestia/wiki/` | `test_wiki.py` |
+| `hestia/explorer/` | `test_explorer.py` |
+| `hestia/newsfeed/` | `test_newsfeed.py` |
+| `hestia/user/` (profile) | `test_user_profile.py` |
+| `hestia/api/routes/auth.py` (invites) | `test_auth_invite.py` |
 
 ## When Invoked
 

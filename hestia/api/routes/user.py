@@ -22,6 +22,7 @@ from hestia.api.schemas import (
     ModeEnum,
     DeviceListResponse,
     DeviceListItem,
+    DeviceRevokeResponse,
 )
 from hestia.user import (
     get_user_manager,
@@ -405,7 +406,7 @@ async def unregister_push_token(
 async def list_devices(
     device_id: str = Depends(get_current_device),
 ):
-    """List all registered devices."""
+    """List all registered devices with revocation status."""
     try:
         store = await get_invite_store()
         devices = await store.list_devices()
@@ -418,6 +419,8 @@ async def list_devices(
                     device_type=d["device_type"],
                     registered_at=datetime.fromisoformat(d["registered_at"]),
                     last_seen_at=datetime.fromisoformat(d["last_seen_at"]) if d.get("last_seen_at") else None,
+                    revoked_at=datetime.fromisoformat(d["revoked_at"]) if d.get("revoked_at") else None,
+                    is_active=d.get("revoked_at") is None,
                 )
                 for d in devices
             ],
@@ -431,4 +434,94 @@ async def list_devices(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to list devices",
+        )
+
+
+@router.post(
+    "/devices/{target_device_id}/revoke",
+    response_model=DeviceRevokeResponse,
+    summary="Revoke device access",
+    description="Revoke a device's access. The device will receive 401 on subsequent requests.",
+)
+async def revoke_device(
+    target_device_id: str,
+    device_id: str = Depends(get_current_device),
+):
+    """Revoke a registered device's access."""
+    try:
+        store = await get_invite_store()
+        revoked = await store.revoke_device(target_device_id)
+
+        if not revoked:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Device not found",
+            )
+
+        logger.info(
+            f"Device revoked via API: {target_device_id}",
+            component=LogComponent.API,
+            data={"device_id": device_id, "target_device_id": target_device_id},
+        )
+
+        return DeviceRevokeResponse(
+            device_id=target_device_id,
+            revoked=True,
+            message="Device access revoked",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            f"Failed to revoke device: {sanitize_for_log(e)}",
+            component=LogComponent.API,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to revoke device",
+        )
+
+
+@router.post(
+    "/devices/{target_device_id}/unrevoke",
+    response_model=DeviceRevokeResponse,
+    summary="Restore device access",
+    description="Restore a revoked device's access.",
+)
+async def unrevoke_device(
+    target_device_id: str,
+    device_id: str = Depends(get_current_device),
+):
+    """Restore a revoked device's access."""
+    try:
+        store = await get_invite_store()
+        unrevoked = await store.unrevoke_device(target_device_id)
+
+        if not unrevoked:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Device not found",
+            )
+
+        logger.info(
+            f"Device unrevoked via API: {target_device_id}",
+            component=LogComponent.API,
+            data={"device_id": device_id, "target_device_id": target_device_id},
+        )
+
+        return DeviceRevokeResponse(
+            device_id=target_device_id,
+            revoked=False,
+            message="Device access restored",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            f"Failed to unrevoke device: {sanitize_for_log(e)}",
+            component=LogComponent.API,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to restore device access",
         )

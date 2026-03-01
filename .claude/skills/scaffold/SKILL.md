@@ -2,6 +2,8 @@
 name: scaffold
 description: Parallel multi-agent feature scaffold — decompose a feature into vertical slices and build them with sub-agents
 user_invocable: true
+argument-hint: "<feature description>"
+disable-model-invocation: true
 allowed_tools:
   - Bash
   - Read
@@ -10,7 +12,9 @@ allowed_tools:
   - Grep
   - Glob
   - Task
-  - TodoWrite
+  - TaskCreate
+  - TaskUpdate
+  - TaskList
 ---
 
 # Parallel Feature Scaffold Skill
@@ -33,7 +37,7 @@ The user should provide a feature description when invoking this skill. If not p
 
 4. Define **interface contracts** first — the shared types, function signatures, and data shapes that all slices depend on. Write these to a scratch file or directly to `models.py`.
 
-5. Create a TodoWrite plan with one item per slice.
+5. Create a TaskCreate plan with one item per slice.
 
 ## Phase 2: Parallel Build
 
@@ -45,7 +49,7 @@ Launch parallel Task sub-agents for independent slices:
 - **Agent 4** (general-purpose): Build iOS files if applicable
 
 Each agent MUST:
-- Follow Hestia conventions from CLAUDE.md (type hints, async/await, HestiaLogger, sanitize_for_log)
+- Follow Hestia conventions from CLAUDE.md (type hints, async/await, get_logger(), sanitize_for_log)
 - Import from the shared interface contracts
 - Write tests that pass independently
 - Use the correct `LogComponent` for the new module

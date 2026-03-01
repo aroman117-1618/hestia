@@ -1,6 +1,7 @@
 ---
 name: hestia-explorer
-description: Explores the Hestia codebase to answer architecture questions, find implementations, trace call paths, locate files, or understand how components interact. Use for "where is X?", "how does Y work?", "what calls Z?", or any codebase navigation question.
+description: "Explores the Hestia codebase to answer architecture questions, find implementations, trace call paths, locate files, or understand how components interact. Use proactively when searching for files, tracing call paths, or understanding architecture — before writing any code. Use for \"where is X?\", \"how does Y work?\", \"what calls Z?\", or any codebase navigation question."
+memory: project
 tools:
   - Read
   - Grep
@@ -21,9 +22,9 @@ You are Hestia's fast codebase navigator. You find things, trace connections, an
 
 ```
 hestia/
-├── hestia/                    # Python backend (18 modules, 72 API endpoints)
+├── hestia/                    # Python backend (20 modules, 109 API endpoints)
 │   ├── security/              # CredentialManager (3-tier, Fernet + Keychain)
-│   ├── logging/               # HestiaLogger, AuditLogger, log viewer
+│   ├── logging/               # get_logger(), AuditLogger, log viewer
 │   ├── inference/             # InferenceClient (Ollama + cloud, 3-state routing)
 │   ├── cloud/                 # CloudManager, CloudInferenceClient (Anthropic/OpenAI/Google)
 │   ├── memory/                # MemoryManager (ChromaDB + SQLite, tags, temporal decay)
@@ -38,12 +39,15 @@ hestia/
 │   ├── proactive/             # Proactive intelligence (briefings, patterns, policy)
 │   ├── voice/                 # Voice journaling (quality gate, journal analysis)
 │   ├── council/               # 4-role council (intent classification, tool extraction, validation, synthesis)
-│   ├── api/                   # FastAPI REST API (72 endpoints)
+│   ├── wiki/                  # Architecture field guide (AI-generated + static docs)
+│   ├── explorer/              # ExplorerManager, resource aggregation, draft CRUD, TTL cache
+│   ├── newsfeed/              # Newsfeed aggregation (RSS, system events)
+│   ├── api/                   # FastAPI REST API (109 endpoints)
 │   │   ├── server.py          # App lifecycle, TLS/HTTPS
 │   │   ├── schemas.py         # All Pydantic models
 │   │   ├── errors.py          # Error sanitization helpers
 │   │   ├── middleware/        # JWT auth, rate limiting
-│   │   └── routes/            # 15 route modules
+│   │   └── routes/            # 19 route modules
 │   │       ├── auth.py        # /v1/auth/*
 │   │       ├── health.py      # /v1/ping, /v1/health
 │   │       ├── chat.py        # /v1/chat
@@ -55,14 +59,19 @@ hestia/
 │   │       ├── cloud.py       # /v1/cloud/*
 │   │       ├── voice.py       # /v1/voice/*
 │   │       ├── orders.py      # /v1/orders/*
-│   │       ├── agents.py      # /v1/agents/*
+│   │       ├── agents.py      # /v1/agents/* (v1)
+│   │       ├── agents_v2.py   # /v2/agents/* (.md-based config)
 │   │       ├── user.py        # /v1/user/*
+│   │       ├── user_profile.py # /v1/user-profile/*
 │   │       ├── proactive.py   # /v1/proactive/*
-│   │       └── health_data.py # /v1/health_data/*
+│   │       ├── health_data.py # /v1/health_data/*
+│   │       ├── wiki.py        # /v1/wiki/*
+│   │       └── explorer.py    # /v1/explorer/*
 │   └── config/                # YAML configuration files
 │       ├── inference.yaml     # Inference + cloud routing config
 │       ├── execution.yaml     # Execution layer config
-│       └── memory.yaml        # Memory + temporal decay config
+│       ├── memory.yaml        # Memory + temporal decay config
+│       └── wiki.yaml          # Wiki configuration
 │
 ├── hestia-cli-tools/          # Swift CLI tools
 │   ├── hestia-keychain-cli/   # Secure Enclave integration
@@ -81,7 +90,7 @@ hestia/
 │       ├── Utilities/         # Shared utility code
 │       └── Persistence/       # Core Data stack
 │
-├── tests/                     # 784 pytest tests (18 test files)
+├── tests/                     # 1018 pytest tests (23 test files)
 ├── scripts/                   # Deployment, build, hooks, health check
 ├── docs/                      # Project documentation
 └── CLAUDE.md                  # Project context (primary reference)
@@ -102,12 +111,12 @@ Inference (InferenceClient, Ollama routing, cloud routing)
     ↓
 Cloud (CloudManager, CloudInferenceClient — Anthropic, OpenAI, Google)
     ↓
-Logging (HestiaLogger, AuditLogger)
+Logging (get_logger(), AuditLogger)
     ↓
 Security (CredentialManager, Keychain, Fernet)
 ```
 
-Standalone modules (no layer dependency): Tasks, Orders, Agents, User, Proactive, Voice
+Standalone modules (no layer dependency): Tasks, Orders, Agents, User, Proactive, Voice, Wiki, Explorer, Newsfeed
 
 Council module sits between Orchestration and Inference (called by handler, calls inference directly)
 
@@ -116,7 +125,7 @@ Council module sits between Orchestration and Inference (called by handler, call
 - **Manager pattern**: Each module has `models.py` + `database.py` + `manager.py`
 - **Singleton factory**: `get_X_manager()` async functions for manager initialization
 - **Error sanitization**: `hestia.api.errors.sanitize_for_log(e)` in all route log messages
-- **LogComponent enum**: ACCESS, ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, CLOUD, COUNCIL, HEALTH
+- **LogComponent enum**: ACCESS, ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, CLOUD, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED
 - **Cloud routing**: 3 states (disabled, enabled_full, enabled_smart) controlled via API
 
 ## How to Answer Questions

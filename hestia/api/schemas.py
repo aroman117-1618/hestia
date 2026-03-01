@@ -435,12 +435,21 @@ class DeviceListItem(BaseModel):
     device_type: str = Field(description="Device type")
     registered_at: datetime = Field(description="Registration timestamp")
     last_seen_at: Optional[datetime] = Field(None, description="Last API call timestamp")
+    revoked_at: Optional[datetime] = Field(None, description="Revocation timestamp (None if active)")
+    is_active: bool = Field(True, description="Whether the device is currently active")
 
 
 class DeviceListResponse(BaseModel):
     """Response listing registered devices."""
     devices: List[DeviceListItem] = Field(description="Registered devices")
     count: int = Field(description="Total device count")
+
+
+class DeviceRevokeResponse(BaseModel):
+    """Response for device revocation/unrevocation."""
+    device_id: str = Field(description="Device identifier")
+    revoked: bool = Field(description="Whether the device is now revoked")
+    message: str = Field(description="Status message")
 
 
 # ============================================================================

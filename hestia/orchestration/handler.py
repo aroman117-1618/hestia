@@ -125,11 +125,94 @@ class RequestHandler:
                 component=LogComponent.ORCHESTRATION
             )
 
+    # Default session timeout (minutes) if user settings unavailable
+    _DEFAULT_SESSION_TIMEOUT = 30
+
+    # Cleanup runs every N handle() calls
+    _CLEANUP_INTERVAL = 20
+
+    # Counter for periodic cleanup
+    _handle_count: int = 0
+
+    def _is_session_expired(
+        self, conversation: Conversation, timeout_minutes: int
+    ) -> bool:
+        """Check if a conversation has exceeded its inactivity timeout."""
+        from datetime import datetime, timezone, timedelta
+
+        now = datetime.now(timezone.utc)
+        elapsed = now - conversation.last_activity
+        return elapsed > timedelta(minutes=timeout_minutes)
+
+    async def _get_session_timeout(self) -> int:
+        """Get session timeout from user settings, with default fallback."""
+        try:
+            from hestia.user import get_user_manager
+            manager = await get_user_manager()
+            settings = await manager.get_settings()
+            timeout = settings.auto_lock_timeout_minutes
+            if timeout and timeout > 0:
+                return timeout
+        except Exception:
+            pass
+        return self._DEFAULT_SESSION_TIMEOUT
+
     def _get_or_create_conversation(self, session_id: str) -> Conversation:
         """Get or create a conversation for a session."""
         if session_id not in self._conversations:
             self._conversations[session_id] = Conversation(session_id=session_id)
         return self._conversations[session_id]
+
+    async def _get_or_create_conversation_with_ttl(
+        self, session_id: str
+    ) -> Conversation:
+        """
+        Get or create a conversation, expiring stale sessions.
+
+        If the existing conversation has exceeded the inactivity timeout,
+        it is removed and a fresh one is created.
+        """
+        timeout = await self._get_session_timeout()
+
+        if session_id in self._conversations:
+            existing = self._conversations[session_id]
+            if self._is_session_expired(existing, timeout):
+                self.logger.info(
+                    f"Session expired after {timeout}min inactivity, creating new",
+                    component=LogComponent.ORCHESTRATION,
+                    data={
+                        "session_id": session_id,
+                        "turns": existing.turn_count,
+                    },
+                )
+                del self._conversations[session_id]
+
+        return self._get_or_create_conversation(session_id)
+
+    def _cleanup_expired_sessions(self, timeout_minutes: int) -> int:
+        """
+        Remove expired conversations from the in-memory cache.
+
+        Returns the number of sessions evicted.
+        """
+        from datetime import datetime, timezone, timedelta
+
+        now = datetime.now(timezone.utc)
+        expired_ids = [
+            sid
+            for sid, conv in self._conversations.items()
+            if (now - conv.last_activity) > timedelta(minutes=timeout_minutes)
+        ]
+
+        for sid in expired_ids:
+            self.logger.info(
+                f"Evicting expired session: {sid}",
+                component=LogComponent.ORCHESTRATION,
+                data={"turns": self._conversations[sid].turn_count},
+            )
+            del self._conversations[sid]
+
+        return len(expired_ids)
 
     def _will_route_to_cloud(self, content: str, force_local: bool = False) -> bool:
         """Predict whether this request will route to cloud.
@@ -223,9 +306,22 @@ class RequestHandler:
             # Step 3: Move to processing
             self.state_machine.start_processing(task)
 
-            # Step 4: Get conversation context
-            conversation = self._get_or_create_conversation(request.session_id)
+            # Step 4: Get conversation context (with TTL enforcement)
+            conversation = await self._get_or_create_conversation_with_ttl(
+                request.session_id
+            )
             conversation.mode = mode
+
+            # Periodic cleanup of expired sessions
+            self._handle_count += 1
+            if self._handle_count % self._CLEANUP_INTERVAL == 0:
+                timeout = await self._get_session_timeout()
+                evicted = self._cleanup_expired_sessions(timeout)
+                if evicted > 0:
+                    self.logger.info(
+                        f"Periodic cleanup: evicted {evicted} expired session(s)",
+                        component=LogComponent.ORCHESTRATION,
+                    )
 
             # Step 4.5: Check response cache (skip for force_local/private messages)
             force_local = request.force_local

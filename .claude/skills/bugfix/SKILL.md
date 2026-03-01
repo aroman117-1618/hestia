@@ -2,6 +2,8 @@
 name: bugfix
 description: Autonomous test-driven bug fix pipeline — diagnose failures, fix one at a time, verify each fix in isolation
 user_invocable: true
+argument-hint: "<test name or bug description>"
+disable-model-invocation: true
 allowed_tools:
   - Bash
   - Read
@@ -10,7 +12,9 @@ allowed_tools:
   - Grep
   - Glob
   - Task
-  - TodoWrite
+  - TaskCreate
+  - TaskUpdate
+  - TaskList
 ---
 
 # Autonomous Bug Fix Skill
@@ -21,7 +25,7 @@ Run an autonomous test-driven bug fix pipeline. Diagnose all failures, then fix 
 
 1. Run `source .venv/bin/activate && python -m pytest -x --tb=short 2>&1` to find the first failure
 2. Run the full suite with `python -m pytest --tb=line -q` to get a complete failure inventory
-3. Create a TodoWrite plan categorizing each failure by root cause
+3. Create a TaskCreate plan categorizing each failure by root cause
 4. Group related failures (e.g., multiple tests failing from the same bug)
 
 ## Phase 2: Fix (strict one-at-a-time cycle)
@@ -32,7 +36,7 @@ For EACH failure group, follow this exact cycle. Do NOT batch fixes:
 2. **Fix**: Apply the minimal fix — do not refactor surrounding code
 3. **Verify**: Run ONLY the affected test(s) to confirm the fix: `python -m pytest tests/test_X.py::test_name -v`
 4. **Regression check**: Run the full suite: `python -m pytest --tb=short -q`
-5. **Record**: Mark the TodoWrite item as completed
+5. **Record**: Mark the TaskCreate item as completed
 6. **Next**: Only move to the next failure group after the full suite passes with no new failures
 
 If a fix introduces a NEW failure, revert the fix and investigate further. Do not accumulate tech debt.

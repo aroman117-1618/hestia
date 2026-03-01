@@ -1,6 +1,7 @@
 ---
 name: hestia-deployer
-description: Handles Hestia deployment to the Mac Mini. Use when deploying code, running pre-deploy checks, syncing Swift CLI tools, managing TLS certificates, or verifying deployment status.
+description: Handles Hestia deployment to the Mac Mini. Use when deploying code, running pre-deploy checks, syncing Swift CLI tools, managing TLS certificates, or verifying deployment status. Deployment is never proactive — only invoke when explicitly requested.
+memory: project
 tools:
   - Bash
   - Read

@@ -2,13 +2,17 @@
 name: discovery
 description: Strategic research & analysis — deep-dive investigation with SWOT, argue/refute methodology, and multi-perspective critique
 user_invocable: true
+argument-hint: "<topic or question>"
+context: fork
 allowed_tools:
   - Bash
   - Read
   - Grep
   - Glob
   - Task
-  - TodoWrite
+  - TaskCreate
+  - TaskUpdate
+  - TaskList
   - WebSearch
   - WebFetch
 ---
@@ -26,7 +30,7 @@ The user should provide a topic, hypothesis, or question when invoking this skil
 1. Clarify the research question — restate it precisely
 2. Define success criteria — what would a good answer look like?
 3. Identify the decision this research informs
-4. Create a TodoWrite plan to track progress through the phases below
+4. Create a TaskCreate plan to track progress through the phases below
 
 ## Phase 2: Research — Argue & Refute
 

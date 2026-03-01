@@ -73,6 +73,27 @@ class InviteStore:
         """)
         await self._connection.commit()
 
+        # Migration: add revoked_at column if missing
+        await self._migrate_revoked_at()
+
+    async def _migrate_revoked_at(self) -> None:
+        """Add revoked_at column to registered_devices if it doesn't exist."""
+        cursor = await self._connection.execute(
+            "PRAGMA table_info(registered_devices)"
+        )
+        columns = await cursor.fetchall()
+        column_names = [col["name"] for col in columns]
+
+        if "revoked_at" not in column_names:
+            await self._connection.execute(
+                "ALTER TABLE registered_devices ADD COLUMN revoked_at TEXT"
+            )
+            await self._connection.commit()
+            self.logger.info(
+                "Migrated registered_devices: added revoked_at column",
+                component=LogComponent.SECURITY,
+            )
+
     async def close(self) -> None:
         """Close database connection."""
         if self._connection:
@@ -201,9 +222,10 @@ class InviteStore:
         await self._connection.commit()
 
     async def list_devices(self) -> List[Dict]:
-        """List all registered devices."""
+        """List all registered devices with revocation status."""
         cursor = await self._connection.execute(
-            """SELECT device_id, device_name, device_type, registered_at, last_seen_at
+            """SELECT device_id, device_name, device_type,
+                      registered_at, last_seen_at, revoked_at
                FROM registered_devices ORDER BY registered_at DESC"""
         )
         rows = await cursor.fetchall()
@@ -216,6 +238,90 @@ class InviteStore:
         )
         row = await cursor.fetchone()
         return row[0]
+
+    # =========================================================================
+    # Device Revocation
+    # =========================================================================
+
+    async def revoke_device(self, device_id: str) -> bool:
+        """
+        Revoke a device's access.
+
+        Args:
+            device_id: Device to revoke.
+
+        Returns:
+            True if device was found and revoked, False if not found.
+        """
+        cursor = await self._connection.execute(
+            "SELECT device_id, revoked_at FROM registered_devices WHERE device_id = ?",
+            (device_id,),
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            return False
+
+        now = datetime.now(timezone.utc).isoformat()
+        await self._connection.execute(
+            "UPDATE registered_devices SET revoked_at = ? WHERE device_id = ?",
+            (now, device_id),
+        )
+        await self._connection.commit()
+
+        self.logger.info(
+            f"Device revoked: {device_id}",
+            component=LogComponent.SECURITY,
+        )
+        return True
+
+    async def unrevoke_device(self, device_id: str) -> bool:
+        """
+        Restore a revoked device's access.
+
+        Args:
+            device_id: Device to unrevoke.
+
+        Returns:
+            True if device was found and unrevoked, False if not found.
+        """
+        cursor = await self._connection.execute(
+            "SELECT device_id, revoked_at FROM registered_devices WHERE device_id = ?",
+            (device_id,),
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            return False
+
+        await self._connection.execute(
+            "UPDATE registered_devices SET revoked_at = NULL WHERE device_id = ?",
+            (device_id,),
+        )
+        await self._connection.commit()
+
+        self.logger.info(
+            f"Device unrevoked: {device_id}",
+            component=LogComponent.SECURITY,
+        )
+        return True
+
+    async def is_device_revoked(self, device_id: str) -> bool:
+        """
+        Check if a device has been revoked.
+
+        Args:
+            device_id: Device to check.
+
+        Returns:
+            True if device is revoked, False if active or not found.
+        """
+        cursor = await self._connection.execute(
+            "SELECT revoked_at FROM registered_devices WHERE device_id = ?",
+            (device_id,),
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            return False
+        return row["revoked_at"] is not None
 
 
 async def get_invite_store() -> InviteStore:

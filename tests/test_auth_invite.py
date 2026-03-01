@@ -20,6 +20,7 @@ from hestia.api.middleware.auth import (
     verify_invite_token,
     verify_setup_secret,
     check_invite_rate_limit,
+    check_device_revocation,
     AuthError,
     _invite_rate_limit,
 )
@@ -207,6 +208,79 @@ class TestInviteStoreDevices:
         assert devices[1]["device_id"] == "d1"
 
 
+# -- Device Revocation ─────────────────────────────────────────────────
+
+
+class TestDeviceRevocation:
+    """Tests for device revocation and unrevocation."""
+
+    @pytest.mark.asyncio
+    async def test_revoke_device(self, store: InviteStore):
+        """Revoking a device sets revoked_at."""
+        await store.register_device("d1", "Phone", "ios")
+        result = await store.revoke_device("d1")
+        assert result is True
+        assert await store.is_device_revoked("d1") is True
+
+    @pytest.mark.asyncio
+    async def test_revoke_nonexistent_device(self, store: InviteStore):
+        """Revoking a nonexistent device returns False."""
+        result = await store.revoke_device("nonexistent")
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_unrevoke_device(self, store: InviteStore):
+        """Unrevoking restores access."""
+        await store.register_device("d1", "Phone", "ios")
+        await store.revoke_device("d1")
+        assert await store.is_device_revoked("d1") is True
+
+        result = await store.unrevoke_device("d1")
+        assert result is True
+        assert await store.is_device_revoked("d1") is False
+
+    @pytest.mark.asyncio
+    async def test_unrevoke_nonexistent_device(self, store: InviteStore):
+        """Unrevoking a nonexistent device returns False."""
+        result = await store.unrevoke_device("nonexistent")
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_active_device_not_revoked(self, store: InviteStore):
+        """Freshly registered device is not revoked."""
+        await store.register_device("d1", "Phone", "ios")
+        assert await store.is_device_revoked("d1") is False
+
+    @pytest.mark.asyncio
+    async def test_nonexistent_device_not_revoked(self, store: InviteStore):
+        """Nonexistent device returns False (not revoked)."""
+        assert await store.is_device_revoked("nonexistent") is False
+
+    @pytest.mark.asyncio
+    async def test_revoked_device_shows_in_list(self, store: InviteStore):
+        """Revoked device includes revoked_at in device list."""
+        await store.register_device("d1", "Phone", "ios")
+        await store.revoke_device("d1")
+        devices = await store.list_devices()
+        assert len(devices) == 1
+        assert devices[0]["revoked_at"] is not None
+
+    @pytest.mark.asyncio
+    async def test_active_device_null_revoked_at(self, store: InviteStore):
+        """Active device has null revoked_at in list."""
+        await store.register_device("d1", "Phone", "ios")
+        devices = await store.list_devices()
+        assert devices[0]["revoked_at"] is None
+
+    @pytest.mark.asyncio
+    async def test_double_revoke_idempotent(self, store: InviteStore):
+        """Revoking an already-revoked device succeeds (idempotent)."""
+        await store.register_device("d1", "Phone", "ios")
+        assert await store.revoke_device("d1") is True
+        assert await store.revoke_device("d1") is True
+        assert await store.is_device_revoked("d1") is True
+
+
 # ── Auth Middleware: Invite Tokens ─────────────────────────────────────
 
 
@@ -372,3 +446,48 @@ class TestInviteFlowIntegration:
         assert "u" in parsed
         assert "f" in parsed
         assert parsed["u"].startswith("https://")
+
+
+# -- Middleware Revocation Check ────────────────────────────────────────
+
+
+class TestMiddlewareRevocation:
+    """Tests for revocation check in auth middleware."""
+
+    @pytest.mark.asyncio
+    async def test_revoked_device_raises_401(self, store: InviteStore):
+        """Revoked device triggers HTTPException from middleware check."""
+        from fastapi import HTTPException
+        from unittest.mock import AsyncMock
+
+        await store.register_device("d1", "Phone", "ios")
+        await store.revoke_device("d1")
+
+        # get_invite_store is async, so mock must return a coroutine
+        mock_get_store = AsyncMock(return_value=store)
+        with patch("hestia.api.invite_store.get_invite_store", mock_get_store):
+            with pytest.raises(HTTPException) as exc_info:
+                await check_device_revocation("d1")
+            assert exc_info.value.status_code == 401
+            assert "revoked" in str(exc_info.value.detail)
+
+    @pytest.mark.asyncio
+    async def test_active_device_passes(self, store: InviteStore):
+        """Active device passes revocation check without error."""
+        from unittest.mock import AsyncMock
+
+        await store.register_device("d1", "Phone", "ios")
+
+        mock_get_store = AsyncMock(return_value=store)
+        with patch("hestia.api.invite_store.get_invite_store", mock_get_store):
+            # Should not raise
+            await check_device_revocation("d1")
+
+    @pytest.mark.asyncio
+    async def test_unknown_device_passes(self, store: InviteStore):
+        """Unknown device passes revocation check (fail-open)."""
+        from unittest.mock import AsyncMock
+
+        mock_get_store = AsyncMock(return_value=store)
+        with patch("hestia.api.invite_store.get_invite_store", mock_get_store):
+            await check_device_revocation("unknown-device")

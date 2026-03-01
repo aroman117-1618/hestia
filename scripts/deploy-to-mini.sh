@@ -118,14 +118,20 @@ python3 -c "import hestia; print(f'✓ hestia package v{hestia.__version__} impo
     exit 1
 }
 
-# Reload launchd service (if configured)
+# Reload launchd service (if configured) or manual restart fallback
 if [[ -f ~/Library/LaunchAgents/com.hestia.server.plist ]]; then
     echo "Reloading launchd service..."
     launchctl unload ~/Library/LaunchAgents/com.hestia.server.plist 2>/dev/null || true
+    sleep 1
     launchctl load ~/Library/LaunchAgents/com.hestia.server.plist 2>/dev/null || true
-    echo "✓ Service reloaded"
+    echo "✓ Service reloaded via launchd"
 else
-    echo "⚠ launchd service not configured"
+    echo "⚠ launchd service not configured — using manual restart"
+    echo "  Install with: ./scripts/install-server-service.sh"
+    lsof -i :8443 | grep LISTEN | awk '{print $2}' | xargs kill -9 2>/dev/null || true
+    sleep 2
+    source .venv/bin/activate
+    nohup python -m hestia.api.server > /dev/null 2>&1 &
 fi
 
 # Health check with retry (server may need a moment after reload)
