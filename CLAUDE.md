@@ -101,7 +101,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 **UI Phase 4 (Integrations UI, API contract rewrite): COMPLETE.**
 **Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
 
-1086 tests (1083 passing, 3 skipped), 24 test files. Full details: `python -m pytest tests/ -v --timeout=30`
+1086 tests (1083 passing, 3 skipped), 25 test files. Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -296,7 +296,8 @@ Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 | Sprint 1: DevOps & Deployment | COMPLETE | QR invite onboarding (4 endpoints), iOS/macOS flows, permissions harmony, 28 tests |
 | Sprint 2: Explorer | COMPLETE | Backend module + 6 API endpoints + iOS Explorer tab + 41 tests. macOS enhancement deferred. |
 | Sprint 3: Command Center | COMPLETE | Backend newsfeed module + 5 API endpoints + iOS Command Center rewrite (BriefingCard, FilterBar, NewsfeedTimeline) + macOS wiring + 42 tests |
-| Sprint 4: Audit + macOS Wiring | COMPLETE | Proactive auth fix, auth dep standardization (10 route files), macOS Wiki (4 views), Explorer Resources mode, Resources tab (LLMs/Integrations/MCPs) |
+| Sprint 4: Settings + Health | COMPLETE | Dynamic tool discovery, device management UI, macOS health redesign (ADR-036), proactive intelligence settings |
+| Sprint 5: Audit + macOS Wiring | COMPLETE | Proactive auth fix, auth dep standardization (10 route files), macOS Wiki (4 views), Explorer Resources mode, Resources tab (LLMs/Integrations/MCPs) |
 
 ### Known Issues (Mac Mini)
 - Council needs `qwen2.5:0.5b` pulled on Mac Mini
