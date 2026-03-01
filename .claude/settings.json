@@ -24,7 +24,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/validate-security-edit.sh \"$(echo $ARGUMENTS | jq -r '.file_path')\"",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/validate-security-edit.sh",
             "timeout": 10,
             "statusMessage": "Security validation..."
           }
@@ -37,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/auto-test.sh \"$(echo $ARGUMENTS | jq -r '.file_path // .tool_input.file_path')\"",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/auto-test.sh",
             "timeout": 120,
             "statusMessage": "Running related tests..."
           }

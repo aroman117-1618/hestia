@@ -3,69 +3,130 @@
 # Post-edit hook: automatically runs the relevant test file
 # after a Python source file is edited.
 #
-# Usage: ./scripts/auto-test.sh <edited_file_path>
+# Usage (CLI):   ./scripts/auto-test.sh <edited_file_path>
+# Usage (hook):  Called by Claude Code PostToolUse hook — reads JSON from stdin
+#
 # Maps source files to their corresponding test files and runs them.
+# Uses case statement (not associative arrays) for macOS bash 3.2 compatibility.
 
-FILE_PATH="${1}"
+# Dual-mode: CLI argument or Claude Code hook stdin JSON
+if [ -n "$1" ]; then
+    FILE_PATH="$1"
+else
+    # Claude Code hook mode: read JSON from stdin, extract file_path
+    INPUT=$(cat)
+    FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
+    if [ -z "$FILE_PATH" ]; then
+        exit 0  # No file path available
+    fi
+fi
+
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 # Only trigger for Python source files in the hestia package
-if [[ "$FILE_PATH" != *".py" ]] || [[ "$FILE_PATH" == *"test_"* ]] || [[ "$FILE_PATH" != *"hestia/"* ]]; then
-    exit 0  # Not a Python source file or already a test file
-fi
+case "$FILE_PATH" in
+    *test_*) exit 0 ;;  # Skip test files
+    *hestia/*.py) ;;     # Continue for hestia Python source files
+    *.py) exit 0 ;;      # Skip non-hestia Python files
+    *) exit 0 ;;         # Skip non-Python files
+esac
 
-# Map source modules to test files
-declare -A MODULE_TO_TEST
-MODULE_TO_TEST["hestia/inference/"]="tests/test_inference.py"
-MODULE_TO_TEST["hestia/memory/"]="tests/test_memory.py"
-MODULE_TO_TEST["hestia/orchestration/"]="tests/test_orchestration.py"
-MODULE_TO_TEST["hestia/execution/"]="tests/test_execution.py"
-MODULE_TO_TEST["hestia/apple/"]="tests/test_apple.py"
-MODULE_TO_TEST["hestia/tasks/"]="tests/test_tasks.py"
-MODULE_TO_TEST["hestia/orders/"]="tests/test_orders.py"
-MODULE_TO_TEST["hestia/agents/"]="tests/test_agents.py"
-MODULE_TO_TEST["hestia/user/"]="tests/test_user.py"
-MODULE_TO_TEST["hestia/proactive/"]="tests/test_proactive.py"
-MODULE_TO_TEST["hestia/api/routes/cloud.py"]="tests/test_cloud_routes.py"
-MODULE_TO_TEST["hestia/api/routes/voice.py"]="tests/test_voice_routes.py"
-MODULE_TO_TEST["hestia/cloud/"]="tests/test_cloud.py tests/test_cloud_client.py"
-MODULE_TO_TEST["hestia/voice/"]="tests/test_voice.py"
-MODULE_TO_TEST["hestia/council/"]="tests/test_council.py"
-MODULE_TO_TEST["hestia/health/"]="tests/test_health.py"
-MODULE_TO_TEST["hestia/api/routes/health_data.py"]="tests/test_health.py"
-MODULE_TO_TEST["hestia/wiki/"]="tests/test_wiki.py"
-MODULE_TO_TEST["hestia/api/routes/wiki.py"]="tests/test_wiki.py"
-MODULE_TO_TEST["hestia/explorer/"]="tests/test_explorer.py"
-MODULE_TO_TEST["hestia/api/routes/explorer.py"]="tests/test_explorer.py"
-MODULE_TO_TEST["hestia/api/routes/auth.py"]="tests/test_auth_invite.py"
-MODULE_TO_TEST["hestia/api/middleware/auth.py"]="tests/test_auth_invite.py"
-MODULE_TO_TEST["hestia/api/invite_store.py"]="tests/test_auth_invite.py"
+# Map source modules to test files (most specific first)
+get_test_file() {
+    local fp="$1"
+    case "$fp" in
+        # User profile (specific paths before broad hestia/user/)
+        *hestia/user/config*|*hestia/user/templates*)
+            echo "tests/test_user_profile.py" ;;
+        *hestia/api/routes/user_profile*)
+            echo "tests/test_user_profile.py" ;;
+        *hestia/user/*)
+            echo "tests/test_user.py" ;;
 
-# Find matching test file
-TEST_FILE=""
-for module in "${!MODULE_TO_TEST[@]}"; do
-    if [[ "$FILE_PATH" == *"$module"* ]]; then
-        TEST_FILE="${MODULE_TO_TEST[$module]}"
-        break
-    fi
-done
+        # API routes (specific before broad module)
+        *hestia/api/routes/cloud*)
+            echo "tests/test_cloud_routes.py" ;;
+        *hestia/api/routes/voice*)
+            echo "tests/test_voice_routes.py" ;;
+        *hestia/api/routes/health_data*)
+            echo "tests/test_health.py" ;;
+        *hestia/api/routes/wiki*)
+            echo "tests/test_wiki.py" ;;
+        *hestia/api/routes/explorer*)
+            echo "tests/test_explorer.py" ;;
+        *hestia/api/routes/auth*)
+            echo "tests/test_auth_invite.py" ;;
+        *hestia/api/middleware/auth*)
+            echo "tests/test_auth_invite.py" ;;
+        *hestia/api/invite_store*)
+            echo "tests/test_auth_invite.py" ;;
+
+        # Backend modules
+        *hestia/inference/*)
+            echo "tests/test_inference.py" ;;
+        *hestia/memory/*)
+            echo "tests/test_memory.py" ;;
+        *hestia/orchestration/*)
+            echo "tests/test_orchestration.py" ;;
+        *hestia/execution/*)
+            echo "tests/test_execution.py" ;;
+        *hestia/apple/*)
+            echo "tests/test_apple.py" ;;
+        *hestia/tasks/*)
+            echo "tests/test_tasks.py" ;;
+        *hestia/orders/*)
+            echo "tests/test_orders.py" ;;
+        *hestia/agents/*)
+            echo "tests/test_agents.py" ;;
+        *hestia/proactive/*)
+            echo "tests/test_proactive.py" ;;
+        *hestia/cloud/*)
+            echo "tests/test_cloud.py tests/test_cloud_client.py" ;;
+        *hestia/voice/*)
+            echo "tests/test_voice.py" ;;
+        *hestia/council/*)
+            echo "tests/test_council.py" ;;
+        *hestia/health/*)
+            echo "tests/test_health.py" ;;
+        *hestia/wiki/*)
+            echo "tests/test_wiki.py" ;;
+        *hestia/explorer/*)
+            echo "tests/test_explorer.py" ;;
+
+        # No mapping found
+        *)
+            echo "" ;;
+    esac
+}
+
+TEST_FILE=$(get_test_file "$FILE_PATH")
 
 if [ -z "$TEST_FILE" ]; then
     echo "[AUTO-TEST] No test mapping for: $FILE_PATH"
     exit 0
 fi
 
-FULL_TEST_PATH="$PROJECT_ROOT/$TEST_FILE"
+# Verify test file(s) exist
+FIRST_TEST=$(echo "$TEST_FILE" | awk '{print $1}')
+FULL_TEST_PATH="$PROJECT_ROOT/$FIRST_TEST"
 
 if [ ! -f "$FULL_TEST_PATH" ]; then
-    echo "[AUTO-TEST] Test file not found: $TEST_FILE"
+    echo "[AUTO-TEST] Test file not found: $FIRST_TEST"
     exit 0
 fi
 
 echo "[AUTO-TEST] Running: $TEST_FILE (triggered by edit to $FILE_PATH)"
 
 cd "$PROJECT_ROOT"
-python -m pytest "$TEST_FILE" -v --tb=short -q 2>&1
+
+# Use venv python if available, fall back to system python
+if [ -f "$PROJECT_ROOT/.venv/bin/python" ]; then
+    PYTHON="$PROJECT_ROOT/.venv/bin/python"
+else
+    PYTHON="python3"
+fi
+
+$PYTHON -m pytest $TEST_FILE -v --tb=short -q --timeout=30 2>&1
 
 EXIT_CODE=$?
 
