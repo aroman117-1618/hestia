@@ -100,7 +100,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 **UI Phase 4 (Integrations UI, API contract rewrite): COMPLETE.**
 **Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
 
-977 tests (974 passing, 3 skipped). Full details: `python -m pytest tests/ -v --timeout=30`
+1018 tests (1015 passing, 3 skipped). Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -277,6 +277,13 @@ Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 | Apple HealthKit Integration | COMPLETE | 27 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools, iOS HealthKitService |
 | Wiki / Architecture Field Guide | COMPLETE | AI-generated narratives, module deep dives, ADR browser, roadmap, Mermaid diagrams, iOS tabbed UI |
 | macOS App (Hestia) | COMPLETE | 35 files, 3 views (Command/Explorer/Health), icon sidebar, chat panel, keyboard shortcuts, responsive layout, app icon. |
+
+### Frontend Wiring — IN PROGRESS
+| Sprint | Status | Scope |
+|--------|--------|-------|
+| Sprint 1: DevOps & Deployment | COMPLETE | QR invite onboarding (4 endpoints), iOS/macOS flows, permissions harmony, 28 tests |
+| Sprint 2: Explorer | COMPLETE | Backend module + 6 API endpoints + iOS Explorer tab + 41 tests. macOS enhancement deferred. |
+| Sprint 3: Command Center | NOT STARTED | Backend newsfeed, RSS, iOS Command Center rewrite, BriefingCard |
 
 ### Known Issues (Mac Mini)
 - Council needs `qwen2.5:0.5b` pulled on Mac Mini
