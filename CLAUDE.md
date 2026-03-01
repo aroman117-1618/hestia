@@ -100,7 +100,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 **UI Phase 4 (Integrations UI, API contract rewrite): COMPLETE.**
 **Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
 
-1085 tests (1082 passing, 3 skipped), 24 test files. Full details: `python -m pytest tests/ -v --timeout=30`
+1086 tests (1083 passing, 3 skipped), 24 test files. Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -206,7 +206,7 @@ hestia/
 │   │   ├── Views/Common/            # LottieAnimationView, LoadingView, GradientBackground
 │   │   └── Persistence/             # Core Data stack
 │   └── project.yml                  # xcodegen config (iOS 26.0, Swift 6.1)
-├── tests/                           # 1085 tests, 25 files
+├── tests/                           # 1086 tests, 25 files
 ├── scripts/                         # deploy, test-api, auto-test, validate-security, ollama
 ├── .claude/                         # agents/, output-styles/, settings
 ├── docs/                            # api-contract, decision-log, security-architecture
