@@ -10,16 +10,15 @@ Processes confirmed transcripts through a multi-stage pipeline:
 import asyncio
 import json
 import re
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
-from hestia.inference import get_inference_client, Message
+from hestia.inference import get_inference_client
 from hestia.logging import get_logger, LogComponent
 
 from .models import (
     ActionPlanItem,
     CrossReference,
     CrossReferenceSource,
-    IntentType,
     JournalAnalysis,
     JournalIntent,
 )

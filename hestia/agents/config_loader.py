@@ -21,7 +21,7 @@ import re
 import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional
 
 import yaml
 
@@ -30,14 +30,12 @@ from hestia.agents.config_models import (
     AgentConfigFile,
     AgentIdentity,
     AgentRegistry,
-    REQUIRED_FILES,
 )
 from hestia.agents.templates import (
     DEFAULT_AGENT_TEMPLATES,
     NEW_AGENT_TEMPLATE,
-    LEGACY_SLOT_MAP,
 )
-from hestia.logging import get_logger, LogComponent
+from hestia.logging import get_logger
 
 logger = get_logger()
 

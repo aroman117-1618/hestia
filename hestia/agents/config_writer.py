@@ -8,6 +8,7 @@ Handles writing and updating agent config files with:
 - MEMORY.md curation
 """
 
+import asyncio
 import os
 import tempfile
 from datetime import datetime, timezone, date
@@ -131,7 +132,7 @@ class ConfigWriter:
         file_path = agent_dir / config_file.value
 
         try:
-            self._atomic_write(file_path, content)
+            await asyncio.to_thread(self._atomic_write, file_path, content)
             logger.info(
                 f"Wrote {config_file.value} for agent '{agent_name}' "
                 f"(source={source}, {len(content)} chars)"
@@ -212,7 +213,7 @@ class ConfigWriter:
         memory_dir.mkdir(parents=True, exist_ok=True)
 
         file_path = memory_dir / note.filename
-        self._atomic_write(file_path, content)
+        await asyncio.to_thread(self._atomic_write, file_path, content)
 
         logger.info(f"Wrote daily note for '{agent_name}': {note.filename}")
         return note
@@ -251,7 +252,7 @@ class ConfigWriter:
         timestamp = datetime.now(timezone.utc).strftime("%H:%M UTC")
         new_content = f"{existing}\n### {timestamp}\n\n{entry}\n"
 
-        self._atomic_write(file_path, new_content)
+        await asyncio.to_thread(self._atomic_write, file_path, new_content)
 
         logger.info(f"Appended to daily note for '{agent_name}': {filename}")
         return DailyNote(date=note_date, content=new_content, agent_name=agent_name)
@@ -346,7 +347,7 @@ class ConfigWriter:
         date_stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         new_content = f"{existing}\n### {date_stamp}\n\n{entry}\n"
 
-        self._atomic_write(memory_path, new_content)
+        await asyncio.to_thread(self._atomic_write, memory_path, new_content)
         self.config_loader.invalidate_cache(agent_name)
 
         logger.info(f"Appended to MEMORY.md for '{agent_name}' ({len(entry)} chars)")

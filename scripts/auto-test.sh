@@ -8,6 +8,21 @@
 #
 # Maps source files to their corresponding test files and runs them.
 # Uses case statement (not associative arrays) for macOS bash 3.2 compatibility.
+# Wraps pytest in run_with_timeout to prevent ChromaDB thread hangs.
+
+# Kill a process after N seconds (same pattern as pre-push.sh)
+run_with_timeout() {
+    local secs=$1; shift
+    "$@" &
+    local pid=$!
+    ( sleep "$secs" && kill "$pid" 2>/dev/null ) &
+    local watchdog=$!
+    wait "$pid" 2>/dev/null
+    local exit_code=$?
+    kill "$watchdog" 2>/dev/null
+    wait "$watchdog" 2>/dev/null
+    return $exit_code
+}
 
 # Dual-mode: CLI argument or Claude Code hook stdin JSON
 if [ -n "$1" ]; then
@@ -132,9 +147,20 @@ else
     PYTHON="python3"
 fi
 
-$PYTHON -m pytest $TEST_FILE -v --tb=short -q --timeout=30 2>&1
-
+PYTEST_LOG=$(mktemp)
+run_with_timeout 90 $PYTHON -m pytest $TEST_FILE -v --tb=short -q --timeout=30 >"$PYTEST_LOG" 2>&1
 EXIT_CODE=$?
+
+cat "$PYTEST_LOG"
+
+# Exit 143 = killed by timeout. Check if tests actually passed before dying.
+if [ $EXIT_CODE -eq 143 ] && grep -q "passed" "$PYTEST_LOG" && ! grep -q "failed" "$PYTEST_LOG"; then
+    echo "[AUTO-TEST] All tests passed. (process hung after completion — killed by timeout)"
+    rm -f "$PYTEST_LOG"
+    exit 0
+fi
+
+rm -f "$PYTEST_LOG"
 
 if [ $EXIT_CODE -eq 0 ]; then
     echo "[AUTO-TEST] All tests passed."

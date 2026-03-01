@@ -7,10 +7,7 @@ Complete audit trail for every access.
 """
 
 import base64
-import os
 import subprocess
-import json
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 from dataclasses import dataclass
@@ -18,8 +15,6 @@ from enum import Enum
 
 import keyring
 from cryptography.fernet import Fernet, InvalidToken
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 from hestia.logging.audit_logger import AuditLogger, AuditSeverity
 

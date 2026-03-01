@@ -4,16 +4,15 @@ Apple ecosystem tools for registration with execution layer.
 Provides Tool definitions for Calendar, Reminders, Notes, and Mail.
 """
 
-import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from ..execution.models import Tool, ToolParam, ToolParamType
 from ..execution.registry import ToolRegistry
-from .calendar import CalendarClient, CalendarError
-from .reminders import RemindersClient, RemindersError
-from .notes import NotesClient, NotesError
-from .mail import MailClient, MailError
+from .calendar import CalendarClient
+from .reminders import RemindersClient
+from .notes import NotesClient
+from .mail import MailClient
 
 
 # Singleton clients (initialized lazily)

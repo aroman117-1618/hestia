@@ -352,12 +352,18 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         data={"errors": str(exc.errors())},
     )
 
+    # Strip Pydantic internals — only expose field names and messages
+    safe_details = [
+        {"field": " -> ".join(str(loc) for loc in err.get("loc", [])), "message": err.get("msg", "Invalid value")}
+        for err in exc.errors()
+    ]
+
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
         content={
             "error": "validation_error",
             "message": "Invalid request format",
-            "details": exc.errors(),
+            "details": safe_details,
             "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
         },
     )
