@@ -41,10 +41,6 @@ struct ExplorerView: View {
         }
         .padding(MacSpacing.xl)
         .background(MacColors.windowBackground)
-        .onAppear {
-            if !viewModel.hasRootFolder {
-                viewModel.selectRootFolder()
-            }
-        }
+        // Don't auto-open folder picker — let user click "Open Folder" when ready
     }
 }

@@ -3,6 +3,8 @@ import HestiaShared
 
 struct IconSidebar: View {
     @Environment(WorkspaceState.self) private var workspace
+    @State private var hoveredView: WorkspaceView?
+    @State private var hoveredInactive: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -63,6 +65,7 @@ struct IconSidebar: View {
 
     private func navIcon(_ view: WorkspaceView, systemName: String, yOffset: Int) -> some View {
         let isActive = workspace.currentView == view
+        let isHovered = hoveredView == view
 
         return Button {
             withAnimation(.easeInOut(duration: 0.2)) {
@@ -71,7 +74,7 @@ struct IconSidebar: View {
         } label: {
             ZStack(alignment: .leading) {
                 RoundedRectangle(cornerRadius: MacCornerRadius.navIcon)
-                    .fill(isActive ? MacColors.activeNavBackground : Color.clear)
+                    .fill(isActive ? MacColors.activeNavBackground : (isHovered ? MacColors.activeNavBackground.opacity(0.5) : Color.clear))
                     .overlay {
                         if isActive {
                             RoundedRectangle(cornerRadius: MacCornerRadius.navIcon)
@@ -95,18 +98,28 @@ struct IconSidebar: View {
 
                 Image(systemName: systemName)
                     .font(.system(size: MacSize.navIcon))
-                    .foregroundStyle(isActive ? MacColors.amberAccent : MacColors.textSecondary)
+                    .foregroundStyle(isActive ? MacColors.amberAccent : (isHovered ? MacColors.textPrimary : MacColors.textSecondary))
                     .frame(width: MacSize.navIconButton, height: MacSize.navIconButton)
             }
         }
         .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                hoveredView = hovering ? view : nil
+            }
+        }
     }
 
     private func inactiveIcon(systemName: String) -> some View {
         Image(systemName: systemName)
             .font(.system(size: MacSize.navIcon))
-            .foregroundStyle(MacColors.textSecondary)
+            .foregroundStyle(hoveredInactive == systemName ? MacColors.textPrimary : MacColors.textSecondary)
             .frame(width: MacSize.navIconButton, height: MacSize.navIconButton)
+            .onHover { hovering in
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    hoveredInactive = hovering ? systemName : nil
+                }
+            }
     }
 
     // MARK: - User Avatar

@@ -57,7 +57,7 @@ struct MacChatPanelView: View {
                 }
             }
         }
-        .frame(minWidth: MacSize.chatPanelWidth)
+        .frame(minWidth: 320)
         .background(chatBackground)
         .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
         .task {
@@ -70,10 +70,9 @@ struct MacChatPanelView: View {
     private var agentTabBar: some View {
         HStack(spacing: MacSpacing.md) {
             HStack(spacing: 5) {
-                // Tia (active)
                 agentTab(mode: .tia, isActive: appState.currentMode == .tia)
-                // Mira (inactive)
                 agentTab(mode: .mira, isActive: appState.currentMode == .mira)
+                agentTab(mode: .olly, isActive: appState.currentMode == .olly)
             }
 
             // Add session

@@ -19,10 +19,16 @@
 - **Notes:** Use `unset ANTHROPIC_API_KEY` in Remote Control terminal only
 
 ### Figma MCP Integration
-- **Phase:** Pending
-- **Discovery:** N/A — single command setup
-- **Key files:** MCP config (after `claude mcp add`)
-- **Next action:** Run `claude mcp add --transport http figma https://mcp.figma.com/mcp`
+- **Phase:** Done
+- **Key files:** `.mcp.json` (Figma MCP already configured), macOS UI Automation MCP added
+- **Notes:** Figma MCP used to pull exact design context for macOS app. macOS UI Automation MCP (`macos-ui-automation-mcp`) installed for native app testing.
+
+### macOS App (HestiaWorkspace)
+- **Phase:** Execute
+- **Discovery:** Figma designs analyzed (command, explore, health screens)
+- **Key files:** `HestiaApp/macOS/` (35 Swift files), `HestiaApp/project.yml`
+- **Notes:** Initial build + Figma-accurate rewrite complete. 3 views (Command, Explorer, Health) + chat panel + icon sidebar. Both schemes build clean. Needs UX polish via macOS UI Automation MCP walkthrough.
+- **Next action:** Start new Claude Code session (MCP loads at startup), launch app, run automated UI walkthrough
 
 ### Skill Redesign
 - **Phase:** Execute

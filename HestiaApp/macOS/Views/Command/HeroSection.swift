@@ -66,11 +66,12 @@ struct HeroSection: View {
             Spacer()
 
             // Right: progress rings
-            HStack(spacing: MacSpacing.xxxl) {
+            HStack(spacing: MacSpacing.xl) {
                 ProgressRing(value: 0.992, label: "99.2%", title: "Accuracy", subtitle: "E-commerce Engine", color: MacColors.healthGreen)
                 ProgressRing(value: 0.87, label: "87%", title: "Uptime", subtitle: "Agent Fleet", color: MacColors.amberAccent)
                 ProgressRing(value: 0.18, label: "18%", title: "Improved", subtitle: "Response Time", color: Color(hex: "00D7FF"))
             }
+            .layoutPriority(1)
         }
         .padding(MacSpacing.xxl)
         .background(MacColors.cardGradient)
@@ -89,6 +90,7 @@ struct HeroSection: View {
             Text("All systems operational")
                 .font(MacTypography.label)
                 .foregroundStyle(MacColors.healthGreen)
+                .lineLimit(1)
         }
         .padding(.horizontal, MacSpacing.md)
         .padding(.vertical, MacSpacing.xs)

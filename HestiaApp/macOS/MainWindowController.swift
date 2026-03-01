@@ -10,7 +10,7 @@ class MainWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        window.minSize = NSSize(width: 1000, height: 600)
+        window.minSize = NSSize(width: 1200, height: 700)
         window.title = "Hestia Workspace"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
@@ -22,42 +22,11 @@ class MainWindowController: NSWindowController {
         self.init(window: window)
     }
 
-    // MARK: - Keyboard Shortcuts
+    // MARK: - Chat Panel Toggle
 
     @IBAction func toggleChatPanel(_ sender: Any?) {
         guard let splitVC = contentViewController as? MainSplitViewController else { return }
         splitVC.toggleChatPanel()
-    }
-
-    override func keyDown(with event: NSEvent) {
-        guard event.modifierFlags.contains(.command) else {
-            super.keyDown(with: event)
-            return
-        }
-
-        switch event.charactersIgnoringModifiers {
-        case "\\":
-            toggleChatPanel(nil)
-        case "1":
-            switchView(to: .command)
-        case "2":
-            switchView(to: .explorer)
-        case "3":
-            switchView(to: .health)
-        default:
-            super.keyDown(with: event)
-        }
-    }
-
-    private func switchView(to view: WorkspaceView) {
-        guard let splitVC = contentViewController as? MainSplitViewController else { return }
-        // Access the workspace state through the split view controller isn't ideal,
-        // but we post a notification that the SwiftUI views can observe
-        NotificationCenter.default.post(
-            name: .workspaceViewSwitch,
-            object: nil,
-            userInfo: ["view": view.rawValue]
-        )
     }
 }
 

@@ -25,7 +25,7 @@ class MainSplitViewController: NSSplitViewController {
             .environmentObject(appState)
         let chatHost = NSHostingController(rootView: chatView)
         chatItem = NSSplitViewItem(contentListWithViewController: chatHost)
-        chatItem.minimumThickness = MacSize.chatPanelWidth
+        chatItem.minimumThickness = 340
         chatItem.maximumThickness = MacSize.chatPanelWidth + 30
         chatItem.canCollapse = true
         chatItem.collapseBehavior = .preferResizingSplitViewWithFixedSiblings

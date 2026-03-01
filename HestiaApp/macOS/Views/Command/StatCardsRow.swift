@@ -13,8 +13,10 @@ struct StatCardsRow: View {
         ("checklist", "Tasks", "1", "pending", "+1")
     ]
 
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: MacSpacing.md), count: 3)
+
     var body: some View {
-        HStack(spacing: MacSpacing.md) {
+        LazyVGrid(columns: columns, spacing: MacSpacing.md) {
             ForEach(cards, id: \.label) { card in
                 StatCard(
                     icon: card.icon,
@@ -70,6 +72,7 @@ struct StatCard: View {
                 Text(subtitle)
                     .font(MacTypography.label)
                     .foregroundStyle(MacColors.textSecondary)
+                    .lineLimit(1)
             }
         }
         .padding(17)

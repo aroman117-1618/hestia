@@ -36,21 +36,38 @@ struct FilePreviewArea: View {
             } else {
                 // Empty state
                 Spacer()
-                VStack(spacing: MacSpacing.lg) {
-                    Image(systemName: "doc.text.magnifyingglass")
-                        .font(.system(size: 36, weight: .light))
-                        .foregroundStyle(MacColors.textSecondary)
-                    Text("Select a file to preview")
-                        .font(MacTypography.body)
-                        .foregroundStyle(MacColors.textSecondary)
-                    Button("Open Folder", action: onSelectFolder)
+                VStack(spacing: MacSpacing.xl) {
+                    Image(systemName: "folder.badge.questionmark")
+                        .font(.system(size: 48, weight: .light))
+                        .foregroundStyle(MacColors.amberAccent.opacity(0.6))
+
+                    VStack(spacing: MacSpacing.sm) {
+                        Text("No folder selected")
+                            .font(MacTypography.bodyMedium)
+                            .foregroundStyle(MacColors.textPrimary)
+                        Text("Open a project folder to browse and preview files")
+                            .font(MacTypography.body)
+                            .foregroundStyle(MacColors.textSecondary)
+                    }
+
+                    Button(action: onSelectFolder) {
+                        HStack(spacing: MacSpacing.sm) {
+                            Image(systemName: "folder.badge.plus")
+                                .font(.system(size: 14))
+                            Text("Open Folder")
+                        }
                         .font(MacTypography.bodyMedium)
                         .foregroundStyle(MacColors.buttonTextDark)
                         .padding(.horizontal, MacSpacing.xxl)
-                        .padding(.vertical, MacSpacing.sm)
+                        .padding(.vertical, MacSpacing.md)
                         .background(MacColors.amberAccent)
                         .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
-                        .buttonStyle(.plain)
+                    }
+                    .buttonStyle(.plain)
+
+                    Text("Cmd+2 to switch here anytime")
+                        .font(MacTypography.metadata)
+                        .foregroundStyle(MacColors.textInactive)
                 }
                 Spacer()
             }

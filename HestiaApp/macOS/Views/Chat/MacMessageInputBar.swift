@@ -4,6 +4,7 @@ import HestiaShared
 struct MacMessageInputBar: View {
     @Binding var messageText: String
     @EnvironmentObject var appState: AppState
+    @FocusState private var isInputFocused: Bool
     let onSend: () -> Void
 
     var body: some View {
@@ -22,6 +23,7 @@ struct MacMessageInputBar: View {
                 .font(MacTypography.inputField)
                 .textFieldStyle(.plain)
                 .foregroundStyle(MacColors.textPrimary)
+                .focused($isInputFocused)
                 .onSubmit(onSend)
 
             // Mic
@@ -49,6 +51,8 @@ struct MacMessageInputBar: View {
         .padding(.horizontal, MacSpacing.sm)
         .padding(.vertical, MacSpacing.sm)
         .background(MacColors.aiBubbleBackground)
+        .contentShape(Capsule())
+        .onTapGesture { isInputFocused = true }
         .clipShape(Capsule())
         .padding(.horizontal, 33)
         .padding(.vertical, MacSpacing.lg)
