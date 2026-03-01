@@ -1,7 +1,7 @@
 # Current Sprint: Wire Frontend to Backend
 
 **Started:** 2026-02-28
-**Target:** 3 sequential sprints (~7 sessions)
+**Target:** 5 sequential sprints (~10 sessions)
 **Plan:** `.claude/plans/nifty-exploring-rain.md`
 **Audit:** `docs/plans/wire-frontend-backend-audit-2026-02-28.md`
 
@@ -85,6 +85,64 @@
 - **Phase:** Done
 - **Key files:** `HestiaApp/Shared/Services/APIClient+Newsfeed.swift`, `tests/test_newsfeed.py`
 - **Notes:** 6 APIClient extension methods (timeline, unread-count, mark-read, dismiss, refresh, briefing). 42 backend tests: models (8), database (13), manager (13), routes (8). Also added `list_recent_executions()` bulk method to OrderManager [T1]. All 1085 tests pass.
+
+## Sprint 4: Settings Wiring + Health Dashboard (~2 sessions)
+
+### 4A. Dynamic Tool Discovery
+- **Phase:** Done
+- **Key files:** `Shared/Models/ToolModels.swift`, `Shared/Services/APIClient+Tools.swift`, `Shared/ViewModels/IntegrationsViewModel.swift`
+- **Notes:** Replaced hardcoded `toolsFor()` (23 tools, 5 categories) with `GET /v1/tools` API call. API-first with hardcoded fallback. Category mapping: backend `tool.category` → `IntegrationType`.
+
+### 4B. Device Management UI
+- **Phase:** Done
+- **Key files:** `Shared/Models/DeviceModels.swift`, `Shared/Services/APIClient+Devices.swift`, `Shared/ViewModels/DeviceManagementViewModel.swift`, `Shared/Views/Settings/DeviceManagementView.swift`, `macOS/Views/Profile/MacDeviceManagementView.swift`
+- **Notes:** Wired `GET /v1/user/devices`, `POST .../revoke`, `POST .../unrevoke`. iOS via Settings > Security > Manage Devices. macOS via Profile sidebar. Confirmation alert on revoke. Cannot revoke own device. Revoked devices show Restore button.
+
+### 4C. macOS Health View Redesign
+- **Phase:** Done
+- **Key files:** `macOS/Models/HealthDataModels.swift`, `macOS/Services/APIClient+Health.swift`, `macOS/ViewModels/MacHealthViewModel.swift`, `macOS/Views/Health/*.swift` (5 files)
+- **Notes:** Replaced fake biomarker data (telomere, methylation, CRP) with real HealthKit data from `/v1/health_data/summary` and `/v1/health_data/trend/{type}`. ActivityCard (steps/exercise/calories), Heart/Sleep/Body metric cards, CoachingCard. Empty state for no synced data. Reused GaugeArc, SparklineChart, GradientProgressBar. ADR-036.
+
+### 4D. Proactive Intelligence Settings
+- **Phase:** Done
+- **Key files:** `Shared/Models/ProactiveModels.swift`, `Shared/Services/APIClient+Proactive.swift`, `Shared/ViewModels/ProactiveSettingsViewModel.swift`, `Shared/Views/Settings/ProactiveSettingsView.swift`
+- **Notes:** Wired policy/patterns endpoints. Settings sections: Interruption Policy (picker), Daily Briefing (toggle + time), Quiet Hours (toggle + start/end), Pattern Detection (toggle + count), Weather (toggle + location). Added to iOS Settings as "Intelligence" section.
+
+## Sprint 5: Audit Remediation + macOS Frontend Wiring (~2 sessions)
+
+### 5A. Fix Proactive Auth Bug (CRITICAL)
+- **Phase:** Done
+- **Key files:** `hestia/api/routes/proactive.py`
+- **Notes:** All 6 `Depends(verify_device_token)` → `Depends(get_device_token)`. `verify_device_token` is a validation utility (takes `str`), not a FastAPI dependency — FastAPI resolved its param as query string instead of reading `X-Hestia-Device-Token` header.
+
+### 5B. Standardize Auth Dependency Naming
+- **Phase:** Done
+- **Key files:** `hestia/api/middleware/auth.py`, 9 route files (user, user_profile, orders, agents, agents_v2, wiki, explorer, auth, health_data)
+- **Notes:** Removed `get_current_device` alias. ~67 mechanical substitutions across 10 files. `get_device_token` is now the single canonical auth dependency.
+
+### 5C. macOS Navigation Infrastructure
+- **Phase:** Done
+- **Key files:** `macOS/State/WorkspaceState.swift`, `macOS/Views/Chrome/IconSidebar.swift`, `macOS/Views/WorkspaceRootView.swift`, `macOS/AppDelegate.swift`
+- **Notes:** Added `.wiki` + `.resources` to WorkspaceView enum. IconSidebar navIcon() calls. Cmd+5 (Field Guide) + Cmd+6 (Resources) keyboard shortcuts. Removed dead `inactiveIcon()` code.
+
+### 5D. macOS Wiki (Field Guide) Tab
+- **Phase:** Done
+- **Key files:** `macOS/Models/WikiModels.swift`, `macOS/Services/APIClient+Wiki.swift`, `macOS/ViewModels/MacWikiViewModel.swift`, `macOS/Views/Wiki/*.swift` (4 files)
+- **Notes:** 2-pane layout (sidebar + detail). Sidebar: vertical tab buttons (Overview/Modules/Decisions/Roadmap/Diagrams) with article counts + scrollable article list. Detail: toolbar (refresh/generate-all), article content, status badges, generate button for pending articles. Reuses WikiArticle models from HestiaShared.
+
+### 5E. macOS Explorer Resources Mode
+- **Phase:** Done
+- **Key files:** `macOS/ViewModels/MacExplorerResourcesViewModel.swift`, `macOS/Views/Explorer/MacExplorerResourcesView.swift`, `macOS/Views/Explorer/ExplorerView.swift`
+- **Notes:** Segmented control (Files/Resources) added to existing ExplorerView. Files mode = existing filesystem browser. Resources mode = backend `/v1/explorer/` API (matching iOS). Filter bar, search, draft CRUD.
+
+### 5F. macOS Resources Tab (LLMs/Integrations/MCPs)
+- **Phase:** Done
+- **Key files:** `macOS/ViewModels/MacCloudSettingsViewModel.swift`, `MacIntegrationsViewModel.swift`, `macOS/Views/Resources/*.swift` (6 files)
+- **Notes:** 3-tab container. LLMs: 2-column provider list + detail (model selector, health check, state toggle, add/remove). Integrations: expandable cards with status badges, permission requests, tool lists. MCPs: placeholder. macOS IntegrationsViewModel avoids UIKit (uses EventKit directly, excludes HealthKit).
+
+### 5G. Docs + Validation
+- **Phase:** Done
+- **Notes:** CLAUDE.md updated (sprint status, project structure, macOS app description — 66 files, 6 views). Both targets build clean. 1083 tests passing, 3 skipped.
 
 ---
 

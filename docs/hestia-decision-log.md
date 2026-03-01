@@ -1357,6 +1357,28 @@ Session expiry is purely in-memory. The `last_activity` column in the sessions D
 - Positive: Stale context doesn't bleed into new conversations
 - Negative: Server restart resets all sessions (acceptable — conversations are ephemeral)
 
+### ADR-036: macOS Health View — HealthKit over Biomarkers
+
+**Date**: 2026-03-01
+**Status**: Accepted
+
+#### Context
+The macOS Health view displayed fake biomarker data (telomere length, methylation scores, CRP, gene markers). The backend provides real Apple HealthKit data (steps, heart rate, sleep, weight) via `/v1/health_data/summary` and `/v1/health_data/trend/{type}`. These are completely different data domains — biomarker data had no acquisition path.
+
+#### Decision
+Redesign the macOS Health view to show real HealthKit data instead of placeholder biomarker data. Reuse existing chart components (GaugeArc, SparklineChart, GradientProgressBar) with the new data.
+
+#### Alternatives Considered
+1. **Keep biomarker UI with future data source** — rejected: no near-term biomarker acquisition path, misleading placeholder data
+2. **Hybrid view** — rejected: mixing real and fake data is confusing
+3. **Remove Health tab entirely** — rejected: HealthKit data already exists and is valuable
+
+#### Consequences
+- macOS Health view now shows real data synced from iPhone (steps, calories, HR, sleep, weight)
+- Empty state guides users to sync from iPhone when no data available
+- BiologicalAgeCard → ActivityCard, EpigeneticMarkersCard → CoachingCard
+- Chart components preserved and extended (configurable colors, normalized sparklines)
+
 ---
 
 ## Adding New Decisions

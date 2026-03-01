@@ -4,7 +4,6 @@ import HestiaShared
 struct IconSidebar: View {
     @Environment(WorkspaceState.self) private var workspace
     @State private var hoveredView: WorkspaceView?
-    @State private var hoveredInactive: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -17,11 +16,9 @@ struct IconSidebar: View {
                 navIcon(.command, systemName: "house", yOffset: 0)
                 navIcon(.explorer, systemName: "map", yOffset: 1)
                     .padding(.top, MacSpacing.lg)
-                // Research (placeholder — not a view yet)
-                inactiveIcon(systemName: "magnifyingglass")
+                navIcon(.resources, systemName: "server.rack", yOffset: 2)
                 navIcon(.health, systemName: "heart", yOffset: 3)
-                // Field guide
-                inactiveIcon(systemName: "book")
+                navIcon(.wiki, systemName: "book", yOffset: 4)
             }
             .padding(.top, MacSpacing.xxl)
 
@@ -29,7 +26,7 @@ struct IconSidebar: View {
 
             // Bottom icons
             VStack(spacing: 7) {
-                navIcon(.profile, systemName: "gearshape", yOffset: 4)
+                navIcon(.profile, systemName: "gearshape", yOffset: 5)
 
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
@@ -109,18 +106,6 @@ struct IconSidebar: View {
                 hoveredView = hovering ? view : nil
             }
         }
-    }
-
-    private func inactiveIcon(systemName: String) -> some View {
-        Image(systemName: systemName)
-            .font(.system(size: MacSize.navIcon))
-            .foregroundStyle(hoveredInactive == systemName ? MacColors.textPrimary : MacColors.textSecondary)
-            .frame(width: MacSize.navIconButton, height: MacSize.navIconButton)
-            .onHover { hovering in
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    hoveredInactive = hovering ? systemName : nil
-                }
-            }
     }
 
     // MARK: - User Avatar

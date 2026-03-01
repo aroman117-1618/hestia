@@ -49,6 +49,11 @@ struct SettingsView: View {
                             knowledgeSection
                         }
 
+                        // Proactive Intelligence
+                        settingsSection("Intelligence") {
+                            proactiveSection
+                        }
+
                         // Advanced / Danger Zone
                         settingsSection("Advanced") {
                             dangerZone
@@ -264,6 +269,34 @@ struct SettingsView: View {
         .padding(.horizontal, Spacing.lg)
     }
 
+    // MARK: - Proactive Intelligence Section
+
+    private var proactiveSection: some View {
+        NavigationLink(destination: ProactiveSettingsView()) {
+            HStack {
+                Image(systemName: "brain.head.profile")
+                    .foregroundColor(.white)
+                    .frame(width: 32)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Proactive Intelligence")
+                        .foregroundColor(.white)
+
+                    Text("Briefings, quiet hours, and pattern detection")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.6))
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.white.opacity(0.5))
+            }
+        }
+        .settingsRow()
+        .padding(.horizontal, Spacing.lg)
+    }
+
     // MARK: - Agent Profiles Section
 
     private var agentProfilesSection: some View {
@@ -373,6 +406,20 @@ struct SettingsView: View {
                 .accentColor(.white)
                 .onChange(of: viewModel.autoLockTimeout) { _ in
                     viewModel.saveSettings()
+                }
+            }
+            .settingsRow()
+
+            // Manage Devices
+            NavigationLink(destination: DeviceManagementView()) {
+                HStack {
+                    Image(systemName: "desktopcomputer")
+                        .foregroundColor(.white)
+                    Text("Manage Devices")
+                        .foregroundColor(.white)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundColor(.white.opacity(0.5))
                 }
             }
             .settingsRow()

@@ -12,7 +12,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from hestia.api.middleware.auth import get_current_device
+from hestia.api.middleware.auth import get_device_token
 from hestia.api.schemas import (
     AgentConfigResponse,
     AgentConfigListResponse,
@@ -72,7 +72,7 @@ def _config_to_response(config) -> AgentConfigResponse:
 )
 async def list_agents(
     include_archived: bool = Query(False, description="Include archived agents"),
-    _device: str = Depends(get_current_device),
+    _device: str = Depends(get_device_token),
 ):
     """List all agents."""
     try:
@@ -101,7 +101,7 @@ async def list_agents(
 )
 async def get_agent(
     agent_name: str,
-    _device: str = Depends(get_current_device),
+    _device: str = Depends(get_device_token),
 ):
     """Get agent by name."""
     try:
@@ -134,7 +134,7 @@ async def get_agent(
 )
 async def create_agent(
     request: AgentCreateRequest,
-    _device: str = Depends(get_current_device),
+    _device: str = Depends(get_device_token),
 ):
     """Create a new agent."""
     try:
@@ -166,7 +166,7 @@ async def create_agent(
 )
 async def archive_agent(
     agent_name: str,
-    _device: str = Depends(get_current_device),
+    _device: str = Depends(get_device_token),
 ):
     """Archive an agent."""
     try:
@@ -212,7 +212,7 @@ async def archive_agent(
 async def get_config_file(
     agent_name: str,
     file_name: str,
-    _device: str = Depends(get_current_device),
+    _device: str = Depends(get_device_token),
 ):
     """Read a config file."""
     try:
@@ -263,7 +263,7 @@ async def update_config_file(
     agent_name: str,
     file_name: str,
     request: AgentConfigFileUpdateRequest,
-    _device: str = Depends(get_current_device),
+    _device: str = Depends(get_device_token),
 ):
     """Update a config file."""
     try:
@@ -331,7 +331,7 @@ async def update_config_file(
 async def list_daily_notes(
     agent_name: str,
     limit: int = Query(30, ge=1, le=365, description="Max notes to return"),
-    _device: str = Depends(get_current_device),
+    _device: str = Depends(get_device_token),
 ):
     """List daily notes."""
     try:
@@ -363,7 +363,7 @@ async def list_daily_notes(
 async def get_daily_note(
     agent_name: str,
     note_date: str,
-    _device: str = Depends(get_current_device),
+    _device: str = Depends(get_device_token),
 ):
     """Read a daily note by date."""
     try:
@@ -409,7 +409,7 @@ async def get_daily_note(
 async def append_daily_note(
     agent_name: str,
     request: DailyNoteAppendRequest,
-    _device: str = Depends(get_current_device),
+    _device: str = Depends(get_device_token),
 ):
     """Append to today's daily note."""
     try:
@@ -444,7 +444,7 @@ async def append_daily_note(
 )
 async def reload_agent(
     agent_name: str,
-    _device: str = Depends(get_current_device),
+    _device: str = Depends(get_device_token),
 ):
     """Force-reload agent from disk."""
     try:

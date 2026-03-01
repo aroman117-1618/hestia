@@ -8,6 +8,8 @@ enum WorkspaceView: String, CaseIterable {
     case explorer
     case health
     case profile
+    case wiki
+    case resources
 }
 
 @MainActor

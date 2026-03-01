@@ -26,7 +26,7 @@ from hestia.api.middleware.auth import (
     verify_invite_token,
     verify_setup_secret,
     check_invite_rate_limit,
-    get_current_device,
+    get_device_token,
     AuthError,
 )
 from hestia.api.invite_store import get_invite_store
@@ -264,7 +264,7 @@ async def register_with_invite(request: InviteRegisterRequest) -> InviteRegister
                 "Recovery path when setup secret is lost.",
 )
 async def re_invite(
-    _device: str = Depends(get_current_device),
+    _device: str = Depends(get_device_token),
 ) -> InviteGenerateResponse:
     """
     Generate an invite from an authenticated device (recovery path).

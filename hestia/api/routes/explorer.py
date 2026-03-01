@@ -10,7 +10,7 @@ from typing import Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
-from hestia.api.middleware.auth import get_current_device
+from hestia.api.middleware.auth import get_device_token
 from hestia.api.errors import sanitize_for_log
 from hestia.explorer import get_explorer_manager, ResourceType, ResourceSource, ResourceFlag
 from hestia.logging import get_logger, LogComponent
@@ -89,7 +89,7 @@ async def list_resources(
     search: Optional[str] = Query(None, description="Search by title or preview text"),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """List aggregated resources from all sources."""
     manager = await get_explorer_manager()
@@ -150,7 +150,7 @@ async def list_resources(
 )
 async def get_resource(
     resource_id: str,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Get a single resource by ID."""
     manager = await get_explorer_manager()
@@ -173,7 +173,7 @@ async def get_resource(
 )
 async def get_resource_content(
     resource_id: str,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Get full content for a resource."""
     manager = await get_explorer_manager()
@@ -202,7 +202,7 @@ async def get_resource_content(
 )
 async def create_draft(
     request: DraftCreateRequest,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Create a new Hestia draft."""
     manager = await get_explorer_manager()
@@ -253,7 +253,7 @@ async def create_draft(
 async def update_draft(
     draft_id: str,
     request: DraftUpdateRequest,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Update an existing draft."""
     manager = await get_explorer_manager()
@@ -306,7 +306,7 @@ async def update_draft(
 )
 async def delete_draft(
     draft_id: str,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Delete a draft."""
     manager = await get_explorer_manager()

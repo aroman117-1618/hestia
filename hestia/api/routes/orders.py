@@ -9,7 +9,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from hestia.api.middleware.auth import get_current_device
+from hestia.api.middleware.auth import get_device_token
 from hestia.api.schemas import (
     OrderCreateRequest,
     OrderUpdateRequest,
@@ -139,7 +139,7 @@ def _order_to_response(order: Order, next_execution: Optional[datetime] = None) 
 )
 async def create_order(
     request: OrderCreateRequest,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Create a new order."""
     manager = await get_order_manager()
@@ -188,7 +188,7 @@ async def list_orders(
     status_filter: Optional[OrderStatusEnum] = Query(None, alias="status"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """List orders."""
     manager = await get_order_manager()
@@ -227,7 +227,7 @@ async def list_orders(
 )
 async def get_order(
     order_id: str,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Get order by ID."""
     manager = await get_order_manager()
@@ -254,7 +254,7 @@ async def get_order(
 async def update_order(
     order_id: str,
     request: OrderUpdateRequest,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Update an order."""
     manager = await get_order_manager()
@@ -314,7 +314,7 @@ async def update_order(
 )
 async def delete_order(
     order_id: str,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Delete an order."""
     manager = await get_order_manager()
@@ -356,7 +356,7 @@ async def list_executions(
     since: Optional[datetime] = Query(None),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """List executions for an order."""
     manager = await get_order_manager()
@@ -417,7 +417,7 @@ async def list_executions(
 )
 async def execute_order(
     order_id: str,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Execute an order immediately."""
     manager = await get_order_manager()

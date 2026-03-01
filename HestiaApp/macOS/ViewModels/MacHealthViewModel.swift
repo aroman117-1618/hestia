@@ -1,56 +1,128 @@
 import SwiftUI
 import HestiaShared
 
-/// Health dashboard ViewModel with static mock data for initial UI.
+/// Health dashboard ViewModel backed by real HealthKit data from the API.
 @MainActor
 class MacHealthViewModel: ObservableObject {
-    // MARK: - Biological Age
-    @Published var biologicalAge: Int = 47
-    @Published var chronologicalAge: Int = 42
-    @Published var percentile: Int = 74
+    // MARK: - Activity
+    @Published var steps: Int = 0
+    @Published var distance: Double = 0  // km
+    @Published var calories: Int = 0     // active calories
+    @Published var exerciseMinutes: Int = 0
 
-    // Radar chart axes (0-1 normalized)
-    @Published var radarValues: [Double] = [0.85, 0.72, 0.45, 0.35, 0.68, 0.62, 0.78]
-    let radarLabels = ["Biological", "Metabolic", "Lipid", "Cancer", "Heme-Immune", "Kidney", "Liver"]
+    // MARK: - Heart
+    @Published var restingHR: Int = 0
+    @Published var hrv: Double = 0
 
-    // Risk values around gauge
-    let riskValues: [(label: String, value: String)] = [
-        ("Heart Disease", "34.21"),
-        ("Type 2 Diabetes", "17.32"),
-        ("Stroke", "17.54"),
-        ("COPD", "14.45"),
-        ("Cancer", "4.94")
-    ]
+    // MARK: - Sleep
+    @Published var sleepMinutes: Int = 0
+    @Published var sleepTrend: [CGFloat] = []
 
-    // MARK: - Telomere
-    @Published var telomereLength: Double = 5.2
-    @Published var telomereStatus: String = "Medium"
+    // MARK: - Body
+    @Published var weight: Double = 0    // kg
+    @Published var bmi: Double = 0
 
-    // MARK: - Methylation
-    @Published var methylationScore: Double = 0.76
-    @Published var methylationAge: Int = 47
-
-    // MARK: - Immunity
-    let immunityValues: [(label: String, range: String)] = [
-        ("CD4+ T Cells (Helper T Cells)", "30-60"),
-        ("CD8+ T Cells (Cytotoxic T Cells)", "20-40"),
-        ("B Cells", "5-15"),
-        ("Monocytes", "2-10")
-    ]
-    @Published var cd4Cd8Ratio: Double = 1.4
-    @Published var lymphMonoRatio: Double = 3.7
-
-    // MARK: - Inflammation
-    @Published var crpScore: Double = 3.2
-    @Published var crpPercentile: Int = 75
-    @Published var crpChange: Double = 2.5
-    @Published var crpChangePercent: Double = 14.2
-
-    // MARK: - Data Loading
+    // MARK: - State
     @Published var isLoading = false
+    @Published var hasData = false
+    @Published var lastSyncDate: String?
+    @Published var errorMessage: String?
+
+    // MARK: - Step Trend (sparkline)
+    @Published var stepTrend: [CGFloat] = []
+
+    /// Formatted sleep duration
+    var sleepDisplay: String {
+        let hours = sleepMinutes / 60
+        let mins = sleepMinutes % 60
+        if hours == 0 && mins == 0 { return "--" }
+        return "\(hours)h \(mins)m"
+    }
+
+    /// Step goal progress (0-1)
+    var stepProgress: Double {
+        let goal = 10_000.0
+        return min(Double(steps) / goal, 1.0)
+    }
+
+    /// Exercise ring progress (0-1, goal = 30 min)
+    var exerciseProgress: Double {
+        let goal = 30.0
+        return min(Double(exerciseMinutes) / goal, 1.0)
+    }
+
+    /// Calorie ring progress (0-1, goal = 500 kcal)
+    var calorieProgress: Double {
+        let goal = 500.0
+        return min(Double(calories) / goal, 1.0)
+    }
+
+    // MARK: - Loading
 
     func loadData() async {
-        // Future: fetch from /v1/health_data/summary
-        // For now, static mock data is already populated
+        isLoading = true
+        errorMessage = nil
+
+        do {
+            let summary = try await APIClient.shared.getHealthSummary()
+            parseSummary(summary)
+            hasData = true
+            lastSyncDate = summary.date
+        } catch {
+            #if DEBUG
+            print("[MacHealthViewModel] Summary load failed: \(error)")
+            #endif
+            errorMessage = "Unable to load health data"
+        }
+
+        // Load step trend in parallel (non-blocking)
+        do {
+            let trend = try await APIClient.shared.getHealthTrend(metricType: "stepCount", days: 7)
+            stepTrend = trend.dataPoints.compactMap { point in
+                guard let v = point.value else { return nil }
+                return CGFloat(v)
+            }
+        } catch {
+            #if DEBUG
+            print("[MacHealthViewModel] Step trend load failed: \(error)")
+            #endif
+        }
+
+        // Load sleep trend
+        do {
+            let trend = try await APIClient.shared.getHealthTrend(metricType: "sleepAnalysis", days: 7)
+            sleepTrend = trend.dataPoints.compactMap { point in
+                guard let v = point.value else { return nil }
+                return CGFloat(v)
+            }
+        } catch {
+            #if DEBUG
+            print("[MacHealthViewModel] Sleep trend load failed: \(error)")
+            #endif
+        }
+
+        isLoading = false
+    }
+
+    // MARK: - Parse
+
+    private func parseSummary(_ s: MacHealthSummaryResponse) {
+        // Activity
+        steps = Int(s.double(from: s.activity, key: "steps") ?? 0)
+        distance = (s.double(from: s.activity, key: "distance_km") ?? s.double(from: s.activity, key: "distance") ?? 0)
+        calories = Int(s.double(from: s.activity, key: "active_calories") ?? s.double(from: s.activity, key: "calories") ?? 0)
+        exerciseMinutes = Int(s.double(from: s.activity, key: "exercise_minutes") ?? s.double(from: s.activity, key: "exercise_time") ?? 0)
+
+        // Heart
+        restingHR = Int(s.double(from: s.heart, key: "resting_hr") ?? s.double(from: s.heart, key: "resting_heart_rate") ?? 0)
+        hrv = s.double(from: s.heart, key: "hrv") ?? s.double(from: s.heart, key: "heart_rate_variability") ?? 0
+
+        // Sleep
+        let sleepHours = s.double(from: s.sleep, key: "duration_hours") ?? s.double(from: s.sleep, key: "total_hours") ?? 0
+        sleepMinutes = Int(sleepHours * 60)
+
+        // Body
+        weight = s.double(from: s.body, key: "weight_kg") ?? s.double(from: s.body, key: "weight") ?? 0
+        bmi = s.double(from: s.body, key: "bmi") ?? 0
     }
 }

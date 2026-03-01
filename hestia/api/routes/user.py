@@ -7,7 +7,7 @@ User profile, notification preferences, and push token management.
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 
-from hestia.api.middleware.auth import get_current_device
+from hestia.api.middleware.auth import get_device_token
 from hestia.api.schemas import (
     UserProfileResponse,
     UserProfileUpdateRequest,
@@ -93,7 +93,7 @@ def _push_settings_to_schema(settings: PushNotificationSettings) -> PushNotifica
     description="Get current user profile information.",
 )
 async def get_profile(
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Get user profile."""
     manager = await get_user_manager()
@@ -120,7 +120,7 @@ async def get_profile(
 )
 async def update_profile(
     request: UserProfileUpdateRequest,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Update user profile."""
     manager = await get_user_manager()
@@ -155,7 +155,7 @@ async def update_profile(
 )
 async def upload_photo(
     photo: UploadFile = File(...),
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Upload user profile photo."""
     # Validate content type
@@ -198,7 +198,7 @@ async def upload_photo(
     description="Get the user profile photo.",
 )
 async def get_photo(
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Get user profile photo."""
     manager = await get_user_manager()
@@ -235,7 +235,7 @@ async def get_photo(
     description="Delete the user profile photo.",
 )
 async def delete_photo(
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Delete user profile photo."""
     manager = await get_user_manager()
@@ -271,7 +271,7 @@ async def delete_photo(
     description="Get user notification and preference settings.",
 )
 async def get_settings(
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Get user settings."""
     manager = await get_user_manager()
@@ -293,7 +293,7 @@ async def get_settings(
 )
 async def update_settings(
     request: UserSettingsUpdateRequest,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Update user settings."""
     manager = await get_user_manager()
@@ -337,7 +337,7 @@ async def update_settings(
 )
 async def register_push_token(
     request: PushTokenRequest,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Register a push token."""
     manager = await get_user_manager()
@@ -369,7 +369,7 @@ async def register_push_token(
     description="Unregister push token for this device.",
 )
 async def unregister_push_token(
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Unregister push token for current device."""
     manager = await get_user_manager()
@@ -404,7 +404,7 @@ async def unregister_push_token(
     description="List all devices that have registered with this Hestia instance.",
 )
 async def list_devices(
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """List all registered devices with revocation status."""
     try:
@@ -445,7 +445,7 @@ async def list_devices(
 )
 async def revoke_device(
     target_device_id: str,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Revoke a registered device's access."""
     if target_device_id == device_id:
@@ -496,7 +496,7 @@ async def revoke_device(
 )
 async def unrevoke_device(
     target_device_id: str,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Restore a revoked device's access."""
     try:

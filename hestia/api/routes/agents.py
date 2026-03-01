@@ -10,7 +10,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse
 
-from hestia.api.middleware.auth import get_current_device
+from hestia.api.middleware.auth import get_device_token
 from hestia.api.schemas import (
     AgentProfileResponse,
     AgentListResponse,
@@ -86,7 +86,7 @@ def _agent_to_response(
     description="List all 3 agent profiles.",
 )
 async def list_agents(
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """List all agents."""
     manager = await get_agent_manager()
@@ -107,7 +107,7 @@ async def list_agents(
 )
 async def get_agent(
     slot_index: int,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Get agent by slot index."""
     if slot_index not in (0, 1, 2):
@@ -140,7 +140,7 @@ async def get_agent(
 async def update_agent(
     slot_index: int,
     request: AgentUpdateRequest,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Update an agent."""
     if slot_index not in (0, 1, 2):
@@ -183,7 +183,7 @@ async def update_agent(
 )
 async def delete_agent(
     slot_index: int,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Delete (reset) an agent."""
     if slot_index not in (0, 1, 2):
@@ -237,7 +237,7 @@ async def delete_agent(
 async def upload_photo(
     slot_index: int,
     photo: UploadFile = File(...),
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Upload an agent photo."""
     if slot_index not in (0, 1, 2):
@@ -296,7 +296,7 @@ async def upload_photo(
 )
 async def get_photo(
     slot_index: int,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Get an agent's photo."""
     if slot_index not in (0, 1, 2):
@@ -341,7 +341,7 @@ async def get_photo(
 )
 async def delete_photo(
     slot_index: int,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Delete an agent's photo."""
     if slot_index not in (0, 1, 2):
@@ -392,7 +392,7 @@ async def delete_photo(
 )
 async def list_snapshots(
     slot_index: int,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """List snapshots for an agent."""
     if slot_index not in (0, 1, 2):
@@ -434,7 +434,7 @@ async def list_snapshots(
 async def restore_from_snapshot(
     slot_index: int,
     request: AgentRestoreRequest,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Restore an agent from a snapshot."""
     if slot_index not in (0, 1, 2):
@@ -487,7 +487,7 @@ async def restore_from_snapshot(
 )
 async def sync_agents(
     request: AgentSyncRequest,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Sync agents from a device."""
     manager = await get_agent_manager()

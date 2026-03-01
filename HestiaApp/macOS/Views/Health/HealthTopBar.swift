@@ -14,56 +14,84 @@ struct HealthTopBar: View {
 
             Spacer()
 
-            // Age pills
-            HStack(spacing: MacSpacing.md) {
-                agePill(
-                    icon: "dna",
-                    label: "Biological age",
-                    age: viewModel.biologicalAge,
-                    unit: "yrs"
-                )
+            // Summary pills
+            if viewModel.hasData {
+                HStack(spacing: MacSpacing.md) {
+                    metricPill(
+                        icon: "figure.walk",
+                        label: "Steps",
+                        value: formatNumber(viewModel.steps)
+                    )
 
-                Rectangle()
-                    .fill(Color(red: 254/255, green: 154/255, blue: 0).opacity(0.2))
-                    .frame(width: 1, height: 20)
+                    Rectangle()
+                        .fill(MacColors.healthGreen.opacity(0.2))
+                        .frame(width: 1, height: 20)
 
-                agePill(
-                    icon: nil,
-                    label: "Chronological age",
-                    age: viewModel.chronologicalAge,
-                    unit: "yrs"
+                    metricPill(
+                        icon: "flame.fill",
+                        label: "Calories",
+                        value: "\(viewModel.calories)"
+                    )
+
+                    Rectangle()
+                        .fill(MacColors.healthGreen.opacity(0.2))
+                        .frame(width: 1, height: 20)
+
+                    metricPill(
+                        icon: "heart.fill",
+                        label: "HR",
+                        value: viewModel.restingHR > 0 ? "\(viewModel.restingHR) bpm" : "--"
+                    )
+                }
+                .padding(.horizontal, MacSpacing.lg)
+                .padding(.vertical, MacSpacing.sm)
+                .background(
+                    LinearGradient(
+                        colors: [
+                            MacColors.healthGreen.opacity(0.1),
+                            Color(red: 0/255, green: 212/255, blue: 146/255).opacity(0.04)
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
                 )
-            }
-            .padding(.horizontal, MacSpacing.lg)
-            .padding(.vertical, MacSpacing.sm)
-            .background(
-                LinearGradient(
-                    colors: [
-                        Color(red: 254/255, green: 154/255, blue: 0).opacity(0.15),
-                        Color(red: 70/255, green: 25/255, blue: 1/255).opacity(0.4)
-                    ],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
-            .clipShape(Capsule())
-            .overlay {
-                Capsule().strokeBorder(Color(red: 254/255, green: 154/255, blue: 0).opacity(0.2), lineWidth: 1)
+                .clipShape(Capsule())
+                .overlay {
+                    Capsule().strokeBorder(MacColors.healthGreen.opacity(0.15), lineWidth: 1)
+                }
             }
 
             Spacer()
 
-            // Warning message
-            warningBadge
+            // Sync info
+            if let syncDate = viewModel.lastSyncDate {
+                HStack(spacing: MacSpacing.xs) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 11))
+                        .foregroundStyle(MacColors.textSecondary)
+                    Text("Synced \(syncDate)")
+                        .font(MacTypography.smallBody)
+                        .foregroundStyle(MacColors.textSecondary)
+                }
+            } else if !viewModel.hasData {
+                HStack(spacing: MacSpacing.xs) {
+                    Image(systemName: "iphone.and.arrow.forward")
+                        .font(.system(size: 11))
+                        .foregroundStyle(MacColors.textFaint)
+                    Text("Sync from iPhone")
+                        .font(MacTypography.smallBody)
+                        .foregroundStyle(MacColors.textFaint)
+                }
+            }
         }
         .padding(.horizontal, MacSpacing.xxl)
         .frame(height: 52)
         .background(
             LinearGradient(
                 colors: [
-                    Color(red: 70/255, green: 25/255, blue: 1/255).opacity(0.6),
-                    Color(red: 254/255, green: 154/255, blue: 0).opacity(0.08),
-                    Color(red: 70/255, green: 25/255, blue: 1/255).opacity(0.6)
+                    Color(red: 0/255, green: 50/255, blue: 35/255).opacity(0.4),
+                    Color(red: 0/255, green: 212/255, blue: 146/255).opacity(0.05),
+                    Color(red: 0/255, green: 50/255, blue: 35/255).opacity(0.4)
                 ],
                 startPoint: .leading,
                 endPoint: .trailing
@@ -74,48 +102,26 @@ struct HealthTopBar: View {
         }
     }
 
-    private func agePill(icon: String?, label: String, age: Int, unit: String) -> some View {
+    private func metricPill(icon: String, label: String, value: String) -> some View {
         HStack(spacing: MacSpacing.sm) {
-            if let icon = icon {
-                Image(systemName: icon)
-                    .font(.system(size: 14))
-                    .foregroundStyle(MacColors.amberAccent)
-            }
+            Image(systemName: icon)
+                .font(.system(size: 14))
+                .foregroundStyle(MacColors.healthGreen)
             Text(label + " ")
                 .font(MacTypography.label)
                 .foregroundStyle(.white)
             +
-            Text("\(age)")
-                .font(.system(size: 20))
+            Text(value)
+                .font(.system(size: 18, weight: .medium))
                 .foregroundStyle(MacColors.healthGold)
-            +
-            Text(" " + unit)
-                .font(MacTypography.caption)
-                .foregroundStyle(MacColors.healthAmber.opacity(0.5))
         }
     }
 
-    private var warningBadge: some View {
-        HStack(spacing: MacSpacing.xs) {
-            Text("Your body is aging ")
-                .font(MacTypography.smallBody)
-                .foregroundStyle(MacColors.healthRed)
-            +
-            Text("5 years faster ")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(.white)
-            +
-            Text("than your chronological age")
-                .font(MacTypography.smallBody)
-                .foregroundStyle(MacColors.healthRed.opacity(0.7))
+    private func formatNumber(_ n: Int) -> String {
+        if n >= 1000 {
+            let k = Double(n) / 1000.0
+            return String(format: "%.1fk", k)
         }
-        .padding(.horizontal, MacSpacing.md)
-        .frame(height: 32)
-        .background(MacColors.healthRedBg)
-        .overlay {
-            RoundedRectangle(cornerRadius: MacCornerRadius.tab)
-                .strokeBorder(MacColors.healthRedBorder, lineWidth: 1)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.tab))
+        return "\(n)"
     }
 }

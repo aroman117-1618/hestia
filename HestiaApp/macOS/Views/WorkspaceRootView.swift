@@ -21,6 +21,10 @@ struct WorkspaceRootView: View {
                     HealthView()
                 case .profile:
                     UserProfileView()
+                case .wiki:
+                    MacWikiView()
+                case .resources:
+                    MacResourcesView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

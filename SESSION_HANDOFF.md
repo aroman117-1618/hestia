@@ -1,81 +1,58 @@
-# Session Handoff — 2026-03-01 (Session F)
+# Session Handoff — 2026-03-01 (Session H)
 
 ## Mission
-Sprint 3: Command Center / Newsfeed — full implementation across backend, iOS, and macOS.
+Sprint 5: Audit Remediation + macOS Frontend Wiring — fix critical auth bug, standardize auth deps, wire macOS Wiki/Explorer/Resources tabs.
 
 ## Completed
-- **Backend newsfeed module** (`hestia/newsfeed/`): models, database (2 tables: items + state), manager with materialized cache (30s TTL), 4-source aggregation (orders, memory, tasks, health) via `asyncio.gather(return_exceptions=True)`
-- **Bulk OrderManager method** [T1]: `list_recent_executions(since, limit)` added to `orders/database.py` + `orders/manager.py`
-- **5 API endpoints** (`hestia/api/routes/newsfeed.py`): timeline (filtered/paginated), unread-count (by type), mark-read, dismiss, refresh (rate-limited 1/10s)
-- **Server wiring**: LogComponent.NEWSFEED, router registered, manager init in lifespan, auto-test.sh mapping
-- **42 backend tests** (`tests/test_newsfeed.py`): models (8), database (13), manager (13), routes (8). All pass.
-- **iOS Command Center rewrite**: NewsfeedModels + BriefingModels, NewsfeedViewModel, BriefingCard, FilterBar, NewsfeedTimeline, NewsfeedItemRow, CommandCenterView (Header > Briefing > Filters > Timeline > NeuralNet)
-- **APIClient extensions**: `APIClient+Newsfeed.swift` (iOS: 6 methods, macOS: 1 method)
-- **macOS updates**: MacCommandCenterViewModel (newsfeed loading), StatCardsRow (real data), ActivityFeed (real items with filter/search)
-- **Both Xcode builds clean**: HestiaApp (iOS) + HestiaWorkspace (macOS)
-- **Documentation**: CLAUDE.md, SPRINT.md, api-contract.md (Newsfeed section), decision log (ADR-032, ADR-033), this handoff
 
-## In Progress
-- Nothing — Sprint 3 complete, workspace ready for commit.
+### Sprint 5 (this session)
+- **5A: Proactive Auth Fix (CRITICAL)** — all 6 `Depends(verify_device_token)` → `Depends(get_device_token)` in `proactive.py`. Root cause: `verify_device_token` takes `str` (validation utility), not a FastAPI dependency.
+- **5B: Auth Dependency Standardization** — removed `get_current_device` alias, replaced ~67 occurrences across 9 route files. Single canonical: `get_device_token`.
+- **5C: macOS Navigation Infrastructure** — `.wiki` + `.resources` enum cases, IconSidebar navIcon() calls, Cmd+5/Cmd+6 shortcuts, WorkspaceRootView wiring.
+- **5D: macOS Wiki (Field Guide)** — 7 new files: WikiModels, APIClient+Wiki, MacWikiViewModel, 4 views. 2-pane layout.
+- **5E: macOS Explorer Resources Mode** — 2 new files + ExplorerView modified. Segmented control (Files/Resources).
+- **5F: macOS Resources Tab** — 10 new files: ToolModels, APIClient+Tools, 2 ViewModels, 6 views. 3-tab layout (LLMs/Integrations/MCPs).
+- **5G: Docs** — CLAUDE.md, SPRINT.md updated.
+
+### Sprint 4 (previous session, also uncommitted)
+- Dynamic Tool Discovery, Device Management UI, macOS Health redesign, Proactive Intelligence Settings
 
 ## Decisions Made
-- **ADR-032**: Materialized cache over virtual aggregation (30s TTL, SQLite-backed)
-- **ADR-033**: User-scoped newsfeed state (item_id + user_id composite PK) for multi-device
-- RSS deferred — original Sprint 3 scope included feedparser + APScheduler, cut for scope discipline
-- Briefing card is NOT a feed item — persistent card above timeline, uses existing `/v1/proactive/briefing`
-- macOS gets duplicate model files (separate target sources from `macOS/` only, not `Shared/`)
+- macOS model duplication pattern continued (macOS/ models separate from Shared/)
+- MacIntegrationsViewModel created separately to avoid UIKit import (uses EventKit directly, excludes HealthKit)
+- Explorer gets dual-mode (Files + Resources) via segmented control rather than separate views
 
 ## Test Status
-- **1085 collected, ~1082 passing, 3 skipped** (full suite)
-- 42 new newsfeed tests all pass
-- Skipped: 3 macOS-only HealthKit tests (pre-existing)
+- **1086 collected, 1083 passing, 3 skipped**
+- Both macOS (HestiaWorkspace) and iOS (HestiaApp) build clean
 
 ## Uncommitted Changes
-All Sprint 3 work is uncommitted. Key new/modified files:
+~60 files modified/added across Sprints 3-5. All work uncommitted.
 
-**Created (backend):**
-- `hestia/newsfeed/models.py`, `database.py`, `manager.py`, `__init__.py`
-- `hestia/api/routes/newsfeed.py`
-- `tests/test_newsfeed.py`
+**Sprint 5 files created:**
+- `macOS/Models/WikiModels.swift`, `ToolModels.swift`
+- `macOS/Services/APIClient+Wiki.swift`, `APIClient+Tools.swift`
+- `macOS/ViewModels/MacWikiViewModel.swift`, `MacExplorerResourcesViewModel.swift`, `MacCloudSettingsViewModel.swift`, `MacIntegrationsViewModel.swift`
+- `macOS/Views/Wiki/MacWikiView.swift`, `MacWikiSidebarView.swift`, `MacWikiDetailPane.swift`, `MacWikiArticleRow.swift`
+- `macOS/Views/Explorer/MacExplorerResourcesView.swift`
+- `macOS/Views/Resources/MacResourcesView.swift`, `MacCloudSettingsView.swift`, `MacCloudProviderDetailView.swift`, `MacAddCloudProviderView.swift`, `MacIntegrationsView.swift`, `MacMCPPlaceholderView.swift`
 
-**Created (iOS):**
-- `HestiaApp/Shared/Models/NewsfeedModels.swift`, `BriefingModels.swift`
-- `HestiaApp/Shared/ViewModels/NewsfeedViewModel.swift`
-- `HestiaApp/Shared/Views/CommandCenter/BriefingCard.swift`, `FilterBar.swift`, `NewsfeedTimeline.swift`, `NewsfeedItemRow.swift`
-- `HestiaApp/Shared/Services/APIClient+Newsfeed.swift`
-
-**Created (macOS):**
-- `HestiaApp/macOS/Models/NewsfeedModels.swift`
-- `HestiaApp/macOS/Services/APIClient+Newsfeed.swift`
-
-**Modified:**
-- `hestia/orders/database.py`, `hestia/orders/manager.py` (bulk list_recent_executions)
-- `hestia/logging/structured_logger.py` (NEWSFEED LogComponent)
-- `hestia/api/routes/__init__.py`, `hestia/api/server.py` (router + init)
-- `scripts/auto-test.sh` (newsfeed mapping)
-- `HestiaApp/Shared/Views/CommandCenter/CommandCenterView.swift` (rewritten)
-- `HestiaApp/macOS/ViewModels/MacCommandCenterViewModel.swift`, `StatCardsRow.swift`, `ActivityFeed.swift`, `CommandView.swift`
-- `CLAUDE.md`, `SPRINT.md`, `docs/api-contract.md`, `docs/hestia-decision-log.md`
-
-## Audit Conditions Checklist
-| ID | Condition | Status |
-|----|-----------|--------|
-| T1 | Bulk `list_recent_executions` | Done |
-| T2 | Use `get_device_token` in routes | Done |
-| T4 | 30-day retention cleanup | Done |
-| C1 | Rate limit refresh (1/10s) | Done |
-| P1 | Empty state for timeline | Done |
-| V1 | curl briefing endpoint | Done (uses query param `token` auth, different from header auth) |
+**Sprint 5 files modified:**
+- `hestia/api/routes/proactive.py` (auth fix)
+- `hestia/api/middleware/auth.py` (removed alias)
+- 9 route files (auth dep rename)
+- `macOS/State/WorkspaceState.swift`, `macOS/Views/Chrome/IconSidebar.swift`, `macOS/Views/WorkspaceRootView.swift`, `macOS/AppDelegate.swift`
+- `macOS/Views/Explorer/ExplorerView.swift` (segmented control)
+- `CLAUDE.md`, `SPRINT.md`, `SESSION_HANDOFF.md`
 
 ## Known Issues / Landmines
-- **Briefing endpoint auth**: `/v1/proactive/briefing` uses query param `token` (not `X-Hestia-Device-Token` header). iOS BriefingCard calls it through APIClient which uses header auth — may need adjustment if briefing returns 401.
-- **macOS model duplication**: `NewsfeedModels.swift` exists in both `Shared/` and `macOS/` — if model changes, both must be updated. Consider moving to HestiaShared package in future.
-- **No server running**: Server was killed during testing. Use `/restart` or `python -m hestia.api.server`.
-- **Mac Mini deploy pending**: Sprint 1 + 2 + 3 all need deploying.
-- **pytest hangs**: ChromaDB background threads. Use `--timeout=30` or `run_with_timeout` pattern.
+- **macOS model duplication**: WikiModels, ToolModels, DeviceModels, HealthDataModels, NewsfeedModels all exist in both `macOS/Models/` and `Shared/Models/`. If models change, both must be updated.
+- **No server running**: Server killed at session start. Use `/preflight` or `python -m hestia.api.server`.
+- **Mac Mini deploy pending**: Sprints 1-5 all need deploying.
+- **All changes uncommitted**: Sprints 3 + 4 + 5 work needs committing.
 
 ## Next Step
-- **Commit Sprint 3 work** — all changes are uncommitted
-- **Deploy to Mac Mini** — multiple sprints accumulated since last deploy
-- **Sprint 4 planning** — potential areas: Settings wiring, Chat enhancements, RSS integration
+- **Commit all uncommitted work** (Sprints 3 + 4 + 5)
+- **Deploy to Mac Mini** — 5 sprints accumulated
+- **Sprint 6 planning** — candidates: Schema consolidation, CI/CD improvements, MCP management, Tasks UI, Chat enhancements
 - Run `/pickup` at next session start

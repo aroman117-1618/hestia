@@ -3,10 +3,46 @@ import HestiaShared
 
 struct ExplorerView: View {
     @StateObject private var viewModel = MacExplorerViewModel()
+    @State private var explorerMode: ExplorerMode = .files
+
+    enum ExplorerMode: String, CaseIterable {
+        case files = "Files"
+        case resources = "Resources"
+    }
 
     var body: some View {
+        VStack(spacing: 0) {
+            // Mode picker
+            HStack {
+                Picker("", selection: $explorerMode) {
+                    ForEach(ExplorerMode.allCases, id: \.self) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 200)
+
+                Spacer()
+            }
+            .padding(.horizontal, MacSpacing.xl)
+            .padding(.top, MacSpacing.md)
+            .padding(.bottom, MacSpacing.sm)
+
+            // Content
+            switch explorerMode {
+            case .files:
+                filesView
+            case .resources:
+                MacExplorerResourcesView()
+            }
+        }
+        .background(MacColors.windowBackground)
+    }
+
+    // MARK: - Files View (original)
+
+    private var filesView: some View {
         HStack(spacing: 0) {
-            // File tree sidebar (280px)
             VStack(spacing: 0) {
                 FileSearchBar(searchText: $viewModel.searchText)
 
@@ -25,7 +61,6 @@ struct ExplorerView: View {
                     .strokeBorder(MacColors.cardBorder, lineWidth: 1)
             }
 
-            // Document preview (flex)
             FilePreviewArea(
                 selectedFile: viewModel.selectedFile,
                 content: viewModel.previewContent,
@@ -39,8 +74,7 @@ struct ExplorerView: View {
                     .strokeBorder(MacColors.cardBorder, lineWidth: 1)
             }
         }
-        .padding(MacSpacing.xl)
-        .background(MacColors.windowBackground)
-        // Don't auto-open folder picker — let user click "Open Folder" when ready
+        .padding(.horizontal, MacSpacing.xl)
+        .padding(.bottom, MacSpacing.xl)
     }
 }

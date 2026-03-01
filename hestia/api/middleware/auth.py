@@ -348,6 +348,3 @@ async def get_optional_device_token(
     except AuthError:
         return None
 
-
-# Alias for backward compatibility
-get_current_device = get_device_token

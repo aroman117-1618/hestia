@@ -117,6 +117,7 @@ class IntegrationsViewModel: ObservableObject {
 
     private let eventStore = EKEventStore()
     private var foregroundObserver: AnyCancellable?
+    private var apiTools: [ToolDefinitionAPI] = []
 
     // MARK: - Calendar Config (UserDefaults-backed)
 
@@ -153,8 +154,13 @@ class IntegrationsViewModel: ObservableObject {
         calendarExcludeAllDay = defaults.object(forKey: IntegrationKeys.calendarExcludeAllDay) as? Bool ?? true
         calendarLookAheadDays = defaults.object(forKey: IntegrationKeys.calendarLookAheadDays) as? Int ?? 7
 
-        // Build initial integration list
+        // Build initial integration list (hardcoded fallback while API loads)
         buildIntegrations()
+
+        // Load tools from API in background
+        Task { [weak self] in
+            await self?.loadTools()
+        }
 
         // Observe app returning to foreground to refresh permission states
         foregroundObserver = NotificationCenter.default
@@ -163,6 +169,22 @@ class IntegrationsViewModel: ObservableObject {
             .sink { [weak self] _ in
                 self?.refresh()
             }
+    }
+
+    /// Fetch tool definitions from the backend API
+    private func loadTools() async {
+        do {
+            let response = try await APIClient.shared.getTools()
+            apiTools = response.tools
+            buildIntegrations()
+            #if DEBUG
+            print("[IntegrationsViewModel] Loaded \(response.count) tools from API")
+            #endif
+        } catch {
+            #if DEBUG
+            print("[IntegrationsViewModel] Failed to load tools from API, using fallback: \(error)")
+            #endif
+        }
     }
 
     // MARK: - Public Methods
@@ -275,10 +297,38 @@ class IntegrationsViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Static Tool Definitions
-    // SYNC WITH: hestia/apple/ when backend tools change
+    // MARK: - Tool Definitions (API-first with hardcoded fallback)
+
+    /// Map backend tool categories to IntegrationType
+    private static let categoryMap: [String: IntegrationType] = [
+        "calendar": .calendar,
+        "reminders": .reminders,
+        "notes": .notes,
+        "mail": .mail,
+        "health": .health,
+    ]
 
     private func toolsFor(_ type: IntegrationType) -> [IntegrationTool] {
+        // Prefer API-fetched tools if available
+        let apiMatches = apiTools.filter { tool in
+            Self.categoryMap[tool.category] == type
+        }
+        if !apiMatches.isEmpty {
+            return apiMatches.map { tool in
+                IntegrationTool(
+                    id: tool.name,
+                    name: tool.name.replacingOccurrences(of: "_", with: " ").capitalized,
+                    description: tool.description,
+                    requiresApproval: tool.requiresApproval
+                )
+            }
+        }
+
+        // Hardcoded fallback when API is unreachable
+        return fallbackToolsFor(type)
+    }
+
+    private func fallbackToolsFor(_ type: IntegrationType) -> [IntegrationTool] {
         switch type {
         case .calendar:
             return [

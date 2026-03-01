@@ -75,6 +75,17 @@ struct UserProfileView: View {
                             sidebarNoteRow(note, isSelected: viewModel.selectedFile == "note:\(note.date)")
                         }
                     }
+
+                    // Devices section
+                    sidebarSection("DEVICES")
+                        .padding(.top, MacSpacing.md)
+
+                    sidebarFileRow(
+                        key: "devices",
+                        label: "Manage Devices",
+                        icon: "desktopcomputer",
+                        isSelected: viewModel.selectedFile == "devices"
+                    )
                 }
                 .padding(MacSpacing.md)
             }
@@ -227,17 +238,21 @@ struct UserProfileView: View {
     private var contentArea: some View {
         VStack(spacing: 0) {
             if let selected = viewModel.selectedFile {
-                // Top bar
-                contentTopBar(for: selected)
-
-                Divider()
-                    .background(MacColors.divider)
-
-                // Content
-                if viewModel.isEditing {
-                    editorView
+                if selected == "devices" {
+                    MacDeviceManagementView()
                 } else {
-                    readerView
+                    // Top bar
+                    contentTopBar(for: selected)
+
+                    Divider()
+                        .background(MacColors.divider)
+
+                    // Content
+                    if viewModel.isEditing {
+                        editorView
+                    } else {
+                        readerView
+                    }
                 }
             } else {
                 emptyState

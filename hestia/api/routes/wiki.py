@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
-from hestia.api.middleware.auth import get_current_device
+from hestia.api.middleware.auth import get_device_token
 from hestia.api.errors import sanitize_for_log
 from hestia.wiki import get_wiki_manager
 from hestia.logging import get_logger, LogComponent
@@ -98,7 +98,7 @@ class WikiStalenessResponse(BaseModel):
 )
 async def list_articles(
     type: Optional[str] = Query(None, description="Filter by article type"),
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """List wiki articles."""
     manager = await get_wiki_manager()
@@ -134,7 +134,7 @@ async def list_articles(
 )
 async def get_article(
     article_id: str,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Get a single wiki article."""
     manager = await get_wiki_manager()
@@ -170,7 +170,7 @@ async def get_article(
 )
 async def generate_article(
     request: WikiGenerateRequest,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Generate a single wiki article."""
     manager = await get_wiki_manager()
@@ -234,7 +234,7 @@ async def generate_article(
     description="Full regeneration of all AI content (~$0.80).",
 )
 async def generate_all(
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Generate all wiki articles."""
     manager = await get_wiki_manager()
@@ -261,7 +261,7 @@ async def generate_all(
     description="Re-read markdown docs from disk (decisions + roadmap).",
 )
 async def refresh_static(
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Refresh static content from disk."""
     manager = await get_wiki_manager()

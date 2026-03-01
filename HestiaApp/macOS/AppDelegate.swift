@@ -82,6 +82,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         profileItem.target = self
         viewMenu.addItem(profileItem)
 
+        let wikiItem = NSMenuItem(title: "Field Guide", action: #selector(showWikiView), keyEquivalent: "5")
+        wikiItem.target = self
+        viewMenu.addItem(wikiItem)
+
+        let resourcesItem = NSMenuItem(title: "Resources", action: #selector(showResourcesView), keyEquivalent: "6")
+        resourcesItem.target = self
+        viewMenu.addItem(resourcesItem)
+
         viewMenu.addItem(.separator())
 
         let chatItem = NSMenuItem(title: "Toggle Chat Panel", action: #selector(toggleChatPanel), keyEquivalent: "\\")
@@ -117,6 +125,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             case "4":
                 self?.switchView(to: .profile)
                 return nil
+            case "5":
+                self?.switchView(to: .wiki)
+                return nil
+            case "6":
+                self?.switchView(to: .resources)
+                return nil
             case "\\":
                 self?.mainWindowController?.toggleChatPanel(nil)
                 return nil
@@ -140,5 +154,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func showExplorerView() { switchView(to: .explorer) }
     @objc private func showHealthView() { switchView(to: .health) }
     @objc private func showProfileView() { switchView(to: .profile) }
+    @objc private func showWikiView() { switchView(to: .wiki) }
+    @objc private func showResourcesView() { switchView(to: .resources) }
     @objc private func toggleChatPanel() { mainWindowController?.toggleChatPanel(nil) }
 }

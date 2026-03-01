@@ -446,30 +446,6 @@ class APIClient: HestiaClientProtocol {
         return try await post("/health_data/coaching", body: request)
     }
 
-    // MARK: - Wiki API
-
-    func getWikiArticles(type: String? = nil) async throws -> WikiArticleListResponse {
-        let path = type != nil ? "/wiki/articles?type=\(type!)" : "/wiki/articles"
-        return try await get(path)
-    }
-
-    func getWikiArticle(id: String) async throws -> WikiArticle {
-        return try await get("/wiki/articles/\(id)")
-    }
-
-    func generateWikiArticle(type: String, moduleName: String? = nil) async throws -> WikiGenerateResponse {
-        let request = WikiGenerateRequest(articleType: type, moduleName: moduleName)
-        return try await post("/wiki/generate", body: request)
-    }
-
-    func generateAllWikiArticles() async throws -> WikiGenerateAllResponse {
-        return try await post("/wiki/generate-all", body: EmptyBody())
-    }
-
-    func refreshWikiStatic() async throws -> WikiRefreshResponse {
-        return try await post("/wiki/refresh-static", body: EmptyBody())
-    }
-
     // MARK: - HTTP Methods
 
     func get<T: Decodable>(_ path: String) async throws -> T {

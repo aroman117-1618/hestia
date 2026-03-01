@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from hestia.api.errors import sanitize_for_log
-from hestia.api.middleware.auth import get_current_device
+from hestia.api.middleware.auth import get_device_token
 from hestia.logging import get_logger
 from hestia.user.config_loader import get_user_config_loader
 from hestia.user.config_models import UserConfigFile
@@ -86,7 +86,7 @@ class CommandCreateRequest(BaseModel):
 
 @router.get("", response_model=UserProfileResponse)
 async def get_user_profile(
-    _device: str = Depends(get_current_device),
+    _device: str = Depends(get_device_token),
 ) -> UserProfileResponse:
     """Get user profile summary."""
     try:
@@ -105,7 +105,7 @@ async def get_user_profile(
 @router.get("/files/{file_name}", response_model=FileContentResponse)
 async def get_config_file(
     file_name: str,
-    _device: str = Depends(get_current_device),
+    _device: str = Depends(get_device_token),
 ) -> FileContentResponse:
     """Get content of a specific user profile file."""
     try:
@@ -136,7 +136,7 @@ async def get_config_file(
 async def update_config_file(
     file_name: str,
     request: FileUpdateRequest,
-    _device: str = Depends(get_current_device),
+    _device: str = Depends(get_device_token),
 ) -> dict:
     """Update a user profile file."""
     try:
@@ -166,7 +166,7 @@ async def update_config_file(
 
 @router.post("/reload")
 async def reload_profile(
-    _device: str = Depends(get_current_device),
+    _device: str = Depends(get_device_token),
 ) -> dict:
     """Force-reload user profile from disk."""
     try:
@@ -188,7 +188,7 @@ async def reload_profile(
 
 @router.get("/commands", response_model=CommandListResponse)
 async def list_commands(
-    _device: str = Depends(get_current_device),
+    _device: str = Depends(get_device_token),
 ) -> CommandListResponse:
     """List all available commands."""
     try:
@@ -209,7 +209,7 @@ async def list_commands(
 @router.get("/commands/{command_name}")
 async def get_command(
     command_name: str,
-    _device: str = Depends(get_current_device),
+    _device: str = Depends(get_device_token),
 ) -> dict:
     """Get a single command with full content."""
     try:
@@ -239,7 +239,7 @@ async def get_command(
 async def update_command(
     command_name: str,
     request: CommandCreateRequest,
-    _device: str = Depends(get_current_device),
+    _device: str = Depends(get_device_token),
 ) -> dict:
     """Create or update a command."""
     try:
@@ -267,7 +267,7 @@ async def update_command(
 @router.delete("/commands/{command_name}")
 async def delete_command(
     command_name: str,
-    _device: str = Depends(get_current_device),
+    _device: str = Depends(get_device_token),
 ) -> dict:
     """Delete a command."""
     try:
@@ -295,7 +295,7 @@ async def delete_command(
 @router.get("/notes")
 async def list_daily_notes(
     limit: int = 30,
-    _device: str = Depends(get_current_device),
+    _device: str = Depends(get_device_token),
 ) -> dict:
     """List daily notes, most recent first."""
     try:
@@ -319,7 +319,7 @@ async def list_daily_notes(
 @router.get("/notes/{note_date}")
 async def get_daily_note(
     note_date: str,
-    _device: str = Depends(get_current_device),
+    _device: str = Depends(get_device_token),
 ) -> DailyNoteResponse:
     """Get a specific daily note."""
     try:
@@ -351,7 +351,7 @@ async def get_daily_note(
 async def append_daily_note(
     request: DailyNoteAppendRequest,
     note_date: Optional[str] = None,
-    _device: str = Depends(get_current_device),
+    _device: str = Depends(get_device_token),
 ) -> DailyNoteResponse:
     """Append to today's daily note (or specified date)."""
     try:

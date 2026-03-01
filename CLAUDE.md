@@ -55,9 +55,10 @@ When resuming work from a previous session, FIRST read `SESSION_HANDOFF.md` (if 
 This is a multi-session project (Hestia). Key references:
 - Project plans and workstreams are in `docs/`
 - Previous session context may be compacted — check docs and CLAUDE.md FIRST before searching transcripts
-- Current workstreams: Wire Frontend to Backend (Sprint 1 COMPLETE, Sprint 2 next). See `SPRINT.md`.
-- **2026-02-28:** macOS app renamed to "Hestia" — UX polished: keyboard shortcuts (⌘1/2/3/\), sidebar hover effects, responsive layout (3-col stat grid, flexible chat panel), resizable divider with grabber, app icon from iOS source. Both Xcode schemes build clean.
-- **2026-02-28:** Claude Code config refresh — new skills (/discovery, /plan-audit, /codebase-audit, /retrospective), upgraded /handoff, CI/CD pipeline, cheat sheet, sprint tracker. Direct API billing active. See `SPRINT.md` for current sprint status.
+- Current workstreams: Wire Frontend to Backend (Sprints 1-4 COMPLETE). See `SPRINT.md`.
+- **2026-03-01:** Sprint 4 — audit remediation (proactive auth fix, auth dep standardization), macOS Wiki/Explorer Resources/Resources tab. 66 macOS files total.
+- **2026-02-28:** macOS app renamed to "Hestia" — UX polished: keyboard shortcuts (⌘1-6/\), sidebar, responsive layout, app icon. Both Xcode schemes build clean.
+- **2026-02-28:** Claude Code config refresh — new skills, CI/CD pipeline, sprint tracker. Direct API billing active.
 
 ## Debugging Approach
 
@@ -198,14 +199,20 @@ hestia/
 │   ├── Shared/
 │   │   ├── App/                     # Entry point, ContentView
 │   │   ├── DesignSystem/            # Colors, Typography, Spacing, Animations
-│   │   ├── Models/                  # APIModels, CloudProvider, Order, AgentProfile, MemoryChunk, HealthModels, WikiModels, NewsfeedModels, BriefingModels
+│   │   ├── Models/                  # APIModels, CloudProvider, Order, AgentProfile, MemoryChunk, HealthModels, WikiModels, NewsfeedModels, BriefingModels, ToolModels, DeviceModels, ProactiveModels
 │   │   ├── Resources/Animations/    # Lottie JSONs (ai_blob, typing_indicator)
 │   │   ├── Services/                # APIClient, AuthService, SpeechService, CalendarService, HealthKitService
-│   │   ├── ViewModels/              # Chat, Newsfeed, CloudSettings, Integrations, NeuralNet, Resources, Settings, Wiki
-│   │   ├── Views/                   # Chat, CommandCenter (+ NeuralNet), Settings (+ Resources, Integrations, Wiki), Auth
+│   │   ├── ViewModels/              # Chat, Newsfeed, CloudSettings, Integrations, NeuralNet, Resources, Settings, Wiki, DeviceManagement, ProactiveSettings
+│   │   ├── Views/                   # Chat, CommandCenter (+ NeuralNet), Settings (+ Resources, Integrations, Wiki, DeviceManagement, ProactiveSettings), Auth
 │   │   ├── Views/Common/            # LottieAnimationView, LoadingView, GradientBackground
 │   │   └── Persistence/             # Core Data stack
-│   └── project.yml                  # xcodegen config (iOS 26.0, Swift 6.1)
+│   ├── macOS/                       # macOS app (66 files)
+│   │   ├── Views/                   # Command, Explorer (Files+Resources), Health, Profile, Wiki (4 views), Resources (6 views), Chat, Chrome, Auth
+│   │   ├── ViewModels/              # MacChat, MacExplorer, MacExplorerResources, MacCloudSettings, MacIntegrations, MacWiki, MacHealth, MacUserProfile, MacCommandCenter
+│   │   ├── Models/                  # WikiModels, ToolModels, NewsfeedModels, HealthDataModels, DeviceModels
+│   │   ├── Services/                # APIClient+Wiki, APIClient+Tools, APIClient+Newsfeed, APIClient+Health, APIClient+Devices
+│   │   └── DesignSystem/            # MacColors, MacSpacing, MacTypography
+│   └── project.yml                  # xcodegen config (iOS 26.0, macOS 15.0, Swift 6.1)
 ├── tests/                           # 1086 tests, 25 files
 ├── scripts/                         # deploy, test-api, auto-test, validate-security, ollama
 ├── .claude/                         # agents/, output-styles/, settings
@@ -281,14 +288,15 @@ Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 | Phase 4: Settings Integrations | COMPLETE | IntegrationsView (Calendar, Reminders, Notes, Mail), API contract rewrite |
 | Apple HealthKit Integration | COMPLETE | 27 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools, iOS HealthKitService |
 | Wiki / Architecture Field Guide | COMPLETE | AI-generated narratives, module deep dives, ADR browser, roadmap, Mermaid diagrams, iOS tabbed UI |
-| macOS App (Hestia) | COMPLETE | 35 files, 3 views (Command/Explorer/Health), icon sidebar, chat panel, keyboard shortcuts, responsive layout, app icon. |
+| macOS App (Hestia) | COMPLETE | 66 files, 6 views (Command/Explorer/Health/Profile/Wiki/Resources), icon sidebar, chat panel, keyboard shortcuts ⌘1-6/\, responsive layout, app icon. |
 
-### Frontend Wiring — IN PROGRESS
+### Frontend Wiring — COMPLETE
 | Sprint | Status | Scope |
 |--------|--------|-------|
 | Sprint 1: DevOps & Deployment | COMPLETE | QR invite onboarding (4 endpoints), iOS/macOS flows, permissions harmony, 28 tests |
 | Sprint 2: Explorer | COMPLETE | Backend module + 6 API endpoints + iOS Explorer tab + 41 tests. macOS enhancement deferred. |
 | Sprint 3: Command Center | COMPLETE | Backend newsfeed module + 5 API endpoints + iOS Command Center rewrite (BriefingCard, FilterBar, NewsfeedTimeline) + macOS wiring + 42 tests |
+| Sprint 4: Audit + macOS Wiring | COMPLETE | Proactive auth fix, auth dep standardization (10 route files), macOS Wiki (4 views), Explorer Resources mode, Resources tab (LLMs/Integrations/MCPs) |
 
 ### Known Issues (Mac Mini)
 - Council needs `qwen2.5:0.5b` pulled on Mac Mini

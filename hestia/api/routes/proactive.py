@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
-from hestia.api.middleware.auth import verify_device_token
+from hestia.api.middleware.auth import get_device_token
 from hestia.api.errors import sanitize_for_log
 from hestia.logging import get_logger, LogComponent
 from hestia.proactive import (
@@ -139,7 +139,7 @@ def set_config(config: ProactiveConfig) -> None:
     summary="Get today's briefing",
     description="Generate and return today's daily briefing including calendar, reminders, weather, and suggestions.",
 )
-async def get_briefing(device_id: str = Depends(verify_device_token)):
+async def get_briefing(device_id: str = Depends(get_device_token)):
     """Get today's daily briefing."""
     logger.info(
         "Generating briefing",
@@ -177,7 +177,7 @@ async def get_briefing(device_id: str = Depends(verify_device_token)):
     summary="Get proactive policy",
     description="Get current proactive intelligence settings and status.",
 )
-async def get_policy(device_id: str = Depends(verify_device_token)):
+async def get_policy(device_id: str = Depends(get_device_token)):
     """Get current proactive policy settings."""
     config = get_config()
     manager = get_interruption_manager(config)
@@ -200,7 +200,7 @@ async def get_policy(device_id: str = Depends(verify_device_token)):
 )
 async def update_policy(
     request: PolicyUpdateRequest,
-    device_id: str = Depends(verify_device_token),
+    device_id: str = Depends(get_device_token),
 ):
     """Update proactive policy settings."""
     config = get_config()
@@ -298,7 +298,7 @@ async def update_policy(
 async def get_patterns(
     valid_only: bool = True,
     refresh: bool = False,
-    device_id: str = Depends(verify_device_token),
+    device_id: str = Depends(get_device_token),
 ):
     """Get detected behavioral patterns."""
     config = get_config()
@@ -326,7 +326,7 @@ async def get_patterns(
     summary="Get current context",
     description="Get current interruption context (Focus mode, calendar, quiet hours).",
 )
-async def get_context(device_id: str = Depends(verify_device_token)):
+async def get_context(device_id: str = Depends(get_device_token)):
     """Get current interruption context."""
     config = get_config()
     manager = get_interruption_manager(config)
@@ -347,7 +347,7 @@ async def get_context(device_id: str = Depends(verify_device_token)):
     summary="Trigger pattern analysis",
     description="Force re-analysis of conversation history for patterns.",
 )
-async def analyze_patterns(device_id: str = Depends(verify_device_token)):
+async def analyze_patterns(device_id: str = Depends(get_device_token)):
     """Trigger pattern analysis."""
     logger.info(
         "Pattern analysis requested",

@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from typing import Any, Dict, List
 
-from hestia.api.middleware.auth import get_current_device
+from hestia.api.middleware.auth import get_device_token
 from hestia.health import get_health_manager
 from hestia.logging import get_logger, LogComponent
 
@@ -129,7 +129,7 @@ class SyncHistoryResponse(BaseModel):
 )
 async def sync_metrics(
     request: HealthSyncRequest,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Sync health metrics from iOS."""
     manager = await get_health_manager()
@@ -181,7 +181,7 @@ async def sync_metrics(
     description="Get aggregated health data for today.",
 )
 async def get_summary(
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Get today's health summary."""
     manager = await get_health_manager()
@@ -197,7 +197,7 @@ async def get_summary(
 )
 async def get_summary_for_date(
     target_date: str,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Get health summary for a specific date."""
     # Validate date format
@@ -223,7 +223,7 @@ async def get_summary_for_date(
 async def get_trend(
     metric_type: str,
     days: int = Query(7, ge=1, le=90),
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Get trend data for a metric."""
     manager = await get_health_manager()
@@ -238,7 +238,7 @@ async def get_trend(
     description="Get health coaching preferences.",
 )
 async def get_coaching_preferences(
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Get coaching preferences."""
     manager = await get_health_manager()
@@ -258,7 +258,7 @@ async def get_coaching_preferences(
 )
 async def update_coaching_preferences(
     request: CoachingPreferencesRequest,
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Update coaching preferences."""
     manager = await get_health_manager()
@@ -297,7 +297,7 @@ async def update_coaching_preferences(
 )
 async def get_sync_history(
     limit: int = Query(20, ge=1, le=100),
-    device_id: str = Depends(get_current_device),
+    device_id: str = Depends(get_device_token),
 ):
     """Get sync history."""
     manager = await get_health_manager()
