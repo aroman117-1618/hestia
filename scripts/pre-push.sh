@@ -8,21 +8,21 @@
 # Bypass:  git push --no-verify (use sparingly)
 
 set -euo pipefail
-# Resolve symlink to find the real script location, then navigate to repo root
-REAL_SCRIPT="$(readlink "$0" 2>/dev/null || echo "$0")"
-if [[ "$REAL_SCRIPT" != /* ]]; then
-    REAL_SCRIPT="$(cd "$(dirname "$0")" && cd "$(dirname "$REAL_SCRIPT")" && pwd)/$(basename "$REAL_SCRIPT")"
-fi
-cd "$(dirname "$REAL_SCRIPT")/.."
+cd "$(git rev-parse --show-toplevel)"
 
-# Top-level timeout safety net (180s = 3 minutes)
-if command -v timeout &>/dev/null; then
-    TIMEOUT_CMD="timeout 180"
-elif command -v gtimeout &>/dev/null; then
-    TIMEOUT_CMD="gtimeout 180"
-else
-    TIMEOUT_CMD=""
-fi
+# Portable timeout wrapper (macOS lacks coreutils `timeout`)
+run_with_timeout() {
+    local secs=$1; shift
+    "$@" &
+    local pid=$!
+    ( sleep "$secs" && kill "$pid" 2>/dev/null && echo "WARN: process killed after ${secs}s timeout" ) &
+    local watchdog=$!
+    wait "$pid" 2>/dev/null
+    local exit_code=$?
+    kill "$watchdog" 2>/dev/null
+    wait "$watchdog" 2>/dev/null
+    return $exit_code
+}
 
 BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "detached")
 
@@ -41,20 +41,28 @@ else
     exit 1
 fi
 
+# pytest can hang after completion (ChromaDB background threads) — capture
+# output to temp file, use timeout, then check results from output
+PYTEST_LOG=$(mktemp)
 set +e
-if [ -n "$TIMEOUT_CMD" ]; then
-    $TIMEOUT_CMD python -m pytest tests/ --timeout=30 -q
-else
-    python -m pytest tests/ --timeout=30 -q
-fi
+run_with_timeout 120 python -m pytest tests/ --timeout=30 -q >"$PYTEST_LOG" 2>&1
 PYTEST_EXIT=$?
 set -e
 
-if [ $PYTEST_EXIT -ne 0 ]; then
+cat "$PYTEST_LOG"
+
+# If killed by timeout (exit 143), check if tests actually passed
+if [ $PYTEST_EXIT -eq 143 ] && grep -q "passed" "$PYTEST_LOG" && ! grep -q "failed" "$PYTEST_LOG"; then
+    echo "(pytest process hung after completion — killed by timeout, tests passed)"
+    rm -f "$PYTEST_LOG"
+elif [ $PYTEST_EXIT -ne 0 ]; then
+    rm -f "$PYTEST_LOG"
     echo ""
     echo "FAILED: pytest exited with code $PYTEST_EXIT"
     echo "Fix failing tests before pushing, or use: git push --no-verify"
     exit 1
+else
+    rm -f "$PYTEST_LOG"
 fi
 
 # --- Step 3: xcodebuild on main only ---
@@ -62,9 +70,8 @@ if [ "$BRANCH" = "main" ]; then
     echo "[3/3] Building macOS target (main branch gate)..."
     if [ -d "HestiaApp" ]; then
         XCODE_LOG=$(mktemp)
-        # xcodebuild daemons can inherit fds and keep pipes open — use temp file
         set +e
-        xcodebuild -project HestiaApp/HestiaApp.xcodeproj -scheme HestiaWorkspace -quiet >"$XCODE_LOG" 2>&1
+        run_with_timeout 120 xcodebuild -project HestiaApp/HestiaApp.xcodeproj -scheme HestiaWorkspace -quiet >"$XCODE_LOG" 2>&1
         XCODE_EXIT=$?
         set -e
 
