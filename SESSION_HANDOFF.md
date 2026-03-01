@@ -1,58 +1,45 @@
-# Session Handoff — 2026-03-01 (Session H)
+# Session Handoff — 2026-03-01 (Session I)
 
 ## Mission
-Sprint 5: Audit Remediation + macOS Frontend Wiring — fix critical auth bug, standardize auth deps, wire macOS Wiki/Explorer/Resources tabs.
+Push + Deploy (Phase A) + Sprint 4 Session 1 cleanup (Phase B).
 
 ## Completed
 
-### Sprint 5 (this session)
-- **5A: Proactive Auth Fix (CRITICAL)** — all 6 `Depends(verify_device_token)` → `Depends(get_device_token)` in `proactive.py`. Root cause: `verify_device_token` takes `str` (validation utility), not a FastAPI dependency.
-- **5B: Auth Dependency Standardization** — removed `get_current_device` alias, replaced ~67 occurrences across 9 route files. Single canonical: `get_device_token`.
-- **5C: macOS Navigation Infrastructure** — `.wiki` + `.resources` enum cases, IconSidebar navIcon() calls, Cmd+5/Cmd+6 shortcuts, WorkspaceRootView wiring.
-- **5D: macOS Wiki (Field Guide)** — 7 new files: WikiModels, APIClient+Wiki, MacWikiViewModel, 4 views. 2-pane layout.
-- **5E: macOS Explorer Resources Mode** — 2 new files + ExplorerView modified. Segmented control (Files/Resources).
-- **5F: macOS Resources Tab** — 10 new files: ToolModels, APIClient+Tools, 2 ViewModels, 6 views. 3-tab layout (LLMs/Integrations/MCPs).
-- **5G: Docs** — CLAUDE.md, SPRINT.md updated.
+### Phase A: Push + Deploy
+- **A1: Pre-push validation** — 1083 passed, 3 skipped. Both Xcode schemes build clean.
+- **A2: GitHub secrets confirmed** — `MAC_MINI_SSH_KEY` + `MAC_MINI_HOST` verified by Andrew.
+- **A3: Pushed to GitHub** — 8 commits pushed to `origin/main` (d15c6f7..739f454). Pre-push hook passed all 3 gates (stale server check, pytest, xcodebuild).
+- **A4: CI/CD triggered** — Deploy pipeline (`deploy.yml`) auto-triggered on push. May timeout at remote pytest step (ChromaDB hang). If so, code IS deployed (rsync runs first), just needs manual server restart.
 
-### Sprint 4 (previous session, also uncommitted)
-- Dynamic Tool Discovery, Device Management UI, macOS Health redesign, Proactive Intelligence Settings
+### Phase B Session 1: Bug Fix + Cleanup (already in commit 739f454)
+- **B1: Newsfeed URL double-prefix** — Fixed. Stripped `/v1` prefix from all paths in both `APIClient+Newsfeed.swift` (iOS: 6 paths, macOS: 1 path).
+- **B2: Duplicate Wiki methods** — Removed 5 methods from `Shared/Services/APIClient.swift` (already exist in `APIClient+Wiki.swift`).
+- **B3: CommandCenterViewModel** — Deleted dead file (replaced by `NewsfeedViewModel` in Sprint 3).
+- **B4: Briefing endpoint auth** — Verified: uses standard `X-Hestia-Device-Token` header via `get_device_token` dependency. No change needed.
 
 ## Decisions Made
-- macOS model duplication pattern continued (macOS/ models separate from Shared/)
-- MacIntegrationsViewModel created separately to avoid UIKit import (uses EventKit directly, excludes HealthKit)
-- Explorer gets dual-mode (Files + Resources) via segmented control rather than separate views
+- B1-B3 were already captured in commit `739f454` from previous session — confirmed and verified.
+- Deploy may need manual intervention if CI/CD job times out.
 
 ## Test Status
 - **1086 collected, 1083 passing, 3 skipped**
 - Both macOS (HestiaWorkspace) and iOS (HestiaApp) build clean
 
-## Uncommitted Changes
-~60 files modified/added across Sprints 3-5. All work uncommitted.
-
-**Sprint 5 files created:**
-- `macOS/Models/WikiModels.swift`, `ToolModels.swift`
-- `macOS/Services/APIClient+Wiki.swift`, `APIClient+Tools.swift`
-- `macOS/ViewModels/MacWikiViewModel.swift`, `MacExplorerResourcesViewModel.swift`, `MacCloudSettingsViewModel.swift`, `MacIntegrationsViewModel.swift`
-- `macOS/Views/Wiki/MacWikiView.swift`, `MacWikiSidebarView.swift`, `MacWikiDetailPane.swift`, `MacWikiArticleRow.swift`
-- `macOS/Views/Explorer/MacExplorerResourcesView.swift`
-- `macOS/Views/Resources/MacResourcesView.swift`, `MacCloudSettingsView.swift`, `MacCloudProviderDetailView.swift`, `MacAddCloudProviderView.swift`, `MacIntegrationsView.swift`, `MacMCPPlaceholderView.swift`
-
-**Sprint 5 files modified:**
-- `hestia/api/routes/proactive.py` (auth fix)
-- `hestia/api/middleware/auth.py` (removed alias)
-- 9 route files (auth dep rename)
-- `macOS/State/WorkspaceState.swift`, `macOS/Views/Chrome/IconSidebar.swift`, `macOS/Views/WorkspaceRootView.swift`, `macOS/AppDelegate.swift`
-- `macOS/Views/Explorer/ExplorerView.swift` (segmented control)
-- `CLAUDE.md`, `SPRINT.md`, `SESSION_HANDOFF.md`
+## Git Status
+- Working tree **clean**
+- `origin/main` up to date with local `main` (739f454)
 
 ## Known Issues / Landmines
-- **macOS model duplication**: WikiModels, ToolModels, DeviceModels, HealthDataModels, NewsfeedModels all exist in both `macOS/Models/` and `Shared/Models/`. If models change, both must be updated.
-- **No server running**: Server killed at session start. Use `/preflight` or `python -m hestia.api.server`.
-- **Mac Mini deploy pending**: Sprints 1-5 all need deploying.
-- **All changes uncommitted**: Sprints 3 + 4 + 5 work needs committing.
+- **CI/CD deploy may timeout** — remote pytest hangs on ChromaDB threads. Code is rsynced before tests run, so if job fails at test step, code IS on the Mini. Manual restart: `ssh andrewroman117@hestia-3.local 'launchctl unload ~/Library/LaunchAgents/com.hestia.server.plist; sleep 1; launchctl load ~/Library/LaunchAgents/com.hestia.server.plist'`
+- **Mac Mini first-time setup needed** — launchd service, watchdog, `qwen2.5:0.5b` model. See plan step A5.
+- **macOS model duplication** — WikiModels, ToolModels, DeviceModels, HealthDataModels, NewsfeedModels exist in both `macOS/Models/` and `Shared/Models/`. Both must be updated if models change.
 
-## Next Step
-- **Commit all uncommitted work** (Sprints 3 + 4 + 5)
-- **Deploy to Mac Mini** — 5 sprints accumulated
-- **Sprint 6 planning** — candidates: Schema consolidation, CI/CD improvements, MCP management, Tasks UI, Chat enhancements
-- Run `/pickup` at next session start
+## Next Steps (Sprint 4 Session 2+)
+1. **Verify Mac Mini deploy** — check CI/CD status, SSH and curl `/v1/ping`, install launchd service if needed
+2. **B5: Chat history reload** — wire `getSessionHistory()` to `ChatViewModel`, persist `sessionId` in `@AppStorage`
+3. **B6: Voice journal analysis** — wire `voiceJournalAnalyze()` to `VoiceInputViewModel`, add "Analyze as Journal" button to `TranscriptReviewView`
+4. **B7: NeuralNet refresh button** — toolbar button in `NeuralNetView`
+5. **B8: macOS Newsfeed extension parity** — add missing 4 methods to `macOS/Services/APIClient+Newsfeed.swift`
+6. **B9: Device management UI** — already done in Sprint 4 (4B)
+
+Run `/pickup` at next session start.

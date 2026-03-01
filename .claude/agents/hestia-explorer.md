@@ -90,7 +90,7 @@ hestia/
 │       ├── Utilities/         # Shared utility code
 │       └── Persistence/       # Core Data stack
 │
-├── tests/                     # 1018 pytest tests (23 test files)
+├── tests/                     # 1086 pytest tests (25 test files)
 ├── scripts/                   # Deployment, build, hooks, health check
 ├── docs/                      # Project documentation
 └── CLAUDE.md                  # Project context (primary reference)

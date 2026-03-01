@@ -28,7 +28,7 @@ When invoked, determine the mode from the caller's prompt:
 
 ## Project Context
 
-- **Backend**: Python 3.9+ / FastAPI with 20 modules, 109 API endpoints, 1018 tests
+- **Backend**: Python 3.9+ / FastAPI with 20 modules, 116 API endpoints, 1086 tests
 - **iOS**: SwiftUI app (iOS 26.0+ target, ObservableObject pattern — NOT @Observable)
 - **Error handling**: All routes use `sanitize_for_log(e)` from `hestia.api.errors` (never raw `{e}` in logs, never `detail=str(e)` in HTTP responses)
 - **Logging**: `get_logger()` from `hestia.logging` (no arguments) with `LogComponent` enum (ACCESS, ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, CLOUD, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED)

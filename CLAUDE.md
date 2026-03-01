@@ -85,7 +85,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | Hardware | Mac Mini M1 (16GB) |
 | Model | Qwen 2.5 7B (Ollama, local) + cloud providers (Anthropic/OpenAI/Google) |
 | SLM | qwen2.5:0.5b (council intent classification, ~100ms) |
-| Backend | Python 3.9+, FastAPI, 118 endpoints across 20 route modules |
+| Backend | Python 3.9+, FastAPI, 116 endpoints across 20 route modules |
 | Storage | ChromaDB (vectors) + SQLite (structured) + macOS Keychain (credentials) |
 | App | Native Swift/SwiftUI (iOS 26.0+) |
 | API | REST on port 8443 with JWT auth, HTTPS with self-signed cert |
@@ -186,7 +186,7 @@ hestia/
 │   ├── voice/                       # TranscriptQualityChecker, JournalAnalyzer (3-stage)
 │   ├── wiki/                        # Architecture field guide (AI-generated + static docs)
 │   ├── newsfeed/                    # Materialized timeline, source aggregation, per-user state
-│   ├── api/                         # FastAPI — 118 endpoints, 20 route modules
+│   ├── api/                         # FastAPI — 116 endpoints, 20 route modules
 │   │   ├── errors.py                # sanitize_for_log(), safe_error_detail()
 │   │   ├── schemas.py               # All Pydantic request/response models
 │   │   ├── server.py                # App lifecycle, manager initialization
@@ -222,7 +222,7 @@ hestia/
 
 ---
 
-## API Summary (118 endpoints, 20 route modules)
+## API Summary (116 endpoints, 20 route modules)
 
 | Module | Endpoints | Key Routes |
 |--------|-----------|------------|
