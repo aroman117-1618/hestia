@@ -8,9 +8,12 @@
 # Bypass:  git push --no-verify (use sparingly)
 
 set -euo pipefail
-cd "$(dirname "$0")"
-# Resolve symlink — navigate to repo root from scripts/
-cd "$(git rev-parse --show-toplevel)"
+# Resolve symlink to find the real script location, then navigate to repo root
+REAL_SCRIPT="$(readlink "$0" 2>/dev/null || echo "$0")"
+if [[ "$REAL_SCRIPT" != /* ]]; then
+    REAL_SCRIPT="$(cd "$(dirname "$0")" && cd "$(dirname "$REAL_SCRIPT")" && pwd)/$(basename "$REAL_SCRIPT")"
+fi
+cd "$(dirname "$REAL_SCRIPT")/.."
 
 # Top-level timeout safety net (180s = 3 minutes)
 if command -v timeout &>/dev/null; then
