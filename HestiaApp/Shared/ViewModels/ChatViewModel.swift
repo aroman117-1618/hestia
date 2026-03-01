@@ -28,7 +28,7 @@ class ChatViewModel: ObservableObject {
 
     // MARK: - Initialization
 
-    init(client: HestiaClientProtocol = MockHestiaClient()) {
+    init(client: HestiaClientProtocol = APIClient.shared) {
         self.client = client
     }
 

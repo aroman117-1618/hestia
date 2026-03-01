@@ -47,7 +47,7 @@ class CommandCenterViewModel: ObservableObject {
     init(
         calendarService: CalendarService = CalendarService(),
         ordersService: OrdersService = OrdersService(),
-        client: HestiaClientProtocol = MockHestiaClient()
+        client: HestiaClientProtocol = APIClient.shared
     ) {
         self.calendarService = calendarService
         self.ordersService = ordersService

@@ -54,7 +54,7 @@ class SettingsViewModel: ObservableObject {
 
     // MARK: - Initialization
 
-    init(client: HestiaClientProtocol = MockHestiaClient(), authService: AuthService = AuthService()) {
+    init(client: HestiaClientProtocol = APIClient.shared, authService: AuthService = AuthService()) {
         self.client = client
         self.authService = authService
         loadSavedSettings()
