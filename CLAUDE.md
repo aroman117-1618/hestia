@@ -120,6 +120,8 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 Always run the full test suite (`python -m pytest`) after making changes and ensure all tests pass before considering a task complete. If tests are failing at session end, explicitly note which tests fail and why in a summary.
 
+**pytest hang:** The pytest process may hang after all tests pass (ChromaDB background threads). In shell scripts, use the `run_with_timeout` pattern from `scripts/pre-push.sh`. In Claude Code, the Bash tool handles this automatically.
+
 ## iOS / Swift Specifics
 
 - Simulator has Face ID limitations — use mock auth for development builds
@@ -212,7 +214,7 @@ hestia/
 
 ---
 
-## API Summary (103 endpoints, 18 route modules)
+## API Summary (109 endpoints, 19 route modules)
 
 | Module | Endpoints | Key Routes |
 |--------|-----------|------------|
