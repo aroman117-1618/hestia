@@ -448,6 +448,12 @@ async def revoke_device(
     device_id: str = Depends(get_current_device),
 ):
     """Revoke a registered device's access."""
+    if target_device_id == device_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot revoke your own device",
+        )
+
     try:
         store = await get_invite_store()
         revoked = await store.revoke_device(target_device_id)

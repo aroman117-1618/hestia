@@ -1596,8 +1596,9 @@ def _make_handler_with_mocks(
     from hestia.logging import get_logger
     handler.logger = get_logger()
 
-    # Conversations cache
+    # Conversations cache + handle counter (session TTL support)
     handler._conversations = {}
+    handler._handle_count = 0
 
     # Register tools
     try:

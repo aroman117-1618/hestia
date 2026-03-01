@@ -79,6 +79,7 @@ class RequestHandler:
 
         # Session conversations cache
         self._conversations: dict[str, Conversation] = {}
+        self._handle_count: int = 0
 
         # Register built-in tools
         self._register_builtin_tools()
@@ -130,9 +131,6 @@ class RequestHandler:
 
     # Cleanup runs every N handle() calls
     _CLEANUP_INTERVAL = 20
-
-    # Counter for periodic cleanup
-    _handle_count: int = 0
 
     def _is_session_expired(
         self, conversation: Conversation, timeout_minutes: int

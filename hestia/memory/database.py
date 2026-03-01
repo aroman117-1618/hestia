@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
     started_at TEXT NOT NULL,
     ended_at TEXT,
-    last_activity TEXT,          -- Updated on session end for audit trail
+    last_activity TEXT,          -- Set when session ends; in-memory Conversation.last_activity used for TTL
     mode TEXT,                   -- Tia, Mira, Olly
     device_id TEXT,
     summary TEXT,

@@ -252,8 +252,8 @@ def verify_device_token(token: str) -> dict:
 
     except jwt.ExpiredSignatureError:
         raise AuthError("Token has expired", "token_expired")
-    except JWTError as e:
-        raise AuthError(f"Invalid token: {str(e)}", "invalid_token")
+    except JWTError:
+        raise AuthError("Invalid token", "invalid_token")
 
 
 async def check_device_revocation(device_id: str) -> None:
@@ -279,10 +279,14 @@ async def check_device_revocation(device_id: str) -> None:
             )
     except HTTPException:
         raise
-    except Exception:
-        # If invite store is unavailable, allow the request through
-        # (fail-open for availability; revocation is defense-in-depth)
-        pass
+    except Exception as exc:
+        # Fail-open: if invite store is unavailable, allow the request.
+        # This is a known security trade-off (ADR-034): availability over
+        # strict revocation enforcement. Logged so store failures are visible.
+        import logging
+        logging.getLogger("hestia").warning(
+            f"Revocation check failed (fail-open): {type(exc).__name__}"
+        )
 
 
 async def get_device_token(

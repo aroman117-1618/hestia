@@ -484,10 +484,20 @@ class TestMiddlewareRevocation:
             await check_device_revocation("d1")
 
     @pytest.mark.asyncio
-    async def test_unknown_device_passes(self, store: InviteStore):
-        """Unknown device passes revocation check (fail-open)."""
+    async def test_unregistered_device_passes(self, store: InviteStore):
+        """Unregistered device passes revocation check."""
         from unittest.mock import AsyncMock
 
         mock_get_store = AsyncMock(return_value=store)
         with patch("hestia.api.invite_store.get_invite_store", mock_get_store):
             await check_device_revocation("unknown-device")
+
+    @pytest.mark.asyncio
+    async def test_store_unavailable_allows_request(self):
+        """If invite store is unavailable, request passes (fail-open)."""
+        from unittest.mock import AsyncMock
+
+        mock_get_store = AsyncMock(side_effect=Exception("DB unavailable"))
+        with patch("hestia.api.invite_store.get_invite_store", mock_get_store):
+            # Should not raise — fail-open behavior
+            await check_device_revocation("any-device")

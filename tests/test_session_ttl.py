@@ -76,7 +76,7 @@ class TestConversationWithTTL:
     @pytest.mark.asyncio
     async def test_creates_new_session(self, handler: RequestHandler):
         """Creates a conversation when none exists."""
-        with patch.object(handler, "_get_session_timeout", return_value=30):
+        with patch.object(handler, "_get_session_timeout", new=AsyncMock(return_value=30)):
             conv = await handler._get_or_create_conversation_with_ttl("new-session")
         assert conv.session_id == "new-session"
         assert "new-session" in handler._conversations
@@ -87,7 +87,7 @@ class TestConversationWithTTL:
         existing = _make_conversation("active-session", last_activity_minutes_ago=5)
         handler._conversations["active-session"] = existing
 
-        with patch.object(handler, "_get_session_timeout", return_value=30):
+        with patch.object(handler, "_get_session_timeout", new=AsyncMock(return_value=30)):
             conv = await handler._get_or_create_conversation_with_ttl("active-session")
         assert conv is existing
 
@@ -98,7 +98,7 @@ class TestConversationWithTTL:
         stale.turn_count = 10
         handler._conversations["stale-session"] = stale
 
-        with patch.object(handler, "_get_session_timeout", return_value=30):
+        with patch.object(handler, "_get_session_timeout", new=AsyncMock(return_value=30)):
             conv = await handler._get_or_create_conversation_with_ttl("stale-session")
         assert conv is not stale
         assert conv.turn_count == 0

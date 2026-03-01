@@ -211,9 +211,10 @@ async def lifespan(app: FastAPI):
         yield
 
     finally:
-        # Graceful shutdown: wait for in-flight requests (up to 15s)
+        # Graceful shutdown: Uvicorn handles request draining.
+        # We clean up manager connections here.
         logger.info(
-            "Hestia API shutting down — waiting for in-flight requests",
+            "Hestia API shutting down — cleaning up connections",
             component=LogComponent.API,
         )
 

@@ -47,7 +47,7 @@ jobs:
             --exclude '.build/' \
             --exclude 'node_modules/' \
             --exclude '.env' \
-            -e "ssh -o StrictHostKeyChecking=no" \
+            -e ssh \
             ./ ${MAC_MINI_USER}@${MAC_MINI_HOST}:~/hestia/
 
       - name: Remote setup and restart
@@ -55,7 +55,7 @@ jobs:
           MAC_MINI_HOST: ${{ secrets.MAC_MINI_HOST }}
           MAC_MINI_USER: andrewroman117
         run: |
-          ssh -o StrictHostKeyChecking=no ${MAC_MINI_USER}@${MAC_MINI_HOST} << 'DEPLOY_SCRIPT'
+          ssh ${MAC_MINI_USER}@${MAC_MINI_HOST} << 'DEPLOY_SCRIPT'
             set -e
             cd ~/hestia
 
