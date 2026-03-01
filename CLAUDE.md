@@ -55,7 +55,7 @@ When resuming work from a previous session, FIRST read `SESSION_HANDOFF.md` (if 
 This is a multi-session project (Hestia). Key references:
 - Project plans and workstreams are in `docs/`
 - Previous session context may be compacted — check docs and CLAUDE.md FIRST before searching transcripts
-- Current workstreams: Wire Frontend to Backend (Sprint 1 COMPLETE, Sprint 2 next). See `SPRINT.md`. 3 pre-existing health test failures remain.
+- Current workstreams: Wire Frontend to Backend (Sprint 1 COMPLETE, Sprint 2 next). See `SPRINT.md`.
 - **2026-02-28:** macOS app renamed to "Hestia" — UX polished: keyboard shortcuts (⌘1/2/3/\), sidebar hover effects, responsive layout (3-col stat grid, flexible chat panel), resizable divider with grabber, app icon from iOS source. Both Xcode schemes build clean.
 - **2026-02-28:** Claude Code config refresh — new skills (/discovery, /plan-audit, /codebase-audit, /retrospective), upgraded /handoff, CI/CD pipeline, cheat sheet, sprint tracker. Direct API billing active. See `SPRINT.md` for current sprint status.
 

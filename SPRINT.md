@@ -22,6 +22,12 @@
 - **Key files:** `HestiaApp/Shared/Views/Auth/PermissionsOnboardingView.swift`, `HestiaApp/Shared/App/ContentView.swift`
 - **Notes:** Apple HIG-compliant guided flow: Calendar → Reminders → Health → Notifications → Biometric. One at a time, Skip option, grant summary. Integrated between auth and main app in ContentView.
 
+### macOS App (Hestia)
+- **Phase:** Done
+- **Discovery:** Figma designs analyzed (command, explore, health screens)
+- **Key files:** `HestiaApp/macOS/` (35 Swift files), `HestiaApp/project.yml`
+- **Notes:** Renamed from HestiaWorkspace to Hestia. 3 views (Command, Explorer, Health) + chat panel + icon sidebar. UX polish complete: keyboard shortcuts (⌘1/2/3/\), sidebar hover effects, responsive layout (stat card grid, flexible chat panel), resizable chat divider with grabber, app icon matching iOS. Both schemes build clean.
+
 ### 1D. Tests
 - **Phase:** Done
 - **Key files:** `tests/test_auth_invite.py`
