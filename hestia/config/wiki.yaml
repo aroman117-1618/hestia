@@ -105,3 +105,13 @@ diagrams:
   - type: "data-flow"
     title: "Data Flow"
     subtitle: "Where data lives and moves"
+
+# Auto-update schedule
+schedule:
+  # Weekly sweep — regenerate stale articles
+  day_of_week: "sun"
+  hour: 3
+  minute: 0
+  # Post-deploy — regenerate after server restart
+  post_deploy_enabled: true
+  post_deploy_delay_seconds: 5

@@ -15,10 +15,12 @@ struct WorkspaceRootView: View {
                 switch workspace.currentView {
                 case .command:
                     CommandView()
-                case .explorer:
-                    ExplorerView()
                 case .health:
                     HealthView()
+                case .research:
+                    ResearchView()
+                case .explorer:
+                    ExplorerView()
                 case .profile:
                     UserProfileView()
                 case .wiki:

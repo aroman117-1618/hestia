@@ -80,19 +80,27 @@ struct MacChatPanelView: View {
 
     private var agentTabBar: some View {
         HStack(spacing: MacSpacing.md) {
+            // New session button (left side)
+            Button {
+                Task {
+                    await viewModel.startNewConversation(appState: appState)
+                }
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(MacColors.textSecondary)
+                    .frame(width: 28, height: 28)
+                    .background(MacColors.textPrimary.opacity(0.06))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+            .buttonStyle(.plain)
+
+            // Agent tabs (active agent prominent, others faded)
             HStack(spacing: 5) {
                 agentTab(mode: .tia, isActive: appState.currentMode == .tia)
                 agentTab(mode: .mira, isActive: appState.currentMode == .mira)
                 agentTab(mode: .olly, isActive: appState.currentMode == .olly)
             }
-
-            // Add session
-            Button {} label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 15))
-                    .foregroundStyle(MacColors.textSecondary)
-            }
-            .buttonStyle(.plain)
 
             Spacer()
         }
@@ -111,8 +119,12 @@ struct MacChatPanelView: View {
             }
         } label: {
             HStack(spacing: MacSpacing.sm) {
-                // Agent avatar
+                // Agent avatar (centered, prominent for active)
                 agentTabAvatar(for: mode)
+                    .frame(
+                        width: isActive ? MacSize.agentTabAvatarSize : MacSize.agentTabAvatarSize - 2,
+                        height: isActive ? MacSize.agentTabAvatarSize : MacSize.agentTabAvatarSize - 2
+                    )
 
                 Text(mode.displayName)
                     .font(MacTypography.label)

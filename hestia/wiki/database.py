@@ -75,6 +75,20 @@ class WikiDatabase:
             CREATE INDEX IF NOT EXISTS idx_articles_module
                 ON wiki_articles(module_name);
         """)
+
+        # Auto-migrate: add audit columns if missing
+        cursor = await self._connection.execute("PRAGMA table_info(wiki_articles)")
+        columns = {row[1] for row in await cursor.fetchall()}
+
+        if "last_trigger_source" not in columns:
+            await self._connection.execute(
+                "ALTER TABLE wiki_articles ADD COLUMN last_trigger_source TEXT DEFAULT 'manual'"
+            )
+        if "regeneration_count" not in columns:
+            await self._connection.execute(
+                "ALTER TABLE wiki_articles ADD COLUMN regeneration_count INTEGER DEFAULT 0"
+            )
+
         await self._connection.commit()
 
     async def close(self) -> None:
@@ -122,8 +136,9 @@ class WikiDatabase:
                 id, article_type, title, subtitle, content,
                 module_name, source_hash, generation_status,
                 generated_at, generation_model, word_count,
-                estimated_read_time
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                estimated_read_time, last_trigger_source,
+                regeneration_count
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 title = excluded.title,
                 subtitle = excluded.subtitle,
@@ -133,7 +148,9 @@ class WikiDatabase:
                 generated_at = excluded.generated_at,
                 generation_model = excluded.generation_model,
                 word_count = excluded.word_count,
-                estimated_read_time = excluded.estimated_read_time
+                estimated_read_time = excluded.estimated_read_time,
+                last_trigger_source = excluded.last_trigger_source,
+                regeneration_count = excluded.regeneration_count
             """,
             row,
         )

@@ -308,6 +308,120 @@ class WikiManager:
         return results
 
     # =========================================================================
+    # Selective Regeneration
+    # =========================================================================
+
+    async def regenerate_stale(
+        self,
+        trigger_source: str = "manual",
+    ) -> Dict[str, Any]:
+        """
+        Selectively regenerate stale articles.
+
+        Always refreshes static content (free), then checks each
+        generated article for staleness and regenerates only those
+        that have changed.
+
+        Args:
+            trigger_source: What triggered this (deploy, scheduled, manual).
+
+        Returns:
+            Summary dict with counts.
+        """
+        result: Dict[str, Any] = {
+            "trigger_source": trigger_source,
+            "regenerated": [],
+            "skipped": [],
+            "failed": [],
+            "static": {},
+            "total_checked": 0,
+        }
+
+        # 1. Always refresh static content (free, ~500ms)
+        try:
+            static_counts = await self.refresh_static()
+            result["static"] = static_counts
+        except Exception as e:
+            self.logger.error(
+                f"Static refresh failed during regenerate_stale: {type(e).__name__}",
+                component=LogComponent.WIKI,
+            )
+            result["static"] = {"error": type(e).__name__}
+
+        # 2. Check staleness of all generated articles
+        staleness_results = await self.check_staleness()
+        result["total_checked"] = len(staleness_results)
+
+        # 3. Regenerate stale articles (individually try/excepted)
+        for item in staleness_results:
+            article_id = item["article_id"]
+
+            if not item["is_stale"]:
+                result["skipped"].append(article_id)
+                continue
+
+            try:
+                # Determine article type and module from ID
+                if article_id == "overview":
+                    article_type = "overview"
+                    module_name = None
+                elif article_id.startswith("module-"):
+                    article_type = "module"
+                    module_name = article_id.replace("module-", "")
+                elif article_id.startswith("diagram-"):
+                    article_type = "diagram"
+                    module_name = article_id.replace("diagram-", "")
+                else:
+                    result["skipped"].append(article_id)
+                    continue
+
+                # Get existing article to increment regeneration_count
+                existing = await self.get_article(article_id)
+                prev_count = existing.regeneration_count if existing else 0
+
+                article = await self.generate_article(
+                    article_type=article_type,
+                    module_name=module_name,
+                )
+
+                # Update audit fields
+                article.last_trigger_source = trigger_source
+                article.regeneration_count = prev_count + 1
+                await self.database.upsert_article(article)
+
+                result["regenerated"].append(article_id)
+
+                self.logger.info(
+                    f"Regenerated stale article: {article_id}",
+                    component=LogComponent.WIKI,
+                    data={
+                        "trigger": trigger_source,
+                        "regeneration_count": article.regeneration_count,
+                    },
+                )
+
+            except Exception as e:
+                result["failed"].append(article_id)
+                self.logger.error(
+                    f"Failed to regenerate {article_id}: {type(e).__name__}",
+                    component=LogComponent.WIKI,
+                )
+
+        self.logger.info(
+            "Selective wiki regeneration complete",
+            component=LogComponent.WIKI,
+            data={
+                "trigger": trigger_source,
+                "regenerated": len(result["regenerated"]),
+                "skipped": len(result["skipped"]),
+                "failed": len(result["failed"]),
+                "total_checked": result["total_checked"],
+            },
+        )
+
+        return result
+
+    # =========================================================================
     # Helpers
     # =========================================================================
 

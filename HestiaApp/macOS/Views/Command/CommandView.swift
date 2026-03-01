@@ -6,27 +6,37 @@ struct CommandView: View {
     @EnvironmentObject var appState: AppState
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: MacSpacing.lg) {
-                // Hero greeting + progress rings
-                HeroSection(viewModel: viewModel)
+        GeometryReader { geo in
+            let isCompact = geo.size.width < 700
 
-                // Stat cards row
-                StatCardsRow(viewModel: viewModel)
+            ScrollView {
+                VStack(spacing: MacSpacing.lg) {
+                    // Hero greeting + progress rings
+                    HeroSection(viewModel: viewModel, isCompact: isCompact)
 
-                // Calendar + Orders side by side
-                HStack(alignment: .top, spacing: MacSpacing.lg) {
-                    CalendarWeekStrip(events: viewModel.calendarEvents)
-                        .frame(maxWidth: .infinity)
+                    // Stat cards row
+                    StatCardsRow(viewModel: viewModel, isCompact: isCompact)
 
-                    OrdersPanel(orders: viewModel.orders)
-                        .frame(width: 320)
+                    // Calendar + Orders — side by side or stacked
+                    if isCompact {
+                        VStack(spacing: MacSpacing.lg) {
+                            CalendarWeekStrip(events: viewModel.calendarEvents)
+                            OrdersPanel(orders: viewModel.orders)
+                        }
+                    } else {
+                        HStack(alignment: .top, spacing: MacSpacing.lg) {
+                            CalendarWeekStrip(events: viewModel.calendarEvents)
+                                .frame(maxWidth: .infinity)
+                            OrdersPanel(orders: viewModel.orders)
+                                .frame(minWidth: 280, idealWidth: 320, maxWidth: 360)
+                        }
+                    }
+
+                    // Activity feed
+                    ActivityFeed(orders: viewModel.orders, newsfeedItems: viewModel.newsfeedItems, isCompact: isCompact)
                 }
-
-                // Activity feed
-                ActivityFeed(orders: viewModel.orders, newsfeedItems: viewModel.newsfeedItems)
+                .padding(MacSpacing.xxl)
             }
-            .padding(MacSpacing.xxl)
         }
         .background(MacColors.windowBackground)
         .task {

@@ -4,6 +4,7 @@ import HestiaShared
 struct ActivityFeed: View {
     let orders: [OrderResponse]
     let newsfeedItems: [NewsfeedItem]
+    var isCompact: Bool = false
     @State private var selectedFilter: String = "All Updates"
     @State private var searchText: String = ""
 
@@ -42,54 +43,69 @@ struct ActivityFeed: View {
 
                 Spacer()
 
-                // Search bar
-                HStack(spacing: MacSpacing.sm) {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 14))
-                        .foregroundStyle(MacColors.textFaint)
-                    TextField("Search activity...", text: $searchText)
-                        .font(MacTypography.label)
-                        .textFieldStyle(.plain)
-                }
-                .padding(.horizontal, MacSpacing.md)
-                .padding(.vertical, MacSpacing.sm)
-                .frame(width: 272)
-                .background(MacColors.searchInputBackground)
-                .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
-            }
-
-            // Filter tabs
-            HStack(spacing: 0) {
-                ForEach(filters, id: \.self) { filter in
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.15)) {
-                            selectedFilter = filter
-                        }
-                    } label: {
-                        Text(filter)
-                            .font(MacTypography.body)
-                            .foregroundStyle(
-                                selectedFilter == filter
-                                    ? MacColors.textPrimary
-                                    : MacColors.textSecondary
-                            )
-                            .padding(.horizontal, MacSpacing.md)
-                            .padding(.vertical, MacSpacing.sm)
-                            .background(
-                                selectedFilter == filter
-                                    ? MacColors.activeTabBackground
-                                    : Color.clear
-                            )
-                            .clipShape(Capsule())
+                // Search bar — compact: icon-only, wide: full text field
+                if isCompact {
+                    Button {} label: {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 14))
+                            .foregroundStyle(MacColors.textFaint)
+                            .frame(width: 32, height: 31.5)
+                            .background(MacColors.searchInputBackground)
+                            .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
                     }
                     .buttonStyle(.plain)
+                } else {
+                    HStack(spacing: MacSpacing.sm) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 14))
+                            .foregroundStyle(MacColors.textFaint)
+                        TextField("Search activity...", text: $searchText)
+                            .font(MacTypography.label)
+                            .textFieldStyle(.plain)
+                    }
+                    .padding(.horizontal, MacSpacing.md)
+                    .padding(.vertical, MacSpacing.sm)
+                    .frame(minWidth: 180, maxWidth: 300)
+                    .background(MacColors.searchInputBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
                 }
+            }
 
-                Spacer()
+            // Filter tabs — scrollable when compact
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 0) {
+                    ForEach(filters, id: \.self) { filter in
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                selectedFilter = filter
+                            }
+                        } label: {
+                            Text(isCompact ? filterShortLabel(filter) : filter)
+                                .font(MacTypography.body)
+                                .foregroundStyle(
+                                    selectedFilter == filter
+                                        ? MacColors.textPrimary
+                                        : MacColors.textSecondary
+                                )
+                                .padding(.horizontal, isCompact ? MacSpacing.sm : MacSpacing.md)
+                                .padding(.vertical, MacSpacing.sm)
+                                .background(
+                                    selectedFilter == filter
+                                        ? MacColors.activeTabBackground
+                                        : Color.clear
+                                )
+                                .clipShape(Capsule())
+                                .fixedSize()
+                        }
+                        .buttonStyle(.plain)
+                    }
 
-                Text("\(filteredItems.count) update\(filteredItems.count == 1 ? "" : "s")")
-                    .font(MacTypography.label)
-                    .foregroundStyle(MacColors.textSecondary)
+                    Spacer(minLength: MacSpacing.sm)
+
+                    Text("\(filteredItems.count)")
+                        .font(MacTypography.label)
+                        .foregroundStyle(MacColors.textSecondary)
+                }
             }
 
             // Feed items
@@ -110,6 +126,13 @@ struct ActivityFeed: View {
                 .strokeBorder(MacColors.cardBorder, lineWidth: 1)
         }
         .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
+    }
+
+    private func filterShortLabel(_ filter: String) -> String {
+        switch filter {
+        case "All Updates": return "All"
+        default: return filter
+        }
     }
 
     private var emptyState: some View {

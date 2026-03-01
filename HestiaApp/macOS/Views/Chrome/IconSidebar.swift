@@ -7,37 +7,26 @@ struct IconSidebar: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Zap logo
+            // Logo (top, sticky — navigates to Command Center)
             logoButton
                 .padding(.top, MacSpacing.xl)
 
-            // Nav icons
+            // Nav icons (middle section, fixed order per design spec)
             VStack(spacing: 6) {
                 navIcon(.command, systemName: "house", yOffset: 0)
-                navIcon(.explorer, systemName: "map", yOffset: 1)
                     .padding(.top, MacSpacing.lg)
-                navIcon(.resources, systemName: "server.rack", yOffset: 2)
-                navIcon(.health, systemName: "heart", yOffset: 3)
-                navIcon(.wiki, systemName: "book", yOffset: 4)
+                navIcon(.health, systemName: "waveform.path.ecg", yOffset: 1)
+                navIcon(.research, systemName: "point.3.connected.trianglepath.dotted", yOffset: 2)
+                navIcon(.wiki, systemName: "map", yOffset: 3)
+                navIcon(.explorer, systemName: "magnifyingglass", yOffset: 4)
             }
             .padding(.top, MacSpacing.xxl)
 
             Spacer()
 
-            // Bottom icons
-            VStack(spacing: 7) {
-                navIcon(.profile, systemName: "gearshape", yOffset: 5)
-
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        workspace.currentView = .profile
-                    }
-                } label: {
-                    userAvatar
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.bottom, MacSpacing.xxl)
+            // Profile (bottom, sticky — merged settings + avatar)
+            profileButton
+                .padding(.bottom, MacSpacing.xxl)
         }
         .frame(width: MacSize.iconSidebarWidth)
         .background(MacColors.sidebarBackground)
@@ -49,14 +38,11 @@ struct IconSidebar: View {
     // MARK: - Logo
 
     private var logoButton: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: MacCornerRadius.navIcon)
-                .fill(MacColors.logoGradient)
-                .frame(width: MacSize.logoSize, height: MacSize.logoSize)
-            Image(systemName: "bolt.fill")
-                .font(.system(size: MacSize.navIcon))
-                .foregroundStyle(.white)
-        }
+        Image("HestiaLogo")
+            .resizable()
+            .scaledToFit()
+            .frame(width: MacSize.logoSize, height: MacSize.logoSize)
+            .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.navIcon))
     }
 
     // MARK: - Nav Icon
@@ -108,28 +94,49 @@ struct IconSidebar: View {
         }
     }
 
-    // MARK: - User Avatar
+    // MARK: - Profile Button (merged gear + avatar)
 
-    private var userAvatar: some View {
-        ZStack {
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 70/255, green: 25/255, blue: 1/255).opacity(0.8),
-                            Color(red: 254/255, green: 154/255, blue: 0).opacity(0.3)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+    private var profileButton: some View {
+        let isActive = workspace.currentView == .profile
+        let isHovered = hoveredView == .profile
+
+        return Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                workspace.currentView = .profile
+            }
+        } label: {
+            ZStack {
+                // Avatar circle with gradient
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 70/255, green: 25/255, blue: 1/255).opacity(0.8),
+                                Color(red: 254/255, green: 154/255, blue: 0).opacity(0.3)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
-                )
-            Circle()
-                .strokeBorder(MacColors.avatarBorder, lineWidth: 1)
-            Text("HS")
-                .font(.system(size: 11))
-                .tracking(0.065)
-                .foregroundStyle(.white)
+                Circle()
+                    .strokeBorder(
+                        isActive ? MacColors.amberAccent : MacColors.avatarBorder,
+                        lineWidth: isActive ? 1.5 : 1
+                    )
+
+                Text("HS")
+                    .font(.system(size: 11))
+                    .tracking(0.065)
+                    .foregroundStyle(.white)
+            }
+            .frame(width: MacSize.navIconButton, height: MacSize.navIconButton)
+            .opacity(isHovered && !isActive ? 0.85 : 1.0)
         }
-        .frame(width: MacSize.userAvatarSize, height: MacSize.userAvatarSize)
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                hoveredView = hovering ? .profile : nil
+            }
+        }
     }
 }

@@ -9,7 +9,7 @@ struct MacWikiView: View {
         HStack(spacing: 0) {
             // Sidebar: tab buttons + article list
             MacWikiSidebarView(viewModel: viewModel)
-                .frame(width: MacSize.fileSidebarWidth)
+                .frame(minWidth: 200, idealWidth: MacSize.fileSidebarWidth, maxWidth: 320)
                 .background(MacColors.panelBackground)
                 .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
                 .overlay {

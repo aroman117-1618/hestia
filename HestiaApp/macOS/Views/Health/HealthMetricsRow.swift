@@ -6,10 +6,23 @@ struct HealthMetricsRow: View {
     @ObservedObject var viewModel: MacHealthViewModel
 
     var body: some View {
-        HStack(spacing: MacSpacing.lg) {
-            heartCard
-            sleepCard
-            bodyCard
+        GeometryReader { geo in
+            let isNarrow = geo.size.width < 600
+
+            if isNarrow {
+                // Stack vertically when narrow
+                VStack(spacing: MacSpacing.lg) {
+                    heartCard
+                    sleepCard
+                    bodyCard
+                }
+            } else {
+                HStack(spacing: MacSpacing.lg) {
+                    heartCard
+                    sleepCard
+                    bodyCard
+                }
+            }
         }
     }
 

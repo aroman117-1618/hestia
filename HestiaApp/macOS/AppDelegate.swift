@@ -62,7 +62,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         editMenuItem.submenu = editMenu
         mainMenu.addItem(editMenuItem)
 
-        // View menu
+        // View menu — matches new sidebar order
         let viewMenuItem = NSMenuItem(title: "View", action: nil, keyEquivalent: "")
         let viewMenu = NSMenu(title: "View")
 
@@ -70,25 +70,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         cmdItem.target = self
         viewMenu.addItem(cmdItem)
 
-        let expItem = NSMenuItem(title: "Explorer", action: #selector(showExplorerView), keyEquivalent: "2")
-        expItem.target = self
-        viewMenu.addItem(expItem)
-
-        let healthItem = NSMenuItem(title: "Health", action: #selector(showHealthView), keyEquivalent: "3")
+        let healthItem = NSMenuItem(title: "Vitals", action: #selector(showHealthView), keyEquivalent: "2")
         healthItem.target = self
         viewMenu.addItem(healthItem)
 
-        let profileItem = NSMenuItem(title: "Profile", action: #selector(showProfileView), keyEquivalent: "4")
-        profileItem.target = self
-        viewMenu.addItem(profileItem)
+        let researchItem = NSMenuItem(title: "Research", action: #selector(showResearchView), keyEquivalent: "3")
+        researchItem.target = self
+        viewMenu.addItem(researchItem)
 
-        let wikiItem = NSMenuItem(title: "Field Guide", action: #selector(showWikiView), keyEquivalent: "5")
+        let wikiItem = NSMenuItem(title: "Field Guide", action: #selector(showWikiView), keyEquivalent: "4")
         wikiItem.target = self
         viewMenu.addItem(wikiItem)
 
-        let resourcesItem = NSMenuItem(title: "Resources", action: #selector(showResourcesView), keyEquivalent: "6")
-        resourcesItem.target = self
-        viewMenu.addItem(resourcesItem)
+        let expItem = NSMenuItem(title: "Explorer", action: #selector(showExplorerView), keyEquivalent: "5")
+        expItem.target = self
+        viewMenu.addItem(expItem)
+
+        viewMenu.addItem(.separator())
+
+        let profileItem = NSMenuItem(title: "Profile", action: #selector(showProfileView), keyEquivalent: "6")
+        profileItem.target = self
+        viewMenu.addItem(profileItem)
 
         viewMenu.addItem(.separator())
 
@@ -117,19 +119,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.switchView(to: .command)
                 return nil
             case "2":
-                self?.switchView(to: .explorer)
-                return nil
-            case "3":
                 self?.switchView(to: .health)
                 return nil
-            case "4":
-                self?.switchView(to: .profile)
+            case "3":
+                self?.switchView(to: .research)
                 return nil
-            case "5":
+            case "4":
                 self?.switchView(to: .wiki)
                 return nil
+            case "5":
+                self?.switchView(to: .explorer)
+                return nil
             case "6":
-                self?.switchView(to: .resources)
+                self?.switchView(to: .profile)
                 return nil
             case "\\":
                 self?.mainWindowController?.toggleChatPanel(nil)
@@ -151,10 +153,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Menu Actions
 
     @objc private func showCommandView() { switchView(to: .command) }
-    @objc private func showExplorerView() { switchView(to: .explorer) }
     @objc private func showHealthView() { switchView(to: .health) }
-    @objc private func showProfileView() { switchView(to: .profile) }
+    @objc private func showResearchView() { switchView(to: .research) }
     @objc private func showWikiView() { switchView(to: .wiki) }
-    @objc private func showResourcesView() { switchView(to: .resources) }
+    @objc private func showExplorerView() { switchView(to: .explorer) }
+    @objc private func showProfileView() { switchView(to: .profile) }
     @objc private func toggleChatPanel() { mainWindowController?.toggleChatPanel(nil) }
 }

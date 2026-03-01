@@ -63,6 +63,8 @@ class WikiArticle:
     generation_model: Optional[str] = None
     word_count: int = 0
     estimated_read_time: int = 0
+    last_trigger_source: str = "manual"
+    regeneration_count: int = 0
 
     @classmethod
     def create(
@@ -75,6 +77,8 @@ class WikiArticle:
         source_hash: Optional[str] = None,
         generation_status: GenerationStatus = GenerationStatus.PENDING,
         generation_model: Optional[str] = None,
+        last_trigger_source: str = "manual",
+        regeneration_count: int = 0,
     ) -> "WikiArticle":
         """Factory method to create a new wiki article."""
         # Generate ID based on type
@@ -103,6 +107,8 @@ class WikiArticle:
             generation_model=generation_model,
             word_count=word_count,
             estimated_read_time=read_time,
+            last_trigger_source=last_trigger_source,
+            regeneration_count=regeneration_count,
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -120,6 +126,8 @@ class WikiArticle:
             "generation_model": self.generation_model,
             "word_count": self.word_count,
             "estimated_read_time": self.estimated_read_time,
+            "last_trigger_source": self.last_trigger_source,
+            "regeneration_count": self.regeneration_count,
         }
 
     @classmethod
@@ -142,6 +150,8 @@ class WikiArticle:
             generation_model=data.get("generation_model"),
             word_count=data.get("word_count", 0),
             estimated_read_time=data.get("estimated_read_time", 0),
+            last_trigger_source=data.get("last_trigger_source", "manual"),
+            regeneration_count=data.get("regeneration_count", 0),
         )
 
     def to_sqlite_row(self) -> tuple:
@@ -159,6 +169,8 @@ class WikiArticle:
             self.generation_model,
             self.word_count,
             self.estimated_read_time,
+            self.last_trigger_source,
+            self.regeneration_count,
         )
 
     @classmethod
@@ -184,4 +196,6 @@ class WikiArticle:
             generation_model=row.get("generation_model"),
             word_count=row.get("word_count", 0),
             estimated_read_time=row.get("estimated_read_time", 0),
+            last_trigger_source=row.get("last_trigger_source", "manual"),
+            regeneration_count=row.get("regeneration_count", 0),
         )

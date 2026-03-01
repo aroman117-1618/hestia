@@ -39,7 +39,7 @@ from hestia.agents import get_agent_manager
 from hestia.user import get_user_manager
 from hestia.cloud import get_cloud_manager
 from hestia.health import get_health_manager
-from hestia.wiki import get_wiki_manager
+from hestia.wiki import get_wiki_manager, get_wiki_scheduler, close_wiki_scheduler
 from hestia.explorer import get_explorer_manager
 from hestia.newsfeed import get_newsfeed_manager
 
@@ -175,6 +175,35 @@ async def lifespan(app: FastAPI):
         # Initialize wiki documentation system
         wiki_manager = await get_wiki_manager()
 
+        # Initialize wiki auto-update scheduler
+        wiki_scheduler = await get_wiki_scheduler()
+
+        # Fire non-blocking post-deploy wiki refresh
+        async def _post_deploy_wiki_refresh() -> None:
+            """Refresh stale wiki articles after server restart."""
+            try:
+                delay = wiki_scheduler.get_post_deploy_delay()
+                if not wiki_scheduler.is_post_deploy_enabled():
+                    return
+                await asyncio.sleep(delay)
+                result = await wiki_manager.regenerate_stale("deploy")
+                logger.info(
+                    "Post-deploy wiki refresh complete",
+                    component=LogComponent.WIKI,
+                    data={
+                        "regenerated": len(result.get("regenerated", [])),
+                        "skipped": len(result.get("skipped", [])),
+                        "failed": len(result.get("failed", [])),
+                    },
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Post-deploy wiki refresh failed: {type(e).__name__}",
+                    component=LogComponent.WIKI,
+                )
+
+        asyncio.create_task(_post_deploy_wiki_refresh())
+
         # Initialize v2 agent config system (.md-based)
         from hestia.agents.config_loader import get_config_loader
         config_loader = await get_config_loader()
@@ -201,6 +230,7 @@ async def lifespan(app: FastAPI):
                 "cloud_manager_ready": cloud_manager is not None,
                 "health_manager_ready": health_manager is not None,
                 "wiki_manager_ready": wiki_manager is not None,
+                "wiki_scheduler_ready": wiki_scheduler is not None,
                 "config_loader_ready": config_loader is not None,
                 "invite_store_ready": invite_store is not None,
                 "explorer_manager_ready": explorer_manager is not None,
@@ -227,6 +257,14 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning(
                 f"Config cleanup error during shutdown: {type(e).__name__}",
+                component=LogComponent.API,
+            )
+
+        try:
+            await close_wiki_scheduler()
+        except Exception as e:
+            logger.warning(
+                f"Wiki scheduler cleanup error during shutdown: {type(e).__name__}",
                 component=LogComponent.API,
             )
 

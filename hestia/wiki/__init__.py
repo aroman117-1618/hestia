@@ -9,6 +9,7 @@ roadmap display, and Mermaid diagrams.
 from .manager import WikiManager, get_wiki_manager, close_wiki_manager
 from .models import WikiArticle, ArticleType, GenerationStatus
 from .database import WikiDatabase, get_wiki_database, close_wiki_database
+from .scheduler import WikiScheduler, get_wiki_scheduler, close_wiki_scheduler
 
 __all__ = [
     "WikiManager",
@@ -20,4 +21,7 @@ __all__ = [
     "WikiDatabase",
     "get_wiki_database",
     "close_wiki_database",
+    "WikiScheduler",
+    "get_wiki_scheduler",
+    "close_wiki_scheduler",
 ]

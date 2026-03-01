@@ -10,7 +10,7 @@ class MainWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        window.minSize = NSSize(width: 1200, height: 700)
+        window.minSize = NSSize(width: 680, height: 500)
         window.title = "Hestia"
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true

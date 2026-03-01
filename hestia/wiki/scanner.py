@@ -268,6 +268,9 @@ class WikiScanner:
         elif article_id.startswith("module-"):
             module_name = article_id.replace("module-", "")
             current_hash = self.get_module_hash(module_name)
+        elif article_id.startswith("diagram-"):
+            # Diagrams describe overall architecture, sourced from CLAUDE.md
+            current_hash = self.get_overview_hash()
         else:
             return False  # Static articles (decisions, roadmap) aren't hash-checked
 

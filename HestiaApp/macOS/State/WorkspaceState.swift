@@ -5,8 +5,9 @@ import HestiaShared
 
 enum WorkspaceView: String, CaseIterable {
     case command
-    case explorer
     case health
+    case research
+    case explorer
     case profile
     case wiki
     case resources
