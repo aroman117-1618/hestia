@@ -44,7 +44,8 @@ class WikiScheduler:
         if self._manager is None:
             self._manager = await get_wiki_manager()
 
-        self._config = self._load_config()
+        if self._config is None:
+            self._config = self._load_config()
         schedule = self._config.get("schedule", {})
 
         self._scheduler = AsyncIOScheduler(

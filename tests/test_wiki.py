@@ -188,7 +188,7 @@ class TestWikiArticle:
     def test_sqlite_row_roundtrip(self, sample_article: WikiArticle) -> None:
         """Test SQLite row roundtrip."""
         row = sample_article.to_sqlite_row()
-        assert len(row) == 12
+        assert len(row) == 14  # 12 original + 2 audit fields
         assert row[0] == "module-memory"
 
     def test_article_types(self) -> None:
@@ -675,3 +675,317 @@ class TestWikiGenerator:
         if content.endswith("```"):
             content = content[:-3].strip()
         assert content == "graph TD\n    A --> B"
+
+
+# ============== Diagram Staleness Tests ==============
+
+class TestDiagramStaleness:
+    """Tests for diagram staleness detection (scanner bug fix)."""
+
+    def test_diagram_stale_when_overview_changed(self, project_fixture: Path) -> None:
+        """Test that diagrams are detected as stale when CLAUDE.md changes."""
+        scanner = WikiScanner(project_root=project_fixture)
+        # Diagram with old hash should be stale
+        assert scanner.check_staleness("diagram-architecture", "old_hash") is True
+
+    def test_diagram_fresh_when_overview_unchanged(self, project_fixture: Path) -> None:
+        """Test that diagrams are fresh when CLAUDE.md hash matches."""
+        scanner = WikiScanner(project_root=project_fixture)
+        current_hash = scanner.get_overview_hash()
+        assert scanner.check_staleness("diagram-architecture", current_hash) is False
+
+    def test_diagram_stale_no_hash(self, project_fixture: Path) -> None:
+        """Test that diagrams with no stored hash are stale."""
+        scanner = WikiScanner(project_root=project_fixture)
+        assert scanner.check_staleness("diagram-data-flow", None) is True
+
+
+# ============== Regenerate Stale Tests ==============
+
+class TestRegenerateStale:
+    """Tests for WikiManager.regenerate_stale()."""
+
+    @pytest_asyncio.fixture
+    async def manager(self, temp_dir: Path, project_fixture: Path):
+        """Create a test wiki manager."""
+        db = WikiDatabase(db_path=temp_dir / "test_wiki.db")
+        await db.connect()
+        scanner = WikiScanner(project_root=project_fixture)
+        generator = WikiGenerator(scanner=scanner)
+        mgr = WikiManager(database=db, scanner=scanner, generator=generator)
+        mgr._config = {
+            "modules": {
+                "memory": {
+                    "display_name": "Memory Layer",
+                    "subtitle": "How Hestia remembers",
+                    "icon": "brain",
+                },
+            },
+            "diagrams": [
+                {"type": "architecture", "title": "System Architecture"},
+            ],
+        }
+        yield mgr
+        await db.close()
+
+    @pytest.mark.asyncio
+    async def test_nothing_stale(self, manager: WikiManager) -> None:
+        """Test regenerate_stale when nothing is stale."""
+        result = await manager.regenerate_stale("test")
+        assert result["trigger_source"] == "test"
+        assert result["regenerated"] == []
+        assert result["total_checked"] == 0
+        # Static should still be refreshed
+        assert "decisions" in result["static"]
+
+    @pytest.mark.asyncio
+    async def test_one_module_stale(self, manager: WikiManager) -> None:
+        """Test regenerate_stale regenerates one stale module."""
+        # Insert a module article with old hash (will be stale)
+        article = WikiArticle.create(
+            article_type=ArticleType.MODULE,
+            title="Memory Layer",
+            module_name="memory",
+            content="Old content",
+            source_hash="old_hash",
+            generation_status=GenerationStatus.COMPLETE,
+        )
+        await manager.database.upsert_article(article)
+
+        mock_content = "## Memory Layer\n\nFresh generated content."
+        with patch.object(
+            manager.generator,
+            "_call_cloud",
+            new_callable=AsyncMock,
+            return_value=mock_content,
+        ):
+            result = await manager.regenerate_stale("deploy")
+
+        assert "module-memory" in result["regenerated"]
+        assert result["trigger_source"] == "deploy"
+
+    @pytest.mark.asyncio
+    async def test_static_always_runs(self, manager: WikiManager) -> None:
+        """Test that static refresh runs even if no articles exist."""
+        result = await manager.regenerate_stale("scheduled")
+        assert "decisions" in result["static"]
+        assert result["static"]["decisions"] == 2  # From project_fixture
+
+    @pytest.mark.asyncio
+    async def test_failure_isolation(self, manager: WikiManager) -> None:
+        """Test that one article's failure doesn't block others."""
+        # Insert two stale articles
+        for name in ["memory", "security"]:
+            # Need security in config for this test
+            manager._config["modules"]["security"] = {
+                "display_name": "Security",
+                "subtitle": "Test",
+                "icon": "lock",
+            }
+            article = WikiArticle.create(
+                article_type=ArticleType.MODULE,
+                title=f"{name.title()} Layer",
+                module_name=name,
+                content="Old",
+                source_hash="old_hash",
+                generation_status=GenerationStatus.COMPLETE,
+            )
+            await manager.database.upsert_article(article)
+
+        call_count = 0
+
+        async def mock_cloud_with_failure(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise RuntimeError("Cloud API timeout")
+            return "## Content\n\nGenerated."
+
+        with patch.object(
+            manager.generator,
+            "_call_cloud",
+            side_effect=mock_cloud_with_failure,
+        ):
+            result = await manager.regenerate_stale("test")
+
+        # One should succeed, one should fail
+        assert len(result["regenerated"]) + len(result["failed"]) == 2
+        assert len(result["failed"]) >= 1
+
+    @pytest.mark.asyncio
+    async def test_trigger_source_propagation(self, manager: WikiManager) -> None:
+        """Test that trigger_source is saved to regenerated articles."""
+        article = WikiArticle.create(
+            article_type=ArticleType.MODULE,
+            title="Memory Layer",
+            module_name="memory",
+            content="Old content",
+            source_hash="old_hash",
+            generation_status=GenerationStatus.COMPLETE,
+        )
+        await manager.database.upsert_article(article)
+
+        mock_content = "## Memory Layer\n\nRegenerated content."
+        with patch.object(
+            manager.generator,
+            "_call_cloud",
+            new_callable=AsyncMock,
+            return_value=mock_content,
+        ):
+            await manager.regenerate_stale("deploy")
+
+        # Check the article in DB has trigger_source set
+        updated = await manager.get_article("module-memory")
+        assert updated is not None
+        assert updated.last_trigger_source == "deploy"
+        assert updated.regeneration_count == 1
+
+
+# ============== Audit Column Tests ==============
+
+class TestAuditColumns:
+    """Tests for last_trigger_source and regeneration_count fields."""
+
+    @pytest_asyncio.fixture
+    async def db(self, temp_dir: Path):
+        """Create a test database."""
+        db = WikiDatabase(db_path=temp_dir / "test_wiki_audit.db")
+        await db.connect()
+        yield db
+        await db.close()
+
+    @pytest.mark.asyncio
+    async def test_migration_adds_columns(self, db: WikiDatabase) -> None:
+        """Test that auto-migration adds audit columns."""
+        # The columns should exist after connect()
+        async with db.connection.execute("PRAGMA table_info(wiki_articles)") as cursor:
+            columns = {row[1] for row in await cursor.fetchall()}
+        assert "last_trigger_source" in columns
+        assert "regeneration_count" in columns
+
+    @pytest.mark.asyncio
+    async def test_audit_fields_roundtrip(self, db: WikiDatabase) -> None:
+        """Test that audit fields survive database roundtrip."""
+        article = WikiArticle.create(
+            article_type=ArticleType.MODULE,
+            title="Test Module",
+            module_name="test",
+            content="Content",
+            generation_status=GenerationStatus.COMPLETE,
+            last_trigger_source="deploy",
+            regeneration_count=3,
+        )
+        await db.upsert_article(article)
+
+        result = await db.get_article("module-test")
+        assert result is not None
+        assert result.last_trigger_source == "deploy"
+        assert result.regeneration_count == 3
+
+
+# ============== Scheduler Tests ==============
+
+class TestWikiScheduler:
+    """Tests for WikiScheduler."""
+
+    @pytest.mark.asyncio
+    async def test_scheduler_init_and_close(self, temp_dir: Path, project_fixture: Path) -> None:
+        """Test scheduler initializes and closes cleanly."""
+        from hestia.wiki.scheduler import WikiScheduler
+
+        db = WikiDatabase(db_path=temp_dir / "test_wiki.db")
+        await db.connect()
+        scanner = WikiScanner(project_root=project_fixture)
+        generator = WikiGenerator(scanner=scanner)
+        mgr = WikiManager(database=db, scanner=scanner, generator=generator)
+        mgr._config = {"modules": {}, "diagrams": [], "schedule": {
+            "day_of_week": "sun", "hour": 3, "minute": 0,
+            "post_deploy_enabled": True, "post_deploy_delay_seconds": 5,
+        }}
+
+        scheduler = WikiScheduler(manager=mgr)
+        await scheduler.initialize()
+
+        assert scheduler.scheduler.running is True
+        assert scheduler.get_next_sweep_time() is not None
+
+        await scheduler.close()
+        assert scheduler._scheduler is None
+        await db.close()
+
+    @pytest.mark.asyncio
+    async def test_scheduler_next_sweep_time(self, temp_dir: Path, project_fixture: Path) -> None:
+        """Test that next sweep time is in the future."""
+        from hestia.wiki.scheduler import WikiScheduler
+
+        db = WikiDatabase(db_path=temp_dir / "test_wiki.db")
+        await db.connect()
+        scanner = WikiScanner(project_root=project_fixture)
+        generator = WikiGenerator(scanner=scanner)
+        mgr = WikiManager(database=db, scanner=scanner, generator=generator)
+        mgr._config = {"modules": {}, "diagrams": [], "schedule": {
+            "day_of_week": "sun", "hour": 3, "minute": 0,
+        }}
+
+        scheduler = WikiScheduler(manager=mgr)
+        await scheduler.initialize()
+
+        next_time = scheduler.get_next_sweep_time()
+        assert next_time is not None
+        assert next_time > datetime.now(next_time.tzinfo)
+
+        await scheduler.close()
+        await db.close()
+
+    @pytest.mark.asyncio
+    async def test_post_deploy_config(self, temp_dir: Path, project_fixture: Path) -> None:
+        """Test post-deploy config reads correctly."""
+        from hestia.wiki.scheduler import WikiScheduler
+
+        db = WikiDatabase(db_path=temp_dir / "test_wiki.db")
+        await db.connect()
+        scanner = WikiScanner(project_root=project_fixture)
+        generator = WikiGenerator(scanner=scanner)
+        mgr = WikiManager(database=db, scanner=scanner, generator=generator)
+        mgr._config = {"modules": {}, "diagrams": [], "schedule": {
+            "post_deploy_enabled": False, "post_deploy_delay_seconds": 10,
+        }}
+
+        scheduler = WikiScheduler(manager=mgr)
+        # Inject config BEFORE initialize() so it's respected
+        scheduler._config = mgr._config
+        await scheduler.initialize()
+
+        assert scheduler.is_post_deploy_enabled() is False
+        assert scheduler.get_post_deploy_delay() == 10
+
+        await scheduler.close()
+        await db.close()
+
+    @pytest.mark.asyncio
+    async def test_weekly_sweep_calls_regenerate(self, temp_dir: Path, project_fixture: Path) -> None:
+        """Test that weekly sweep calls regenerate_stale."""
+        from hestia.wiki.scheduler import WikiScheduler
+
+        db = WikiDatabase(db_path=temp_dir / "test_wiki.db")
+        await db.connect()
+        scanner = WikiScanner(project_root=project_fixture)
+        generator = WikiGenerator(scanner=scanner)
+        mgr = WikiManager(database=db, scanner=scanner, generator=generator)
+        mgr._config = {"modules": {}, "diagrams": [], "schedule": {}}
+
+        scheduler = WikiScheduler(manager=mgr)
+        await scheduler.initialize()
+
+        # Mock regenerate_stale and call sweep directly
+        with patch.object(
+            mgr,
+            "regenerate_stale",
+            new_callable=AsyncMock,
+            return_value={"regenerated": [], "skipped": [], "failed": []},
+        ) as mock_regen:
+            await scheduler._weekly_sweep()
+            mock_regen.assert_called_once_with(trigger_source="scheduled")
+
+        await scheduler.close()
+        await db.close()

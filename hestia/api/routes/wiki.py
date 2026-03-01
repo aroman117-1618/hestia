@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from hestia.api.middleware.auth import get_device_token
 from hestia.api.errors import sanitize_for_log
-from hestia.wiki import get_wiki_manager
+from hestia.wiki import get_wiki_manager, get_wiki_scheduler
 from hestia.logging import get_logger, LogComponent
 
 
@@ -84,6 +84,26 @@ class WikiStalenessResponse(BaseModel):
     """Staleness check results."""
     articles: List[WikiStalenessItem]
     stale_count: int
+
+
+class WikiRegenerateStaleResponse(BaseModel):
+    """Result of selective regeneration."""
+    trigger_source: str
+    regenerated: List[str] = Field(default_factory=list)
+    skipped: List[str] = Field(default_factory=list)
+    failed: List[str] = Field(default_factory=list)
+    static: Dict[str, Any] = Field(default_factory=dict)
+    total_checked: int = 0
+
+
+class WikiHealthResponse(BaseModel):
+    """Wiki system health status."""
+    total_articles: int
+    stale_count: int
+    last_generation: Optional[str] = None
+    next_scheduled_sweep: Optional[str] = None
+    articles_by_type: Dict[str, int] = Field(default_factory=dict)
+    articles_by_status: Dict[str, int] = Field(default_factory=dict)
 
 
 # =============================================================================
@@ -279,3 +299,146 @@ async def refresh_static(
         )
 
     return WikiRefreshResponse(**counts)
+
+
+@router.get(
+    "/staleness",
+    response_model=WikiStalenessResponse,
+    summary="Check article staleness",
+    description="Check which articles are stale (source has changed since generation).",
+)
+async def check_staleness(
+    device_id: str = Depends(get_device_token),
+):
+    """Check staleness of all generated articles."""
+    manager = await get_wiki_manager()
+
+    try:
+        results = await manager.check_staleness()
+    except Exception as e:
+        logger.error(
+            f"Staleness check failed: {sanitize_for_log(e)}",
+            component=LogComponent.API,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to check article staleness",
+        )
+
+    stale_count = sum(1 for r in results if r["is_stale"])
+
+    return WikiStalenessResponse(
+        articles=[
+            WikiStalenessItem(
+                article_id=r["article_id"],
+                title=r["title"],
+                is_stale=r["is_stale"],
+            )
+            for r in results
+        ],
+        stale_count=stale_count,
+    )
+
+
+@router.post(
+    "/regenerate-stale",
+    response_model=WikiRegenerateStaleResponse,
+    summary="Regenerate stale articles",
+    description="Selectively regenerate only stale articles (~$0.03-0.05 each).",
+)
+async def regenerate_stale(
+    device_id: str = Depends(get_device_token),
+):
+    """Trigger selective regeneration of stale articles."""
+    manager = await get_wiki_manager()
+
+    try:
+        result = await manager.regenerate_stale(trigger_source="manual")
+    except Exception as e:
+        logger.error(
+            f"Selective regeneration failed: {sanitize_for_log(e)}",
+            component=LogComponent.API,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Selective regeneration failed. Is cloud LLM enabled?",
+        )
+
+    logger.info(
+        "Selective wiki regeneration via API",
+        component=LogComponent.API,
+        data={
+            "regenerated": len(result.get("regenerated", [])),
+            "failed": len(result.get("failed", [])),
+        },
+    )
+
+    return WikiRegenerateStaleResponse(**result)
+
+
+@router.get(
+    "/health",
+    response_model=WikiHealthResponse,
+    summary="Wiki system health",
+    description="Dashboard: total articles, stale count, next sweep, breakdowns.",
+)
+async def wiki_health(
+    device_id: str = Depends(get_device_token),
+):
+    """Get wiki system health status."""
+    manager = await get_wiki_manager()
+
+    try:
+        # Get all articles
+        articles = await manager.list_articles()
+        total = len(articles)
+
+        # Check staleness
+        staleness = await manager.check_staleness()
+        stale_count = sum(1 for s in staleness if s["is_stale"])
+
+        # Find most recent generation
+        last_gen = None
+        for a in articles:
+            if a.generated_at:
+                ts = a.generated_at.isoformat()
+                if last_gen is None or ts > last_gen:
+                    last_gen = ts
+
+        # Get next scheduled sweep
+        next_sweep = None
+        try:
+            scheduler = await get_wiki_scheduler()
+            sweep_time = scheduler.get_next_sweep_time()
+            if sweep_time:
+                next_sweep = sweep_time.isoformat()
+        except Exception:
+            pass
+
+        # Breakdowns
+        by_type: Dict[str, int] = {}
+        by_status: Dict[str, int] = {}
+        for a in articles:
+            t = a.article_type.value
+            s = a.generation_status.value
+            by_type[t] = by_type.get(t, 0) + 1
+            by_status[s] = by_status.get(s, 0) + 1
+
+    except Exception as e:
+        logger.error(
+            f"Wiki health check failed: {sanitize_for_log(e)}",
+            component=LogComponent.API,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to check wiki health",
+        )
+
+    return WikiHealthResponse(
+        total_articles=total,
+        stale_count=stale_count,
+        last_generation=last_gen,
+        next_scheduled_sweep=next_sweep,
+        articles_by_type=by_type,
+        articles_by_status=by_status,
+    )
