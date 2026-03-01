@@ -54,6 +54,8 @@ get_test_file() {
             echo "tests/test_wiki.py" ;;
         *hestia/api/routes/explorer*)
             echo "tests/test_explorer.py" ;;
+        *hestia/api/routes/newsfeed*)
+            echo "tests/test_newsfeed.py" ;;
         *hestia/api/routes/auth*)
             echo "tests/test_auth_invite.py" ;;
         *hestia/api/middleware/auth*)
@@ -66,6 +68,8 @@ get_test_file() {
             echo "tests/test_inference.py" ;;
         *hestia/memory/*)
             echo "tests/test_memory.py" ;;
+        *hestia/orchestration/handler*)
+            echo "tests/test_orchestration.py tests/test_session_ttl.py" ;;
         *hestia/orchestration/*)
             echo "tests/test_orchestration.py" ;;
         *hestia/execution/*)
@@ -92,6 +96,8 @@ get_test_file() {
             echo "tests/test_wiki.py" ;;
         *hestia/explorer/*)
             echo "tests/test_explorer.py" ;;
+        *hestia/newsfeed/*)
+            echo "tests/test_newsfeed.py" ;;
 
         # No mapping found
         *)

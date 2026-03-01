@@ -3,22 +3,34 @@ import HestiaShared
 
 struct ActivityFeed: View {
     let orders: [OrderResponse]
+    let newsfeedItems: [NewsfeedItem]
     @State private var selectedFilter: String = "All Updates"
     @State private var searchText: String = ""
 
-    private let filters = ["All Updates", "Alerts", "Insights", "News", "Orders", "Events", "Tasks"]
+    private let filters = ["All Updates", "Orders", "Memory", "Tasks", "Health", "System"]
 
-    // Mock feed items for UI layout
-    private let feedItems: [(icon: String, iconColor: Color, description: String, metric: String?, time: String, hasDot: Bool)] = [
-        ("shield", .red, "Security Monitoring: Threat Detector agent entered error state", "8.7%", "10 min ago", true),
-        ("sparkles", .green, "E-commerce Recommendation Engine hit 99.2% accuracy", "99.2%", "15 min ago", true),
-        ("newspaper", .orange, "OpenAI announces GPT-5 Turbo with 2x context window", nil, "30 min ago", true),
-        ("bolt", .yellow, "Nightly data pipeline batch — scheduled run at 2:00 AM", nil, "1 hour ago", false),
-        ("person.2", .blue, "Customer Support: Response time improved by 18%", "1.2s", "1 hour ago", false),
-        ("calendar", .cyan, "Quarterly planning sync — March 3, 10:00 AM", nil, "1.5 hours ago", true),
-        ("archivebox", .gray, "Review and archive completed Document Intelligence project", "0.0%", "2 days ago", false),
-        ("newspaper", .orange, "Google DeepMind publishes new multi-agent coordination paper", nil, "1 day ago", false),
-    ]
+    private var filteredItems: [NewsfeedItem] {
+        var items = newsfeedItems
+        if selectedFilter != "All Updates" {
+            let typeMap: [String: String] = [
+                "Orders": "order_execution",
+                "Memory": "memory_review",
+                "Tasks": "task_update",
+                "Health": "health_insight",
+                "System": "system_alert"
+            ]
+            if let typeValue = typeMap[selectedFilter] {
+                items = items.filter { $0.itemType == typeValue }
+            }
+        }
+        if !searchText.isEmpty {
+            items = items.filter {
+                $0.title.localizedCaseInsensitiveContains(searchText) ||
+                ($0.body ?? "").localizedCaseInsensitiveContains(searchText)
+            }
+        }
+        return items
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: MacSpacing.lg) {
@@ -35,7 +47,7 @@ struct ActivityFeed: View {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 14))
                         .foregroundStyle(MacColors.textFaint)
-                    TextField("Search alerts, insights, news, tasks...", text: $searchText)
+                    TextField("Search activity...", text: $searchText)
                         .font(MacTypography.label)
                         .textFieldStyle(.plain)
                 }
@@ -44,25 +56,6 @@ struct ActivityFeed: View {
                 .frame(width: 272)
                 .background(MacColors.searchInputBackground)
                 .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
-
-                // View toggles
-                HStack(spacing: 2) {
-                    Button {} label: {
-                        Image(systemName: "square.grid.2x2")
-                            .font(.system(size: 14))
-                            .foregroundStyle(MacColors.textSecondary)
-                            .frame(width: 26, height: 26)
-                    }
-                    .buttonStyle(.plain)
-
-                    Button {} label: {
-                        Image(systemName: "list.bullet")
-                            .font(.system(size: 14))
-                            .foregroundStyle(MacColors.textSecondary)
-                            .frame(width: 26, height: 26)
-                    }
-                    .buttonStyle(.plain)
-                }
             }
 
             // Filter tabs
@@ -94,15 +87,19 @@ struct ActivityFeed: View {
 
                 Spacer()
 
-                Text("12 updates")
+                Text("\(filteredItems.count) update\(filteredItems.count == 1 ? "" : "s")")
                     .font(MacTypography.label)
                     .foregroundStyle(MacColors.textSecondary)
             }
 
             // Feed items
-            VStack(spacing: MacSpacing.sm) {
-                ForEach(feedItems.indices, id: \.self) { index in
-                    feedItemRow(feedItems[index])
+            if filteredItems.isEmpty {
+                emptyState
+            } else {
+                VStack(spacing: MacSpacing.sm) {
+                    ForEach(filteredItems) { item in
+                        feedItemRow(item)
+                    }
                 }
             }
         }
@@ -115,42 +112,57 @@ struct ActivityFeed: View {
         .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
     }
 
-    private func feedItemRow(_ item: (icon: String, iconColor: Color, description: String, metric: String?, time: String, hasDot: Bool)) -> some View {
+    private var emptyState: some View {
+        VStack(spacing: MacSpacing.md) {
+            Image(systemName: "tray")
+                .font(.system(size: 28))
+                .foregroundStyle(MacColors.textFaint)
+            Text("No activity yet")
+                .font(MacTypography.body)
+                .foregroundStyle(MacColors.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, MacSpacing.xl)
+    }
+
+    private func feedItemRow(_ item: NewsfeedItem) -> some View {
         HStack(spacing: MacSpacing.md) {
             // Icon
             ZStack {
                 Circle()
-                    .fill(item.iconColor.opacity(0.15))
+                    .fill(item.displayColor.opacity(0.15))
                     .frame(width: MacSize.feedItemIconSize, height: MacSize.feedItemIconSize)
-                Image(systemName: item.icon)
+                Image(systemName: item.displayIcon)
                     .font(.system(size: 14))
-                    .foregroundStyle(item.iconColor)
+                    .foregroundStyle(item.displayColor)
             }
 
-            // Status dot
-            if item.hasDot {
+            // Unread dot
+            if !item.isRead {
                 Circle()
-                    .fill(item.iconColor)
+                    .fill(Color.blue)
                     .frame(width: MacSize.statusDotSize, height: MacSize.statusDotSize)
             }
 
-            // Description
-            Text(item.description)
+            // Title
+            Text(item.title)
                 .font(MacTypography.label)
                 .foregroundStyle(MacColors.textPrimary)
                 .lineLimit(1)
 
             Spacer()
 
-            // Metric
-            if let metric = item.metric {
-                Text(metric)
-                    .font(MacTypography.label)
-                    .foregroundStyle(MacColors.amberAccent)
+            // Body preview
+            if let body = item.body, !body.isEmpty {
+                Text(body)
+                    .font(MacTypography.caption)
+                    .foregroundStyle(MacColors.textSecondary)
+                    .lineLimit(1)
+                    .frame(maxWidth: 200, alignment: .trailing)
             }
 
             // Timestamp
-            Text(item.time)
+            Text(item.relativeTime)
                 .font(MacTypography.caption)
                 .foregroundStyle(MacColors.textSecondary)
         }

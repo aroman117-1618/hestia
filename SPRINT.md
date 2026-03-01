@@ -61,22 +61,30 @@
 
 ## Sprint 3: Command Center / Newsfeed (~2 sessions)
 
-### 3A. Backend Newsfeed
-- **Phase:** Not started
-- **Notes:** NewsfeedItem types: alert, insight, news, order, event, task. RSS via feedparser + APScheduler.
+### 3A. Backend Newsfeed Module
+- **Phase:** Done
+- **Key files:** `hestia/newsfeed/models.py`, `database.py`, `manager.py`
+- **Notes:** Materialized cache with 30s TTL. Aggregates from orders, memory, tasks, health sources via `asyncio.gather(return_exceptions=True)`. Per-user read/dismiss state (composite PK: item_id + user_id) for multi-device continuity. 30-day retention cleanup. LogComponent.NEWSFEED added. auto-test.sh mapping added.
 
 ### 3B. Backend Newsfeed API
-- **Phase:** Not started
+- **Phase:** Done
+- **Key files:** `hestia/api/routes/newsfeed.py`
+- **Notes:** 5 endpoints: GET timeline (filterable by type/source, paginated), GET unread-count (by type), POST mark-read, POST dismiss, POST refresh (rate-limited 1/10s per device). All use `Depends(get_device_token)`.
 
 ### 3C. iOS Command Center Rewrite
-- **Phase:** Not started
-- **Notes:** BriefingCard + FilterBar + NewsfeedTimeline replacing current tab layout.
+- **Phase:** Done
+- **Key files:** `HestiaApp/Shared/Models/NewsfeedModels.swift`, `BriefingModels.swift`, `ViewModels/NewsfeedViewModel.swift`, `Views/CommandCenter/BriefingCard.swift`, `FilterBar.swift`, `NewsfeedTimeline.swift`, `NewsfeedItemRow.swift`, `CommandCenterView.swift`
+- **Notes:** CommandCenterView rewritten: Header > BriefingCard > FilterBar > NewsfeedTimeline > NeuralNetView. Old tab layout (Orders/Alerts/Memory) replaced. BriefingCard is persistent above timeline (not a feed item). Empty state for zero items. Swipe-to-dismiss, auto-mark-read on appear, pull-to-refresh.
 
 ### 3D. macOS Command View Update
-- **Phase:** Not started
+- **Phase:** Done
+- **Key files:** `HestiaApp/macOS/Models/NewsfeedModels.swift`, `macOS/Services/APIClient+Newsfeed.swift`, `MacCommandCenterViewModel.swift`, `StatCardsRow.swift`, `ActivityFeed.swift`, `CommandView.swift`
+- **Notes:** macOS target sources separately from iOS — duplicate models created. StatCardsRow wired to real viewModel data (replaced hardcoded mocks). ActivityFeed renders actual newsfeed items with filtering and search.
 
-### 3E-F. APIClient + Tests
-- **Phase:** Not started
+### 3E. APIClient + Tests
+- **Phase:** Done
+- **Key files:** `HestiaApp/Shared/Services/APIClient+Newsfeed.swift`, `tests/test_newsfeed.py`
+- **Notes:** 6 APIClient extension methods (timeline, unread-count, mark-read, dismiss, refresh, briefing). 42 backend tests: models (8), database (13), manager (13), routes (8). Also added `list_recent_executions()` bulk method to OrderManager [T1]. All 1085 tests pass.
 
 ---
 

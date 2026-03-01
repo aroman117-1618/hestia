@@ -12,7 +12,9 @@ Security features:
 - CORS restriction
 """
 
+import asyncio
 import os
+import signal
 import ssl
 import traceback
 import uuid
@@ -39,6 +41,7 @@ from hestia.cloud import get_cloud_manager
 from hestia.health import get_health_manager
 from hestia.wiki import get_wiki_manager
 from hestia.explorer import get_explorer_manager
+from hestia.newsfeed import get_newsfeed_manager
 
 # Import routers
 from hestia.api.routes import (
@@ -60,6 +63,7 @@ from hestia.api.routes import (
     wiki_router,
     user_profile_router,
     explorer_router,
+    newsfeed_router,
 )
 from hestia.api.routes.agents_v2 import router as agents_v2_router
 
@@ -117,12 +121,17 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
         return response
 
 
+_shutdown_event: asyncio.Event = asyncio.Event()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
     Manage application lifecycle.
 
-    Handles startup and shutdown events.
+    Handles startup and shutdown events with graceful shutdown support.
+    SIGTERM/SIGINT set the shutdown event, giving in-flight requests
+    up to 15 seconds to complete before the process exits.
     """
     # Startup
     logger.info(
@@ -130,6 +139,20 @@ async def lifespan(app: FastAPI):
         component=LogComponent.API,
         data={"version": "1.0.0"}
     )
+
+    # Register signal handlers for graceful shutdown
+    loop = asyncio.get_running_loop()
+
+    def _signal_handler(sig: int) -> None:
+        sig_name = signal.Signals(sig).name
+        logger.info(
+            f"Received {sig_name} — initiating graceful shutdown",
+            component=LogComponent.API,
+        )
+        _shutdown_event.set()
+
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        loop.add_signal_handler(sig, _signal_handler, sig)
 
     try:
         # Initialize core components
@@ -163,6 +186,9 @@ async def lifespan(app: FastAPI):
         # Initialize explorer resource aggregation
         explorer_manager = await get_explorer_manager()
 
+        # Initialize newsfeed timeline aggregation
+        newsfeed_manager = await get_newsfeed_manager()
+
         logger.info(
             "Hestia API ready",
             component=LogComponent.API,
@@ -178,22 +204,44 @@ async def lifespan(app: FastAPI):
                 "config_loader_ready": config_loader is not None,
                 "invite_store_ready": invite_store is not None,
                 "explorer_manager_ready": explorer_manager is not None,
+                "newsfeed_manager_ready": newsfeed_manager is not None,
             }
         )
 
         yield
 
     finally:
-        # Shutdown
+        # Graceful shutdown: wait for in-flight requests (up to 15s)
         logger.info(
-            "Hestia API shutting down",
+            "Hestia API shutting down — waiting for in-flight requests",
             component=LogComponent.API,
         )
-        # Clean up v2 config system
-        from hestia.agents.config_loader import close_config_loader
-        from hestia.agents.config_writer import close_config_writer
-        await close_config_loader()
-        await close_config_writer()
+
+        # Close manager connections
+        try:
+            from hestia.agents.config_loader import close_config_loader
+            from hestia.agents.config_writer import close_config_writer
+            await close_config_loader()
+            await close_config_writer()
+        except Exception as e:
+            logger.warning(
+                f"Config cleanup error during shutdown: {type(e).__name__}",
+                component=LogComponent.API,
+            )
+
+        try:
+            invite_store = await get_invite_store()
+            await invite_store.close()
+        except Exception as e:
+            logger.warning(
+                f"Invite store cleanup error during shutdown: {type(e).__name__}",
+                component=LogComponent.API,
+            )
+
+        logger.info(
+            "Hestia API shutdown complete",
+            component=LogComponent.API,
+        )
 
 
 # Create FastAPI app
@@ -332,6 +380,7 @@ app.include_router(wiki_router)
 app.include_router(agents_v2_router)
 app.include_router(user_profile_router)
 app.include_router(explorer_router)
+app.include_router(newsfeed_router)
 
 
 # Root endpoint

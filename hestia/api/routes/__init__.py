@@ -18,6 +18,7 @@ from .health_data import router as health_data_router
 from .wiki import router as wiki_router
 from .user_profile import router as user_profile_router
 from .explorer import router as explorer_router
+from .newsfeed import router as newsfeed_router
 
 __all__ = [
     "health_router",
@@ -38,4 +39,5 @@ __all__ = [
     "wiki_router",
     "user_profile_router",
     "explorer_router",
+    "newsfeed_router",
 ]

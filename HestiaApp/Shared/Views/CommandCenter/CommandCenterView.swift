@@ -2,15 +2,18 @@ import SwiftUI
 import HestiaShared
 import CoreData
 
-/// Command Center view with modular widgets: Calendar, Orders, Neural Net
+/// Command Center view: BriefingCard > FilterBar > NewsfeedTimeline > NeuralNet
 struct CommandCenterView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.managedObjectContext) private var viewContext
-    @StateObject private var viewModel = CommandCenterViewModel()
+    @StateObject private var viewModel = NewsfeedViewModel()
+
+    // Detail sheet for item actions
+    @State private var selectedItem: NewsfeedItem? = nil
+    @State private var showMemorySheet = false
 
     var body: some View {
         ZStack {
-            // Background
             GradientBackground(mode: appState.currentMode)
 
             ScrollView {
@@ -18,32 +21,25 @@ struct CommandCenterView: View {
                     // Header
                     header
 
-                    // Module 1: Calendar or Empty State
-                    calendarModule
+                    // Briefing Card (persistent, above timeline)
+                    BriefingCard(
+                        briefing: viewModel.briefing,
+                        isLoading: viewModel.isBriefingLoading,
+                        isExpanded: $viewModel.isBriefingExpanded
+                    )
 
-                    // Tab selector (Orders / Alerts)
-                    tabSelector
+                    // Filter Bar
+                    FilterBar(
+                        selectedFilter: $viewModel.selectedFilter,
+                        unreadByType: viewModel.unreadByType
+                    )
 
-                    // Content based on selected tab
-                    switch viewModel.selectedTab {
-                    case .orders:
-                        OrdersWidget(
-                            orders: $viewModel.orders,
-                            isFormExpanded: $viewModel.isOrderFormExpanded,
-                            onToggleStatus: viewModel.toggleOrderStatus,
-                            onDelete: viewModel.deleteOrder,
-                            onAddOrder: viewModel.addOrder
-                        )
-                    case .alerts:
-                        AlertsWidget(
-                            executions: viewModel.recentExecutions,
-                            orders: viewModel.orders
-                        )
-                    case .memory:
-                        MemoryWidget()
+                    // Newsfeed Timeline
+                    NewsfeedTimeline(viewModel: viewModel) { item in
+                        handleItemTap(item)
                     }
 
-                    // Module 3: Neural Net Graph
+                    // Neural Net Graph (collapsible section)
                     NeuralNetView()
 
                     Spacer()
@@ -52,14 +48,20 @@ struct CommandCenterView: View {
                 .padding(.top, Spacing.md)
             }
             .scrollContentBackground(.hidden)
+            .refreshable {
+                await viewModel.refresh()
+                await viewModel.loadBriefing()
+            }
         }
         .onAppear {
             Task {
-                await viewModel.refresh()
+                await viewModel.loadTimeline()
+                await viewModel.loadUnreadCounts()
+                await viewModel.loadBriefing()
             }
         }
-        .onDisappear {
-            viewModel.stopRefresh()
+        .sheet(isPresented: $showMemorySheet) {
+            MemoryWidget()
         }
     }
 
@@ -71,11 +73,11 @@ struct CommandCenterView: View {
                 Text("Hello, Andrew")
                     .greetingStyle()
 
-                if viewModel.alertCount > 0 {
-                    Text("You have \(viewModel.alertCount) alert\(viewModel.alertCount == 1 ? "" : "s")")
+                if viewModel.unreadCount > 0 {
+                    Text("You have \(viewModel.unreadCount) unread item\(viewModel.unreadCount == 1 ? "" : "s")")
                         .subheadingStyle()
                 } else {
-                    Text("All systems running smoothly")
+                    Text("All caught up")
                         .subheadingStyle()
                 }
             }
@@ -103,101 +105,25 @@ struct CommandCenterView: View {
         .padding(.horizontal, Spacing.lg)
     }
 
-    // MARK: - Calendar Module
+    // MARK: - Item Tap Handling
 
-    @ViewBuilder
-    private var calendarModule: some View {
-        if viewModel.isCalendarLoading {
-            NextMeetingCard(event: nil, isLoading: true)
-        } else if let event = viewModel.nextEvent {
-            NextMeetingCard(event: event, isLoading: false)
-        } else if viewModel.isCalendarAuthorized {
-            // No events - show empty state with quote
-            CalendarEmptyStateView()
-        } else {
-            // Calendar access denied
-            calendarAccessDeniedCard
+    private func handleItemTap(_ item: NewsfeedItem) {
+        switch item.type {
+        case .memoryReview:
+            showMemorySheet = true
+        case .orderExecution:
+            // Could navigate to order detail in future
+            break
+        case .taskUpdate:
+            // Could navigate to task detail in future
+            break
+        case .healthInsight:
+            // Could navigate to health tab in future
+            break
+        default:
+            break
         }
     }
-
-    private var calendarAccessDeniedCard: some View {
-        HStack(spacing: Spacing.md) {
-            Image(systemName: "calendar.badge.exclamationmark")
-                .font(.system(size: 32))
-                .foregroundColor(.warningYellow)
-
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                Text("Calendar Access Required")
-                    .font(.headline)
-                    .foregroundColor(.white)
-
-                Text("Enable calendar access in Settings to see your upcoming events")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.6))
-            }
-
-            Spacer()
-        }
-        .padding(Spacing.md)
-        .background(Color.white.opacity(0.05))
-        .cornerRadius(CornerRadius.card)
-        .padding(.horizontal, Spacing.lg)
-    }
-
-    // MARK: - Tab Selector
-
-    private var tabSelector: some View {
-        HStack(spacing: 0) {
-            ForEach(CommandCenterViewModel.CommandTab.allCases, id: \.self) { tab in
-                Button {
-                    withAnimation(.hestiaQuick) {
-                        viewModel.selectedTab = tab
-                    }
-                } label: {
-                    HStack(spacing: Spacing.xs) {
-                        Text(tab.rawValue)
-                            .font(.subheadline.weight(.semibold))
-
-                        // Show alert badge on Alerts tab
-                        if tab == .alerts && viewModel.alertCount > 0 {
-                            Text("\(viewModel.alertCount)")
-                                .font(.caption2.weight(.bold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.errorRed)
-                                .cornerRadius(8)
-                        }
-
-                        // Show pending count badge on Memory tab
-                        if tab == .memory && viewModel.pendingMemoryCount > 0 {
-                            Text("\(viewModel.pendingMemoryCount)")
-                                .font(.caption2.weight(.bold))
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Color.warningYellow)
-                                .cornerRadius(8)
-                        }
-                    }
-                    .foregroundColor(viewModel.selectedTab == tab ? .white : .white.opacity(0.6))
-                    .padding(.vertical, Spacing.sm)
-                    .padding(.horizontal, Spacing.md)
-                    .background(
-                        viewModel.selectedTab == tab ?
-                        Color.white.opacity(0.2) :
-                        Color.clear
-                    )
-                    .cornerRadius(CornerRadius.small)
-                }
-            }
-        }
-        .padding(Spacing.xs)
-        .background(Color.white.opacity(0.1))
-        .cornerRadius(CornerRadius.small)
-        .padding(.horizontal, Spacing.lg)
-    }
-
 }
 
 // MARK: - Preview

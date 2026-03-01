@@ -7,8 +7,8 @@
 
 The FastAPI REST API provides HTTP access to all Hestia backend capabilities including chat, memory management, mode switching, cloud LLM routing, voice journaling, proactive intelligence, scheduled orders, agent profiles (V1 slot-based + V2 markdown-based), user settings, user profile configuration, background task management, health data management, resource exploration, wiki/architecture docs, and newsfeed timeline.
 
-**Endpoints**: 114 across 20 route modules
-**Test Coverage**: 1018 tests (1015 passing, 3 skipped)
+**Endpoints**: 116 across 20 route modules
+**Test Coverage**: 1085 tests (1082 passing, 3 skipped)
 **Server**: HTTPS on port 8443 (self-signed cert)
 **Documentation**: https://localhost:8443/docs (Swagger UI)
 
@@ -1026,7 +1026,21 @@ Unregister push token for this device.
 
 #### GET /v1/user/devices
 
-List all registered devices. Returns device name, type, registration date, and last activity.
+List all registered devices. Returns device name, type, registration date, last activity, revocation status, and `is_active` flag.
+
+Response includes per-device: `revoked_at` (ISO timestamp or null), `is_active` (boolean).
+
+#### POST /v1/user/devices/{device_id}/revoke
+
+Revoke a device's access. Returns 401 on subsequent authenticated requests from that device.
+
+Response: `{ "device_id": "...", "revoked": true, "message": "Device access revoked" }`
+
+#### POST /v1/user/devices/{device_id}/unrevoke
+
+Restore a revoked device's access.
+
+Response: `{ "device_id": "...", "revoked": false, "message": "Device access restored" }`
 
 ---
 
@@ -1339,6 +1353,105 @@ Delete a Hestia draft.
 ```
 
 **Errors:** `404` if draft not found.
+
+---
+
+### Newsfeed (5 endpoints)
+
+Unified timeline aggregating items from orders, memory, tasks, and health sources. Materialized cache with 30s TTL. Per-user read/dismiss state for multi-device continuity.
+
+#### GET /v1/newsfeed/timeline
+
+Get the unified newsfeed timeline, optionally filtered by type or source.
+
+**Query Parameters:**
+- `type` (optional): Filter by item type — `order_execution`, `memory_review`, `task_update`, `health_insight`, `calendar_event`, `system_alert`
+- `source` (optional): Filter by source — `orders`, `memory`, `tasks`, `health`, `calendar`, `system`
+- `include_dismissed` (bool, default false): Include dismissed items
+- `limit` (int, default 50, max 200): Max results
+- `offset` (int, default 0): Pagination offset
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "id": "order-exec-abc123",
+      "item_type": "order_execution",
+      "source": "orders",
+      "title": "Morning Briefing executed",
+      "body": "Order completed successfully",
+      "timestamp": "2026-03-01T08:00:00Z",
+      "priority": "normal",
+      "icon": "bolt.circle",
+      "color": "#4A90D9",
+      "action_type": "view_order",
+      "action_id": "order-abc123",
+      "metadata": {},
+      "is_read": false,
+      "is_dismissed": false
+    }
+  ],
+  "count": 1,
+  "unread_count": 1
+}
+```
+
+#### GET /v1/newsfeed/unread-count
+
+Get unread item counts grouped by type.
+
+**Response:**
+```json
+{
+  "total": 5,
+  "by_type": {
+    "order_execution": 2,
+    "health_insight": 1,
+    "memory_review": 2
+  }
+}
+```
+
+#### POST /v1/newsfeed/items/{item_id}/read
+
+Mark a newsfeed item as read.
+
+**Path params:** `item_id` — item identifier (path-encoded)
+
+**Response:**
+```json
+{"success": true}
+```
+
+**Errors:** `404` if item not found.
+
+#### POST /v1/newsfeed/items/{item_id}/dismiss
+
+Dismiss a newsfeed item (hides from timeline unless `include_dismissed=true`).
+
+**Path params:** `item_id` — item identifier (path-encoded)
+
+**Response:**
+```json
+{"success": true}
+```
+
+**Errors:** `404` if item not found.
+
+#### POST /v1/newsfeed/refresh
+
+Force re-aggregation from all source managers. Rate limited to 1 request per 10 seconds per device.
+
+**Response:**
+```json
+{
+  "refreshed": true,
+  "item_count": 12
+}
+```
+
+**Errors:** `429` if rate limit exceeded.
 
 ---
 

@@ -24,7 +24,7 @@ struct CommandView: View {
                 }
 
                 // Activity feed
-                ActivityFeed(orders: viewModel.orders)
+                ActivityFeed(orders: viewModel.orders, newsfeedItems: viewModel.newsfeedItems)
             }
             .padding(MacSpacing.xxl)
         }

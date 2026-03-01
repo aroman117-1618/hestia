@@ -4,14 +4,16 @@ import HestiaShared
 struct StatCardsRow: View {
     @ObservedObject var viewModel: MacCommandCenterViewModel
 
-    private let cards: [(icon: String, label: String, count: String, subtitle: String, trend: String?)] = [
-        ("bell.badge", "Alerts", "2", "unread", nil),
-        ("lightbulb", "Insights", "2", "total", "+2"),
-        ("newspaper", "News", "2", "articles", nil),
-        ("bolt.circle", "Orders", "2", "active", nil),
-        ("calendar", "Events", "2", "upcoming", nil),
-        ("checklist", "Tasks", "1", "pending", "+1")
-    ]
+    private var cards: [(icon: String, label: String, count: String, subtitle: String, trend: String?)] {
+        [
+            ("bell.badge", "Unread", "\(viewModel.unreadCount)", "items", nil),
+            ("brain", "Memory", "\(viewModel.pendingMemoryCount)", "pending", nil),
+            ("bolt.circle", "Orders", "\(viewModel.activeOrderCount)", "active", nil),
+            ("calendar", "Events", "\(viewModel.todayEventCount)", "upcoming", nil),
+            ("heart.fill", "Health", viewModel.healthStatus, "", nil),
+            ("newspaper", "Feed", "\(viewModel.newsfeedItems.count)", "items", nil)
+        ]
+    }
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: MacSpacing.md), count: 3)
 

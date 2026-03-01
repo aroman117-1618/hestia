@@ -411,6 +411,39 @@ class OrderDatabase:
             row = await cursor.fetchone()
             return row[0] if row else 0
 
+    async def list_recent_executions(
+        self,
+        since: Optional[datetime] = None,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """
+        List recent executions across all orders with order names. [T1]
+
+        Bulk query avoids per-order iteration. Returns dicts with
+        execution fields plus order_name joined from orders table.
+        """
+        query = """
+            SELECT e.*, o.name AS order_name
+            FROM order_executions e
+            JOIN orders o ON e.order_id = o.id
+            WHERE 1=1
+        """
+        params: List[Any] = []
+
+        if since:
+            query += " AND e.timestamp >= ?"
+            params.append(since.isoformat())
+
+        query += " ORDER BY e.timestamp DESC LIMIT ?"
+        params.append(limit)
+
+        results = []
+        async with self.connection.execute(query, params) as cursor:
+            async for row in cursor:
+                results.append(dict(row))
+
+        return results
+
     async def increment_execution_counts(
         self,
         order_id: str,

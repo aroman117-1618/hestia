@@ -11,6 +11,8 @@ class MacCommandCenterViewModel: ObservableObject {
     @Published var pendingMemories: [MemoryChunk] = []
     @Published var orders: [OrderResponse] = []
     @Published var calendarEvents: [EKEvent] = []
+    @Published var newsfeedItems: [NewsfeedItem] = []
+    @Published var unreadCount: Int = 0
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
 
@@ -34,8 +36,9 @@ class MacCommandCenterViewModel: ObservableObject {
         async let memoryTask: () = loadPendingMemories()
         async let ordersTask: () = loadOrders()
         async let calendarTask: () = loadCalendarEvents()
+        async let newsfeedTask: () = loadNewsfeed()
 
-        _ = await (healthTask, memoryTask, ordersTask, calendarTask)
+        _ = await (healthTask, memoryTask, ordersTask, calendarTask, newsfeedTask)
         isLoading = false
     }
 
@@ -87,6 +90,18 @@ class MacCommandCenterViewModel: ObservableObject {
             .sorted { $0.startDate < $1.startDate }
 
         calendarEvents = events
+    }
+
+    private func loadNewsfeed() async {
+        do {
+            let response = try await APIClient.shared.getNewsfeedTimeline(limit: 20)
+            newsfeedItems = response.items
+            unreadCount = response.unreadCount
+        } catch {
+            #if DEBUG
+            print("[MacCommandCenterVM] Newsfeed load failed: \(error)")
+            #endif
+        }
     }
 
     private func requestCalendarAccess() {

@@ -390,6 +390,21 @@ class OrderManager:
             since=since,
         )
 
+    async def list_recent_executions(
+        self,
+        since: Optional[datetime] = None,
+        limit: int = 50,
+    ) -> List[Dict]:
+        """
+        List recent executions across all orders with order names. [T1]
+
+        Bulk query avoids per-order iteration for newsfeed aggregation.
+        """
+        return await self.database.list_recent_executions(
+            since=since,
+            limit=limit,
+        )
+
     # =========================================================================
     # Execution (Placeholder - actual execution delegated to orchestration)
     # =========================================================================

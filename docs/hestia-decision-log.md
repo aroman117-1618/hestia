@@ -1276,6 +1276,89 @@ Do not deprecate V1 until iOS has full V2 coverage with an adapter layer.
 
 ---
 
+### ADR-032: Newsfeed Materialized Cache
+
+**Date**: 2026-03-01
+**Status**: Accepted
+
+#### Context
+The Command Center needs a unified timeline aggregating items from orders, memory, tasks, and health. Two approaches: virtual aggregation (query all sources on every request) or materialized cache (store items in SQLite, refresh when stale).
+
+#### Decision
+Materialized cache with 30s TTL in SQLite. Items upserted on refresh, served directly from cache on reads. Forced refresh via `/v1/newsfeed/refresh` (rate-limited 1/10s per device). 30-day retention cleanup.
+
+#### Alternatives Considered
+- **Virtual aggregation**: Simpler code, no cache table. But 5+ manager calls on every poll (orders, memory, tasks, health, calendar) — too slow for real-time timeline.
+- **Event-driven push**: Managers emit events when data changes. Complex wiring, premature for single-user system.
+
+#### Consequences
+- Positive: Fast reads (single SQLite query with JOIN), resilient aggregation (one source failure doesn't block others)
+- Positive: Clean separation — each aggregator maps source data to NewsfeedItem independently
+- Negative: 30s staleness window (acceptable for personal assistant)
+- Negative: Additional SQLite table maintenance
+
+---
+
+### ADR-033: User-Scoped Newsfeed State for Multi-Device
+
+**Date**: 2026-03-01
+**Status**: Accepted
+
+#### Context
+Hestia is currently single-user (`"user-default"` hardcoded), but multi-user/multi-device support is planned. Read/dismiss state should sync across devices from day one.
+
+#### Decision
+`newsfeed_state` table with composite PK (`item_id`, `user_id`). Read/dismiss state is per-user, not per-device. `acted_on_device_id` stored for audit only. Currently hardcoded to `"user-default"` — swap to JWT lookup when multi-user ships. No migration needed for existing tables (newsfeed is new).
+
+#### Alternatives Considered
+- **Per-device state**: Simpler but "read on iPhone, still unread on Mac" is poor UX.
+- **No state table**: Mark items as read in the items table directly. Doesn't support multi-user.
+
+#### Consequences
+- Positive: Read on iPhone = read on Mac immediately
+- Positive: Zero migration cost when multi-user ships (just change user_id source)
+- Negative: Slightly more complex queries (LEFT JOIN on state table)
+
+---
+
+### ADR-034: Device Token Revocation
+
+**Date:** 2026-03-01
+**Status:** Accepted
+**Context:** JWT tokens have 90-day expiry with no revocation mechanism. Lost/stolen devices remain authorized until token expires.
+
+#### Decision
+Add `revoked_at` column to `registered_devices` table. Auth middleware checks revocation status in `get_device_token()` dependency. Two new API endpoints: `POST /v1/user/devices/{id}/revoke` and `POST /v1/user/devices/{id}/unrevoke`.
+
+#### Design: Fail-Open
+If the invite store is unavailable (DB error, init failure), the revocation check passes silently. Rationale: revocation is defense-in-depth on top of JWT validation. Availability is prioritized over blocking all auth on a secondary store failure.
+
+#### Consequences
+- Positive: Instant device revocation without waiting for token expiry
+- Positive: Unrevoke path for false positives
+- Negative: Additional async DB hit per authenticated request (mitigated by SQLite speed)
+
+---
+
+### ADR-035: Session Auto-Lock (TTL Enforcement)
+
+**Date:** 2026-03-01
+**Status:** Accepted
+**Context:** `auto_lock_timeout_minutes` setting existed in UserSettings but was never enforced. In-memory conversation cache (`_conversations`) was unbounded with no eviction.
+
+#### Decision
+Handler checks `last_activity` against timeout on each `handle()` call. Expired sessions are replaced with fresh conversations. Background cleanup runs every 20 `handle()` calls to evict all stale sessions. Default timeout: 30 minutes (falls back if user settings unavailable).
+
+#### Design: No Persistent Lock State
+Session expiry is purely in-memory. The `last_activity` column in the sessions DB table is set on session end for audit purposes but not used for runtime TTL checks. This keeps the hot path fast (no DB query per request for TTL).
+
+#### Consequences
+- Positive: Bounded conversation cache (prevents unbounded memory growth)
+- Positive: Stale context doesn't bleed into new conversations
+- Negative: Server restart resets all sessions (acceptable — conversations are ephemeral)
+
+---
+
 ## Adding New Decisions
 
 When making a significant architectural decision:

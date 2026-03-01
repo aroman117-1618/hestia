@@ -84,7 +84,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | Hardware | Mac Mini M1 (16GB) |
 | Model | Qwen 2.5 7B (Ollama, local) + cloud providers (Anthropic/OpenAI/Google) |
 | SLM | qwen2.5:0.5b (council intent classification, ~100ms) |
-| Backend | Python 3.9+, FastAPI, 109 endpoints across 19 route modules |
+| Backend | Python 3.9+, FastAPI, 118 endpoints across 20 route modules |
 | Storage | ChromaDB (vectors) + SQLite (structured) + macOS Keychain (credentials) |
 | App | Native Swift/SwiftUI (iOS 26.0+) |
 | API | REST on port 8443 with JWT auth, HTTPS with self-signed cert |
@@ -100,7 +100,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 **UI Phase 4 (Integrations UI, API contract rewrite): COMPLETE.**
 **Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
 
-1018 tests (1015 passing, 3 skipped). Full details: `python -m pytest tests/ -v --timeout=30`
+1085 tests (1082 passing, 3 skipped), 24 test files. Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -108,7 +108,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 - **Type hints**: Always. Every function signature.
 - **Async/await**: For all I/O (database, inference, network).
-- **Logging**: `logger = get_logger()` — no arguments. Never `HestiaLogger(component=...)` or `get_logger(component=...)`. Import: `from hestia.logging import get_logger`. LogComponent enum: ACCESS, ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, CLOUD, COUNCIL, HEALTH, WIKI, EXPLORER.
+- **Logging**: `logger = get_logger()` — no arguments. Never `HestiaLogger(component=...)` or `get_logger(component=...)`. Import: `from hestia.logging import get_logger`. LogComponent enum: ACCESS, ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, CLOUD, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED.
 - **Config**: YAML files, never hardcode.
 - **Error handling in routes**: `sanitize_for_log(e)` from `hestia.api.errors` in logs (never raw `{e}`). Generic messages in HTTP responses (never `detail=str(e)`).
 - **File naming**: `snake_case.py` (Python), UpperCamelCase.swift (iOS).
@@ -165,7 +165,7 @@ Use Python 3.12 (not 3.13+). Pin version in pyproject.toml with `requires-python
 
 ```
 hestia/
-├── hestia/                          # Python backend — 20 modules
+├── hestia/                          # Python backend — 21 modules
 │   ├── security/                    # CredentialManager (Keychain + Fernet)
 │   ├── logging/                     # HestiaLogger, AuditLogger, LogComponent enum
 │   ├── inference/                   # InferenceClient (Ollama + cloud), ModelRouter (3-state)
@@ -184,28 +184,29 @@ hestia/
 │   ├── proactive/                   # Briefings, PatternDetector, InterruptionPolicy
 │   ├── voice/                       # TranscriptQualityChecker, JournalAnalyzer (3-stage)
 │   ├── wiki/                        # Architecture field guide (AI-generated + static docs)
-│   ├── api/                         # FastAPI — 109 endpoints, 19 route modules
+│   ├── newsfeed/                    # Materialized timeline, source aggregation, per-user state
+│   ├── api/                         # FastAPI — 118 endpoints, 20 route modules
 │   │   ├── errors.py                # sanitize_for_log(), safe_error_detail()
 │   │   ├── schemas.py               # All Pydantic request/response models
 │   │   ├── server.py                # App lifecycle, manager initialization
 │   │   ├── middleware/auth.py        # JWT device authentication
 │   │   └── routes/                  # auth, health, chat, mode, memory, sessions, tools,
-│   │                                # tasks, cloud, voice, orders, agents, agents_v2, user, user_profile, proactive, health_data, wiki, explorer
+│   │                                # tasks, cloud, voice, orders, agents, agents_v2, user, user_profile, proactive, health_data, wiki, explorer, newsfeed
 │   └── config/                      # inference.yaml, execution.yaml, memory.yaml, wiki.yaml
 ├── hestia-cli-tools/                # Swift CLIs (keychain, calendar, reminders, notes)
 ├── HestiaApp/                       # iOS SwiftUI app
 │   ├── Shared/
 │   │   ├── App/                     # Entry point, ContentView
 │   │   ├── DesignSystem/            # Colors, Typography, Spacing, Animations
-│   │   ├── Models/                  # APIModels, CloudProvider, Order, AgentProfile, MemoryChunk, HealthModels, WikiModels
+│   │   ├── Models/                  # APIModels, CloudProvider, Order, AgentProfile, MemoryChunk, HealthModels, WikiModels, NewsfeedModels, BriefingModels
 │   │   ├── Resources/Animations/    # Lottie JSONs (ai_blob, typing_indicator)
 │   │   ├── Services/                # APIClient, AuthService, SpeechService, CalendarService, HealthKitService
-│   │   ├── ViewModels/              # Chat, CommandCenter, CloudSettings, Integrations, NeuralNet, Resources, Settings, Wiki
+│   │   ├── ViewModels/              # Chat, Newsfeed, CloudSettings, Integrations, NeuralNet, Resources, Settings, Wiki
 │   │   ├── Views/                   # Chat, CommandCenter (+ NeuralNet), Settings (+ Resources, Integrations, Wiki), Auth
 │   │   ├── Views/Common/            # LottieAnimationView, LoadingView, GradientBackground
 │   │   └── Persistence/             # Core Data stack
 │   └── project.yml                  # xcodegen config (iOS 26.0, Swift 6.1)
-├── tests/                           # 1018 tests, 23 files
+├── tests/                           # 1085 tests, 25 files
 ├── scripts/                         # deploy, test-api, auto-test, validate-security, ollama
 ├── .claude/                         # agents/, output-styles/, settings
 ├── docs/                            # api-contract, decision-log, security-architecture
@@ -214,7 +215,7 @@ hestia/
 
 ---
 
-## API Summary (109 endpoints, 19 route modules)
+## API Summary (118 endpoints, 20 route modules)
 
 | Module | Endpoints | Key Routes |
 |--------|-----------|------------|
@@ -229,12 +230,13 @@ hestia/
 | Orders | 7 | `/v1/orders` CRUD + executions + execute |
 | Agents (v1) | 10 | `/v1/agents/{slot}` CRUD + photos + snapshots + sync |
 | Agents (v2) | 10 | `/v2/agents` .md-based config CRUD + notes + reload |
-| User | 10 | `/v1/user/profile`, `photo`, `settings`, `push-token`, `devices` |
+| User | 12 | `/v1/user/profile`, `photo`, `settings`, `push-token`, `devices`, `devices/{id}/revoke`, `devices/{id}/unrevoke` |
 | User Profile | 11 | `/v1/user/profile/*` extended CRUD |
 | Proactive | 6 | `/v1/proactive/briefing`, `policy`, `patterns`, `notifications` |
 | Health Data | 7 | `/v1/health_data/sync`, `summary`, `trend`, `coaching` |
 | Wiki | 5 | `/v1/wiki/articles`, `generate`, `generate-all`, `refresh-static` |
 | Explorer | 6 | `/v1/explorer/resources` list/detail/content, drafts CRUD |
+| Newsfeed | 5 | `/v1/newsfeed/timeline`, `unread-count`, `items/{id}/read`, `items/{id}/dismiss`, `refresh` |
 
 Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 
@@ -256,6 +258,7 @@ Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 - ADR-009: Keychain + Secure Enclave credentials
 - ADR-013: Tag-based memory with temporal decay
 - ADR-021/022: Background task management with governed auto-persistence
+- ADR-032/033: Newsfeed materialized cache + user-scoped state for multi-device
 
 ---
 
@@ -285,7 +288,7 @@ Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 |--------|--------|-------|
 | Sprint 1: DevOps & Deployment | COMPLETE | QR invite onboarding (4 endpoints), iOS/macOS flows, permissions harmony, 28 tests |
 | Sprint 2: Explorer | COMPLETE | Backend module + 6 API endpoints + iOS Explorer tab + 41 tests. macOS enhancement deferred. |
-| Sprint 3: Command Center | NOT STARTED | Backend newsfeed, RSS, iOS Command Center rewrite, BriefingCard |
+| Sprint 3: Command Center | COMPLETE | Backend newsfeed module + 5 API endpoints + iOS Command Center rewrite (BriefingCard, FilterBar, NewsfeedTimeline) + macOS wiring + 42 tests |
 
 ### Known Issues (Mac Mini)
 - Council needs `qwen2.5:0.5b` pulled on Mac Mini
