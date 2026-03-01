@@ -7,7 +7,6 @@ and serves them through a TTL cache for fast responses.
 """
 
 import asyncio
-import hashlib
 from datetime import datetime
 from typing import Dict, List, Optional
 

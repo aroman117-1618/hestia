@@ -38,6 +38,7 @@ from hestia.user import get_user_manager
 from hestia.cloud import get_cloud_manager
 from hestia.health import get_health_manager
 from hestia.wiki import get_wiki_manager
+from hestia.explorer import get_explorer_manager
 
 # Import routers
 from hestia.api.routes import (
@@ -58,6 +59,7 @@ from hestia.api.routes import (
     health_data_router,
     wiki_router,
     user_profile_router,
+    explorer_router,
 )
 from hestia.api.routes.agents_v2 import router as agents_v2_router
 
@@ -158,6 +160,9 @@ async def lifespan(app: FastAPI):
         from hestia.api.invite_store import get_invite_store
         invite_store = await get_invite_store()
 
+        # Initialize explorer resource aggregation
+        explorer_manager = await get_explorer_manager()
+
         logger.info(
             "Hestia API ready",
             component=LogComponent.API,
@@ -172,6 +177,7 @@ async def lifespan(app: FastAPI):
                 "wiki_manager_ready": wiki_manager is not None,
                 "config_loader_ready": config_loader is not None,
                 "invite_store_ready": invite_store is not None,
+                "explorer_manager_ready": explorer_manager is not None,
             }
         )
 
@@ -325,6 +331,7 @@ app.include_router(health_data_router)
 app.include_router(wiki_router)
 app.include_router(agents_v2_router)
 app.include_router(user_profile_router)
+app.include_router(explorer_router)
 
 
 # Root endpoint

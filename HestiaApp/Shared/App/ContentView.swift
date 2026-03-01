@@ -65,19 +65,26 @@ struct MainTabView: View {
                 }
                 .tag(0)
 
-            // Command Center tab (iPad-like on all devices for now)
+            // Command Center tab
             CommandCenterView()
                 .tabItem {
                     Label("Command", systemImage: "square.grid.2x2.fill")
                 }
                 .tag(1)
 
+            // Explorer tab
+            ExplorerView()
+                .tabItem {
+                    Label("Explorer", systemImage: "rectangle.stack.fill")
+                }
+                .tag(2)
+
             // Settings tab
             SettingsView()
                 .tabItem {
                     Label("Settings", systemImage: "gearshape.fill")
                 }
-                .tag(2)
+                .tag(3)
         }
         .accentColor(.white)
     }

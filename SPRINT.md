@@ -36,30 +36,28 @@
 ## Sprint 2: Explorer — Both Platforms (~3 sessions)
 
 ### 2A. Backend Explorer Module
-- **Phase:** Research
-- **Key files:** TBD — `hestia/explorer/` (new module)
-- **Notes:** Manager pattern: models.py + database.py + manager.py. Aggregates mail + notes + reminders + files + drafts via asyncio.gather(). TTL cache layer.
+- **Phase:** Done
+- **Key files:** `hestia/explorer/models.py`, `database.py`, `manager.py`
+- **Notes:** Manager pattern with ExplorerResource model, SQLite drafts + TTL cache, asyncio.gather() aggregation from Apple clients (mail, notes, reminders). LogComponent.EXPLORER added. auto-test.sh mapping added.
 
 ### 2B. Backend Explorer API
-- **Phase:** Research
-- **Key files:** TBD — `hestia/api/routes/explorer.py`
-- **Notes:** 6 endpoints: resource list/detail/content, draft CRUD.
+- **Phase:** Done
+- **Key files:** `hestia/api/routes/explorer.py`
+- **Notes:** 6 endpoints: GET resources (filterable/searchable/paginated), GET resource/{id}, GET resource/{id}/content, POST/PATCH/DELETE drafts. Registered in routes/__init__.py and server.py lifespan.
 
 ### 2C. iOS Explorer View
-- **Phase:** Research
-- **Key files:** TBD — `HestiaApp/Shared/Views/Explorer/`, `HestiaApp/Shared/ViewModels/ExplorerViewModel.swift`
-- **Notes:** Section filter chips + search + resource list. New tab in ContentView.
+- **Phase:** Done
+- **Key files:** `HestiaShared/.../Models/ExplorerModels.swift`, `HestiaApp/Shared/ViewModels/ExplorerViewModel.swift`, `HestiaApp/Shared/Views/Explorer/ExplorerView.swift`, `ExplorerResourceRow.swift`
+- **Notes:** Section filter chips (All/Drafts/Inbox/Tasks/Notes/Files), search bar, resource list with pull-to-refresh, swipe-to-delete drafts, new draft alert. Explorer tab added to ContentView (3rd tab). Both iOS + macOS builds clean.
 
 ### 2D. macOS Explorer Enhancement
-- **Phase:** Research (half-time cut candidate)
-- **Notes:** Add API-backed resource loading alongside existing local file browser.
+- **Phase:** Deferred (half-time cut)
+- **Notes:** Existing macOS Explorer uses local FileManager. API-backed enhancement deferred per plan audit CPO-H1.
 
-### 2E. APIClient Extensions
-- **Phase:** Research
-- **Notes:** `APIClient+Explorer.swift` with 5 methods.
-
-### 2F. Tests
-- **Phase:** Research
+### 2E. APIClient Extensions + Tests
+- **Phase:** Done
+- **Key files:** `HestiaShared/.../Networking/APIClient.swift` (6 Explorer methods), `tests/test_explorer.py`
+- **Notes:** 6 APIClient methods (getExplorerResources, getExplorerResource, getExplorerContent, createDraft, updateDraft, deleteDraft). 41 backend tests passing — models, database CRUD, caching, TTL, manager aggregation, filtering, search, pagination, ID formats.
 
 ## Sprint 3: Command Center / Newsfeed (~2 sessions)
 

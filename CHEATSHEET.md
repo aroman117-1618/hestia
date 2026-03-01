@@ -86,6 +86,15 @@ ssh andrewroman117@hestia-3.local
 tmux attach -t claude
 ```
 
+## Validation Tiers
+
+| Tier | Trigger | Checks | Time |
+|------|---------|--------|------|
+| Pre-push (feature) | `git push` on any branch | Kill stale servers + pytest | ~30s |
+| Pre-push (main) | `git push` on main | Kill stale servers + pytest + xcodebuild | ~60s |
+| On-demand | `hestia-preflight` in terminal | Same as main pre-push | ~60s |
+| Full | `/preflight` in Claude Code | Server restart + tests + connectivity + permissions | ~2min |
+
 ## Aliases (add to ~/.zshrc)
 
 ```bash
@@ -93,4 +102,5 @@ alias hestia='cd ~/hestia && claude'
 alias hestia-remote='cd ~/hestia && unset ANTHROPIC_API_KEY && claude remote-control'
 alias hestia-test='cd ~/hestia && source .venv/bin/activate && python -m pytest tests/ -v'
 alias hestia-server='cd ~/hestia && source .venv/bin/activate && python -m hestia.api.server'
+# hestia-preflight is a function in ~/.zshrc (not an alias — it runs in a subshell)
 ```

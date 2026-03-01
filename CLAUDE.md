@@ -100,9 +100,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 **UI Phase 4 (Integrations UI, API contract rewrite): COMPLETE.**
 **Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
 
-977 tests (968+ passing, 3 skipped, 3 pre-existing health failures). Full details: `python -m pytest tests/ -v --timeout=30`
-
-**Health test failures:** `test_get_metric_trend`, `test_get_sleep_analysis`, `test_get_activity_summary` — these store data for hardcoded Feb 2026 dates but query relative to `datetime.now()` with `days=7` lookback. Data falls outside the window. Fix: use dynamic dates relative to today.
+977 tests (974 passing, 3 skipped). Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -110,7 +108,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 - **Type hints**: Always. Every function signature.
 - **Async/await**: For all I/O (database, inference, network).
-- **Logging**: `HestiaLogger` with correct `LogComponent` per module (ACCESS, ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, CLOUD, COUNCIL, HEALTH, WIKI).
+- **Logging**: `logger = get_logger()` — no arguments. Never `HestiaLogger(component=...)` or `get_logger(component=...)`. Import: `from hestia.logging import get_logger`. LogComponent enum: ACCESS, ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, CLOUD, COUNCIL, HEALTH, WIKI, EXPLORER.
 - **Config**: YAML files, never hardcode.
 - **Error handling in routes**: `sanitize_for_log(e)` from `hestia.api.errors` in logs (never raw `{e}`). Generic messages in HTTP responses (never `detail=str(e)`).
 - **File naming**: `snake_case.py` (Python), UpperCamelCase.swift (iOS).
@@ -128,6 +126,7 @@ Always run the full test suite (`python -m pytest`) after making changes and ens
 - Asset catalogs must have matching JSON metadata files; don't just copy images
 - Always verify SwiftUI previews compile after changes
 - Mac Mini deployment target: `andrewroman117@hestia-3.local` (via Tailscale)
+- **APIClient HTTP methods**: `get()`, `put()`, `delete()` are internal (not private). ViewModels can call them directly with generic return types: `let response: MyType = try await APIClient.shared.get("/v1/path")`.
 
 ## Multi-Target Builds (macOS + iOS)
 
@@ -164,7 +163,7 @@ Use Python 3.12 (not 3.13+). Pin version in pyproject.toml with `requires-python
 
 ```
 hestia/
-├── hestia/                          # Python backend — 20 modules
+├── hestia/                          # Python backend — 21 modules
 │   ├── security/                    # CredentialManager (Keychain + Fernet)
 │   ├── logging/                     # HestiaLogger, AuditLogger, LogComponent enum
 │   ├── inference/                   # InferenceClient (Ollama + cloud), ModelRouter (3-state)
@@ -175,6 +174,7 @@ hestia/
 │   ├── execution/                   # ToolExecutor, ToolRegistry, Sandbox, CommGate
 │   ├── apple/                       # 20 tools (Calendar, Reminders, Notes, Mail)
 │   ├── health/                      # HealthKit sync, metrics DB, coaching, 5 chat tools
+│   ├── explorer/                    # ExplorerManager, resource aggregation, draft CRUD, TTL cache
 │   ├── tasks/                       # BackgroundTask lifecycle + approval workflow
 │   ├── orders/                      # Scheduled prompts + APScheduler
 │   ├── agents/                      # AgentProfile CRUD + snapshots (Tia/Mira/Olly)
@@ -182,13 +182,13 @@ hestia/
 │   ├── proactive/                   # Briefings, PatternDetector, InterruptionPolicy
 │   ├── voice/                       # TranscriptQualityChecker, JournalAnalyzer (3-stage)
 │   ├── wiki/                        # Architecture field guide (AI-generated + static docs)
-│   ├── api/                         # FastAPI — 88 endpoints, 17 route modules
+│   ├── api/                         # FastAPI — 94 endpoints, 18 route modules
 │   │   ├── errors.py                # sanitize_for_log(), safe_error_detail()
 │   │   ├── schemas.py               # All Pydantic request/response models
 │   │   ├── server.py                # App lifecycle, manager initialization
 │   │   ├── middleware/auth.py        # JWT device authentication
 │   │   └── routes/                  # auth, health, chat, mode, memory, sessions, tools,
-│   │                                # tasks, cloud, voice, orders, agents, agents_v2, user, user_profile, proactive, health_data, wiki
+│   │                                # tasks, cloud, voice, orders, agents, agents_v2, user, user_profile, proactive, health_data, wiki, explorer
 │   └── config/                      # inference.yaml, execution.yaml, memory.yaml, wiki.yaml
 ├── hestia-cli-tools/                # Swift CLIs (keychain, calendar, reminders, notes)
 ├── HestiaApp/                       # iOS SwiftUI app
@@ -232,6 +232,7 @@ hestia/
 | Proactive | 6 | `/v1/proactive/briefing`, `policy`, `patterns`, `notifications` |
 | Health Data | 7 | `/v1/health_data/sync`, `summary`, `trend`, `coaching` |
 | Wiki | 5 | `/v1/wiki/articles`, `generate`, `generate-all`, `refresh-static` |
+| Explorer | 6 | `/v1/explorer/resources` list/detail/content, drafts CRUD |
 
 Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 
@@ -293,7 +294,19 @@ python -m pytest tests/ -v             # Run tests
 ./scripts/deploy-to-mini.sh            # Deploy to Mac Mini
 ./scripts/pre-session.sh               # Headless pre-session health check
 ./scripts/post-commit.sh               # Headless post-commit lint + test
+hestia-preflight                       # On-demand validation (shell function)
 ```
+
+## Validation Tiers
+
+| Tier | Trigger | Checks |
+|------|---------|--------|
+| Pre-push (feature) | `git push` on any branch | Kill stale servers + pytest |
+| Pre-push (main) | `git push` on main | + xcodebuild |
+| On-demand | `hestia-preflight` in terminal | Same as main pre-push |
+| Full | `/preflight` in Claude Code | Server restart + tests + connectivity + permissions |
+
+Hook source: `scripts/pre-push.sh` (symlinked from `.git/hooks/pre-push`). Bypass: `git push --no-verify`.
 
 ## Skills (Slash Commands)
 
