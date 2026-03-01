@@ -139,6 +139,17 @@ class APIClient: HestiaClientProtocol {
         return try await postUnauthenticated("/auth/register", body: request)
     }
 
+    /// Register this device using an invite token from QR code onboarding
+    /// This endpoint does not require authentication — the invite token IS the auth
+    func registerWithInvite(inviteToken: String, deviceName: String?, deviceType: String?) async throws -> InviteRegisterResponse {
+        let request = InviteRegisterRequest(
+            inviteToken: inviteToken,
+            deviceName: deviceName,
+            deviceType: deviceType
+        )
+        return try await postUnauthenticated("/auth/register-with-invite", body: request)
+    }
+
     // MARK: - HestiaClientProtocol Implementation
 
     func sendMessage(_ message: String, sessionId: String?, forceLocal: Bool = false) async throws -> HestiaResponse {
@@ -455,9 +466,9 @@ class APIClient: HestiaClientProtocol {
         return try await post("/wiki/refresh-static", body: EmptyBody())
     }
 
-    // MARK: - Private HTTP Methods
+    // MARK: - HTTP Methods
 
-    private func get<T: Decodable>(_ path: String) async throws -> T {
+    func get<T: Decodable>(_ path: String) async throws -> T {
         var request = URLRequest(url: baseURL.appendingPathComponent(path))
         request.httpMethod = "GET"
         addHeaders(to: &request)
@@ -494,7 +505,7 @@ class APIClient: HestiaClientProtocol {
         return try await execute(request)
     }
 
-    private func put<T: Decodable, B: Encodable>(_ path: String, body: B) async throws -> T {
+    func put<T: Decodable, B: Encodable>(_ path: String, body: B) async throws -> T {
         var request = URLRequest(url: baseURL.appendingPathComponent(path))
         request.httpMethod = "PUT"
         request.httpBody = try encoder.encode(body)
@@ -503,7 +514,7 @@ class APIClient: HestiaClientProtocol {
         return try await execute(request)
     }
 
-    private func delete<T: Decodable>(_ path: String) async throws -> T {
+    func delete<T: Decodable>(_ path: String) async throws -> T {
         var request = URLRequest(url: baseURL.appendingPathComponent(path))
         request.httpMethod = "DELETE"
         addHeaders(to: &request)

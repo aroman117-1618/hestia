@@ -331,6 +331,7 @@ class PromptBuilder:
         agent_config: Any = None,
         chat_context: Optional[Dict[str, Any]] = None,
         cloud_safe: bool = False,
+        user_profile_context: str = "",
     ) -> tuple[List[Message], PromptComponents]:
         """
         Build complete prompt for inference.
@@ -395,11 +396,22 @@ class PromptBuilder:
         # Build workspace context (v2 API)
         formatted_context = self.build_context_block(chat_context)
 
+        # Build user profile context (markdown-based identity system)
+        # Uses USER_MODEL_BUDGET (2K tokens) for user profile injection.
+        # When cloud_safe, excludes PII-sensitive files (USER-IDENTITY.md, BODY.md).
+        formatted_user_profile = ""
+        if user_profile_context:
+            formatted_user_profile = self._truncate_to_budget(
+                user_profile_context, self.USER_MODEL_BUDGET
+            )
+
         # Build messages list
         messages = []
 
-        # System message (includes memory + workspace context)
+        # System message (includes user profile + workspace context + memory)
         full_system = system_prompt
+        if formatted_user_profile:
+            full_system = f"{full_system}\n\n{formatted_user_profile}"
         if formatted_context:
             full_system = f"{full_system}\n\n{formatted_context}"
         if formatted_memory:

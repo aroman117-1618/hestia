@@ -35,6 +35,9 @@ MODULE_TO_TEST["hestia/health/"]="tests/test_health.py"
 MODULE_TO_TEST["hestia/api/routes/health_data.py"]="tests/test_health.py"
 MODULE_TO_TEST["hestia/wiki/"]="tests/test_wiki.py"
 MODULE_TO_TEST["hestia/api/routes/wiki.py"]="tests/test_wiki.py"
+MODULE_TO_TEST["hestia/api/routes/auth.py"]="tests/test_auth_invite.py"
+MODULE_TO_TEST["hestia/api/middleware/auth.py"]="tests/test_auth_invite.py"
+MODULE_TO_TEST["hestia/api/invite_store.py"]="tests/test_auth_invite.py"
 
 # Find matching test file
 TEST_FILE=""

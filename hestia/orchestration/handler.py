@@ -283,12 +283,66 @@ IMPORTANT RULES:
 5. NEVER say you don't have access or ask for email addresses - just use the tools
 6. If a tool fails, tell the user what went wrong
 """
+            # Step 6.3: Load user profile context (markdown-based identity)
+            user_profile_context = ""
+            command_system_instructions = ""
+            try:
+                from hestia.user.config_loader import get_user_config_loader
+                from hestia.user.config_models import TOPIC_KEYWORDS, UserConfigFile
+                user_loader = await get_user_config_loader()
+                user_config = await user_loader.load()
+
+                # Get base context (always-load files)
+                if will_use_cloud:
+                    user_profile_context = user_config.get_cloud_safe_context()
+                else:
+                    user_profile_context = user_config.context_block
+
+                # Keyword-based topic detection for selective loading
+                msg_lower = request.content.lower()
+                topic_files = []
+                for config_file, keywords in TOPIC_KEYWORDS.items():
+                    if any(kw in msg_lower for kw in keywords):
+                        topic_files.append(config_file)
+                if topic_files:
+                    topic_context = user_config.get_topic_context(topic_files)
+                    if topic_context:
+                        user_profile_context = f"{user_profile_context}\n\n{topic_context}" if user_profile_context else topic_context
+
+                # Command expansion: detect /command syntax
+                if request.content.strip().startswith("/"):
+                    parts = request.content.strip().split(None, 1)
+                    cmd_name = parts[0].lstrip("/")
+                    cmd_args = parts[1] if len(parts) > 1 else ""
+                    cmd = await user_loader.get_command(cmd_name)
+                    if cmd:
+                        command_system_instructions = cmd.system_instructions
+                        if cmd_args:
+                            request.content = cmd.expand(cmd_args)
+                        self.logger.info(
+                            f"Expanded command: /{cmd_name}",
+                            component=LogComponent.ORCHESTRATION,
+                            data={"request_id": request.id, "command": cmd_name},
+                        )
+            except Exception as e:
+                self.logger.warning(
+                    f"Failed to load user profile: {type(e).__name__}",
+                    component=LogComponent.ORCHESTRATION,
+                    data={"request_id": request.id},
+                )
+
+            # Combine tool + command instructions
+            combined_instructions = tool_instructions
+            if command_system_instructions:
+                combined_instructions = f"{tool_instructions}\n\n## Command Mode\n\n{command_system_instructions}"
+
             messages, prompt_components = self._prompt_builder.build(
                 request=request,
                 memory_context=memory_context,
                 conversation=conversation,
-                additional_system_instructions=tool_instructions,
+                additional_system_instructions=combined_instructions,
                 cloud_safe=will_use_cloud,
+                user_profile_context=user_profile_context,
             )
 
             # Check token budget

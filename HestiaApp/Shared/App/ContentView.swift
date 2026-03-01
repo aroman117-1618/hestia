@@ -11,8 +11,8 @@ struct RootView: View {
     var body: some View {
         ZStack {
             if !authService.isDeviceRegistered {
-                // First time setup
-                AuthView()
+                // First time setup — QR code onboarding
+                OnboardingView()
             } else if !authService.isAuthenticated || showingLockScreen {
                 // Need to authenticate
                 LockScreenView(onUnlock: {

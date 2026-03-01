@@ -3,14 +3,35 @@ import SwiftUI
 import HestiaShared
 
 class MainSplitViewController: NSSplitViewController {
-    private let mainItem: NSSplitViewItem
-    private let chatItem: NSSplitViewItem
+    private var mainItem: NSSplitViewItem!
+    private var chatItem: NSSplitViewItem!
+    private var onboardingItem: NSSplitViewItem?
 
     private let workspaceState = WorkspaceState()
     private let appState = AppState()
     private let authService = AuthService()
+    private var registrationObserver: NSObjectProtocol?
 
     override init(nibName nibNameOrNil: NSNib.Name?, bundle nibBundleOrNil: Bundle?) {
+        super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
+
+        if authService.isDeviceRegistered {
+            setupWorkspaceLayout()
+        } else {
+            setupOnboardingLayout()
+            // Watch for registration to complete
+            registrationObserver = NotificationCenter.default.addObserver(
+                forName: .hestiaConfigurationChanged,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                guard let self = self, self.authService.isDeviceRegistered else { return }
+                self.transitionToWorkspace()
+            }
+        }
+    }
+
+    private func setupWorkspaceLayout() {
         // Main content: icon sidebar + content area
         let rootView = WorkspaceRootView()
             .environment(workspaceState)
@@ -29,8 +50,30 @@ class MainSplitViewController: NSSplitViewController {
         chatItem.maximumThickness = MacSize.chatPanelWidth + 30
         chatItem.canCollapse = true
         chatItem.collapseBehavior = .preferResizingSplitViewWithFixedSiblings
+    }
 
-        super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
+    private func setupOnboardingLayout() {
+        let onboardingView = MacOnboardingView(authService: authService)
+        let host = NSHostingController(rootView: onboardingView)
+        onboardingItem = NSSplitViewItem(viewController: host)
+    }
+
+    private func transitionToWorkspace() {
+        if let observer = registrationObserver {
+            NotificationCenter.default.removeObserver(observer)
+            registrationObserver = nil
+        }
+
+        // Remove onboarding
+        if let item = onboardingItem {
+            removeSplitViewItem(item)
+            onboardingItem = nil
+        }
+
+        // Set up and add workspace
+        setupWorkspaceLayout()
+        addSplitViewItem(mainItem)
+        addSplitViewItem(chatItem)
     }
 
     @available(*, unavailable)
@@ -44,8 +87,12 @@ class MainSplitViewController: NSSplitViewController {
         splitView.isVertical = true
         splitView.dividerStyle = .thin
 
-        addSplitViewItem(mainItem)
-        addSplitViewItem(chatItem)
+        if let item = onboardingItem {
+            addSplitViewItem(item)
+        } else {
+            addSplitViewItem(mainItem)
+            addSplitViewItem(chatItem)
+        }
     }
 
     // MARK: - Divider Hit Area
@@ -65,11 +112,18 @@ class MainSplitViewController: NSSplitViewController {
     // MARK: - Panel Toggle
 
     func toggleChatPanel() {
+        guard chatItem != nil else { return }
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.25
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
             chatItem.animator().isCollapsed.toggle()
         }
         workspaceState.isChatPanelVisible = !chatItem.isCollapsed
+    }
+
+    deinit {
+        if let observer = registrationObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
 }

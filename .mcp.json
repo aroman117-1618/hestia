@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "macos-ui-automation": {
+      "type": "stdio",
+      "command": "/Users/andrewlonati/.local/bin/uv",
+      "args": [
+        "--directory",
+        "/Users/andrewlonati/macos-ui-automation-mcp",
+        "run",
+        "macos-ui-automation-mcp"
+      ],
+      "env": {}
+    }
+  }
+}

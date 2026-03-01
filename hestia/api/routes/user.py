@@ -20,6 +20,8 @@ from hestia.api.schemas import (
     QuietHours as QuietHoursSchema,
     PushEnvironmentEnum,
     ModeEnum,
+    DeviceListResponse,
+    DeviceListItem,
 )
 from hestia.user import (
     get_user_manager,
@@ -27,8 +29,10 @@ from hestia.user import (
     QuietHours,
     PushEnvironment,
 )
+from hestia.api.invite_store import get_invite_store
+from hestia.api.errors import sanitize_for_log
 from hestia.logging import get_logger, LogComponent
-from datetime import time
+from datetime import datetime, time
 
 
 router = APIRouter(prefix="/v1/user", tags=["user"])
@@ -386,3 +390,45 @@ async def unregister_push_token(
         unregistered=True,
         message="Push token removed",
     )
+
+
+# =============================================================================
+# Device Registry Routes
+# =============================================================================
+
+@router.get(
+    "/devices",
+    response_model=DeviceListResponse,
+    summary="List registered devices",
+    description="List all devices that have registered with this Hestia instance.",
+)
+async def list_devices(
+    device_id: str = Depends(get_current_device),
+):
+    """List all registered devices."""
+    try:
+        store = await get_invite_store()
+        devices = await store.list_devices()
+
+        return DeviceListResponse(
+            devices=[
+                DeviceListItem(
+                    device_id=d["device_id"],
+                    device_name=d["device_name"],
+                    device_type=d["device_type"],
+                    registered_at=datetime.fromisoformat(d["registered_at"]),
+                    last_seen_at=datetime.fromisoformat(d["last_seen_at"]) if d.get("last_seen_at") else None,
+                )
+                for d in devices
+            ],
+            count=len(devices),
+        )
+    except Exception as e:
+        logger.error(
+            f"Failed to list devices: {sanitize_for_log(e)}",
+            component=LogComponent.API,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to list devices",
+        )

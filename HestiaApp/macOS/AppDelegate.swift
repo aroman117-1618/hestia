@@ -78,6 +78,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         healthItem.target = self
         viewMenu.addItem(healthItem)
 
+        let profileItem = NSMenuItem(title: "Profile", action: #selector(showProfileView), keyEquivalent: "4")
+        profileItem.target = self
+        viewMenu.addItem(profileItem)
+
         viewMenu.addItem(.separator())
 
         let chatItem = NSMenuItem(title: "Toggle Chat Panel", action: #selector(toggleChatPanel), keyEquivalent: "\\")
@@ -110,6 +114,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             case "3":
                 self?.switchView(to: .health)
                 return nil
+            case "4":
+                self?.switchView(to: .profile)
+                return nil
             case "\\":
                 self?.mainWindowController?.toggleChatPanel(nil)
                 return nil
@@ -132,5 +139,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func showCommandView() { switchView(to: .command) }
     @objc private func showExplorerView() { switchView(to: .explorer) }
     @objc private func showHealthView() { switchView(to: .health) }
+    @objc private func showProfileView() { switchView(to: .profile) }
     @objc private func toggleChatPanel() { mainWindowController?.toggleChatPanel(nil) }
 }

@@ -57,6 +57,7 @@ from hestia.api.routes import (
     voice_router,
     health_data_router,
     wiki_router,
+    user_profile_router,
 )
 from hestia.api.routes.agents_v2 import router as agents_v2_router
 
@@ -153,6 +154,10 @@ async def lifespan(app: FastAPI):
         from hestia.agents.config_loader import get_config_loader
         config_loader = await get_config_loader()
 
+        # Initialize invite store for QR onboarding
+        from hestia.api.invite_store import get_invite_store
+        invite_store = await get_invite_store()
+
         logger.info(
             "Hestia API ready",
             component=LogComponent.API,
@@ -166,6 +171,7 @@ async def lifespan(app: FastAPI):
                 "health_manager_ready": health_manager is not None,
                 "wiki_manager_ready": wiki_manager is not None,
                 "config_loader_ready": config_loader is not None,
+                "invite_store_ready": invite_store is not None,
             }
         )
 
@@ -318,6 +324,7 @@ app.include_router(voice_router)
 app.include_router(health_data_router)
 app.include_router(wiki_router)
 app.include_router(agents_v2_router)
+app.include_router(user_profile_router)
 
 
 # Root endpoint

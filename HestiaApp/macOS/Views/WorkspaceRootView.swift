@@ -19,6 +19,8 @@ struct WorkspaceRootView: View {
                     ExplorerView()
                 case .health:
                     HealthView()
+                case .profile:
+                    UserProfileView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

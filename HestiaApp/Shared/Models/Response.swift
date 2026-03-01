@@ -74,3 +74,30 @@ struct DeviceRegistrationRequest: Codable {
     let deviceName: String
     let deviceType: String
 }
+
+// MARK: - Invite-Based Onboarding
+
+/// Request to register using an invite token from QR code
+struct InviteRegisterRequest: Codable {
+    let inviteToken: String
+    let deviceName: String?
+    let deviceType: String?
+}
+
+/// Response from invite-based registration
+struct InviteRegisterResponse: Codable {
+    let deviceId: String
+    let token: String
+    let expiresAt: String?
+    let serverUrl: String
+}
+
+/// Parsed QR code payload from invite generation
+struct QRInvitePayload: Codable {
+    /// Invite JWT token
+    let t: String
+    /// Server base URL
+    let u: String
+    /// TLS certificate SHA-256 fingerprint
+    let f: String
+}

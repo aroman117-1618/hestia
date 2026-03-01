@@ -51,23 +51,38 @@ struct MacMessageBubble: View {
         .padding(.vertical, MacSpacing.lg)
     }
 
+    // MARK: - Agent Avatar
+
+    private func agentAvatar(for mode: HestiaMode, size: CGFloat) -> some View {
+        Group {
+            if let image = mode.avatarImage {
+                image
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Circle()
+                    .fill(MacColors.aiAvatarBackground)
+                    .overlay {
+                        Text(mode.displayName.prefix(1))
+                            .font(.system(size: size * 0.45, weight: .bold))
+                            .foregroundStyle(MacColors.amberAccent)
+                    }
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+        .overlay {
+            Circle().strokeBorder(MacColors.aiAvatarBorder, lineWidth: 1)
+        }
+    }
+
     // MARK: - AI Bubble (left-aligned, translucent)
 
     private var aiBubble: some View {
         VStack(alignment: .leading, spacing: MacSpacing.sm) {
             HStack(alignment: .bottom, spacing: MacSpacing.lg) {
                 // AI avatar
-                Circle()
-                    .fill(MacColors.aiAvatarBackground)
-                    .frame(width: MacSize.chatAvatarSize, height: MacSize.chatAvatarSize)
-                    .overlay {
-                        Circle().strokeBorder(MacColors.aiAvatarBorder, lineWidth: 1)
-                    }
-                    .overlay {
-                        Image(systemName: "sparkle")
-                            .font(.system(size: 16))
-                            .foregroundStyle(MacColors.amberAccent)
-                    }
+                agentAvatar(for: message.mode ?? .tia, size: MacSize.chatAvatarSize)
 
                 VStack(alignment: .leading, spacing: MacSpacing.xs) {
                     // Sender label

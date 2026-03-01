@@ -1,14 +1,14 @@
 # Hestia API Contract
 
 **Status**: Complete — All Workstreams Implemented
-**Last Updated**: 2026-02-15
+**Last Updated**: 2026-02-28
 
 ## Executive Summary
 
 The FastAPI REST API provides HTTP access to all Hestia backend capabilities including chat, memory management, mode switching, cloud LLM routing, voice journaling, proactive intelligence, scheduled orders, agent profiles, user settings, background task management, and health data management.
 
-**Endpoints**: 72 across 15 route modules
-**Test Coverage**: 784+ passing tests
+**Endpoints**: 88 across 17 route modules
+**Test Coverage**: 892 tests (886 passing, 3 skipped, 3 pre-existing health failures)
 **Server**: HTTPS on port 8443 (self-signed cert)
 **Documentation**: https://localhost:8443/docs (Swagger UI)
 
@@ -773,6 +773,94 @@ Sync agent profiles from device to server (multi-device support).
 ```
 
 **Sync Strategies:** `latest_wins`, `server_wins`, `device_wins`
+
+---
+
+### Agents V2 — .md-based Config (10 endpoints)
+
+V2 agent system uses .md file directories for configuration. Coexists with V1 during migration. Agents are identified by name (directory slug) rather than slot index.
+
+**Route prefix:** `/v2/agents`
+
+#### GET /v2/agents
+
+List all agent configurations from .md file directories.
+
+**Response:** `AgentConfigListResponse` — array of agent configs with name, slug, and file list.
+
+#### GET /v2/agents/{agent_name}
+
+Get a single agent's configuration.
+
+#### POST /v2/agents
+
+Create a new agent with template .md files.
+
+**Request body:**
+```json
+{
+  "name": "Agent Name",
+  "slug": "agent-slug"
+}
+```
+
+**Response:** `AgentConfigResponse` (201 Created)
+
+#### DELETE /v2/agents/{agent_name}
+
+Archive (soft-delete) an agent. Moves to `.archived/` directory.
+
+**Response:** `AgentArchiveResponse`
+
+#### GET /v2/agents/{agent_name}/config/{file_name}
+
+Read a specific .md config file for an agent.
+
+**Response:** `AgentConfigFileResponse` — file content, metadata, writable/confirmation flags.
+
+#### PUT /v2/agents/{agent_name}/config/{file_name}
+
+Update a specific .md config file for an agent.
+
+**Request body:**
+```json
+{
+  "content": "Updated markdown content..."
+}
+```
+
+**Response:** `AgentConfigFileResponse`
+
+#### GET /v2/agents/{agent_name}/notes
+
+List recent daily notes for an agent.
+
+**Response:** Array of `DailyNoteResponse`
+
+#### GET /v2/agents/{agent_name}/notes/{note_date}
+
+Read a specific daily note by date (format: `YYYY-MM-DD`).
+
+**Response:** `DailyNoteResponse`
+
+#### POST /v2/agents/{agent_name}/notes
+
+Append an entry to today's daily note (creates if doesn't exist).
+
+**Request body:**
+```json
+{
+  "content": "Note entry text..."
+}
+```
+
+**Response:** `DailyNoteResponse` (201 Created)
+
+#### POST /v2/agents/{agent_name}/reload
+
+Force-reload an agent's configuration from disk.
+
+**Response:** `AgentConfigResponse`
 
 ---
 

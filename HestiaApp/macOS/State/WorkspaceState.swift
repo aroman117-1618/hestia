@@ -7,6 +7,7 @@ enum WorkspaceView: String, CaseIterable {
     case command
     case explorer
     case health
+    case profile
 }
 
 @MainActor

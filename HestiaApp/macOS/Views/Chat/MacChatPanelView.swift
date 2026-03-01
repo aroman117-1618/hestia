@@ -111,15 +111,8 @@ struct MacChatPanelView: View {
             }
         } label: {
             HStack(spacing: MacSpacing.sm) {
-                // Avatar circle
-                Circle()
-                    .fill(MacColors.aiAvatarBackground)
-                    .frame(width: MacSize.agentTabAvatarSize, height: MacSize.agentTabAvatarSize)
-                    .overlay {
-                        Image(systemName: "sparkle")
-                            .font(.system(size: 10))
-                            .foregroundStyle(MacColors.amberAccent)
-                    }
+                // Agent avatar
+                agentTabAvatar(for: mode)
 
                 Text(mode.displayName)
                     .font(MacTypography.label)
@@ -140,7 +133,7 @@ struct MacChatPanelView: View {
         HStack(alignment: .top, spacing: MacSpacing.lg) {
             aiAvatar
             VStack(alignment: .leading, spacing: MacSpacing.xs) {
-                Text("Tia")
+                Text(appState.currentMode.displayName)
                     .font(MacTypography.senderLabel)
                     .foregroundStyle(MacColors.textSender)
                     .padding(.horizontal, MacSpacing.sm)
@@ -163,17 +156,46 @@ struct MacChatPanelView: View {
     }
 
     private var aiAvatar: some View {
-        Circle()
-            .fill(MacColors.aiAvatarBackground)
-            .frame(width: MacSize.chatAvatarSize, height: MacSize.chatAvatarSize)
-            .overlay {
-                Circle().strokeBorder(MacColors.aiAvatarBorder, lineWidth: 1)
+        Group {
+            if let image = appState.currentMode.avatarImage {
+                image
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Circle()
+                    .fill(MacColors.aiAvatarBackground)
+                    .overlay {
+                        Text(appState.currentMode.displayName.prefix(1))
+                            .font(.system(size: MacSize.chatAvatarSize * 0.45, weight: .bold))
+                            .foregroundStyle(MacColors.amberAccent)
+                    }
             }
-            .overlay {
-                Image(systemName: "sparkle")
-                    .font(.system(size: 16))
-                    .foregroundStyle(MacColors.amberAccent)
+        }
+        .frame(width: MacSize.chatAvatarSize, height: MacSize.chatAvatarSize)
+        .clipShape(Circle())
+        .overlay {
+            Circle().strokeBorder(MacColors.aiAvatarBorder, lineWidth: 1)
+        }
+    }
+
+    private func agentTabAvatar(for mode: HestiaMode) -> some View {
+        Group {
+            if let image = mode.avatarImage {
+                image
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Circle()
+                    .fill(MacColors.aiAvatarBackground)
+                    .overlay {
+                        Text(mode.displayName.prefix(1))
+                            .font(.system(size: MacSize.agentTabAvatarSize * 0.45, weight: .bold))
+                            .foregroundStyle(MacColors.amberAccent)
+                    }
             }
+        }
+        .frame(width: MacSize.agentTabAvatarSize, height: MacSize.agentTabAvatarSize)
+        .clipShape(Circle())
     }
 
     // MARK: - Error Banner

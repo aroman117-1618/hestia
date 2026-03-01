@@ -29,15 +29,16 @@ struct IconSidebar: View {
 
             // Bottom icons
             VStack(spacing: 7) {
-                Button {} label: {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: MacSize.navIcon))
-                        .foregroundStyle(MacColors.textSecondary)
-                        .frame(width: MacSize.navIconButton, height: MacSize.navIconButton)
+                navIcon(.profile, systemName: "gearshape", yOffset: 4)
+
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        workspace.currentView = .profile
+                    }
+                } label: {
+                    userAvatar
                 }
                 .buttonStyle(.plain)
-
-                userAvatar
             }
             .padding(.bottom, MacSpacing.xxl)
         }

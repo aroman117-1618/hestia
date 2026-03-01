@@ -181,9 +181,13 @@ async def generate_article(
             module_name=request.module_name,
         )
     except ValueError as e:
+        logger.warning(
+            f"Wiki generation validation error: {sanitize_for_log(e)}",
+            component=LogComponent.API,
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            detail="Invalid article type or module name.",
         )
     except Exception as e:
         logger.error(

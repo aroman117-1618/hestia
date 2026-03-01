@@ -5,18 +5,26 @@ struct MacMessageInputBar: View {
     @Binding var messageText: String
     @EnvironmentObject var appState: AppState
     @FocusState private var isInputFocused: Bool
+    @State private var showCommandPicker = false
     let onSend: () -> Void
 
     var body: some View {
         HStack(spacing: MacSpacing.sm) {
-            // Attachment
-            Button {} label: {
-                Image(systemName: "paperclip")
+            // Commands
+            Button { showCommandPicker.toggle() } label: {
+                Image(systemName: "terminal")
                     .font(.system(size: 15))
-                    .foregroundStyle(MacColors.textSecondary)
+                    .foregroundStyle(showCommandPicker ? MacColors.amberAccent : MacColors.textSecondary)
                     .frame(width: 24, height: 24)
             }
             .buttonStyle(.plain)
+            .popover(isPresented: $showCommandPicker, arrowEdge: .top) {
+                CommandPickerView { command in
+                    messageText = command
+                    showCommandPicker = false
+                    isInputFocused = true
+                }
+            }
 
             // Text field
             TextField("Message \(appState.currentMode.displayName)...", text: $messageText)

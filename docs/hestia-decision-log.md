@@ -34,7 +34,7 @@ Record significant decisions here. This creates institutional memory and prevent
 
 ### ADR-001: Qwen 2.5 7B as Primary Model
 
-**Date**: [Your start date]
+**Date**: 2025-01-08
 **Status**: Accepted (Updated 2025-01-12)
 
 #### Context
@@ -63,7 +63,7 @@ When Mac Mini is upgraded to 64GB RAM:
 
 ### ADR-002: Governed Memory Persistence
 
-**Date**: [Your start date]
+**Date**: 2025-01-08
 **Status**: Accepted
 
 #### Context
@@ -86,7 +86,7 @@ All proposed long-term memory updates are staged for human review before commitm
 
 ### ADR-003: Single-Agent Architecture
 
-**Date**: [Your start date]
+**Date**: 2025-01-08
 **Status**: Accepted
 
 #### Context
@@ -109,7 +109,7 @@ Hestia uses a single model instance with explicit orchestration logic (code-base
 
 ### ADR-004: Observability as Primary Reliability Strategy
 
-**Date**: [Your start date]
+**Date**: 2025-01-08
 **Status**: Accepted
 
 #### Context
@@ -131,7 +131,7 @@ Prioritize complete observability (comprehensive logging, request tracing, repla
 
 ### ADR-005: Tailscale for Remote Access
 
-**Date**: [Your start date]
+**Date**: 2025-01-08
 **Status**: Accepted
 
 #### Context
@@ -154,7 +154,7 @@ Use Tailscale for all remote access. Devices join a private tailnet; no public e
 
 ### ADR-006: Docker Sandboxing for Tool Execution
 
-**Date**: [Your start date]
+**Date**: 2025-01-08
 **Status**: Superseded (2025-01-12)
 
 **Superseded By**: Current implementation uses file-based sandboxing with path allowlists (`execution.yaml`) and subprocess isolation instead of Docker containers. Docker overhead was unnecessary for single-user local deployment.
@@ -179,7 +179,7 @@ All tool execution occurs in Docker containers with limited filesystem access, n
 
 ### ADR-007: Claude Code + Xcode as Minimal Development Stack
 
-**Date**: [Your start date]
+**Date**: 2025-01-08
 **Status**: Accepted
 
 #### Context
@@ -205,7 +205,7 @@ Use only two tools:
 
 ### ADR-008: Native Swift App over Electron/Web
 
-**Date**: [Your start date]
+**Date**: 2025-01-08
 **Status**: Accepted
 
 #### Context

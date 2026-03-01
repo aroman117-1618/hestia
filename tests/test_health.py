@@ -489,7 +489,20 @@ class TestHealthDatabase:
 # ============== Manager Tests ==============
 
 class TestHealthManager:
-    """Tests for HealthManager."""
+    """Tests for HealthManager.
+
+    Known failures (3 tests):
+    - test_get_metric_trend: stores data for Feb 9-15 2026 hardcoded dates,
+      but get_metric_trend() queries relative to datetime.now(). Data falls
+      outside the 7-day lookback window after Feb 22.
+    - test_get_sleep_analysis: same issue — stores data for Feb 15, queries
+      relative to now with days=7.
+    - test_get_activity_summary: same issue — stores data for Feb 15, queries
+      relative to now with days=7.
+
+    Fix: use dynamic dates relative to today instead of hardcoded dates,
+    or inject a clock/time source into the manager.
+    """
 
     @pytest.mark.asyncio
     async def test_process_sync(self, manager):

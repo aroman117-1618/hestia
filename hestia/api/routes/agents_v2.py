@@ -145,9 +145,10 @@ async def create_agent(
         )
         return _config_to_response(config)
     except ValueError as e:
+        logger.warning(f"Agent creation conflict: {sanitize_for_log(e)}")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=str(e),
+            detail="Agent with this name or slug already exists.",
         )
     except Exception as e:
         logger.error(f"Failed to create agent: {sanitize_for_log(e)}")
@@ -183,9 +184,10 @@ async def archive_agent(
             message=f"Agent '{agent_name}' archived",
         )
     except ValueError as e:
+        logger.warning(f"Agent archive failed: {sanitize_for_log(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
+            detail="Invalid agent name or agent not found.",
         )
     except HTTPException:
         raise
@@ -307,7 +309,7 @@ async def update_config_file(
         if "Permission" in error_type:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=str(e),
+                detail="Permission denied for this config file.",
             )
         logger.error(f"Failed to update config file: {sanitize_for_log(e)}")
         raise HTTPException(

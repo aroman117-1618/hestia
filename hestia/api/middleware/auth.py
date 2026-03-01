@@ -1,9 +1,11 @@
 """
 Authentication middleware for Hestia API.
 
-Implements device-based JWT authentication.
+Implements device-based JWT authentication and invite-based onboarding.
 """
 
+import hashlib
+import json
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -16,8 +18,10 @@ from jose import jwt, JWTError
 # Configuration - in production, load from secure config
 # Generate a secure key on first run and store it
 _SECRET_KEY: Optional[str] = None
+_SETUP_SECRET: Optional[str] = None
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_DAYS = 90  # 3 months - balanced security vs convenience
+INVITE_EXPIRE_MINUTES = 10  # Short-lived invite tokens
 
 
 def get_secret_key() -> str:
@@ -64,6 +68,76 @@ def get_secret_key() -> str:
     return _SECRET_KEY
 
 
+def get_setup_secret() -> str:
+    """
+    Get or generate the setup secret for invite-based onboarding.
+
+    The setup secret is generated on first boot and stored in Keychain.
+    It's used to authenticate invite generation requests from the server owner.
+
+    Priority:
+    1. Environment variable (HESTIA_SETUP_SECRET) — for testing
+    2. macOS Keychain via CredentialManager
+    3. Generate new and store in Keychain
+    """
+    global _SETUP_SECRET
+
+    if _SETUP_SECRET is None:
+        _SETUP_SECRET = os.environ.get("HESTIA_SETUP_SECRET")
+
+        if not _SETUP_SECRET:
+            try:
+                from hestia.security import get_credential_manager
+                cred_manager = get_credential_manager()
+                _SETUP_SECRET = cred_manager.retrieve_sensitive(
+                    "setup_secret",
+                    reason="Invite system initialization"
+                )
+            except Exception:
+                pass
+
+        if not _SETUP_SECRET:
+            _SETUP_SECRET = secrets.token_urlsafe(32)
+            try:
+                from hestia.security import get_credential_manager
+                cred_manager = get_credential_manager()
+                cred_manager.store_sensitive(
+                    "setup_secret",
+                    _SETUP_SECRET,
+                    reason="Initial setup secret generation for invite onboarding"
+                )
+            except Exception:
+                pass
+
+    return _SETUP_SECRET
+
+
+def verify_setup_secret(provided_secret: str) -> bool:
+    """Constant-time comparison of setup secret."""
+    return secrets.compare_digest(provided_secret, get_setup_secret())
+
+
+# Rate limiting for invite generation (in-memory, single-server)
+_invite_rate_limit: dict = {"count": 0, "window_start": None}
+INVITE_RATE_LIMIT = 5  # max invites per hour
+
+
+def check_invite_rate_limit() -> bool:
+    """Check if invite generation is within rate limits. Returns True if allowed."""
+    now = datetime.now(timezone.utc)
+    window = _invite_rate_limit
+
+    if window["window_start"] is None or (now - window["window_start"]).total_seconds() > 3600:
+        window["count"] = 0
+        window["window_start"] = now
+
+    if window["count"] >= INVITE_RATE_LIMIT:
+        return False
+
+    window["count"] += 1
+    return True
+
+
 class AuthError(Exception):
     """Authentication error."""
 
@@ -99,6 +173,59 @@ def create_device_token(device_id: str, device_info: dict = None) -> tuple[str, 
 
     token = jwt.encode(payload, get_secret_key(), algorithm=ALGORITHM)
     return token, expires
+
+
+def create_invite_token(nonce: str) -> tuple[str, datetime]:
+    """
+    Create a short-lived JWT invite token for device onboarding.
+
+    Args:
+        nonce: One-time-use nonce to prevent replay attacks.
+
+    Returns:
+        Tuple of (token, expiration_datetime).
+    """
+    expires = datetime.now(timezone.utc) + timedelta(minutes=INVITE_EXPIRE_MINUTES)
+
+    payload = {
+        "nonce": nonce,
+        "exp": expires,
+        "iat": datetime.now(timezone.utc),
+        "type": "invite",
+    }
+
+    token = jwt.encode(payload, get_secret_key(), algorithm=ALGORITHM)
+    return token, expires
+
+
+def verify_invite_token(token: str) -> dict:
+    """
+    Verify an invite JWT token.
+
+    Args:
+        token: The JWT invite token to verify.
+
+    Returns:
+        Decoded payload if valid (contains 'nonce' field).
+
+    Raises:
+        AuthError: If token is invalid, expired, or wrong type.
+    """
+    try:
+        payload = jwt.decode(token, get_secret_key(), algorithms=[ALGORITHM])
+
+        if payload.get("type") != "invite":
+            raise AuthError("Invalid token type — expected invite token", "invalid_token_type")
+
+        if "nonce" not in payload:
+            raise AuthError("Invite token missing nonce", "invalid_token")
+
+        return payload
+
+    except jwt.ExpiredSignatureError:
+        raise AuthError("Invite token has expired", "token_expired")
+    except JWTError as e:
+        raise AuthError(f"Invalid invite token", "invalid_token")
 
 
 def verify_device_token(token: str) -> dict:
