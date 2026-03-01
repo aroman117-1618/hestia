@@ -8,7 +8,7 @@ struct UserProfileView: View {
         HStack(spacing: 0) {
             // Left: File/command sidebar
             profileSidebar
-                .frame(width: MacSize.fileSidebarWidth)
+                .frame(minWidth: 200, idealWidth: MacSize.fileSidebarWidth, maxWidth: 320)
                 .background(MacColors.panelBackground)
                 .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
                 .overlay {

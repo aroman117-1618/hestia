@@ -20,7 +20,7 @@ struct ExplorerView: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                .frame(width: 200)
+                .frame(maxWidth: 220)
 
                 Spacer()
             }
@@ -53,7 +53,7 @@ struct ExplorerView: View {
                     onToggle: { viewModel.toggleExpansion($0) }
                 )
             }
-            .frame(width: MacSize.fileSidebarWidth)
+            .frame(minWidth: 200, idealWidth: MacSize.fileSidebarWidth, maxWidth: 320)
             .background(MacColors.panelBackground)
             .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
             .overlay {
@@ -67,6 +67,7 @@ struct ExplorerView: View {
                 isLoading: viewModel.isLoadingPreview,
                 onSelectFolder: { viewModel.selectRootFolder() }
             )
+            .frame(maxWidth: .infinity)
             .background(MacColors.panelBackground)
             .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
             .overlay {

@@ -3,6 +3,7 @@ import HestiaShared
 
 struct StatCardsRow: View {
     @ObservedObject var viewModel: MacCommandCenterViewModel
+    var isCompact: Bool = false
 
     private var cards: [(icon: String, label: String, count: String, subtitle: String, trend: String?)] {
         [
@@ -15,7 +16,10 @@ struct StatCardsRow: View {
         ]
     }
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: MacSpacing.md), count: 3)
+    private var columns: [GridItem] {
+        let count = isCompact ? 2 : 3
+        return Array(repeating: GridItem(.flexible(), spacing: MacSpacing.md), count: count)
+    }
 
     var body: some View {
         LazyVGrid(columns: columns, spacing: MacSpacing.md) {
