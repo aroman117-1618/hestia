@@ -34,6 +34,12 @@ class MainSplitViewController: NSSplitViewController {
     }
 
     private func setupWorkspaceLayout() {
+        // Load stored device token into APIClient before any views make API calls.
+        // Without this, all initial requests get 401 and race on auto-reregistration.
+        if let token = authService.getDeviceToken() {
+            APIClient.shared.setDeviceToken(token)
+        }
+
         // Main content: icon sidebar + content area
         let rootView = WorkspaceRootView()
             .environment(workspaceState)

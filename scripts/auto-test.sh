@@ -71,6 +71,8 @@ get_test_file() {
             echo "tests/test_explorer.py" ;;
         *hestia/api/routes/newsfeed*)
             echo "tests/test_newsfeed.py" ;;
+        *hestia/api/routes/investigate*)
+            echo "tests/test_investigate.py" ;;
         *hestia/api/routes/auth*)
             echo "tests/test_auth_invite.py" ;;
         *hestia/api/middleware/auth*)
@@ -113,6 +115,8 @@ get_test_file() {
             echo "tests/test_explorer.py" ;;
         *hestia/newsfeed/*)
             echo "tests/test_newsfeed.py" ;;
+        *hestia/investigate/*)
+            echo "tests/test_investigate.py" ;;
 
         # No mapping found
         *)

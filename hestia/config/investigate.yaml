@@ -1,0 +1,46 @@
+# Investigation module configuration
+# Used by InvestigateManager for extraction and analysis settings.
+
+extractors:
+  web:
+    enabled: true
+    # trafilatura settings
+    favor_precision: true
+    include_tables: true
+    include_comments: false
+
+  youtube:
+    enabled: true
+    # Transcript language priority
+    preferred_languages:
+      - en
+    # Include auto-generated transcripts as fallback
+    allow_auto_generated: true
+
+  tiktok:
+    # Phase 2 — disabled until yt-dlp extractor is implemented
+    enabled: false
+
+analysis:
+  # Default analysis depth when not specified
+  default_depth: standard
+
+  # Content character limits per depth level
+  content_limits:
+    quick: 8000
+    standard: 32000
+    deep: 64000
+
+  # Target output tokens per depth level
+  token_targets:
+    quick: 500
+    standard: 2000
+    deep: 4000
+
+limits:
+  # Maximum investigations per user per day
+  max_per_day: 50
+  # Maximum URLs in a comparison request
+  max_compare_urls: 5
+  # Maximum content size (characters) before rejection
+  max_content_chars: 500000

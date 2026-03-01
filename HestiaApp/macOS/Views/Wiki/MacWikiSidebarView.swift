@@ -69,7 +69,11 @@ struct MacWikiSidebarView: View {
                 }
 
                 if articlesForSelectedTab.isEmpty && !viewModel.isLoading {
-                    emptyState
+                    if let error = viewModel.errorMessage {
+                        errorState(error)
+                    } else {
+                        emptyState
+                    }
                 }
             }
             .padding(.horizontal, MacSpacing.sm)
@@ -91,6 +95,34 @@ struct MacWikiSidebarView: View {
                 .font(.system(size: 11))
                 .foregroundStyle(MacColors.textFaint)
                 .multilineTextAlignment(.center)
+        }
+        .padding(.top, MacSpacing.xxxl)
+    }
+
+    private func errorState(_ message: String) -> some View {
+        VStack(spacing: MacSpacing.md) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 28))
+                .foregroundStyle(MacColors.healthRed)
+            Text(message)
+                .font(.system(size: 13))
+                .foregroundStyle(MacColors.textSecondary)
+                .multilineTextAlignment(.center)
+            Button {
+                Task { await viewModel.loadArticles() }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.clockwise")
+                    Text("Retry")
+                }
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(MacColors.amberAccent)
+                .padding(.horizontal, MacSpacing.md)
+                .padding(.vertical, 4)
+                .background(MacColors.activeTabBackground)
+                .cornerRadius(MacCornerRadius.treeItem)
+            }
+            .buttonStyle(.plain)
         }
         .padding(.top, MacSpacing.xxxl)
     }

@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+    :root {
+        --bg-primary: #110B03;
+        --text-primary: #E4DFD7;
+        --text-secondary: rgba(235,223,209,0.5);
+        --text-faint: rgba(235,223,209,0.3);
+        --accent: #E0A050;
+        --accent-bright: #FFB900;
+        --accent-dark: #FF8904;
+        --code-bg: rgba(235,223,209,0.08);
+        --border: rgba(254,154,0,0.08);
+        --border-strong: rgba(254,154,0,0.15);
+        --divider: rgba(182,165,145,0.15);
+        --green: #00D492;
+        --red: #FF6467;
+        --table-header-bg: rgba(224,160,80,0.12);
+        --table-row-alt: rgba(235,223,209,0.03);
+        --table-row-hover: rgba(235,223,209,0.06);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+        font-size: 13px;
+        line-height: 1.65;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    #content {
+        padding: 0 24px 48px 24px;
+        max-width: 900px;
+        opacity: 0;
+        transition: opacity 150ms ease-in;
+    }
+
+    #content.visible { opacity: 1; }
+
+    /* Headings */
+    h1 {
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 32px 0 12px 0;
+        letter-spacing: -0.3px;
+    }
+    h1:first-child { margin-top: 8px; }
+
+    h2 {
+        font-size: 17px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 28px 0 10px 0;
+        padding-bottom: 6px;
+        border-bottom: 1px solid var(--divider);
+    }
+
+    h3 {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--accent);
+        margin: 22px 0 8px 0;
+    }
+
+    h4 {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin: 18px 0 6px 0;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    /* Paragraphs and inline */
+    p {
+        margin: 0 0 12px 0;
+        color: rgba(228,223,215,0.85);
+    }
+
+    strong { color: var(--text-primary); font-weight: 600; }
+    em { color: var(--text-secondary); font-style: italic; }
+
+    a {
+        color: var(--accent);
+        text-decoration: none;
+        border-bottom: 1px solid rgba(224,160,80,0.3);
+    }
+    a:hover {
+        color: var(--accent-bright);
+        border-bottom-color: var(--accent-bright);
+    }
+
+    /* Lists */
+    ul, ol {
+        margin: 0 0 12px 0;
+        padding-left: 24px;
+        color: rgba(228,223,215,0.85);
+    }
+    li { margin-bottom: 4px; }
+    li > ul, li > ol { margin-top: 4px; margin-bottom: 4px; }
+
+    /* Horizontal rules */
+    hr {
+        border: none;
+        height: 1px;
+        background: var(--divider);
+        margin: 24px 0;
+    }
+
+    /* Blockquotes */
+    blockquote {
+        margin: 0 0 12px 0;
+        padding: 8px 16px;
+        border-left: 3px solid var(--accent);
+        background: rgba(224,160,80,0.06);
+        border-radius: 0 6px 6px 0;
+        color: var(--text-secondary);
+    }
+    blockquote p:last-child { margin-bottom: 0; }
+
+    /* Inline code */
+    code {
+        font-family: "SF Mono", "Menlo", "Monaco", monospace;
+        font-size: 12px;
+        background: var(--code-bg);
+        padding: 2px 6px;
+        border-radius: 4px;
+        color: var(--accent);
+    }
+
+    /* Code blocks */
+    pre {
+        margin: 0 0 16px 0;
+        padding: 14px 16px;
+        background: rgba(235,223,209,0.05);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow-x: auto;
+        position: relative;
+    }
+    pre code {
+        background: none;
+        padding: 0;
+        border-radius: 0;
+        color: var(--text-primary);
+        font-size: 12px;
+        line-height: 1.5;
+    }
+
+    /* highlight.js token overrides for Hestia palette */
+    .hljs { background: transparent; color: var(--text-primary); }
+    .hljs-keyword, .hljs-selector-tag, .hljs-built_in { color: #FF8C69; }
+    .hljs-string, .hljs-attr { color: #98D8A0; }
+    .hljs-number, .hljs-literal { color: #D4A0FF; }
+    .hljs-comment { color: rgba(235,223,209,0.35); font-style: italic; }
+    .hljs-function .hljs-title, .hljs-title.function_ { color: var(--accent-bright); }
+    .hljs-type, .hljs-title.class_ { color: #7DC8E8; }
+    .hljs-variable, .hljs-template-variable { color: #E0A050; }
+    .hljs-meta { color: rgba(235,223,209,0.5); }
+    .hljs-punctuation { color: rgba(235,223,209,0.6); }
+    .hljs-symbol { color: #D4A0FF; }
+
+    /* Tables */
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 0 0 16px 0;
+        font-size: 12.5px;
+    }
+    thead {
+        background: var(--table-header-bg);
+    }
+    th {
+        text-align: left;
+        padding: 8px 12px;
+        font-weight: 600;
+        color: var(--accent);
+        font-size: 11.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid var(--border-strong);
+    }
+    td {
+        padding: 7px 12px;
+        border-bottom: 1px solid var(--border);
+        color: rgba(228,223,215,0.85);
+    }
+    tr:nth-child(even) { background: var(--table-row-alt); }
+    tr:hover { background: var(--table-row-hover); }
+
+    /* Mermaid diagrams */
+    .mermaid-container {
+        margin: 16px 0;
+        padding: 20px;
+        background: rgba(235,223,209,0.03);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        text-align: center;
+        overflow-x: auto;
+    }
+    .mermaid-container svg {
+        max-width: 100%;
+        height: auto;
+    }
+    .mermaid-error {
+        color: var(--red);
+        font-size: 12px;
+        padding: 12px;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+        background: rgba(235,223,209,0.15);
+        border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(235,223,209,0.25); }
+
+    /* Selection */
+    ::selection {
+        background: rgba(224,160,80,0.3);
+        color: var(--text-primary);
+    }
+</style>
+<script src="markdown-it.min.js"></script>
+<script src="highlight.min.js"></script>
+<script src="mermaid.min.js"></script>
+</head>
+<body>
+<!--
+    Wiki content renderer for Hestia macOS app.
+    Content is injected from Swift via renderMarkdown() JS bridge.
+    All content originates from the Hestia backend (wiki articles) — not user input.
+    markdown-it is configured with html:false to prevent HTML injection.
+-->
+<div id="content"></div>
+<script>
+// Initialize markdown-it with highlight.js integration
+// NOTE: html:false prevents any raw HTML in markdown source from rendering
+var md = window.markdownit({
+    html: false,
+    linkify: true,
+    typographer: true,
+    highlight: function(str, lang) {
+        // Mermaid fences get a placeholder for async rendering
+        if (lang === 'mermaid') {
+            return '<div class="mermaid-placeholder" data-content="' +
+                encodeURIComponent(str) + '"></div>';
+        }
+        if (lang && hljs.getLanguage(lang)) {
+            try {
+                return '<pre class="hljs"><code>' +
+                    hljs.highlight(str, { language: lang, ignoreIllegals: true }).value +
+                    '</code></pre>';
+            } catch (_) {}
+        }
+        return '<pre class="hljs"><code>' + md.utils.escapeHtml(str) + '</code></pre>';
+    }
+});
+
+mermaid.initialize({
+    startOnLoad: false,
+    theme: 'dark',
+    themeVariables: {
+        primaryColor: '#2F1C03',
+        primaryTextColor: '#E4DFD7',
+        primaryBorderColor: '#E0A050',
+        lineColor: '#E0A050',
+        secondaryColor: '#110B03',
+        tertiaryColor: '#261302',
+        fontSize: '13px',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif',
+        noteBkgColor: '#261302',
+        noteTextColor: '#E4DFD7',
+        noteBorderColor: '#E0A050'
+    }
+});
+
+var renderCounter = 0;
+
+// Called from Swift to render article content
+// rawContent: the markdown or mermaid source string
+// isDiagram: true if article.type == .diagram (pure mermaid, no markdown wrapper)
+async function renderMarkdown(rawContent, isDiagram) {
+    var thisRender = ++renderCounter;
+    var el = document.getElementById('content');
+    el.classList.remove('visible');
+
+    if (isDiagram) {
+        // Pure Mermaid diagram — render directly without markdown-it
+        try {
+            var result = await mermaid.render('mermaid-' + thisRender, rawContent);
+            if (thisRender !== renderCounter) return; // stale render
+            el.textContent = '';
+            var container = document.createElement('div');
+            container.className = 'mermaid-container';
+            // Mermaid.render returns trusted SVG from our own content
+            container.insertAdjacentHTML('afterbegin', result.svg);
+            el.appendChild(container);
+        } catch(e) {
+            if (thisRender !== renderCounter) return;
+            el.textContent = '';
+            var errContainer = document.createElement('div');
+            errContainer.className = 'mermaid-container';
+            var errDiv = document.createElement('div');
+            errDiv.className = 'mermaid-error';
+            errDiv.textContent = 'Diagram render error: ' + e.message;
+            var pre = document.createElement('pre');
+            var code = document.createElement('code');
+            code.textContent = rawContent;
+            pre.appendChild(code);
+            errContainer.appendChild(errDiv);
+            errContainer.appendChild(pre);
+            el.appendChild(errContainer);
+        }
+    } else {
+        // Standard markdown — rendered by markdown-it (html:false = safe)
+        // markdown-it with html:false escapes all HTML tags in source
+        var html = md.render(rawContent);
+        if (thisRender !== renderCounter) return;
+        // Content is from markdown-it with html:false — all user HTML is escaped
+        el.textContent = '';
+        el.insertAdjacentHTML('afterbegin', html);
+
+        // Post-process: render mermaid placeholders (from ```mermaid fences)
+        var placeholders = el.querySelectorAll('.mermaid-placeholder');
+        for (var i = 0; i < placeholders.length; i++) {
+            if (thisRender !== renderCounter) return;
+            var placeholder = placeholders[i];
+            var mermaidSrc = decodeURIComponent(placeholder.getAttribute('data-content'));
+            var mContainer = document.createElement('div');
+            mContainer.className = 'mermaid-container';
+            try {
+                var rendered = await mermaid.render('mermaid-inline-' + thisRender + '-' + i, mermaidSrc);
+                // Mermaid SVG is generated from our own wiki content
+                mContainer.insertAdjacentHTML('afterbegin', rendered.svg);
+            } catch(e2) {
+                var mErr = document.createElement('div');
+                mErr.className = 'mermaid-error';
+                mErr.textContent = 'Diagram error: ' + e2.message;
+                mContainer.appendChild(mErr);
+            }
+            placeholder.parentNode.replaceChild(mContainer, placeholder);
+        }
+    }
+
+    // Fade in after render completes
+    if (thisRender === renderCounter) {
+        requestAnimationFrame(function() {
+            el.classList.add('visible');
+        });
+    }
+}
+
+// Signal to Swift that the template has loaded
+try {
+    window.webkit.messageHandlers.templateReady.postMessage('ready');
+} catch(e) {
+    // Message handler may not be registered yet
+}
+</script>
+</body>
+</html>

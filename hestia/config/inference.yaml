@@ -127,8 +127,8 @@ cloud:
   # Smart mode: fall back to cloud after local retries are exhausted
   spillover_on_local_failure: true
 
-  # Cloud request timeout (cloud APIs are typically faster than local)
-  request_timeout: 60.0
+  # Cloud request timeout (120s for long-form generation like wiki articles)
+  request_timeout: 120.0
 
   # Cloud-specific retry count (separate from local retries)
   max_retries: 2

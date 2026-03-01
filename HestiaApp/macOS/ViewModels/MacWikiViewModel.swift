@@ -77,6 +77,7 @@ class WikiViewModel: ObservableObject {
         do {
             let response: WikiArticleListResponse = try await client.getWikiArticles()
             articles = response.articles
+            autoSelectBestTab()
         } catch {
             #if DEBUG
             print("[WikiVM] Failed to load articles: \(error)")
@@ -85,6 +86,37 @@ class WikiViewModel: ObservableObject {
         }
 
         isLoading = false
+    }
+
+    /// Auto-select the first tab that has content, if the current tab is empty.
+    private func autoSelectBestTab() {
+        // Only auto-switch if current tab has no content
+        let currentHasContent: Bool
+        switch selectedTab {
+        case .overview: currentHasContent = overviewArticle != nil
+        case .modules: currentHasContent = !moduleArticles.isEmpty
+        case .decisions: currentHasContent = !decisionArticles.isEmpty
+        case .roadmap: currentHasContent = roadmapArticle != nil
+        case .diagrams: currentHasContent = !diagramArticles.isEmpty
+        }
+
+        guard !currentHasContent else { return }
+
+        // Try tabs in priority order
+        let priority: [Tab] = [.overview, .decisions, .modules, .roadmap, .diagrams]
+        for tab in priority {
+            switch tab {
+            case .overview where overviewArticle != nil,
+                 .decisions where !decisionArticles.isEmpty,
+                 .modules where !moduleArticles.isEmpty,
+                 .roadmap where roadmapArticle != nil,
+                 .diagrams where !diagramArticles.isEmpty:
+                selectedTab = tab
+                return
+            default:
+                continue
+            }
+        }
     }
 
     func refreshStaticContent() async {

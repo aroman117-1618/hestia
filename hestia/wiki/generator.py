@@ -305,5 +305,6 @@ class WikiGenerator:
             self.logger.warning(
                 f"Wiki generation failed: {type(e).__name__}",
                 component=LogComponent.WIKI,
+                data={"detail": str(e)[:200]},
             )
             return None

@@ -58,3 +58,12 @@ def register_builtin_tools(registry) -> None:
         pass
     except Exception:
         pass
+
+    # Investigation tools (URL content analysis)
+    try:
+        from hestia.investigate.tools import register_investigate_tools
+        count = register_investigate_tools(registry)
+    except ImportError:
+        pass
+    except Exception:
+        pass

@@ -491,7 +491,7 @@ class CloudManager:
         try:
             from hestia.security import get_credential_manager
             cm = get_credential_manager()
-            result = cm.get_api_key(credential_key)
+            result = cm.retrieve_operational(credential_key)
             if result is not None:
                 return result
         except Exception:

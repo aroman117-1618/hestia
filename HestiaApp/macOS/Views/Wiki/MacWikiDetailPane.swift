@@ -19,6 +19,8 @@ struct MacWikiDetailPane: View {
             // Content
             if viewModel.isLoading && viewModel.articles.isEmpty {
                 loadingState
+            } else if let error = viewModel.errorMessage, viewModel.articles.isEmpty {
+                errorState(error)
             } else if let article = selectedArticle ?? firstArticle {
                 articleContent(article)
             } else {
@@ -86,53 +88,56 @@ struct MacWikiDetailPane: View {
     // MARK: - Article Content
 
     private func articleContent(_ article: WikiArticle) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: MacSpacing.lg) {
-                // Header
-                VStack(alignment: .leading, spacing: MacSpacing.xs) {
-                    HStack(spacing: MacSpacing.sm) {
-                        Image(systemName: article.type.iconName)
-                            .font(.system(size: 14))
-                            .foregroundStyle(MacColors.amberAccent)
-                        Text(article.title)
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(MacColors.textPrimary)
-                    }
-
-                    HStack(spacing: MacSpacing.md) {
-                        Text(article.subtitle)
-                            .font(.system(size: 13))
-                            .foregroundStyle(MacColors.textSecondary)
-
-                        Spacer()
-
-                        Text(article.readTimeBadge)
-                            .font(.system(size: 11))
-                            .foregroundStyle(MacColors.textFaint)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 2)
-                            .background(MacColors.innerPillBackground)
-                            .cornerRadius(4)
-
-                        statusBadge(for: article)
-                    }
+        VStack(spacing: 0) {
+            // Native SwiftUI header (stays crisp, matches sidebar)
+            VStack(alignment: .leading, spacing: MacSpacing.xs) {
+                HStack(spacing: MacSpacing.sm) {
+                    Image(systemName: article.type.iconName)
+                        .font(.system(size: 14))
+                        .foregroundStyle(MacColors.amberAccent)
+                    Text(article.title)
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(MacColors.textPrimary)
                 }
 
-                MacColors.divider.frame(height: 1)
+                HStack(spacing: MacSpacing.md) {
+                    Text(article.subtitle)
+                        .font(.system(size: 13))
+                        .foregroundStyle(MacColors.textSecondary)
 
-                // Body
-                Text(article.content)
-                    .font(.system(size: 13, design: .default))
-                    .foregroundStyle(MacColors.textPrimary.opacity(0.85))
-                    .lineSpacing(4)
-                    .textSelection(.enabled)
+                    Spacer()
 
-                // Generate button for pending articles
-                if article.isPending {
-                    generateButton(for: article)
+                    Text(article.readTimeBadge)
+                        .font(.system(size: 11))
+                        .foregroundStyle(MacColors.textFaint)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(MacColors.innerPillBackground)
+                        .cornerRadius(4)
+
+                    statusBadge(for: article)
                 }
             }
-            .padding(MacSpacing.xl)
+            .padding(.horizontal, MacSpacing.xl)
+            .padding(.top, MacSpacing.lg)
+            .padding(.bottom, MacSpacing.sm)
+
+            MacColors.divider.frame(height: 1)
+                .padding(.horizontal, MacSpacing.lg)
+
+            // Rendered markdown content (WKWebView handles its own scrolling)
+            MarkdownWebView(
+                content: article.content,
+                articleId: article.id,
+                isDiagram: article.type == .diagram
+            )
+
+            // Generate button for pending articles
+            if article.isPending {
+                generateButton(for: article)
+                    .padding(.horizontal, MacSpacing.xl)
+                    .padding(.bottom, MacSpacing.lg)
+            }
         }
     }
 
@@ -207,6 +212,38 @@ struct MacWikiDetailPane: View {
             Text("Refresh static content or generate articles with AI")
                 .font(.system(size: 13))
                 .foregroundStyle(MacColors.textFaint)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func errorState(_ message: String) -> some View {
+        VStack(spacing: MacSpacing.lg) {
+            Spacer()
+            Image(systemName: "wifi.exclamationmark")
+                .font(.system(size: 40))
+                .foregroundStyle(MacColors.healthRed)
+            Text(message)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(MacColors.textSecondary)
+            Text("Make sure the Hestia server is running")
+                .font(.system(size: 13))
+                .foregroundStyle(MacColors.textFaint)
+            Button {
+                Task { await viewModel.loadArticles() }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.clockwise")
+                    Text("Retry")
+                }
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(MacColors.amberAccent)
+                .padding(.horizontal, MacSpacing.lg)
+                .padding(.vertical, MacSpacing.sm)
+                .background(MacColors.activeTabBackground)
+                .cornerRadius(MacCornerRadius.treeItem)
+            }
+            .buttonStyle(.plain)
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

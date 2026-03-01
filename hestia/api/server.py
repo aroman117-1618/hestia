@@ -42,6 +42,7 @@ from hestia.health import get_health_manager
 from hestia.wiki import get_wiki_manager, get_wiki_scheduler, close_wiki_scheduler
 from hestia.explorer import get_explorer_manager
 from hestia.newsfeed import get_newsfeed_manager
+from hestia.investigate import get_investigate_manager, close_investigate_manager
 
 # Import routers
 from hestia.api.routes import (
@@ -64,6 +65,7 @@ from hestia.api.routes import (
     user_profile_router,
     explorer_router,
     newsfeed_router,
+    investigate_router,
 )
 from hestia.api.routes.agents_v2 import router as agents_v2_router
 
@@ -218,6 +220,9 @@ async def lifespan(app: FastAPI):
         # Initialize newsfeed timeline aggregation
         newsfeed_manager = await get_newsfeed_manager()
 
+        # Initialize investigation content analysis
+        investigate_manager = await get_investigate_manager()
+
         logger.info(
             "Hestia API ready",
             component=LogComponent.API,
@@ -235,6 +240,7 @@ async def lifespan(app: FastAPI):
                 "invite_store_ready": invite_store is not None,
                 "explorer_manager_ready": explorer_manager is not None,
                 "newsfeed_manager_ready": newsfeed_manager is not None,
+                "investigate_manager_ready": investigate_manager is not None,
             }
         )
 
@@ -274,6 +280,14 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning(
                 f"Invite store cleanup error during shutdown: {type(e).__name__}",
+                component=LogComponent.API,
+            )
+
+        try:
+            await close_investigate_manager()
+        except Exception as e:
+            logger.warning(
+                f"Investigate cleanup error during shutdown: {type(e).__name__}",
                 component=LogComponent.API,
             )
 
@@ -426,6 +440,7 @@ app.include_router(agents_v2_router)
 app.include_router(user_profile_router)
 app.include_router(explorer_router)
 app.include_router(newsfeed_router)
+app.include_router(investigate_router)
 
 
 # Root endpoint

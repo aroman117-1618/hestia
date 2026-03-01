@@ -56,6 +56,7 @@ class LogComponent(Enum):
     WIKI = "wiki"
     EXPLORER = "explorer"
     NEWSFEED = "newsfeed"
+    INVESTIGATE = "investigate"
 
 
 class EventType(Enum):

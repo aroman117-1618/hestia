@@ -215,8 +215,9 @@ class RateLimiter:
         remaining = max(0, requests_per_minute - active_requests)
 
         # Calculate reset time
-        if history:
-            oldest = min(ts for ts in history if ts > cutoff)
+        active_timestamps = [ts for ts in history if ts > cutoff]
+        if active_timestamps:
+            oldest = min(active_timestamps)
             reset_in = int(self.window_seconds - (now - oldest))
         else:
             reset_in = self.window_seconds

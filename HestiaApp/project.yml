@@ -122,9 +122,14 @@ targets:
       - path: macOS/Fonts
         type: folder
         buildPhase: resources
+      - path: macOS/Resources/WikiResources
+        type: folder
+        buildPhase: resources
     dependencies:
       - package: HestiaShared
       - framework: EventKit.framework
+        embed: false
+      - framework: WebKit.framework
         embed: false
     settings:
       base:

@@ -5,12 +5,12 @@ import HestiaShared
 extension APIClient {
     func getHealthSummary(date: String? = nil) async throws -> MacHealthSummaryResponse {
         if let date = date {
-            return try await get("/v1/health_data/summary/\(date)")
+            return try await get("/health_data/summary/\(date)")
         }
-        return try await get("/v1/health_data/summary")
+        return try await get("/health_data/summary")
     }
 
     func getHealthTrend(metricType: String, days: Int = 7) async throws -> MacHealthTrendResponse {
-        return try await get("/v1/health_data/trend/\(metricType)?days=\(days)")
+        return try await get("/health_data/trend/\(metricType)?days=\(days)")
     }
 }

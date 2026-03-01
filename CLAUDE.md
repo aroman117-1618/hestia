@@ -101,7 +101,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 **UI Phase 4 (Integrations UI, API contract rewrite): COMPLETE.**
 **Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
 
-1100 tests (1097 passing, 3 skipped), 25 test files. Full details: `python -m pytest tests/ -v --timeout=30`
+1194 tests (1191 passing, 3 skipped), 26 test files. Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -109,7 +109,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 - **Type hints**: Always. Every function signature.
 - **Async/await**: For all I/O (database, inference, network).
-- **Logging**: `logger = get_logger()` — no arguments. Never `HestiaLogger(component=...)` or `get_logger(component=...)`. Import: `from hestia.logging import get_logger`. LogComponent enum: ACCESS, ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, CLOUD, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED.
+- **Logging**: `logger = get_logger()` — no arguments. Never `HestiaLogger(component=...)` or `get_logger(component=...)`. Import: `from hestia.logging import get_logger`. LogComponent enum: ACCESS, ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, CLOUD, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED, INVESTIGATE.
 - **Config**: YAML files, never hardcode.
 - **Error handling in routes**: `sanitize_for_log(e)` from `hestia.api.errors` in logs (never raw `{e}`). Generic messages in HTTP responses (never `detail=str(e)`).
 - **File naming**: `snake_case.py` (Python), UpperCamelCase.swift (iOS).
@@ -166,7 +166,7 @@ Use Python 3.12 (not 3.13+). Pin version in pyproject.toml with `requires-python
 
 ```
 hestia/
-├── hestia/                          # Python backend — 21 modules
+├── hestia/                          # Python backend — 22 modules
 │   ├── security/                    # CredentialManager (Keychain + Fernet)
 │   ├── logging/                     # HestiaLogger, AuditLogger, LogComponent enum
 │   ├── inference/                   # InferenceClient (Ollama + cloud), ModelRouter (3-state)
@@ -186,20 +186,22 @@ hestia/
 │   ├── voice/                       # TranscriptQualityChecker, JournalAnalyzer (3-stage)
 │   ├── wiki/                        # Architecture field guide (AI-generated + static docs)
 │   ├── newsfeed/                    # Materialized timeline, source aggregation, per-user state
-│   ├── api/                         # FastAPI — 116 endpoints, 20 route modules
+│   ├── investigate/                 # URL content analysis (web articles, YouTube), LLM analysis pipeline
+│   │   └── extractors/             # BaseExtractor ABC, WebArticleExtractor, YouTubeExtractor
+│   ├── api/                         # FastAPI — 121 endpoints, 21 route modules
 │   │   ├── errors.py                # sanitize_for_log(), safe_error_detail()
 │   │   ├── schemas.py               # All Pydantic request/response models
 │   │   ├── server.py                # App lifecycle, manager initialization
 │   │   ├── middleware/auth.py        # JWT device authentication
 │   │   └── routes/                  # auth, health, chat, mode, memory, sessions, tools,
-│   │                                # tasks, cloud, voice, orders, agents, agents_v2, user, user_profile, proactive, health_data, wiki, explorer, newsfeed
+│   │                                # tasks, cloud, voice, orders, agents, agents_v2, user, user_profile, proactive, health_data, wiki, explorer, newsfeed, investigate
 │   └── config/                      # inference.yaml, execution.yaml, memory.yaml, wiki.yaml
 ├── hestia-cli-tools/                # Swift CLIs (keychain, calendar, reminders, notes)
 ├── HestiaApp/                       # iOS SwiftUI app
 │   ├── Shared/
 │   │   ├── App/                     # Entry point, ContentView
 │   │   ├── DesignSystem/            # Colors, Typography, Spacing, Animations
-│   │   ├── Models/                  # APIModels, CloudProvider, Order, AgentProfile, MemoryChunk, HealthModels, WikiModels, NewsfeedModels, BriefingModels, ToolModels, DeviceModels, ProactiveModels
+│   │   ├── Models/                  # APIModels, CloudProvider, Order, AgentProfile, MemoryChunk, HealthModels, WikiModels, NewsfeedModels, BriefingModels, ToolModels, DeviceModels, ProactiveModels, InvestigationModels
 │   │   ├── Resources/Animations/    # Lottie JSONs (ai_blob, typing_indicator)
 │   │   ├── Services/                # APIClient, AuthService, SpeechService, CalendarService, HealthKitService
 │   │   ├── ViewModels/              # Chat, Newsfeed, CloudSettings, Integrations, NeuralNet, Resources, Settings, Wiki, DeviceManagement, ProactiveSettings
@@ -210,7 +212,7 @@ hestia/
 │   │   ├── Views/                   # Command, Explorer (Files+Resources), Health, Profile, Wiki (4 views), Resources (6 views), Chat, Chrome, Auth
 │   │   ├── ViewModels/              # MacChat, MacExplorer, MacExplorerResources, MacCloudSettings, MacIntegrations, MacWiki, MacHealth, MacUserProfile, MacCommandCenter
 │   │   ├── Models/                  # WikiModels, ToolModels, NewsfeedModels, HealthDataModels, DeviceModels
-│   │   ├── Services/                # APIClient+Wiki, APIClient+Tools, APIClient+Newsfeed, APIClient+Health, APIClient+Devices
+│   │   ├── Services/                # APIClient+Wiki, APIClient+Tools, APIClient+Newsfeed, APIClient+Health, APIClient+Devices, APIClient+Investigate
 │   │   └── DesignSystem/            # MacColors, MacSpacing, MacTypography
 │   └── project.yml                  # xcodegen config (iOS 26.0, macOS 15.0, Swift 6.1)
 ├── tests/                           # 1086 tests, 25 files
@@ -222,7 +224,7 @@ hestia/
 
 ---
 
-## API Summary (116 endpoints, 20 route modules)
+## API Summary (121 endpoints, 21 route modules)
 
 | Module | Endpoints | Key Routes |
 |--------|-----------|------------|
@@ -244,6 +246,7 @@ hestia/
 | Wiki | 5 | `/v1/wiki/articles`, `generate`, `generate-all`, `refresh-static` |
 | Explorer | 6 | `/v1/explorer/resources` list/detail/content, drafts CRUD |
 | Newsfeed | 5 | `/v1/newsfeed/timeline`, `unread-count`, `items/{id}/read`, `items/{id}/dismiss`, `refresh` |
+| Investigate | 5 | `/v1/investigate/url`, `history`, `compare`, `{id}` (GET), `{id}` (DELETE) |
 
 Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 
