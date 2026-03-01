@@ -89,7 +89,9 @@ struct MessageInputBar_Previews: PreviewProvider {
                         mode: .tia,
                         isLoading: false,
                         onSend: {
+                            #if DEBUG
                             print("Sending: \(text)")
+                            #endif
                             text = ""
                         }
                     )

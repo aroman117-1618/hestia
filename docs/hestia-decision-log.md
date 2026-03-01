@@ -1249,6 +1249,33 @@ Open registration (`/v1/auth/register`) remains for backward compatibility but c
 
 ---
 
+### ADR-031: Agent Configuration Coexistence (V1/V2)
+
+**Date**: 2026-03-01
+**Status**: Accepted
+
+#### Context
+Two agent configuration systems exist in the codebase: V1 (slot-based, SQLite-backed) registered at `/v1/agents/` and V2 (name-based, .md file-backed) registered at `/v2/agents/`. The codebase audit flagged this as a "dual registration" issue and recommended migration. Investigation revealed they serve fundamentally different purposes.
+
+#### Decision
+Maintain both systems as orthogonal, complementary tools:
+- **V1** serves the iOS/macOS client: slot-based profiles (Tia/Mira/Olly), photo management, snapshots/restore, multi-device sync. iOS depends on 9 V1 APIClient methods.
+- **V2** serves backend development: arbitrary named agents with markdown config files (IDENTITY, MIND, TOOLS, MEMORY, ANIMA, etc.), daily notes, config CRUD, reload.
+
+Do not deprecate V1 until iOS has full V2 coverage with an adapter layer.
+
+#### Alternatives Considered
+- **Migrate V1 to V2 and update iOS**: Breaking change requiring dual iOS versions. V1 features (photos, snapshots, sync) have no V2 equivalent. High effort, low value.
+- **Merge into single system**: Would bloat V2 with photo/snapshot concerns it doesn't need, or strip V1 of markdown flexibility.
+
+#### Consequences
+- Positive: Each system evolves independently for its audience (iOS client vs backend dev)
+- Positive: No breaking change to iOS app
+- Negative: 20 total endpoints across 2 route modules (maintenance overhead)
+- Mitigation: Clear documentation prevents future confusion. V2 can grow features (photos, snapshots) when iOS adoption warrants it.
+
+---
+
 ## Adding New Decisions
 
 When making a significant architectural decision:

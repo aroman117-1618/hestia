@@ -41,7 +41,11 @@ final class CertificatePinningDelegate: NSObject, URLSessionDelegate {
     init(
         fingerprints: Set<String> = [],
         allowDevelopmentBypass: Bool = false,
-        logger: @escaping @Sendable (String) -> Void = { print("[CertPinning] \($0)") }
+        logger: @escaping @Sendable (String) -> Void = {
+            #if DEBUG
+            print("[CertPinning] \($0)")
+            #endif
+        }
     ) {
         var allFingerprints = fingerprints
 

@@ -100,12 +100,16 @@ struct ModeIndicator_Previews: PreviewProvider {
                 VStack(spacing: 40) {
                     // Small indicator
                     ModeIndicator(mode: mode) {
+                        #if DEBUG
                         print("Tapped mode indicator")
+                        #endif
                     }
 
                     // Mode selector
                     ModeSelector(selectedMode: $mode) { newMode in
+                        #if DEBUG
                         print("Selected: \(newMode)")
+                        #endif
                     }
                 }
             }

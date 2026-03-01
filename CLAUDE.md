@@ -84,7 +84,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | Hardware | Mac Mini M1 (16GB) |
 | Model | Qwen 2.5 7B (Ollama, local) + cloud providers (Anthropic/OpenAI/Google) |
 | SLM | qwen2.5:0.5b (council intent classification, ~100ms) |
-| Backend | Python 3.9+, FastAPI, 103 endpoints across 18 route modules |
+| Backend | Python 3.9+, FastAPI, 109 endpoints across 19 route modules |
 | Storage | ChromaDB (vectors) + SQLite (structured) + macOS Keychain (credentials) |
 | App | Native Swift/SwiftUI (iOS 26.0+) |
 | API | REST on port 8443 with JWT auth, HTTPS with self-signed cert |
@@ -165,7 +165,7 @@ Use Python 3.12 (not 3.13+). Pin version in pyproject.toml with `requires-python
 
 ```
 hestia/
-├── hestia/                          # Python backend — 21 modules
+├── hestia/                          # Python backend — 20 modules
 │   ├── security/                    # CredentialManager (Keychain + Fernet)
 │   ├── logging/                     # HestiaLogger, AuditLogger, LogComponent enum
 │   ├── inference/                   # InferenceClient (Ollama + cloud), ModelRouter (3-state)
@@ -184,7 +184,7 @@ hestia/
 │   ├── proactive/                   # Briefings, PatternDetector, InterruptionPolicy
 │   ├── voice/                       # TranscriptQualityChecker, JournalAnalyzer (3-stage)
 │   ├── wiki/                        # Architecture field guide (AI-generated + static docs)
-│   ├── api/                         # FastAPI — 94 endpoints, 18 route modules
+│   ├── api/                         # FastAPI — 109 endpoints, 19 route modules
 │   │   ├── errors.py                # sanitize_for_log(), safe_error_detail()
 │   │   ├── schemas.py               # All Pydantic request/response models
 │   │   ├── server.py                # App lifecycle, manager initialization
@@ -205,7 +205,7 @@ hestia/
 │   │   ├── Views/Common/            # LottieAnimationView, LoadingView, GradientBackground
 │   │   └── Persistence/             # Core Data stack
 │   └── project.yml                  # xcodegen config (iOS 26.0, Swift 6.1)
-├── tests/                           # 892 tests, 20 files
+├── tests/                           # 1018 tests, 23 files
 ├── scripts/                         # deploy, test-api, auto-test, validate-security, ollama
 ├── .claude/                         # agents/, output-styles/, settings
 ├── docs/                            # api-contract, decision-log, security-architecture

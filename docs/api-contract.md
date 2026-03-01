@@ -1,14 +1,14 @@
 # Hestia API Contract
 
 **Status**: Complete — All Workstreams Implemented
-**Last Updated**: 2026-02-28
+**Last Updated**: 2026-03-01
 
 ## Executive Summary
 
-The FastAPI REST API provides HTTP access to all Hestia backend capabilities including chat, memory management, mode switching, cloud LLM routing, voice journaling, proactive intelligence, scheduled orders, agent profiles, user settings, background task management, and health data management.
+The FastAPI REST API provides HTTP access to all Hestia backend capabilities including chat, memory management, mode switching, cloud LLM routing, voice journaling, proactive intelligence, scheduled orders, agent profiles (V1 slot-based + V2 markdown-based), user settings, user profile configuration, background task management, health data management, resource exploration, wiki/architecture docs, and newsfeed timeline.
 
-**Endpoints**: 88 across 17 route modules
-**Test Coverage**: 892 tests (886 passing, 3 skipped, 3 pre-existing health failures)
+**Endpoints**: 114 across 20 route modules
+**Test Coverage**: 1018 tests (1015 passing, 3 skipped)
 **Server**: HTTPS on port 8443 (self-signed cert)
 **Documentation**: https://localhost:8443/docs (Swagger UI)
 
@@ -66,6 +66,61 @@ Register a new device and receive a JWT token (no auth required).
   "expires_at": "2027-01-11T00:00:00Z"
 }
 ```
+
+### POST /v1/auth/invite
+
+Generate a one-time invite token for QR code onboarding. Requires the server setup secret (Keychain-stored). Rate limited to 5 invites per hour.
+
+**Request:**
+```json
+{
+  "setup_secret": "your-setup-secret"
+}
+```
+
+**Response:**
+```json
+{
+  "invite_token": "eyJhbGciOiJIUzI1NiIs...",
+  "qr_payload": "{\"t\":\"...\",\"u\":\"https://hestia-3.local:8443\",\"f\":\"...\"}",
+  "expires_at": "2026-03-01T12:00:00Z"
+}
+```
+
+**Errors:** `403` (invalid setup secret), `429` (rate limit exceeded).
+
+### POST /v1/auth/register-with-invite
+
+Register a new device using an invite token from QR code scanning. Validates the invite JWT, consumes the one-time nonce, and issues a device token.
+
+**Request:**
+```json
+{
+  "invite_token": "eyJhbGciOiJIUzI1NiIs...",
+  "device_name": "my-iphone",
+  "device_type": "ios"
+}
+```
+
+**Response:**
+```json
+{
+  "device_id": "device-abc123def456",
+  "token": "eyJhbGciOiJIUzI1NiIs...",
+  "expires_at": "2027-03-01T00:00:00Z",
+  "server_url": "https://hestia-3.local:8443"
+}
+```
+
+**Errors:** `400` (invalid/expired invite), `409` (invite already consumed).
+
+### POST /v1/auth/re-invite
+
+Generate a new invite token from an already-authenticated device. Recovery path when setup secret is lost. Requires valid device JWT. Rate limited to 5 invites per hour.
+
+**Response:** Same as `POST /v1/auth/invite`.
+
+**Errors:** `429` (rate limit exceeded).
 
 ### POST /v1/auth/refresh
 
@@ -211,7 +266,7 @@ Get details about a specific mode.
 
 ---
 
-### Memory Management (4 endpoints)
+### Memory Management (5 endpoints)
 
 Implements ADR-002: Governed Memory with human-in-the-loop review.
 
@@ -286,6 +341,33 @@ Search memory with semantic and tag filters.
   "count": 1
 }
 ```
+
+#### PATCH /v1/memory/{chunk_id}/sensitive
+
+Mark a memory chunk as sensitive or non-sensitive. Sensitive chunks are excluded from cloud-safe context windows, ensuring PII, health data, and financial info stay local.
+
+**Request:**
+```json
+{
+  "is_sensitive": true,
+  "reason": "user_flagged"
+}
+```
+
+**Fields:**
+- `is_sensitive` (required): Whether the chunk contains sensitive data
+- `reason` (optional): Why flagged — `user_flagged`, `pii_detected`, `health_data`
+
+**Response:**
+```json
+{
+  "chunk_id": "chunk-abc123def",
+  "is_sensitive": true,
+  "reason": "user_flagged"
+}
+```
+
+**Errors:** `404` if chunk not found.
 
 ---
 
@@ -864,7 +946,7 @@ Force-reload an agent's configuration from disk.
 
 ---
 
-### User Settings (9 endpoints)
+### User Settings (10 endpoints)
 
 User profile, notification preferences, photo management, and push token registration.
 
@@ -941,6 +1023,10 @@ Register APNS push token.
 #### DELETE /v1/user/push-token
 
 Unregister push token for this device.
+
+#### GET /v1/user/devices
+
+List all registered devices. Returns device name, type, registration date, and last activity.
 
 ---
 
@@ -1135,6 +1221,535 @@ Get recent sync history. Query param: `limit` (default 20).
 
 ---
 
+### Explorer (6 endpoints)
+
+Resource aggregation across mail, notes, reminders, files, and Hestia drafts. Draft CRUD for Hestia-native documents.
+
+#### GET /v1/explorer/resources
+
+List aggregated resources, filterable by type, source, and search query.
+
+**Query Parameters:**
+- `type` (optional): Filter by resource type — `draft`, `mail`, `task`, `note`, `file`
+- `source` (optional): Filter by source — `hestia`, `mail`, `notes`, `reminders`, `files`
+- `search` (optional): Search by title or preview text
+- `limit` (int, default 100, max 500): Max results
+- `offset` (int, default 0): Pagination offset
+
+**Response:**
+```json
+{
+  "resources": [
+    {
+      "id": "draft-abc123",
+      "type": "draft",
+      "title": "Meeting Notes",
+      "source": "hestia",
+      "created_at": "2026-02-28T10:00:00Z",
+      "modified_at": "2026-02-28T12:00:00Z",
+      "preview": "Notes from the planning session...",
+      "flags": ["pinned"],
+      "color": "#E0A050",
+      "metadata": {}
+    }
+  ],
+  "count": 1
+}
+```
+
+#### GET /v1/explorer/resources/{resource_id}
+
+Get a single resource by its ID. Returns full resource metadata (not content body).
+
+**Path params:** `resource_id` — resource identifier (path-encoded)
+
+**Response:** `ExplorerResourceResponse` (same schema as list item)
+
+**Errors:** `404` if resource not found.
+
+#### GET /v1/explorer/resources/{resource_id}/content
+
+Get full content for a resource (not just the preview snippet).
+
+**Path params:** `resource_id` — resource identifier (path-encoded)
+
+**Response:**
+```json
+{
+  "id": "draft-abc123",
+  "content": "Full body text of the resource..."
+}
+```
+
+#### POST /v1/explorer/drafts
+
+Create a new Hestia draft resource.
+
+**Request:**
+```json
+{
+  "title": "New Draft",
+  "body": "Draft content here...",
+  "color": "#E0A050",
+  "flags": ["pinned"],
+  "metadata": {}
+}
+```
+
+**Validation:**
+- `title`: required, 1-500 chars
+- `body`: optional, max 50,000 chars
+- `color`: optional, hex format `#RRGGBB`
+- `flags`: optional array of valid `ResourceFlag` values
+
+**Response:** `201 Created` with `ExplorerResourceResponse`.
+
+**Errors:** `400` if invalid flag value.
+
+#### PATCH /v1/explorer/drafts/{draft_id}
+
+Update an existing Hestia draft. All fields optional.
+
+**Path params:** `draft_id` — draft identifier (path-encoded)
+
+**Request:**
+```json
+{
+  "title": "Updated Title",
+  "body": "Updated content...",
+  "color": "#8B3A0F",
+  "flags": ["pinned", "urgent"],
+  "metadata": {"key": "value"}
+}
+```
+
+**Response:** `ExplorerResourceResponse` with updated draft.
+
+**Errors:** `404` if draft not found, `400` if invalid flag.
+
+#### DELETE /v1/explorer/drafts/{draft_id}
+
+Delete a Hestia draft.
+
+**Path params:** `draft_id` — draft identifier (path-encoded)
+
+**Response:**
+```json
+{"deleted": true}
+```
+
+**Errors:** `404` if draft not found.
+
+---
+
+### Wiki (5 endpoints)
+
+Architecture field guide with AI-generated narratives, module deep dives, and static content from decision log and roadmap.
+
+#### GET /v1/wiki/articles
+
+List all wiki articles, optionally filtered by type.
+
+**Query Parameters:**
+- `type` (optional): Filter by article type — `overview`, `module`, `diagram`
+
+**Response:**
+```json
+{
+  "articles": [
+    {
+      "id": "article-abc123",
+      "article_type": "module",
+      "title": "Memory System Deep Dive",
+      "subtitle": "How Hestia remembers",
+      "content": "Full article text...",
+      "module_name": "memory",
+      "source_hash": "a1b2c3d4",
+      "generation_status": "completed",
+      "generated_at": "2026-02-20T10:00:00Z",
+      "generation_model": "claude-sonnet-4-20250514",
+      "word_count": 1500,
+      "estimated_read_time": 6
+    }
+  ],
+  "count": 1
+}
+```
+
+#### GET /v1/wiki/articles/{article_id}
+
+Get a single article by ID.
+
+**Path params:** `article_id` — article identifier
+
+**Response:** `WikiArticleResponse` (same schema as list item).
+
+**Errors:** `404` if article not found.
+
+#### POST /v1/wiki/generate
+
+Generate a single wiki article via cloud LLM.
+
+**Request:**
+```json
+{
+  "article_type": "module",
+  "module_name": "memory"
+}
+```
+
+**Fields:**
+- `article_type` (required): `overview`, `module`, or `diagram`
+- `module_name` (optional): Required for `module` and `diagram` types
+
+**Response:**
+```json
+{
+  "article": { "...WikiArticleResponse..." },
+  "status": "completed"
+}
+```
+
+**Errors:** `400` if invalid article type or missing module name, `500` if cloud LLM not enabled.
+
+#### POST /v1/wiki/generate-all
+
+Full regeneration of all AI-generated content. Generates overview, all module articles, and diagrams. Approximate cost ~$0.80.
+
+**Response:**
+```json
+{
+  "overview": "completed",
+  "modules": {
+    "memory": "completed",
+    "inference": "completed"
+  },
+  "diagrams": {
+    "memory": "completed"
+  },
+  "errors": []
+}
+```
+
+**Errors:** `500` if cloud LLM not enabled.
+
+#### POST /v1/wiki/refresh-static
+
+Re-read static markdown content from disk (decisions and roadmap).
+
+**Response:**
+```json
+{
+  "decisions": 31,
+  "roadmap": 1
+}
+```
+
+---
+
+### User Profile (11 endpoints)
+
+Markdown-based user identity system with config files, commands, and daily notes. Route prefix: `/v1/user-profile`.
+
+#### GET /v1/user-profile
+
+Get user profile summary including identity, config version, and file listing.
+
+**Response:**
+```json
+{
+  "name": "Andrew",
+  "identity": {},
+  "has_setup": true,
+  "config_version": "1.0",
+  "created_at": "2026-01-01T00:00:00Z",
+  "updated_at": "2026-02-28T10:00:00Z",
+  "files": {}
+}
+```
+
+#### GET /v1/user-profile/files/{file_name}
+
+Get content of a specific user profile config file.
+
+**Path params:** `file_name` — accepts `MIND`, `MIND.md`, `mind`, `USER-IDENTITY`, `IDENTITY`, etc.
+
+**Config files:** `USER-IDENTITY.md`, `MIND.md`, `TOOLS.md`, `MEMORY.md`, `BODY.md`, `SPIRIT.md`, `VITALS.md`, `SETUP.md`
+
+**Response:**
+```json
+{
+  "file_name": "MIND.md",
+  "content": "# Mind\n\nThinking patterns and preferences...",
+  "exists": true
+}
+```
+
+**Errors:** `404` if unknown file name.
+
+#### PUT /v1/user-profile/files/{file_name}
+
+Update a user profile config file.
+
+**Path params:** `file_name` — config file identifier
+
+**Request:**
+```json
+{
+  "content": "Updated markdown content...",
+  "source": "user"
+}
+```
+
+**Fields:**
+- `content` (required): File content, max 50,000 chars
+- `source` (optional, default `"user"`): One of `user`, `agent`, `system`
+
+**Response:**
+```json
+{"status": "ok", "file_name": "MIND.md"}
+```
+
+**Errors:** `404` if unknown file, `403` if permission denied (some files are write-restricted by source).
+
+#### POST /v1/user-profile/reload
+
+Force-reload user profile from disk. Invalidates all caches.
+
+**Response:**
+```json
+{"status": "ok", "name": "Andrew"}
+```
+
+#### GET /v1/user-profile/commands
+
+List all available user commands.
+
+**Response:**
+```json
+{
+  "commands": [
+    {
+      "name": "morning-brief",
+      "description": "Generate morning briefing",
+      "resources": ["calendar", "email"],
+      "has_system_instructions": true
+    }
+  ],
+  "count": 1
+}
+```
+
+#### GET /v1/user-profile/commands/{command_name}
+
+Get a single command with full content and system instructions.
+
+**Path params:** `command_name` — command slug
+
+**Response:**
+```json
+{
+  "name": "morning-brief",
+  "description": "Generate morning briefing",
+  "resources": ["calendar", "email"],
+  "has_system_instructions": true,
+  "content": "Raw markdown content with $ARGUMENTS...",
+  "system_instructions": "System-level instructions for the command"
+}
+```
+
+**Errors:** `404` if command not found.
+
+#### PUT /v1/user-profile/commands/{command_name}
+
+Create or update a command.
+
+**Request:**
+```json
+{
+  "name": "morning-brief",
+  "content": "# Morning Brief\n\nGenerate a briefing for $ARGUMENTS..."
+}
+```
+
+**Validation:**
+- `name`: 1-50 chars, lowercase alphanumeric with hyphens (`^[a-z0-9-]+$`)
+- `content`: 1-50,000 chars
+- Reserved names (returns `400`): `chat`, `health`, `mode`, `memory`, `session`, `tool`, `task`
+
+**Response:**
+```json
+{"status": "ok", "name": "morning-brief"}
+```
+
+#### DELETE /v1/user-profile/commands/{command_name}
+
+Delete a command.
+
+**Path params:** `command_name` — command slug
+
+**Response:**
+```json
+{"status": "ok", "name": "morning-brief"}
+```
+
+**Errors:** `404` if command not found.
+
+#### GET /v1/user-profile/notes
+
+List daily notes, most recent first.
+
+**Query Parameters:**
+- `limit` (int, default 30): Max notes to return
+
+**Response:**
+```json
+{
+  "notes": [
+    {
+      "date": "2026-02-28",
+      "content": "Session notes from today..."
+    }
+  ],
+  "count": 1
+}
+```
+
+#### GET /v1/user-profile/notes/{note_date}
+
+Get a specific daily note.
+
+**Path params:** `note_date` — date in `YYYY-MM-DD` format
+
+**Response:**
+```json
+{
+  "date": "2026-02-28",
+  "content": "Full note content..."
+}
+```
+
+**Errors:** `404` if no note for date, `400` if invalid date format.
+
+#### POST /v1/user-profile/notes
+
+Append to today's daily note (creates if doesn't exist).
+
+**Query Parameters:**
+- `note_date` (optional): Override date in `YYYY-MM-DD` format (default: today)
+
+**Request:**
+```json
+{
+  "content": "New entry to append..."
+}
+```
+
+**Validation:**
+- `content`: 1-10,000 chars
+
+**Response:**
+```json
+{
+  "date": "2026-02-28",
+  "content": "Previous content...\n\nNew entry to append..."
+}
+```
+
+---
+
+### Newsfeed (5 endpoints)
+
+Unified Command Center timeline. Aggregates items from orders, tasks, proactive briefings, and other sources into a single feed. Route prefix: `/v1/newsfeed`.
+
+#### GET /v1/newsfeed/timeline
+
+Get unified timeline items with optional filters.
+
+**Query Parameters:**
+- `type` (optional): Filter by item type
+- `source` (optional): Filter by source
+- `include_dismissed` (bool, default false): Include dismissed items
+- `limit` (int, default 50, max 200): Max items
+- `offset` (int, default 0): Pagination offset
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "id": "nf-abc123",
+      "item_type": "briefing",
+      "source": "proactive",
+      "title": "Morning Briefing",
+      "body": "Here's your morning summary...",
+      "timestamp": "2026-03-01T07:30:00Z",
+      "priority": "normal",
+      "icon": "sun.max",
+      "color": "#FFD700",
+      "action_type": null,
+      "action_id": null,
+      "metadata": {},
+      "is_read": false,
+      "is_dismissed": false
+    }
+  ],
+  "count": 1,
+  "unread_count": 3
+}
+```
+
+#### GET /v1/newsfeed/unread-count
+
+Get unread item counts, optionally broken down by type.
+
+**Response:**
+```json
+{
+  "total": 5,
+  "by_type": {
+    "briefing": 1,
+    "order_result": 3,
+    "alert": 1
+  }
+}
+```
+
+#### POST /v1/newsfeed/items/{item_id}/read
+
+Mark a newsfeed item as read.
+
+**Path params:** `item_id` — newsfeed item identifier
+
+**Response:**
+```json
+{"success": true, "item_id": "nf-abc123"}
+```
+
+#### POST /v1/newsfeed/items/{item_id}/dismiss
+
+Dismiss a newsfeed item (hides from timeline unless `include_dismissed` is set).
+
+**Path params:** `item_id` — newsfeed item identifier
+
+**Response:**
+```json
+{"success": true, "item_id": "nf-abc123"}
+```
+
+#### POST /v1/newsfeed/refresh
+
+Force re-aggregate timeline from all sources. Rate limited to 1 request per 10 seconds per device.
+
+**Response:**
+```json
+{"items_refreshed": 12}
+```
+
+**Errors:** `429` if rate limit exceeded.
+
+---
+
 ## Error Responses
 
 All errors follow this format:
@@ -1183,11 +1798,11 @@ hestia/api/
 │   └── auth.py              # JWT authentication (90-day expiry)
 └── routes/
     ├── __init__.py
-    ├── auth.py              # /v1/auth/* (2 endpoints)
+    ├── auth.py              # /v1/auth/* (5 endpoints)
     ├── health.py            # /v1/health, /v1/ping (2 endpoints)
     ├── chat.py              # /v1/chat (1 endpoint)
     ├── mode.py              # /v1/mode/* (3 endpoints)
-    ├── memory.py            # /v1/memory/* (4 endpoints)
+    ├── memory.py            # /v1/memory/* (5 endpoints)
     ├── sessions.py          # /v1/sessions/* (3 endpoints)
     ├── tools.py             # /v1/tools/* (3 endpoints)
     ├── tasks.py             # /v1/tasks/* (6 endpoints)
@@ -1195,8 +1810,14 @@ hestia/api/
     ├── voice.py             # /v1/voice/* (2 endpoints)
     ├── orders.py            # /v1/orders/* (7 endpoints)
     ├── agents.py            # /v1/agents/* (10 endpoints)
-    ├── user.py              # /v1/user/* (9 endpoints)
-    └── proactive.py         # /v1/proactive/* (6 endpoints)
+    ├── user.py              # /v1/user/* (10 endpoints)
+    ├── proactive.py         # /v1/proactive/* (6 endpoints)
+    ├── health_data.py       # /v1/health_data/* (7 endpoints)
+    ├── wiki.py              # /v1/wiki/* (5 endpoints)
+    ├── agents_v2.py         # /v2/agents/* (10 endpoints)
+    ├── user_profile.py      # /v1/user-profile/* (11 endpoints)
+    ├── explorer.py          # /v1/explorer/* (6 endpoints)
+    └── newsfeed.py          # /v1/newsfeed/* (5 endpoints)
 ```
 
 ### Dependencies
@@ -1212,8 +1833,8 @@ hestia/api/
 ### Testing
 
 ```bash
-# Run full test suite (784+ tests)
-python -m pytest tests/ -v
+# Run full test suite (1018 tests)
+python -m pytest tests/ -v --timeout=30
 
 # Run API smoke tests (14 standard + 5 opt-in cloud)
 ./scripts/test-api.sh

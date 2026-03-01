@@ -41,7 +41,9 @@ final class PersistenceController: @unchecked Sendable {
         do {
             try context.save()
         } catch {
+            #if DEBUG
             print("Preview data creation failed: \(error)")
+            #endif
         }
 
         return controller
@@ -69,7 +71,9 @@ final class PersistenceController: @unchecked Sendable {
         container.loadPersistentStores { description, error in
             if let error = error as NSError? {
                 // In production, handle this gracefully
+                #if DEBUG
                 print("Core Data failed to load: \(error), \(error.userInfo)")
+                #endif
             }
         }
 
@@ -403,7 +407,9 @@ final class PersistenceController: @unchecked Sendable {
         do {
             try context.save()
         } catch {
+            #if DEBUG
             print("Failed to save context: \(error)")
+            #endif
         }
     }
 
@@ -430,7 +436,9 @@ final class PersistenceController: @unchecked Sendable {
                     try context.save()
                 }
             } catch {
+                #if DEBUG
                 print("Failed to cleanup old snapshots: \(error)")
+                #endif
             }
         }
     }

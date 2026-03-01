@@ -104,7 +104,9 @@ class APIClient: HestiaClientProtocol {
 
     @objc private func configurationDidChange() {
         guard let url = URL(string: config.apiBaseURL) else {
+            #if DEBUG
             print("[APIClient] Warning: Invalid URL after config change: \(config.apiBaseURL)")
+            #endif
             return
         }
         self.baseURL = url
@@ -119,7 +121,9 @@ class APIClient: HestiaClientProtocol {
             delegateQueue: nil
         )
 
+        #if DEBUG
         print("[APIClient] Configuration updated: \(config.apiBaseURL)")
+        #endif
     }
 
     /// Set the device token for authenticated requests
