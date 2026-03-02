@@ -6,6 +6,8 @@ struct MacCloudProviderDetailView: View {
     @ObservedObject var viewModel: MacCloudSettingsViewModel
     @State private var showingDeleteAlert = false
     @State private var selectedModel: String = ""
+    @State private var showingUpdateKey = false
+    @State private var newApiKey = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -29,6 +31,9 @@ struct MacCloudProviderDetailView: View {
 
                     // Health check
                     healthSection
+
+                    // API key management
+                    apiKeySection
 
                     // Danger zone
                     dangerSection
@@ -206,6 +211,92 @@ struct MacCloudProviderDetailView: View {
                         .font(.system(size: 12))
                         .foregroundStyle(result.contains("Healthy") ? MacColors.healthGreen : MacColors.healthRed)
                 }
+            }
+        }
+    }
+
+    // MARK: - API Key
+
+    private var apiKeySection: some View {
+        VStack(alignment: .leading, spacing: MacSpacing.sm) {
+            sectionLabel("API Key")
+
+            if showingUpdateKey {
+                VStack(alignment: .leading, spacing: MacSpacing.sm) {
+                    SecureField("New API key...", text: $newApiKey)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundStyle(MacColors.textPrimary)
+                        .padding(MacSpacing.sm)
+                        .background(MacColors.searchInputBackground)
+                        .cornerRadius(MacCornerRadius.search)
+
+                    HStack(spacing: MacSpacing.sm) {
+                        Button {
+                            Task {
+                                let success = await viewModel.updateApiKey(
+                                    provider: provider,
+                                    newApiKey: newApiKey
+                                )
+                                if success {
+                                    showingUpdateKey = false
+                                    newApiKey = ""
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: MacSpacing.xs) {
+                                if viewModel.isAddingProvider {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                        .tint(MacColors.amberAccent)
+                                }
+                                Text("Save Key")
+                            }
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(MacColors.amberAccent)
+                            .padding(.horizontal, MacSpacing.md)
+                            .padding(.vertical, 6)
+                            .background(MacColors.activeTabBackground)
+                            .cornerRadius(MacCornerRadius.treeItem)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(newApiKey.count < 10 || viewModel.isAddingProvider)
+
+                        Button {
+                            showingUpdateKey = false
+                            newApiKey = ""
+                            viewModel.error = nil
+                        } label: {
+                            Text("Cancel")
+                                .font(.system(size: 12))
+                                .foregroundStyle(MacColors.textSecondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    if let error = viewModel.error {
+                        Text(error)
+                            .font(.system(size: 11))
+                            .foregroundStyle(MacColors.healthRed)
+                    }
+                }
+            } else {
+                Button {
+                    showingUpdateKey = true
+                    viewModel.error = nil
+                } label: {
+                    HStack(spacing: MacSpacing.xs) {
+                        Image(systemName: "key.horizontal")
+                        Text("Update API Key")
+                    }
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(MacColors.amberAccent)
+                    .padding(.horizontal, MacSpacing.md)
+                    .padding(.vertical, 6)
+                    .background(MacColors.activeTabBackground)
+                    .cornerRadius(MacCornerRadius.treeItem)
+                }
+                .buttonStyle(.plain)
             }
         }
     }

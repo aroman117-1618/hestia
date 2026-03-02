@@ -18,11 +18,11 @@ extension APIClient {
 
     func generateWikiArticle(type: String, moduleName: String? = nil) async throws -> WikiGenerateResponse {
         let request = WikiGenerateRequest(articleType: type, moduleName: moduleName)
-        return try await post("/wiki/generate", body: request)
+        return try await post("/wiki/generate", body: request, timeout: 300)
     }
 
     func generateAllWikiArticles() async throws -> WikiGenerateAllResponse {
-        return try await post("/wiki/generate-all", body: WikiEmptyBody())
+        return try await post("/wiki/generate-all", body: WikiEmptyBody(), timeout: 600)
     }
 
     func refreshWikiStatic() async throws -> WikiRefreshResponse {

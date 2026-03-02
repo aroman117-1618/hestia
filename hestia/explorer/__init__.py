@@ -11,7 +11,7 @@ from .models import (
     ResourceSource,
     ResourceFlag,
 )
-from .manager import ExplorerManager, get_explorer_manager
+from .manager import ExplorerManager, get_explorer_manager, close_explorer_manager
 
 __all__ = [
     "ExplorerResource",
@@ -20,4 +20,5 @@ __all__ = [
     "ResourceFlag",
     "ExplorerManager",
     "get_explorer_manager",
+    "close_explorer_manager",
 ]

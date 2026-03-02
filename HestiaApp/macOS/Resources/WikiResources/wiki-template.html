@@ -9,18 +9,21 @@
         --text-primary: #E4DFD7;
         --text-secondary: rgba(235,223,209,0.5);
         --text-faint: rgba(235,223,209,0.3);
+        --text-body: rgba(228,223,215,0.88);
         --accent: #E0A050;
         --accent-bright: #FFB900;
         --accent-dark: #FF8904;
-        --code-bg: rgba(235,223,209,0.08);
+        --accent-subtle: rgba(224,160,80,0.08);
+        --code-bg: rgba(235,223,209,0.06);
         --border: rgba(254,154,0,0.08);
         --border-strong: rgba(254,154,0,0.15);
         --divider: rgba(182,165,145,0.15);
         --green: #00D492;
         --red: #FF6467;
-        --table-header-bg: rgba(224,160,80,0.12);
-        --table-row-alt: rgba(235,223,209,0.03);
-        --table-row-hover: rgba(235,223,209,0.06);
+        --table-header-bg: rgba(224,160,80,0.10);
+        --table-row-alt: rgba(235,223,209,0.025);
+        --table-row-hover: rgba(235,223,209,0.05);
+        --toc-width: 200px;
     }
 
     * { box-sizing: border-box; }
@@ -31,27 +34,84 @@
         background: var(--bg-primary);
         color: var(--text-primary);
         font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
-        font-size: 13px;
-        line-height: 1.65;
+        font-size: 13.5px;
+        line-height: 1.72;
         -webkit-font-smoothing: antialiased;
     }
 
-    #content {
-        padding: 0 24px 48px 24px;
-        max-width: 900px;
+    /* Layout: content + floating TOC */
+    #wrapper {
+        display: flex;
+        max-width: 1100px;
+        margin: 0 auto;
         opacity: 0;
-        transition: opacity 150ms ease-in;
+        transition: opacity 180ms ease-in;
+    }
+    #wrapper.visible { opacity: 1; }
+
+    #content {
+        flex: 1;
+        min-width: 0;
+        padding: 4px 32px 64px 28px;
     }
 
-    #content.visible { opacity: 1; }
+    /* On This Page TOC */
+    #toc {
+        width: var(--toc-width);
+        flex-shrink: 0;
+        padding: 16px 16px 16px 0;
+        position: sticky;
+        top: 0;
+        align-self: flex-start;
+        max-height: 100vh;
+        overflow-y: auto;
+    }
+    #toc.hidden { display: none; }
 
-    /* Headings */
+    #toc .toc-label {
+        font-size: 11.5px;
+        font-weight: 500;
+        color: var(--text-faint);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 12px;
+        padding-left: 12px;
+    }
+
+    #toc a {
+        display: block;
+        padding: 6px 12px;
+        font-size: 12.5px;
+        line-height: 1.4;
+        color: var(--text-secondary);
+        text-decoration: none;
+        border-left: 2px solid transparent;
+        border-radius: 0 4px 4px 0;
+        transition: all 120ms ease;
+    }
+    #toc a:hover {
+        color: var(--text-primary);
+        background: var(--accent-subtle);
+        border-left-color: rgba(224,160,80,0.3);
+    }
+    #toc a.active {
+        color: var(--text-primary);
+        border-left-color: var(--accent);
+        background: var(--accent-subtle);
+    }
+    #toc a.depth-3 {
+        padding-left: 24px;
+        font-size: 12px;
+    }
+
+    /* Headings — narrative feel */
     h1 {
         font-size: 22px;
         font-weight: 700;
         color: var(--text-primary);
-        margin: 32px 0 12px 0;
+        margin: 36px 0 16px 0;
         letter-spacing: -0.3px;
+        line-height: 1.3;
     }
     h1:first-child { margin-top: 8px; }
 
@@ -59,31 +119,33 @@
         font-size: 17px;
         font-weight: 600;
         color: var(--text-primary);
-        margin: 28px 0 10px 0;
-        padding-bottom: 6px;
+        margin: 36px 0 12px 0;
+        padding-bottom: 8px;
         border-bottom: 1px solid var(--divider);
+        line-height: 1.35;
     }
 
     h3 {
-        font-size: 14px;
+        font-size: 14.5px;
         font-weight: 600;
         color: var(--accent);
-        margin: 22px 0 8px 0;
+        margin: 28px 0 10px 0;
+        line-height: 1.4;
     }
 
     h4 {
         font-size: 13px;
         font-weight: 600;
         color: var(--text-secondary);
-        margin: 18px 0 6px 0;
+        margin: 22px 0 8px 0;
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
 
-    /* Paragraphs and inline */
+    /* Paragraphs — storytelling spacing */
     p {
-        margin: 0 0 12px 0;
-        color: rgba(228,223,215,0.85);
+        margin: 0 0 16px 0;
+        color: var(--text-body);
     }
 
     strong { color: var(--text-primary); font-weight: 600; }
@@ -92,39 +154,44 @@
     a {
         color: var(--accent);
         text-decoration: none;
-        border-bottom: 1px solid rgba(224,160,80,0.3);
+        border-bottom: 1px solid rgba(224,160,80,0.25);
+        transition: all 120ms ease;
     }
     a:hover {
         color: var(--accent-bright);
         border-bottom-color: var(--accent-bright);
     }
 
-    /* Lists */
+    /* Lists — narrative flow */
     ul, ol {
-        margin: 0 0 12px 0;
+        margin: 0 0 16px 0;
         padding-left: 24px;
-        color: rgba(228,223,215,0.85);
+        color: var(--text-body);
     }
-    li { margin-bottom: 4px; }
-    li > ul, li > ol { margin-top: 4px; margin-bottom: 4px; }
+    li {
+        margin-bottom: 6px;
+        line-height: 1.65;
+    }
+    li > ul, li > ol { margin-top: 6px; margin-bottom: 6px; }
 
     /* Horizontal rules */
     hr {
         border: none;
         height: 1px;
         background: var(--divider);
-        margin: 24px 0;
+        margin: 32px 0;
     }
 
-    /* Blockquotes */
+    /* Blockquotes — callout style */
     blockquote {
-        margin: 0 0 12px 0;
-        padding: 8px 16px;
+        margin: 4px 0 20px 0;
+        padding: 12px 20px;
         border-left: 3px solid var(--accent);
-        background: rgba(224,160,80,0.06);
-        border-radius: 0 6px 6px 0;
-        color: var(--text-secondary);
+        background: rgba(224,160,80,0.05);
+        border-radius: 0 8px 8px 0;
+        color: var(--text-body);
     }
+    blockquote p { color: var(--text-body); }
     blockquote p:last-child { margin-bottom: 0; }
 
     /* Inline code */
@@ -132,20 +199,19 @@
         font-family: "SF Mono", "Menlo", "Monaco", monospace;
         font-size: 12px;
         background: var(--code-bg);
-        padding: 2px 6px;
+        padding: 2px 7px;
         border-radius: 4px;
         color: var(--accent);
     }
 
     /* Code blocks */
     pre {
-        margin: 0 0 16px 0;
-        padding: 14px 16px;
-        background: rgba(235,223,209,0.05);
+        margin: 4px 0 20px 0;
+        padding: 16px 18px;
+        background: rgba(235,223,209,0.04);
         border: 1px solid var(--border);
-        border-radius: 8px;
+        border-radius: 10px;
         overflow-x: auto;
-        position: relative;
     }
     pre code {
         background: none;
@@ -153,15 +219,15 @@
         border-radius: 0;
         color: var(--text-primary);
         font-size: 12px;
-        line-height: 1.5;
+        line-height: 1.55;
     }
 
-    /* highlight.js token overrides for Hestia palette */
+    /* highlight.js tokens */
     .hljs { background: transparent; color: var(--text-primary); }
     .hljs-keyword, .hljs-selector-tag, .hljs-built_in { color: #FF8C69; }
     .hljs-string, .hljs-attr { color: #98D8A0; }
     .hljs-number, .hljs-literal { color: #D4A0FF; }
-    .hljs-comment { color: rgba(235,223,209,0.35); font-style: italic; }
+    .hljs-comment { color: rgba(235,223,209,0.30); font-style: italic; }
     .hljs-function .hljs-title, .hljs-title.function_ { color: var(--accent-bright); }
     .hljs-type, .hljs-title.class_ { color: #7DC8E8; }
     .hljs-variable, .hljs-template-variable { color: #E0A050; }
@@ -169,19 +235,21 @@
     .hljs-punctuation { color: rgba(235,223,209,0.6); }
     .hljs-symbol { color: #D4A0FF; }
 
-    /* Tables */
+    /* Tables — refined */
     table {
         width: 100%;
         border-collapse: collapse;
-        margin: 0 0 16px 0;
+        margin: 4px 0 20px 0;
         font-size: 12.5px;
+        border-radius: 8px;
+        overflow: hidden;
     }
     thead {
         background: var(--table-header-bg);
     }
     th {
         text-align: left;
-        padding: 8px 12px;
+        padding: 10px 14px;
         font-weight: 600;
         color: var(--accent);
         font-size: 11.5px;
@@ -190,20 +258,20 @@
         border-bottom: 1px solid var(--border-strong);
     }
     td {
-        padding: 7px 12px;
+        padding: 9px 14px;
         border-bottom: 1px solid var(--border);
-        color: rgba(228,223,215,0.85);
+        color: var(--text-body);
     }
     tr:nth-child(even) { background: var(--table-row-alt); }
     tr:hover { background: var(--table-row-hover); }
 
     /* Mermaid diagrams */
     .mermaid-container {
-        margin: 16px 0;
-        padding: 20px;
+        margin: 20px 0;
+        padding: 24px;
         background: rgba(235,223,209,0.03);
         border: 1px solid var(--border);
-        border-radius: 8px;
+        border-radius: 10px;
         text-align: center;
         overflow-x: auto;
     }
@@ -218,18 +286,24 @@
     }
 
     /* Custom scrollbar */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb {
-        background: rgba(235,223,209,0.15);
+        background: rgba(235,223,209,0.12);
         border-radius: 3px;
     }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(235,223,209,0.25); }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(235,223,209,0.22); }
 
     /* Selection */
     ::selection {
         background: rgba(224,160,80,0.3);
         color: var(--text-primary);
+    }
+
+    /* Responsive: hide TOC when narrow */
+    @media (max-width: 640px) {
+        #toc { display: none; }
+        #content { padding: 4px 16px 48px 16px; }
     }
 </style>
 <script src="markdown-it.min.js"></script>
@@ -243,7 +317,13 @@
     All content originates from the Hestia backend (wiki articles) — not user input.
     markdown-it is configured with html:false to prevent HTML injection.
 -->
-<div id="content"></div>
+<div id="wrapper">
+    <div id="content"></div>
+    <div id="toc" class="hidden">
+        <div class="toc-label">On this page</div>
+        <div id="toc-links"></div>
+    </div>
+</div>
 <script>
 // Initialize markdown-it with highlight.js integration
 // NOTE: html:false prevents any raw HTML in markdown source from rendering
@@ -252,7 +332,6 @@ var md = window.markdownit({
     linkify: true,
     typographer: true,
     highlight: function(str, lang) {
-        // Mermaid fences get a placeholder for async rendering
         if (lang === 'mermaid') {
             return '<div class="mermaid-placeholder" data-content="' +
                 encodeURIComponent(str) + '"></div>';
@@ -288,23 +367,69 @@ mermaid.initialize({
 
 var renderCounter = 0;
 
+// Build "On this page" TOC from H2/H3 headings in the content
+function buildTOC() {
+    var contentEl = document.getElementById('content');
+    var tocLinks = document.getElementById('toc-links');
+    var tocEl = document.getElementById('toc');
+    var headings = contentEl.querySelectorAll('h2, h3');
+
+    tocLinks.textContent = '';
+
+    if (headings.length < 2) {
+        tocEl.classList.add('hidden');
+        return;
+    }
+
+    tocEl.classList.remove('hidden');
+
+    headings.forEach(function(heading, i) {
+        var id = 'section-' + i;
+        heading.id = id;
+
+        var a = document.createElement('a');
+        a.href = '#' + id;
+        a.textContent = heading.textContent;
+        if (heading.tagName === 'H3') {
+            a.classList.add('depth-3');
+        }
+        a.addEventListener('click', function(e) {
+            e.preventDefault();
+            heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        tocLinks.appendChild(a);
+    });
+
+    // Intersection observer for active state
+    if (window._tocObserver) window._tocObserver.disconnect();
+    window._tocObserver = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+            if (entry.isIntersecting) {
+                var links = tocLinks.querySelectorAll('a');
+                links.forEach(function(l) { l.classList.remove('active'); });
+                var activeLink = tocLinks.querySelector('a[href="#' + entry.target.id + '"]');
+                if (activeLink) activeLink.classList.add('active');
+            }
+        });
+    }, { rootMargin: '-10% 0px -80% 0px', threshold: 0 });
+
+    headings.forEach(function(h) { window._tocObserver.observe(h); });
+}
+
 // Called from Swift to render article content
-// rawContent: the markdown or mermaid source string
-// isDiagram: true if article.type == .diagram (pure mermaid, no markdown wrapper)
 async function renderMarkdown(rawContent, isDiagram) {
     var thisRender = ++renderCounter;
+    var wrapper = document.getElementById('wrapper');
     var el = document.getElementById('content');
-    el.classList.remove('visible');
+    wrapper.classList.remove('visible');
 
     if (isDiagram) {
-        // Pure Mermaid diagram — render directly without markdown-it
         try {
             var result = await mermaid.render('mermaid-' + thisRender, rawContent);
-            if (thisRender !== renderCounter) return; // stale render
+            if (thisRender !== renderCounter) return;
             el.textContent = '';
             var container = document.createElement('div');
             container.className = 'mermaid-container';
-            // Mermaid.render returns trusted SVG from our own content
             container.insertAdjacentHTML('afterbegin', result.svg);
             el.appendChild(container);
         } catch(e) {
@@ -323,16 +448,15 @@ async function renderMarkdown(rawContent, isDiagram) {
             errContainer.appendChild(pre);
             el.appendChild(errContainer);
         }
+        document.getElementById('toc').classList.add('hidden');
     } else {
-        // Standard markdown — rendered by markdown-it (html:false = safe)
-        // markdown-it with html:false escapes all HTML tags in source
+        // Standard markdown
         var html = md.render(rawContent);
         if (thisRender !== renderCounter) return;
-        // Content is from markdown-it with html:false — all user HTML is escaped
         el.textContent = '';
         el.insertAdjacentHTML('afterbegin', html);
 
-        // Post-process: render mermaid placeholders (from ```mermaid fences)
+        // Post-process: render mermaid placeholders
         var placeholders = el.querySelectorAll('.mermaid-placeholder');
         for (var i = 0; i < placeholders.length; i++) {
             if (thisRender !== renderCounter) return;
@@ -342,7 +466,6 @@ async function renderMarkdown(rawContent, isDiagram) {
             mContainer.className = 'mermaid-container';
             try {
                 var rendered = await mermaid.render('mermaid-inline-' + thisRender + '-' + i, mermaidSrc);
-                // Mermaid SVG is generated from our own wiki content
                 mContainer.insertAdjacentHTML('afterbegin', rendered.svg);
             } catch(e2) {
                 var mErr = document.createElement('div');
@@ -352,12 +475,15 @@ async function renderMarkdown(rawContent, isDiagram) {
             }
             placeholder.parentNode.replaceChild(mContainer, placeholder);
         }
+
+        // Build TOC from rendered headings
+        buildTOC();
     }
 
-    // Fade in after render completes
+    // Fade in
     if (thisRender === renderCounter) {
         requestAnimationFrame(function() {
-            el.classList.add('visible');
+            wrapper.classList.add('visible');
         });
     }
 }
@@ -365,9 +491,7 @@ async function renderMarkdown(rawContent, isDiagram) {
 // Signal to Swift that the template has loaded
 try {
     window.webkit.messageHandlers.templateReady.postMessage('ready');
-} catch(e) {
-    // Message handler may not be registered yet
-}
+} catch(e) {}
 </script>
 </body>
 </html>

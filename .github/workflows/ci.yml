@@ -20,6 +20,14 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
+      - name: Check lockfile freshness
+        run: |
+          pip install pip-tools -q
+          pip-compile requirements.in --output-file=/tmp/requirements-check.txt --no-emit-index-url --quiet 2>/dev/null
+          if ! diff -q requirements.txt /tmp/requirements-check.txt > /dev/null 2>&1; then
+            echo "::warning::requirements.txt is stale. Run: pip-compile requirements.in --output-file=requirements.txt --no-emit-index-url"
+          fi
+
       - name: Install dependencies
         run: pip install -r requirements.txt
 

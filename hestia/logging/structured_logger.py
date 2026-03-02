@@ -225,7 +225,7 @@ class HestiaLogger:
         self,
         log_dir: Optional[Path] = None,
         log_file: str = "hestia.log",
-        retention_days: int = 90,
+        retention_days: int = 30,
         level: Union[str, LogSeverity] = LogSeverity.INFO
     ):
         """

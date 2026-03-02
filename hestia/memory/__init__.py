@@ -22,7 +22,7 @@ from hestia.memory.models import (
 from hestia.memory.database import MemoryDatabase, get_database
 from hestia.memory.vector_store import VectorStore, get_vector_store
 from hestia.memory.tagger import AutoTagger, get_tagger
-from hestia.memory.manager import MemoryManager, get_memory_manager
+from hestia.memory.manager import MemoryManager, get_memory_manager, close_memory_manager
 
 __all__ = [
     # Models
@@ -46,4 +46,5 @@ __all__ = [
     # Manager
     "MemoryManager",
     "get_memory_manager",
+    "close_memory_manager",
 ]

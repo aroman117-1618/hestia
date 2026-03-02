@@ -17,7 +17,7 @@ from .models import (
     PROVIDER_DEFAULTS,
 )
 from .database import CloudDatabase, get_cloud_database
-from .manager import CloudManager, get_cloud_manager
+from .manager import CloudManager, get_cloud_manager, close_cloud_manager
 from .client import (
     CloudInferenceClient,
     CloudInferenceError,
@@ -38,6 +38,7 @@ __all__ = [
     "get_cloud_database",
     "CloudManager",
     "get_cloud_manager",
+    "close_cloud_manager",
     "CloudInferenceClient",
     "CloudInferenceError",
     "CloudAuthError",

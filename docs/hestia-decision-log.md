@@ -1381,6 +1381,38 @@ Redesign the macOS Health view to show real HealthKit data instead of placeholde
 
 ---
 
+### ADR-037: Server Reliability — Readiness Gate + Worker Recycling
+
+**Date**: 2026-03-02
+**Status**: Accepted
+
+#### Context
+Hestia runs on an always-on Mac Mini via launchd. Recurring reliability issues: startup race conditions (500s during init), incomplete shutdown (leaked DB connections), unbounded memory growth (no worker recycling), loosely pinned dependencies, uncompressed logs growing without bound.
+
+#### Decision
+1. **Readiness gate**: `ReadinessMiddleware` returns 503 + `Retry-After: 5` during startup. Bypass for health probes, docs, root.
+2. **Worker recycling**: Uvicorn `limit_max_requests: 5000` + jitter 500. Combined with launchd `KeepAlive` for auto-restart.
+3. **Complete shutdown**: All 15 managers closed in reverse init order, each in own try/except.
+4. **Parallel init**: 4-phase startup (sequential foundations → asyncio.gather for 12 independent managers → sequential dependents → fire-and-forget). Sequential fallback on gather failure.
+5. **Dependency pinning**: pip-compile lockfile (all `==` pins), CI freshness check.
+6. **Log compression**: Daily gzip of logs >7 days, delete compressed >90 days.
+7. **Smart caching**: Path-aware Cache-Control (ping=10s, tools=60s, wiki=30s, else no-store).
+
+#### Alternatives Considered
+1. **Gunicorn multi-worker** — rejected: breaks ~15 in-memory singletons (rate limiter, response cache, conversation store). Would need Redis for shared state.
+2. **Redis/external cache** — rejected: 576KB total data, single user. In-memory caches sufficient.
+3. **Hot/warm/cold archiving** — rejected: data is tiny, SQLite handles TB-scale.
+
+#### Consequences
+- Startup: no more 500s during init. Watchdog, deploy script, CI all check `/v1/ready`.
+- Shutdown: clean DB connection closure for all managers.
+- Memory: worker recycling every ~5K requests prevents indefinite growth.
+- Dependencies: exact versions in lockfile prevent silent breakage on deploy.
+- Logs: bounded disk usage via compression + retention policy.
+- Trade-off: in-memory state (response cache, rate limiter windows) resets on worker recycle. Acceptable — cache is optimization, not correctness.
+
+---
+
 ## Adding New Decisions
 
 When making a significant architectural decision:

@@ -143,14 +143,15 @@ else
     HEALTH_CURL_OPTS="$HEALTH_CURL_OPTS -k"
 fi
 
-echo "Checking API health..."
+echo "Checking API readiness..."
 for i in 1 2 3 4 5; do
-    sleep 2
-    if curl $HEALTH_CURL_OPTS https://localhost:8443/v1/ping > /dev/null 2>&1; then
-        echo "✓ API health check passed (HTTPS)"
+    sleep 3
+    READY_OUTPUT=$(curl $HEALTH_CURL_OPTS https://localhost:8443/v1/ready 2>/dev/null)
+    if echo "$READY_OUTPUT" | grep -q '"ready": true'; then
+        echo "✓ API readiness check passed (HTTPS)"
         break
     elif [[ $i -eq 5 ]]; then
-        echo "⚠ API server not responding after 10s"
+        echo "⚠ API server not ready after 15s"
     fi
 done
 

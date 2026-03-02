@@ -86,9 +86,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         expItem.target = self
         viewMenu.addItem(expItem)
 
+        let resItem = NSMenuItem(title: "Resources", action: #selector(showResourcesView), keyEquivalent: "6")
+        resItem.target = self
+        viewMenu.addItem(resItem)
+
         viewMenu.addItem(.separator())
 
-        let profileItem = NSMenuItem(title: "Profile", action: #selector(showProfileView), keyEquivalent: "6")
+        let profileItem = NSMenuItem(title: "Profile", action: #selector(showProfileView), keyEquivalent: "7")
         profileItem.target = self
         viewMenu.addItem(profileItem)
 
@@ -131,6 +135,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.switchView(to: .explorer)
                 return nil
             case "6":
+                self?.switchView(to: .resources)
+                return nil
+            case "7":
                 self?.switchView(to: .profile)
                 return nil
             case "\\":
@@ -157,6 +164,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func showResearchView() { switchView(to: .research) }
     @objc private func showWikiView() { switchView(to: .wiki) }
     @objc private func showExplorerView() { switchView(to: .explorer) }
+    @objc private func showResourcesView() { switchView(to: .resources) }
     @objc private func showProfileView() { switchView(to: .profile) }
     @objc private func toggleChatPanel() { mainWindowController?.toggleChatPanel(nil) }
 }

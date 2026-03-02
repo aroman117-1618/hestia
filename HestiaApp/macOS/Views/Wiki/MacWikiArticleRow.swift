@@ -36,7 +36,11 @@ struct MacWikiArticleRow: View {
         }
         .padding(.horizontal, MacSpacing.sm)
         .padding(.vertical, 6)
-        .background(isHovered ? MacColors.activeNavBackground.opacity(0.5) : Color.clear)
+        .background(
+            isSelected ? MacColors.activeTabBackground :
+            isHovered ? MacColors.activeNavBackground.opacity(0.5) :
+            Color.clear
+        )
         .cornerRadius(MacCornerRadius.treeItem)
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.1)) {

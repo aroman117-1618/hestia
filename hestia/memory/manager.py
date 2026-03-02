@@ -661,3 +661,11 @@ async def get_memory_manager() -> MemoryManager:
         _manager = MemoryManager()
         await _manager.initialize()
     return _manager
+
+
+async def close_memory_manager() -> None:
+    """Close the singleton memory manager."""
+    global _manager
+    if _manager is not None:
+        await _manager.close()
+        _manager = None

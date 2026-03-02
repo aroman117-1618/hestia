@@ -19,6 +19,7 @@ struct IconSidebar: View {
                 navIcon(.research, systemName: "point.3.connected.trianglepath.dotted", yOffset: 2)
                 navIcon(.wiki, systemName: "map", yOffset: 3)
                 navIcon(.explorer, systemName: "magnifyingglass", yOffset: 4)
+                navIcon(.resources, systemName: "wrench.and.screwdriver", yOffset: 5)
             }
             .padding(.top, MacSpacing.xxl)
 

@@ -7,8 +7,8 @@
 
 The FastAPI REST API provides HTTP access to all Hestia backend capabilities including chat, memory management, mode switching, cloud LLM routing, voice journaling, proactive intelligence, scheduled orders, agent profiles (V1 slot-based + V2 markdown-based), user settings, user profile configuration, background task management, health data management, resource exploration, wiki/architecture docs, and newsfeed timeline.
 
-**Endpoints**: 116 across 20 route modules
-**Test Coverage**: 1100 tests (1097 passing, 3 skipped)
+**Endpoints**: 117 across 20 route modules
+**Test Coverage**: 1225 tests (1222 passing, 3 skipped)
 **Server**: HTTPS on port 8443 (self-signed cert)
 **Documentation**: https://localhost:8443/docs (Swagger UI)
 
@@ -43,7 +43,7 @@ curl -k -X POST https://localhost:8443/v1/chat \
 
 ## Authentication
 
-All endpoints except `/v1/health`, `/v1/ping`, and `/v1/auth/register` require a JWT device token.
+All endpoints except `/v1/health`, `/v1/ping`, `/v1/ready`, and `/v1/auth/register` require a JWT device token.
 
 ### POST /v1/auth/register
 
@@ -148,6 +148,23 @@ Simple connectivity check (no auth).
 ```json
 {"status": "ok", "message": "pong"}
 ```
+
+#### GET /v1/ready
+
+Readiness probe (no auth). Returns whether the server has completed initialization. Use this to gate traffic during startup or after Uvicorn worker recycling.
+
+**Response (200 — ready):**
+```json
+{"ready": true, "uptime_seconds": 3600.5}
+```
+
+**Response (503 — not ready):**
+```json
+{"ready": false, "uptime_seconds": 0.0}
+```
+Headers: `Retry-After: 5`
+
+---
 
 #### GET /v1/health
 

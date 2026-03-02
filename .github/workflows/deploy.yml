@@ -77,16 +77,16 @@ jobs:
               nohup python -m hestia.api.server > /dev/null 2>&1 &
             fi
 
-            # Health check with retry
+            # Readiness check with retry (waits for full manager init)
             for i in 1 2 3 4 5; do
               sleep 3
-              if curl -sk https://localhost:8443/v1/ping | grep -q "pong"; then
-                echo "Health check passed (attempt $i)"
+              if curl -sk https://localhost:8443/v1/ready | grep -q '"ready": true'; then
+                echo "Readiness check passed (attempt $i)"
                 exit 0
               fi
-              echo "Attempt $i failed, retrying..."
+              echo "Attempt $i: not ready, retrying..."
             done
-            echo "Health check failed after 5 attempts"
+            echo "Readiness check failed after 5 attempts"
             exit 1
           DEPLOY_SCRIPT
 

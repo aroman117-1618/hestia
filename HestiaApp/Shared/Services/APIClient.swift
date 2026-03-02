@@ -456,10 +456,11 @@ class APIClient: HestiaClientProtocol {
         return try await execute(request)
     }
 
-    private func post<T: Decodable, B: Encodable>(_ path: String, body: B) async throws -> T {
+    private func post<T: Decodable, B: Encodable>(_ path: String, body: B, timeout: TimeInterval? = nil) async throws -> T {
         var request = URLRequest(url: baseURL.appendingPathComponent(path))
         request.httpMethod = "POST"
         request.httpBody = try encoder.encode(body)
+        if let timeout { request.timeoutInterval = timeout }
         addHeaders(to: &request)
 
         return try await execute(request)

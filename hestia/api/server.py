@@ -16,6 +16,7 @@ import asyncio
 import os
 import signal
 import ssl
+import time
 import traceback
 import uuid
 from contextlib import asynccontextmanager
@@ -32,16 +33,16 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from hestia.logging import get_logger, LogComponent
 from hestia.api.middleware.rate_limit import RateLimitMiddleware
 from hestia.orchestration.handler import get_request_handler
-from hestia.memory import get_memory_manager
-from hestia.tasks import get_task_manager
-from hestia.orders import get_order_manager, get_order_scheduler
-from hestia.agents import get_agent_manager
-from hestia.user import get_user_manager
-from hestia.cloud import get_cloud_manager
-from hestia.health import get_health_manager
-from hestia.wiki import get_wiki_manager, get_wiki_scheduler, close_wiki_scheduler
-from hestia.explorer import get_explorer_manager
-from hestia.newsfeed import get_newsfeed_manager
+from hestia.memory import get_memory_manager, close_memory_manager
+from hestia.tasks import get_task_manager, close_task_manager
+from hestia.orders import get_order_manager, get_order_scheduler, close_order_manager, close_order_scheduler
+from hestia.agents import get_agent_manager, close_agent_manager
+from hestia.user import get_user_manager, close_user_manager
+from hestia.cloud import get_cloud_manager, close_cloud_manager
+from hestia.health import get_health_manager, close_health_manager
+from hestia.wiki import get_wiki_manager, get_wiki_scheduler, close_wiki_scheduler, close_wiki_manager
+from hestia.explorer import get_explorer_manager, close_explorer_manager
+from hestia.newsfeed import get_newsfeed_manager, close_newsfeed_manager
 from hestia.investigate import get_investigate_manager, close_investigate_manager
 
 # Import routers
@@ -76,6 +77,16 @@ logger = get_logger()
 # Security Middleware
 # =============================================================================
 
+# Cache-Control policies by path prefix (most specific first)
+_CACHE_POLICIES: list[tuple[str, str]] = [
+    ("/v1/ping", "max-age=10"),
+    ("/v1/tools", "max-age=60"),
+    ("/v1/wiki/articles", "max-age=30"),
+    # /v1/ready must always be fresh (default no-store applies)
+]
+_DEFAULT_CACHE_POLICY = "no-store, no-cache"
+
+
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """
     Middleware to add security headers to all responses.
@@ -87,6 +98,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     - X-XSS-Protection: Enable XSS filtering
     - Content-Security-Policy: Restrict resource loading
     - Referrer-Policy: Control referrer information
+    - Cache-Control: Path-aware caching (read-heavy endpoints cacheable)
     """
 
     async def dispatch(self, request: Request, call_next):
@@ -99,8 +111,17 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Content-Security-Policy"] = "default-src 'self'"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
-        response.headers["Pragma"] = "no-cache"
+
+        # Path-aware Cache-Control
+        path = request.url.path
+        cache_policy = _DEFAULT_CACHE_POLICY
+        for prefix, policy in _CACHE_POLICIES:
+            if path.startswith(prefix):
+                cache_policy = policy
+                break
+        response.headers["Cache-Control"] = cache_policy
+        if cache_policy == _DEFAULT_CACHE_POLICY:
+            response.headers["Pragma"] = "no-cache"
 
         return response
 
@@ -121,6 +142,35 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
         response.headers["X-Request-ID"] = request_id
 
         return response
+
+
+# Paths that bypass the readiness gate (health probes, docs, root)
+_READINESS_BYPASS_PATHS = frozenset({
+    "/v1/ping", "/v1/ready", "/docs", "/redoc", "/openapi.json", "/",
+})
+
+
+class ReadinessMiddleware(BaseHTTPMiddleware):
+    """
+    Returns 503 Service Unavailable while the server is still initializing.
+
+    Prevents clients from hitting partially-initialized managers during
+    the startup window. Bypasses health probes and docs.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        if not getattr(request.app.state, "ready", False):
+            if request.url.path not in _READINESS_BYPASS_PATHS:
+                return JSONResponse(
+                    status_code=503,
+                    content={
+                        "error": "service_unavailable",
+                        "message": "Server is starting up. Please retry shortly.",
+                        "ready": False,
+                    },
+                    headers={"Retry-After": "5"},
+                )
+        return await call_next(request)
 
 
 _shutdown_event: asyncio.Event = asyncio.Event()
@@ -157,30 +207,103 @@ async def lifespan(app: FastAPI):
         loop.add_signal_handler(sig, _signal_handler, sig)
 
     try:
-        # Initialize core components
+        startup_start = time.monotonic()
+
+        # ── Phase 1: Sequential foundations ──────────────────────────
+        # request_handler and memory_manager are dependencies for other managers
         handler = await get_request_handler()
         memory = await get_memory_manager()
-        task_manager = await get_task_manager()
 
-        # Initialize new Phase 6b components
-        order_manager = await get_order_manager()
+        # ── Phase 2: Parallel independent managers ───────────────────
+        # These managers don't depend on each other at init time.
+        # Uses return_exceptions=True so one failure doesn't cancel others.
+        from hestia.agents.config_loader import get_config_loader
+        from hestia.api.invite_store import get_invite_store
+
+        phase2_names = [
+            "task_manager", "order_manager", "agent_manager", "user_manager",
+            "cloud_manager", "health_manager", "wiki_manager", "config_loader",
+            "invite_store", "explorer_manager", "newsfeed_manager",
+            "investigate_manager",
+        ]
+        phase2_coroutines = [
+            get_task_manager(), get_order_manager(), get_agent_manager(),
+            get_user_manager(), get_cloud_manager(), get_health_manager(),
+            get_wiki_manager(), get_config_loader(), get_invite_store(),
+            get_explorer_manager(), get_newsfeed_manager(),
+            get_investigate_manager(),
+        ]
+
+        try:
+            phase2_start = time.monotonic()
+            results = await asyncio.gather(*phase2_coroutines, return_exceptions=True)
+            phase2_ms = round((time.monotonic() - phase2_start) * 1000)
+
+            # Check for failures and retry sequentially
+            failures = [
+                (name, res) for name, res in zip(phase2_names, results)
+                if isinstance(res, Exception)
+            ]
+            if failures:
+                failed_names = [f[0] for f in failures]
+                logger.warning(
+                    f"Parallel init failed for {failed_names}, retrying sequentially",
+                    component=LogComponent.API,
+                    data={"failed": failed_names, "parallel_ms": phase2_ms},
+                )
+                # Retry failed managers sequentially
+                retry_map = {
+                    "task_manager": get_task_manager,
+                    "order_manager": get_order_manager,
+                    "agent_manager": get_agent_manager,
+                    "user_manager": get_user_manager,
+                    "cloud_manager": get_cloud_manager,
+                    "health_manager": get_health_manager,
+                    "wiki_manager": get_wiki_manager,
+                    "config_loader": get_config_loader,
+                    "invite_store": get_invite_store,
+                    "explorer_manager": get_explorer_manager,
+                    "newsfeed_manager": get_newsfeed_manager,
+                    "investigate_manager": get_investigate_manager,
+                }
+                for name, _ in failures:
+                    await retry_map[name]()
+
+            logger.info(
+                "Phase 2 init complete",
+                component=LogComponent.API,
+                data={
+                    "parallel_ms": phase2_ms,
+                    "managers": len(phase2_names),
+                    "failures_retried": len(failures) if failures else 0,
+                },
+            )
+
+        except Exception as e:
+            # Total parallel failure — fall back to full sequential init
+            logger.warning(
+                f"Parallel init failed entirely ({type(e).__name__}), using sequential fallback",
+                component=LogComponent.API,
+            )
+            await get_task_manager()
+            await get_order_manager()
+            await get_agent_manager()
+            await get_user_manager()
+            await get_cloud_manager()
+            await get_health_manager()
+            await get_wiki_manager()
+            await get_config_loader()
+            await get_invite_store()
+            await get_explorer_manager()
+            await get_newsfeed_manager()
+            await get_investigate_manager()
+
+        # ── Phase 3: Sequential dependents ───────────────────────────
+        # Schedulers depend on their managers from Phase 2
         order_scheduler = await get_order_scheduler()
-        agent_manager = await get_agent_manager()
-        user_manager = await get_user_manager()
-
-        # Initialize cloud provider management (WS1)
-        cloud_manager = await get_cloud_manager()
-
-        # Initialize health data management
-        health_manager = await get_health_manager()
-
-        # Initialize wiki documentation system
-        wiki_manager = await get_wiki_manager()
-
-        # Initialize wiki auto-update scheduler
         wiki_scheduler = await get_wiki_scheduler()
 
-        # Fire non-blocking post-deploy wiki refresh
+        # ── Phase 4: Fire-and-forget background tasks ────────────────
         async def _post_deploy_wiki_refresh() -> None:
             """Refresh stale wiki articles after server restart."""
             try:
@@ -188,7 +311,8 @@ async def lifespan(app: FastAPI):
                 if not wiki_scheduler.is_post_deploy_enabled():
                     return
                 await asyncio.sleep(delay)
-                result = await wiki_manager.regenerate_stale("deploy")
+                wiki_mgr = await get_wiki_manager()
+                result = await wiki_mgr.regenerate_stale("deploy")
                 logger.info(
                     "Post-deploy wiki refresh complete",
                     component=LogComponent.WIKI,
@@ -206,94 +330,194 @@ async def lifespan(app: FastAPI):
 
         asyncio.create_task(_post_deploy_wiki_refresh())
 
-        # Initialize v2 agent config system (.md-based)
-        from hestia.agents.config_loader import get_config_loader
-        config_loader = await get_config_loader()
-
-        # Initialize invite store for QR onboarding
-        from hestia.api.invite_store import get_invite_store
-        invite_store = await get_invite_store()
-
-        # Initialize explorer resource aggregation
-        explorer_manager = await get_explorer_manager()
-
-        # Initialize newsfeed timeline aggregation
-        newsfeed_manager = await get_newsfeed_manager()
-
-        # Initialize investigation content analysis
-        investigate_manager = await get_investigate_manager()
+        startup_ms = round((time.monotonic() - startup_start) * 1000)
 
         logger.info(
             "Hestia API ready",
             component=LogComponent.API,
             data={
-                "tools_registered": len(handler.get_tool_definitions()) > 0,
-                "task_manager_ready": task_manager is not None,
-                "order_scheduler_ready": order_scheduler is not None,
-                "agent_manager_ready": agent_manager is not None,
-                "user_manager_ready": user_manager is not None,
-                "cloud_manager_ready": cloud_manager is not None,
-                "health_manager_ready": health_manager is not None,
-                "wiki_manager_ready": wiki_manager is not None,
-                "wiki_scheduler_ready": wiki_scheduler is not None,
-                "config_loader_ready": config_loader is not None,
-                "invite_store_ready": invite_store is not None,
-                "explorer_manager_ready": explorer_manager is not None,
-                "newsfeed_manager_ready": newsfeed_manager is not None,
-                "investigate_manager_ready": investigate_manager is not None,
+                "startup_ms": startup_ms,
+                "managers_initialized": 16,
             }
         )
+
+        # Mark server as ready — ReadinessMiddleware starts allowing traffic
+        app.state.ready = True
+        app.state.started_at = time.monotonic()
 
         yield
 
     finally:
         # Graceful shutdown: Uvicorn handles request draining.
-        # We clean up manager connections here.
+        # Close all managers in reverse initialization order.
+        # Each in its own try/except so one failure doesn't block others.
         logger.info(
             "Hestia API shutting down — cleaning up connections",
             component=LogComponent.API,
         )
 
-        # Close manager connections
+        shutdown_errors = 0
+
+        # 16. investigate_manager (last initialized → first closed)
+        try:
+            await close_investigate_manager()
+        except Exception as e:
+            shutdown_errors += 1
+            logger.warning(
+                f"Investigate cleanup error: {type(e).__name__}",
+                component=LogComponent.API,
+            )
+
+        # 15. newsfeed_manager
+        try:
+            await close_newsfeed_manager()
+        except Exception as e:
+            shutdown_errors += 1
+            logger.warning(
+                f"Newsfeed cleanup error: {type(e).__name__}",
+                component=LogComponent.API,
+            )
+
+        # 14. explorer_manager
+        try:
+            await close_explorer_manager()
+        except Exception as e:
+            shutdown_errors += 1
+            logger.warning(
+                f"Explorer cleanup error: {type(e).__name__}",
+                component=LogComponent.API,
+            )
+
+        # 13. invite_store
+        try:
+            invite_store = await get_invite_store()
+            await invite_store.close()
+        except Exception as e:
+            shutdown_errors += 1
+            logger.warning(
+                f"Invite store cleanup error: {type(e).__name__}",
+                component=LogComponent.API,
+            )
+
+        # 12. config_loader/writer
         try:
             from hestia.agents.config_loader import close_config_loader
             from hestia.agents.config_writer import close_config_writer
             await close_config_loader()
             await close_config_writer()
         except Exception as e:
+            shutdown_errors += 1
             logger.warning(
-                f"Config cleanup error during shutdown: {type(e).__name__}",
+                f"Config cleanup error: {type(e).__name__}",
                 component=LogComponent.API,
             )
 
+        # 11. wiki_scheduler
         try:
             await close_wiki_scheduler()
         except Exception as e:
+            shutdown_errors += 1
             logger.warning(
-                f"Wiki scheduler cleanup error during shutdown: {type(e).__name__}",
+                f"Wiki scheduler cleanup error: {type(e).__name__}",
                 component=LogComponent.API,
             )
 
+        # 10. wiki_manager
         try:
-            invite_store = await get_invite_store()
-            await invite_store.close()
+            await close_wiki_manager()
         except Exception as e:
+            shutdown_errors += 1
             logger.warning(
-                f"Invite store cleanup error during shutdown: {type(e).__name__}",
+                f"Wiki cleanup error: {type(e).__name__}",
                 component=LogComponent.API,
             )
 
+        # 9. health_manager
         try:
-            await close_investigate_manager()
+            await close_health_manager()
         except Exception as e:
+            shutdown_errors += 1
             logger.warning(
-                f"Investigate cleanup error during shutdown: {type(e).__name__}",
+                f"Health cleanup error: {type(e).__name__}",
                 component=LogComponent.API,
             )
+
+        # 8. cloud_manager
+        try:
+            await close_cloud_manager()
+        except Exception as e:
+            shutdown_errors += 1
+            logger.warning(
+                f"Cloud cleanup error: {type(e).__name__}",
+                component=LogComponent.API,
+            )
+
+        # 7. user_manager
+        try:
+            await close_user_manager()
+        except Exception as e:
+            shutdown_errors += 1
+            logger.warning(
+                f"User cleanup error: {type(e).__name__}",
+                component=LogComponent.API,
+            )
+
+        # 6. agent_manager
+        try:
+            await close_agent_manager()
+        except Exception as e:
+            shutdown_errors += 1
+            logger.warning(
+                f"Agent cleanup error: {type(e).__name__}",
+                component=LogComponent.API,
+            )
+
+        # 5. order_scheduler (before order_manager — scheduler uses manager)
+        try:
+            await close_order_scheduler()
+        except Exception as e:
+            shutdown_errors += 1
+            logger.warning(
+                f"Order scheduler cleanup error: {type(e).__name__}",
+                component=LogComponent.API,
+            )
+
+        # 4. order_manager
+        try:
+            await close_order_manager()
+        except Exception as e:
+            shutdown_errors += 1
+            logger.warning(
+                f"Order cleanup error: {type(e).__name__}",
+                component=LogComponent.API,
+            )
+
+        # 3. task_manager
+        try:
+            await close_task_manager()
+        except Exception as e:
+            shutdown_errors += 1
+            logger.warning(
+                f"Task cleanup error: {type(e).__name__}",
+                component=LogComponent.API,
+            )
+
+        # 2. memory_manager (foundation — closed last of the managers)
+        try:
+            await close_memory_manager()
+        except Exception as e:
+            shutdown_errors += 1
+            logger.warning(
+                f"Memory cleanup error: {type(e).__name__}",
+                component=LogComponent.API,
+            )
+
+        # 1. request_handler — no close() needed (delegates to managers above)
 
         logger.info(
             "Hestia API shutdown complete",
             component=LogComponent.API,
+            data={"shutdown_errors": shutdown_errors},
         )
 
 
@@ -332,6 +556,10 @@ X-Hestia-Device-Token: <your-token>
     lifespan=lifespan,
 )
 
+# Initialize readiness state (set True after all managers init in lifespan)
+app.state.ready = False
+app.state.started_at = 0.0
+
 # CORS middleware - restrict origins for security
 # Use HESTIA_CORS_ORIGINS env var to customize (comma-separated)
 CORS_ORIGINS = os.environ.get(
@@ -347,13 +575,16 @@ app.add_middleware(
     allow_headers=["X-Hestia-Device-Token", "Content-Type", "Accept"],
 )
 
-# Add security middleware (order matters - outermost first)
+# Add middleware (Starlette executes in reverse registration order)
+# Last registered = first to execute on request
 # 1. Security headers - applied to all responses
 # 2. Request ID - for correlation and debugging
 # 3. Rate limiting - prevents API abuse
+# 4. Readiness gate - 503 during startup (registered LAST → executes FIRST)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestIdMiddleware)
 app.add_middleware(RateLimitMiddleware)
+app.add_middleware(ReadinessMiddleware)
 
 
 # Exception handlers
@@ -529,6 +760,10 @@ def run_server(
         "port": port,
         "reload": reload,
         "log_level": log_level,
+        # Recycle worker after ~5000 requests to prevent memory leak accumulation.
+        # launchd KeepAlive restarts the process automatically.
+        "limit_max_requests": 5000,
+        "limit_max_requests_jitter": 500,
     }
 
     if cert_path and key_path:

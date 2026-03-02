@@ -4,9 +4,11 @@ Health check routes for Hestia API.
 Provides system health status and component checks.
 """
 
+import time
 from datetime import datetime, timezone
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 
 from hestia.api.schemas import (
     HealthResponse,
@@ -140,6 +142,38 @@ async def health_check() -> HealthResponse:
                     error=sanitize_for_log(e),
                 ),
             ),
+        )
+
+
+@router.get(
+    "/ready",
+    summary="Readiness probe",
+    description="Returns 200 when all managers are initialized, 503 during startup."
+)
+async def readiness_check(request: Request) -> JSONResponse:
+    """
+    Readiness probe for monitoring and watchdog.
+
+    Returns 200 with uptime when ready, 503 when still initializing.
+    Unlike /ping (connectivity) or /health (component status), this
+    proves the full manager stack is initialized and serving traffic.
+
+    Does not require authentication.
+    """
+    is_ready = getattr(request.app.state, "ready", False)
+    started_at = getattr(request.app.state, "started_at", 0.0)
+    uptime = round(time.monotonic() - started_at, 1) if started_at > 0 else 0.0
+
+    if is_ready:
+        return JSONResponse(
+            status_code=200,
+            content={"ready": True, "uptime_seconds": uptime},
+        )
+    else:
+        return JSONResponse(
+            status_code=503,
+            content={"ready": False, "uptime_seconds": 0.0},
+            headers={"Retry-After": "5"},
         )
 
 

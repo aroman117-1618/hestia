@@ -64,8 +64,12 @@ struct MacWikiSidebarView: View {
                 ForEach(articlesForSelectedTab) { article in
                     MacWikiArticleRow(
                         article: article,
-                        isSelected: viewModel.selectedTab == tabForArticle(article)
+                        isSelected: viewModel.selectedArticleId == article.id
                     )
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        viewModel.selectArticle(article)
+                    }
                 }
 
                 if articlesForSelectedTab.isEmpty && !viewModel.isLoading {

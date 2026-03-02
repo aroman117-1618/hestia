@@ -71,6 +71,11 @@ class ExplorerManager:
 
         logger.info("Explorer manager initialized")
 
+    async def close(self) -> None:
+        """Close database connection."""
+        if self._database:
+            await self._database.close()
+
     # ── Public API ──────────────────────────────────────────
 
     async def get_resources(
@@ -391,3 +396,11 @@ async def get_explorer_manager() -> ExplorerManager:
         _instance = ExplorerManager()
         await _instance.initialize()
     return _instance
+
+
+async def close_explorer_manager() -> None:
+    """Close the singleton explorer manager."""
+    global _instance
+    if _instance is not None:
+        await _instance.close()
+        _instance = None

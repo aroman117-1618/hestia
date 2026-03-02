@@ -73,12 +73,18 @@ get_test_file() {
             echo "tests/test_newsfeed.py" ;;
         *hestia/api/routes/investigate*)
             echo "tests/test_investigate.py" ;;
+        *hestia/api/routes/health*)
+            echo "tests/test_server_lifecycle.py" ;;
         *hestia/api/routes/auth*)
             echo "tests/test_auth_invite.py" ;;
         *hestia/api/middleware/auth*)
             echo "tests/test_auth_invite.py" ;;
         *hestia/api/invite_store*)
             echo "tests/test_auth_invite.py" ;;
+
+        # Server lifecycle
+        *hestia/api/server*)
+            echo "tests/test_server_lifecycle.py" ;;
 
         # Backend modules
         *hestia/inference/*)

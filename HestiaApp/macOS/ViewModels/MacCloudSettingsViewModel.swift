@@ -88,11 +88,59 @@ class MacCloudSettingsViewModel: ObservableObject {
             await refresh()
             isAddingProvider = false
             return true
+        } catch let hestiaError as HestiaError {
+            self.error = hestiaError.userMessage
+            #if DEBUG
+            print("[MacCloudSettingsVM] Error adding: \(hestiaError)")
+            #endif
+            isAddingProvider = false
+            return false
         } catch {
             self.error = "Failed to add provider"
             #if DEBUG
             print("[MacCloudSettingsVM] Error adding: \(error)")
             #endif
+            isAddingProvider = false
+            return false
+        }
+    }
+
+    /// Update API key by removing and re-adding the provider (backend has no update-key endpoint)
+    func updateApiKey(provider: CloudProvider, newApiKey: String) async -> Bool {
+        isAddingProvider = true
+        error = nil
+
+        guard let apiProvider = APICloudProvider(rawValue: provider.provider.rawValue) else {
+            error = "Unknown provider type"
+            isAddingProvider = false
+            return false
+        }
+
+        do {
+            // Remove existing
+            _ = try await client.removeCloudProvider(apiProvider)
+
+            // Re-add with new key (preserve current state and model)
+            let apiState = provider.state.apiState
+            _ = try await client.addCloudProvider(apiProvider, apiKey: newApiKey, state: apiState, modelId: provider.activeModelId)
+            await refresh()
+            isAddingProvider = false
+            return true
+        } catch let hestiaError as HestiaError {
+            self.error = hestiaError.userMessage
+            #if DEBUG
+            print("[MacCloudSettingsVM] Error updating key: \(hestiaError)")
+            #endif
+            // If removal succeeded but add failed, try to restore
+            await refresh()
+            isAddingProvider = false
+            return false
+        } catch {
+            self.error = "Failed to update API key"
+            #if DEBUG
+            print("[MacCloudSettingsVM] Error updating key: \(error)")
+            #endif
+            await refresh()
             isAddingProvider = false
             return false
         }
@@ -109,6 +157,12 @@ class MacCloudSettingsViewModel: ObservableObject {
             _ = try await client.removeCloudProvider(apiProvider)
             await refresh()
             return true
+        } catch let hestiaError as HestiaError {
+            self.error = hestiaError.userMessage
+            #if DEBUG
+            print("[MacCloudSettingsVM] Error removing: \(hestiaError)")
+            #endif
+            return false
         } catch {
             self.error = "Failed to remove provider"
             #if DEBUG

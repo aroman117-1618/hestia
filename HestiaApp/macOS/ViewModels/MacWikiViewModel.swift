@@ -29,7 +29,10 @@ class WikiViewModel: ObservableObject {
 
     // MARK: - Published State
 
-    @Published var selectedTab: Tab = .overview
+    @Published var selectedTab: Tab = .overview {
+        didSet { autoSelectFirstArticle() }
+    }
+    @Published var selectedArticleId: String?
     @Published var articles: [WikiArticle] = []
     @Published var isLoading = false
     @Published var isGenerating = false
@@ -60,6 +63,27 @@ class WikiViewModel: ObservableObject {
         articles.filter { $0.articleType == "diagram" }
     }
 
+    var selectedArticle: WikiArticle? {
+        guard let id = selectedArticleId else { return nil }
+        return articles.first { $0.id == id }
+    }
+
+    /// Articles for the currently selected tab.
+    var currentTabArticles: [WikiArticle] {
+        switch selectedTab {
+        case .overview:
+            return overviewArticle.map { [$0] } ?? []
+        case .modules:
+            return moduleArticles
+        case .decisions:
+            return decisionArticles
+        case .roadmap:
+            return roadmapArticle.map { [$0] } ?? []
+        case .diagrams:
+            return diagramArticles
+        }
+    }
+
     // MARK: - API Client
 
     private let client: APIClient
@@ -78,6 +102,7 @@ class WikiViewModel: ObservableObject {
             let response: WikiArticleListResponse = try await client.getWikiArticles()
             articles = response.articles
             autoSelectBestTab()
+            autoSelectFirstArticle()
         } catch {
             #if DEBUG
             print("[WikiVM] Failed to load articles: \(error)")
@@ -119,6 +144,15 @@ class WikiViewModel: ObservableObject {
         }
     }
 
+    /// Select the first article in the current tab.
+    private func autoSelectFirstArticle() {
+        selectedArticleId = currentTabArticles.first?.id
+    }
+
+    func selectArticle(_ article: WikiArticle) {
+        selectedArticleId = article.id
+    }
+
     func refreshStaticContent() async {
         isLoading = true
         errorMessage = nil
@@ -144,16 +178,20 @@ class WikiViewModel: ObservableObject {
         errorMessage = nil
 
         do {
-            let _: WikiGenerateResponse = try await client.generateWikiArticle(
+            let response: WikiGenerateResponse = try await client.generateWikiArticle(
                 type: type,
                 moduleName: moduleName
             )
             await loadArticles()
+
+            if response.status == "failed" {
+                errorMessage = "Generation failed — check your cloud LLM API key in Resources > LLMs (\u{2318}6)"
+            }
         } catch {
             #if DEBUG
             print("[WikiVM] Failed to generate \(type): \(error)")
             #endif
-            errorMessage = "Generation failed. Is cloud LLM enabled?"
+            errorMessage = "Could not reach server for generation"
         }
 
         isGenerating = false
@@ -165,15 +203,25 @@ class WikiViewModel: ObservableObject {
 
         do {
             let result: WikiGenerateAllResponse = try await client.generateAllWikiArticles()
-            if !result.errors.isEmpty {
-                errorMessage = "Generated with \(result.errors.count) errors"
-            }
             await loadArticles()
+
+            // Count how many actually generated vs failed
+            let moduleResults = result.modules.values
+            let diagramResults = result.diagrams.values
+            let failedCount = moduleResults.filter { $0 == "failed" }.count
+                + diagramResults.filter { $0 == "failed" }.count
+                + (result.overview == "failed" ? 1 : 0)
+
+            if failedCount > 0 {
+                let total = moduleResults.count + diagramResults.count + 1
+                let successCount = total - failedCount
+                errorMessage = "\(successCount)/\(total) generated. \(failedCount) failed — check your API key in Resources > LLMs (\u{2318}6)"
+            }
         } catch {
             #if DEBUG
             print("[WikiVM] Failed to generate all: \(error)")
             #endif
-            errorMessage = "Full generation failed. Is cloud LLM enabled?"
+            errorMessage = "Could not reach server for generation"
         }
 
         isGenerating = false

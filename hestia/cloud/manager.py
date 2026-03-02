@@ -536,3 +536,11 @@ async def get_cloud_manager() -> CloudManager:
         _cloud_manager = CloudManager()
         await _cloud_manager.initialize()
     return _cloud_manager
+
+
+async def close_cloud_manager() -> None:
+    """Close the singleton cloud manager."""
+    global _cloud_manager
+    if _cloud_manager is not None:
+        await _cloud_manager.close()
+        _cloud_manager = None

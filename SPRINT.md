@@ -1,4 +1,59 @@
-# Current Sprint: Wire Frontend to Backend
+# Current Sprint: Stability & Efficiency (Sprint 6)
+
+**Started:** 2026-03-02
+**Plan:** `docs/plans/sprint-6-stability-efficiency-plan-2026-03-02.md`
+**Audit:** `docs/plans/sprint-6-stability-efficiency-audit-2026-03-02.md`
+
+## Sprint 6: Stability & Efficiency
+
+### 1B. Complete Shutdown Cleanup
+- **Phase:** Done
+- **Key files:** `hestia/memory/manager.py`, `hestia/cloud/manager.py`, `hestia/explorer/manager.py`, `hestia/api/server.py`
+- **Notes:** Added `close_memory_manager()`, `close_cloud_manager()`, `close_explorer_manager()`. Server lifespan finally block now closes all 15 managers in reverse init order, each in own try/except with `shutdown_errors` counter.
+
+### 1C. Startup Readiness Gate
+- **Phase:** Done
+- **Key files:** `hestia/api/server.py`, `hestia/api/routes/health.py`
+- **Notes:** `ReadinessMiddleware` returns 503 + `Retry-After: 5` during startup. Bypass for `/v1/ping`, `/v1/ready`, `/docs`, `/redoc`, `/openapi.json`, `/`. New `/v1/ready` endpoint returns ready state + uptime.
+
+### 1D. Enhanced Watchdog
+- **Phase:** Done
+- **Key files:** `scripts/hestia-watchdog.sh`, `scripts/deploy-to-mini.sh`, `.github/workflows/deploy.yml`
+- **Notes:** Health checks upgraded from `/v1/ping` to `/v1/ready` across watchdog, deploy script, and CI/CD.
+
+### 1A. Uvicorn Request Limit
+- **Phase:** Done
+- **Key files:** `hestia/api/server.py`, `scripts/com.hestia.server.plist`
+- **Notes:** `limit_max_requests: 5000` + jitter 500. `ThrottleInterval` reduced to 5s for fast recycling.
+
+### 2A. Pin Dependencies (pip-compile)
+- **Phase:** Done
+- **Key files:** `requirements.in`, `requirements.txt`, `.github/workflows/ci.yml`
+- **Notes:** `requirements.txt` is now a pip-compile lockfile (~390 lines, all `==` pins). `requirements.in` is the human-edited input. CI freshness check added.
+
+### 2B. Log Compression
+- **Phase:** Done
+- **Key files:** `scripts/compress-logs.sh`, `scripts/com.hestia.log-compressor.plist`, `hestia/logging/structured_logger.py`
+- **Notes:** Daily gzip logs >7 days, delete compressed >90 days. launchd at 3 AM. `retention_days` default fixed 90→30.
+
+### 3A. Parallel Manager Initialization
+- **Phase:** Done
+- **Key files:** `hestia/api/server.py`
+- **Notes:** 4-phase startup: sequential foundations → `asyncio.gather` for 12 managers → sequential dependents → fire-and-forget wiki refresh. Sequential fallback on gather failure. Logs `startup_ms` and `phase2_ms`.
+
+### 3B. Path-Aware Cache-Control
+- **Phase:** Done
+- **Key files:** `hestia/api/server.py`
+- **Notes:** `/v1/ping` max-age=10, `/v1/tools` max-age=60, `/v1/wiki/articles` max-age=30, everything else no-store.
+
+### Tests + Validation
+- **Phase:** Done
+- **Key files:** `tests/test_server_lifecycle.py`, `scripts/auto-test.sh`
+- **Notes:** 28 new tests (readiness middleware, cache-control, shutdown cleanup, explorer close, bypass paths, uvicorn config). 1225 total tests passing (1222 pass, 3 skip).
+
+---
+
+## Previous: Wire Frontend to Backend (COMPLETE)
 
 **Started:** 2026-02-28
 **Target:** 5 sequential sprints (~10 sessions)
@@ -143,6 +198,31 @@
 ### 5G. Docs + Validation
 - **Phase:** Done
 - **Notes:** CLAUDE.md updated (sprint status, project structure, macOS app description — 66 files, 6 views). Both targets build clean. 1083 tests passing, 3 skipped.
+
+---
+
+## Investigate Command (Phased Rollout)
+
+**Plan:** `.claude/plans/cheeky-humming-eclipse.md`
+**Discovery:** `docs/discoveries/investigate-command-link-analysis-2026-03-01.md`
+
+### Phase 1: Web Articles + YouTube Transcripts
+- **Phase:** Done
+- **Branch:** `feature/investigate-command` (not yet merged to main)
+- **Key files:** `hestia/investigate/` (10 files), `hestia/api/routes/investigate.py`, `hestia/config/investigate.yaml`, `tests/test_investigate.py`
+- **Notes:** 14 new files, 7 modified. 5 API endpoints, 2 chat tools. trafilatura (web), youtube-transcript-api (YouTube). SSRF protection, URL dedup (6h), config-driven limits. Devil's critique: 18 issues found and fixed. 97 tests passing.
+
+### Phase 2: TikTok + Audio Transcription
+- **Phase:** Not started
+- **Notes:** yt-dlp captions + mlx-whisper fallback. TikTok `enabled: false` by default.
+
+### Phase 3: Visual Analysis
+- **Phase:** Not started
+- **Notes:** ffmpeg keyframe extraction + vision model. Cloud-preferred.
+
+### Phase 4: Memory + UI + Share Sheet
+- **Phase:** Not started
+- **Notes:** Memory storage, `investigate_recall` tool, iOS share extension, macOS Research view.
 
 ---
 

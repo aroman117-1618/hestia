@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Service identifier -->
+    <key>Label</key>
+    <string>com.hestia.log-compressor</string>
+
+    <key>ServiceDescription</key>
+    <string>Hestia log compressor — gzip old logs daily at 3 AM</string>
+
+    <!-- Script to run -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/andrewroman117/hestia/scripts/compress-logs.sh</string>
+    </array>
+
+    <!-- Run daily at 3:00 AM -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>3</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <!-- Environment variables -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>/Users/andrewroman117</string>
+    </dict>
+
+    <!-- Working directory -->
+    <key>WorkingDirectory</key>
+    <string>/Users/andrewroman117/hestia</string>
+
+    <!-- Logging -->
+    <key>StandardOutPath</key>
+    <string>/Users/andrewroman117/hestia/logs/log-compressor-stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/andrewroman117/hestia/logs/log-compressor-stderr.log</string>
+
+    <!-- Low priority -->
+    <key>Nice</key>
+    <integer>15</integer>
+    <key>LowPriorityIO</key>
+    <true/>
+</dict>
+</plist>

@@ -3,7 +3,6 @@ import HestiaShared
 
 struct MacWikiDetailPane: View {
     @ObservedObject var viewModel: WikiViewModel
-    @State private var selectedArticle: WikiArticle?
     @State private var showingGenerateAllAlert = false
 
     var body: some View {
@@ -16,12 +15,17 @@ struct MacWikiDetailPane: View {
             MacColors.divider.frame(height: 1)
                 .padding(.horizontal, MacSpacing.md)
 
+            // Error banner (shows above content when articles exist)
+            if let error = viewModel.errorMessage, !viewModel.articles.isEmpty {
+                errorBanner(error)
+            }
+
             // Content
             if viewModel.isLoading && viewModel.articles.isEmpty {
                 loadingState
             } else if let error = viewModel.errorMessage, viewModel.articles.isEmpty {
                 errorState(error)
-            } else if let article = selectedArticle ?? firstArticle {
+            } else if let article = viewModel.selectedArticle ?? firstArticle {
                 articleContent(article)
             } else {
                 emptyState
@@ -90,23 +94,44 @@ struct MacWikiDetailPane: View {
     private func articleContent(_ article: WikiArticle) -> some View {
         VStack(spacing: 0) {
             // Native SwiftUI header (stays crisp, matches sidebar)
-            VStack(alignment: .leading, spacing: MacSpacing.xs) {
-                HStack(spacing: MacSpacing.sm) {
-                    Image(systemName: article.type.iconName)
-                        .font(.system(size: 14))
-                        .foregroundStyle(MacColors.amberAccent)
-                    Text(article.title)
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(MacColors.textPrimary)
-                }
+            articleHeader(article)
 
-                HStack(spacing: MacSpacing.md) {
-                    Text(article.subtitle)
-                        .font(.system(size: 13))
-                        .foregroundStyle(MacColors.textSecondary)
+            MacColors.divider.frame(height: 1)
+                .padding(.horizontal, MacSpacing.lg)
 
-                    Spacer()
+            if article.content.isEmpty {
+                // No content — show generate prompt instead of blank WebView
+                notGeneratedState(article)
+            } else {
+                // Rendered markdown content (WKWebView handles its own scrolling)
+                MarkdownWebView(
+                    content: article.content,
+                    articleId: article.id,
+                    isDiagram: article.type == .diagram
+                )
+            }
+        }
+    }
 
+    private func articleHeader(_ article: WikiArticle) -> some View {
+        VStack(alignment: .leading, spacing: MacSpacing.xs) {
+            HStack(spacing: MacSpacing.sm) {
+                Image(systemName: article.type.iconName)
+                    .font(.system(size: 14))
+                    .foregroundStyle(MacColors.amberAccent)
+                Text(article.title)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(MacColors.textPrimary)
+            }
+
+            HStack(spacing: MacSpacing.md) {
+                Text(article.subtitle)
+                    .font(.system(size: 13))
+                    .foregroundStyle(MacColors.textSecondary)
+
+                Spacer()
+
+                if article.wordCount > 0 {
                     Text(article.readTimeBadge)
                         .font(.system(size: 11))
                         .foregroundStyle(MacColors.textFaint)
@@ -114,31 +139,34 @@ struct MacWikiDetailPane: View {
                         .padding(.vertical, 2)
                         .background(MacColors.innerPillBackground)
                         .cornerRadius(4)
-
-                    statusBadge(for: article)
                 }
-            }
-            .padding(.horizontal, MacSpacing.xl)
-            .padding(.top, MacSpacing.lg)
-            .padding(.bottom, MacSpacing.sm)
 
-            MacColors.divider.frame(height: 1)
-                .padding(.horizontal, MacSpacing.lg)
-
-            // Rendered markdown content (WKWebView handles its own scrolling)
-            MarkdownWebView(
-                content: article.content,
-                articleId: article.id,
-                isDiagram: article.type == .diagram
-            )
-
-            // Generate button for pending articles
-            if article.isPending {
-                generateButton(for: article)
-                    .padding(.horizontal, MacSpacing.xl)
-                    .padding(.bottom, MacSpacing.lg)
+                statusBadge(for: article)
             }
         }
+        .padding(.horizontal, MacSpacing.xl)
+        .padding(.top, MacSpacing.lg)
+        .padding(.bottom, MacSpacing.sm)
+    }
+
+    private func notGeneratedState(_ article: WikiArticle) -> some View {
+        VStack(spacing: MacSpacing.lg) {
+            Spacer()
+            Image(systemName: "sparkles")
+                .font(.system(size: 36))
+                .foregroundStyle(MacColors.amberAccent.opacity(0.4))
+            Text("This article hasn't been generated yet")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(MacColors.textSecondary)
+            Text("Generate it using the cloud LLM to create an AI-written narrative")
+                .font(.system(size: 13))
+                .foregroundStyle(MacColors.textFaint)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 300)
+            generateButton(for: article)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Status Badge
@@ -181,6 +209,32 @@ struct MacWikiDetailPane: View {
         }
         .buttonStyle(.plain)
         .disabled(viewModel.isGenerating)
+    }
+
+    // MARK: - Error Banner
+
+    private func errorBanner(_ message: String) -> some View {
+        HStack(spacing: MacSpacing.sm) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 12))
+                .foregroundStyle(MacColors.healthRed)
+            Text(message)
+                .font(.system(size: 12))
+                .foregroundStyle(MacColors.textSecondary)
+                .lineLimit(2)
+            Spacer()
+            Button {
+                viewModel.errorMessage = nil
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(MacColors.textFaint)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, MacSpacing.lg)
+        .padding(.vertical, MacSpacing.sm)
+        .background(MacColors.healthRed.opacity(0.08))
     }
 
     // MARK: - States

@@ -2,8 +2,9 @@
 #
 # hestia-watchdog.sh — Health-check watchdog for Hestia server
 #
-# Polls /v1/ping and /v1/health. After 3 consecutive ping failures,
-# force-restarts the server via launchctl kickstart.
+# Primary check: /v1/ready (proves full manager stack is initialized).
+# Secondary check: /v1/health (reports degraded components).
+# After 3 consecutive readiness failures, force-restarts via launchctl.
 #
 # Designed to run as a launchd StartInterval job (every 5 min).
 
@@ -15,7 +16,7 @@ STATE_FILE="${PROJECT_ROOT}/logs/.watchdog-failures"
 mkdir -p "$(dirname "$LOG_FILE")"
 
 MAX_FAILURES=3
-PING_URL="https://localhost:8443/v1/ping"
+READY_URL="https://localhost:8443/v1/ready"
 HEALTH_URL="https://localhost:8443/v1/health"
 SERVICE_LABEL="com.hestia.server"
 
@@ -34,24 +35,25 @@ else
     FAILURES=0
 fi
 
-# Ping check
-if curl -sk --max-time 10 "$PING_URL" 2>/dev/null | grep -q "pong"; then
-    # Ping succeeded — reset failure counter
+# Readiness check (replaces ping — catches both down AND still-initializing)
+READY_OUTPUT=$(curl -sk --max-time 10 "$READY_URL" 2>/dev/null)
+if echo "$READY_OUTPUT" | grep -q '"ready": true'; then
+    # Ready succeeded — reset failure counter
     if [[ $FAILURES -gt 0 ]]; then
-        log "RECOVERED | Ping succeeded after ${FAILURES} failure(s)"
+        log "RECOVERED | Ready check succeeded after ${FAILURES} failure(s)"
     fi
     echo "0" > "$STATE_FILE"
 
     # Optional: check /v1/health for degraded status
     HEALTH_OUTPUT=$(curl -sk --max-time 15 "$HEALTH_URL" 2>/dev/null)
     if echo "$HEALTH_OUTPUT" | grep -q '"degraded"'; then
-        log "DEGRADED | Server responding but health is degraded"
+        log "DEGRADED | Server ready but health is degraded"
     fi
 else
-    # Ping failed
+    # Ready failed (server down, still initializing, or not ready)
     FAILURES=$((FAILURES + 1))
     echo "$FAILURES" > "$STATE_FILE"
-    log "FAILURE ${FAILURES}/${MAX_FAILURES} | Ping failed"
+    log "FAILURE ${FAILURES}/${MAX_FAILURES} | Ready check failed"
 
     if [[ $FAILURES -ge $MAX_FAILURES ]]; then
         log "RESTART | ${MAX_FAILURES} consecutive failures — restarting server"
