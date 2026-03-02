@@ -6,7 +6,6 @@ struct MacWikiSidebarView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Tab buttons (vertical)
             tabButtons
                 .padding(.horizontal, MacSpacing.sm)
                 .padding(.top, MacSpacing.lg)
@@ -15,8 +14,14 @@ struct MacWikiSidebarView: View {
             MacColors.divider.frame(height: 1)
                 .padding(.horizontal, MacSpacing.md)
 
-            // Article list
             articleList
+
+            MacColors.divider.frame(height: 1)
+                .padding(.horizontal, MacSpacing.md)
+
+            pinnedRoadmapRow
+                .padding(.horizontal, MacSpacing.sm)
+                .padding(.vertical, MacSpacing.sm)
         }
     }
 
@@ -24,7 +29,7 @@ struct MacWikiSidebarView: View {
 
     private var tabButtons: some View {
         VStack(spacing: 4) {
-            ForEach(WikiViewModel.Tab.allCases) { tab in
+            ForEach(WikiTabCategory.allCases) { tab in
                 Button {
                     withAnimation(.easeInOut(duration: 0.15)) {
                         viewModel.selectedTab = tab
@@ -45,7 +50,7 @@ struct MacWikiSidebarView: View {
                     .padding(.horizontal, MacSpacing.sm)
                     .padding(.vertical, 6)
                     .background(
-                        viewModel.selectedTab == tab
+                        viewModel.selectedTab == tab && !viewModel.showingRoadmap
                             ? MacColors.activeTabBackground
                             : Color.clear
                     )
@@ -61,7 +66,7 @@ struct MacWikiSidebarView: View {
     private var articleList: some View {
         ScrollView {
             LazyVStack(spacing: 2) {
-                ForEach(articlesForSelectedTab) { article in
+                ForEach(viewModel.currentTabArticles) { article in
                     MacWikiArticleRow(
                         article: article,
                         isSelected: viewModel.selectedArticleId == article.id
@@ -72,7 +77,7 @@ struct MacWikiSidebarView: View {
                     }
                 }
 
-                if articlesForSelectedTab.isEmpty && !viewModel.isLoading {
+                if viewModel.currentTabArticles.isEmpty && !viewModel.isLoading {
                     if let error = viewModel.errorMessage {
                         errorState(error)
                     } else {
@@ -83,6 +88,39 @@ struct MacWikiSidebarView: View {
             .padding(.horizontal, MacSpacing.sm)
             .padding(.top, MacSpacing.sm)
         }
+    }
+
+    // MARK: - Pinned Roadmap Row
+
+    private var pinnedRoadmapRow: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                viewModel.showingRoadmap = true
+                viewModel.selectedArticleId = nil
+            }
+        } label: {
+            HStack(spacing: MacSpacing.sm) {
+                Image(systemName: "flag.checkered")
+                    .font(.system(size: 13))
+                    .frame(width: 20)
+                Text("Development Timeline")
+                    .font(.system(size: 13, weight: viewModel.showingRoadmap ? .semibold : .regular))
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10))
+                    .foregroundStyle(MacColors.textFaint)
+            }
+            .foregroundStyle(viewModel.showingRoadmap ? MacColors.amberAccent : MacColors.textSecondary)
+            .padding(.horizontal, MacSpacing.sm)
+            .padding(.vertical, 6)
+            .background(
+                viewModel.showingRoadmap
+                    ? MacColors.activeTabBackground
+                    : Color.clear
+            )
+            .cornerRadius(MacCornerRadius.treeItem)
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Empty State
@@ -133,44 +171,15 @@ struct MacWikiSidebarView: View {
 
     // MARK: - Helpers
 
-    private var articlesForSelectedTab: [WikiArticle] {
-        switch viewModel.selectedTab {
-        case .overview:
-            if let overview = viewModel.overviewArticle {
-                return [overview]
-            }
-            return []
-        case .modules:
-            return viewModel.moduleArticles
-        case .decisions:
-            return viewModel.decisionArticles
-        case .roadmap:
-            if let roadmap = viewModel.roadmapArticle {
-                return [roadmap]
-            }
-            return []
-        case .diagrams:
-            return viewModel.diagramArticles
-        }
-    }
-
-    private func articleCount(for tab: WikiViewModel.Tab) -> Int {
+    private func articleCount(for tab: WikiTabCategory) -> Int {
         switch tab {
-        case .overview: return viewModel.overviewArticle != nil ? 1 : 0
-        case .modules: return viewModel.moduleArticles.count
-        case .decisions: return viewModel.decisionArticles.count
-        case .roadmap: return viewModel.roadmapArticle != nil ? 1 : 0
-        case .diagrams: return viewModel.diagramArticles.count
-        }
-    }
-
-    private func tabForArticle(_ article: WikiArticle) -> WikiViewModel.Tab {
-        switch article.type {
-        case .overview: return .overview
-        case .module: return .modules
-        case .decision: return .decisions
-        case .roadmap: return .roadmap
-        case .diagram: return .diagrams
+        case .overview:
+            return viewModel.overviewArticle != nil ? 1 : 0
+        case .core, .skills, .memory, .resources:
+            let modules = WikiTabCategory.modules(for: tab)
+            return viewModel.moduleArticles.filter { article in
+                modules.contains(article.moduleName ?? "")
+            }.count
         }
     }
 }

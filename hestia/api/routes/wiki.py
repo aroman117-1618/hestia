@@ -73,6 +73,28 @@ class WikiRefreshResponse(BaseModel):
     roadmap: int
 
 
+class WikiMilestoneResponse(BaseModel):
+    """A single roadmap milestone."""
+    id: str
+    title: str
+    status: str
+    scope: str
+
+
+class WikiMilestoneGroupResponse(BaseModel):
+    """A group of milestones (sprint/phase)."""
+    id: str
+    title: str
+    order: int
+    milestones: List[WikiMilestoneResponse] = Field(default_factory=list)
+
+
+class WikiRoadmapResponse(BaseModel):
+    """Structured roadmap response."""
+    groups: List[WikiMilestoneGroupResponse] = Field(default_factory=list)
+    whats_next: str = ""
+
+
 class WikiStalenessItem(BaseModel):
     """Staleness check result for one article."""
     article_id: str
@@ -299,6 +321,54 @@ async def refresh_static(
         )
 
     return WikiRefreshResponse(**counts)
+
+
+@router.get(
+    "/roadmap",
+    response_model=WikiRoadmapResponse,
+    summary="Get structured roadmap",
+    description="Structured development timeline with milestone groups.",
+)
+async def get_roadmap(
+    device_id: str = Depends(get_device_token),
+):
+    """Get structured roadmap data from development plan."""
+    manager = await get_wiki_manager()
+
+    try:
+        result = await manager.get_roadmap_structured()
+    except Exception as e:
+        logger.error(
+            f"Roadmap retrieval failed: {sanitize_for_log(e)}",
+            component=LogComponent.API,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to load roadmap",
+        )
+
+    groups = [
+        WikiMilestoneGroupResponse(
+            id=g["id"],
+            title=g["title"],
+            order=g["order"],
+            milestones=[
+                WikiMilestoneResponse(
+                    id=m["id"],
+                    title=m["title"],
+                    status=m["status"],
+                    scope=m["scope"],
+                )
+                for m in g.get("milestones", [])
+            ],
+        )
+        for g in result.get("groups", [])
+    ]
+
+    return WikiRoadmapResponse(
+        groups=groups,
+        whats_next=result.get("whats_next", ""),
+    )
 
 
 @router.get(

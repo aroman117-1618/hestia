@@ -212,19 +212,124 @@ class WikiScanner:
         """
         Parse the development plan into structured roadmap data.
 
+        Splits on ### headers, parses milestone tables within each
+        section, and extracts the What's Next section.
+
         Returns:
-            Dict with milestones, current_state, whats_next.
+            Dict with groups (list of milestone group dicts) and whats_next.
         """
         content = self.get_development_plan()
         if not content:
-            return {"milestones": [], "current_state": "", "whats_next": ""}
+            return {"groups": [], "whats_next": ""}
 
-        # The development plan is already well-structured markdown
-        # Return it as structured data for the API
-        return {
-            "content": content,
-            "source": "docs/hestia-development-plan.md",
-        }
+        groups: List[Dict[str, Any]] = []
+        whats_next = ""
+
+        # Split by ### headers
+        group_pattern = re.compile(
+            r'^### (.+)$',
+            re.MULTILINE,
+        )
+
+        matches = list(group_pattern.finditer(content))
+
+        for i, match in enumerate(matches):
+            start = match.start()
+            end = matches[i + 1].start() if i + 1 < len(matches) else len(content)
+            section = content[start:end].strip()
+            title = match.group(1).strip()
+
+            milestones = self._parse_milestone_table(section)
+
+            if milestones:
+                group_id = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')
+                groups.append({
+                    "id": group_id,
+                    "title": title,
+                    "order": i,
+                    "milestones": milestones,
+                })
+
+        # Extract ## What's Next section
+        whats_next_pattern = re.compile(
+            r'^## What\'s Next\s*\n(.*?)(?=^##|\Z)',
+            re.MULTILINE | re.DOTALL,
+        )
+        whats_next_match = whats_next_pattern.search(content)
+        if whats_next_match:
+            whats_next = whats_next_match.group(1).strip()
+
+        return {"groups": groups, "whats_next": whats_next}
+
+    def _parse_milestone_table(self, section: str) -> List[Dict[str, str]]:
+        """
+        Parse a markdown table within a section into milestone dicts.
+
+        Expects rows like: | Title | Scope | Status |
+
+        Returns:
+            List of dicts with id, title, status, scope.
+        """
+        milestones: List[Dict[str, str]] = []
+
+        # Find table rows (skip header and separator)
+        lines = section.split('\n')
+        in_table = False
+        header_skipped = False
+
+        for line in lines:
+            line = line.strip()
+            if not line.startswith('|'):
+                if in_table:
+                    break  # End of table
+                continue
+
+            # Skip separator rows (|---|---|---|)
+            if re.match(r'^\|[\s\-|]+\|$', line):
+                in_table = True
+                header_skipped = True
+                continue
+
+            if not header_skipped:
+                # This is the header row — skip it
+                in_table = True
+                continue
+
+            if not in_table:
+                continue
+
+            # Parse table row
+            cells = [c.strip() for c in line.split('|')[1:-1]]
+            if len(cells) >= 3:
+                title = cells[0]
+                scope = cells[1]
+                status_raw = cells[2]
+
+                # Normalize status
+                status = self._normalize_status(status_raw)
+
+                milestone_id = re.sub(r'[^a-z0-9]+', '-', title.lower()).strip('-')
+                milestones.append({
+                    "id": milestone_id,
+                    "title": title,
+                    "status": status,
+                    "scope": scope,
+                })
+
+        return milestones
+
+    @staticmethod
+    def _normalize_status(status_raw: str) -> str:
+        """Normalize milestone status string."""
+        s = status_raw.strip().upper()
+        if s == "COMPLETE":
+            return "complete"
+        elif s in ("IN PROGRESS", "IN_PROGRESS"):
+            return "in_progress"
+        elif s == "PLANNED":
+            return "planned"
+        else:
+            return status_raw.strip().lower()
 
     def list_modules(self) -> List[str]:
         """

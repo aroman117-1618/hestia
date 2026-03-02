@@ -85,7 +85,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | Hardware | Mac Mini M1 (16GB) |
 | Model | Qwen 2.5 7B (Ollama, local) + cloud providers (Anthropic/OpenAI/Google) |
 | SLM | qwen2.5:0.5b (council intent classification, ~100ms) |
-| Backend | Python 3.9+, FastAPI, 117 endpoints across 20 route modules |
+| Backend | Python 3.9+, FastAPI, 123 endpoints across 21 route modules |
 | Storage | ChromaDB (vectors) + SQLite (structured) + macOS Keychain (credentials) |
 | App | Native Swift/SwiftUI (iOS 26.0+) |
 | API | REST on port 8443 with JWT auth, HTTPS with self-signed cert |
@@ -100,8 +100,9 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 **UI Phase 3 (Lottie, Settings, Neural Net): COMPLETE.**
 **UI Phase 4 (Integrations UI, API contract rewrite): COMPLETE.**
 **Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
+**Field Guide UI Restructure: COMPLETE.** 5 thematic tabs, native SwiftUI diagrams, structured roadmap with `/v1/wiki/roadmap` endpoint.
 
-1225 tests (1222 passing, 3 skipped), 27 test files. Full details: `python -m pytest tests/ -v --timeout=30`
+1234 tests (1231 passing, 3 skipped), 27 test files. Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -188,7 +189,7 @@ hestia/
 │   ├── newsfeed/                    # Materialized timeline, source aggregation, per-user state
 │   ├── investigate/                 # URL content analysis (web articles, YouTube), LLM analysis pipeline
 │   │   └── extractors/             # BaseExtractor ABC, WebArticleExtractor, YouTubeExtractor
-│   ├── api/                         # FastAPI — 122 endpoints, 21 route modules
+│   ├── api/                         # FastAPI — 123 endpoints, 21 route modules
 │   │   ├── errors.py                # sanitize_for_log(), safe_error_detail()
 │   │   ├── schemas.py               # All Pydantic request/response models
 │   │   ├── server.py                # App lifecycle, manager initialization
@@ -215,7 +216,7 @@ hestia/
 │   │   ├── Services/                # APIClient+Wiki, APIClient+Tools, APIClient+Newsfeed, APIClient+Health, APIClient+Devices, APIClient+Investigate
 │   │   └── DesignSystem/            # MacColors, MacSpacing, MacTypography
 │   └── project.yml                  # xcodegen config (iOS 26.0, macOS 15.0, Swift 6.1)
-├── tests/                           # 1225 tests, 27 files
+├── tests/                           # 1234 tests, 27 files
 ├── scripts/                         # deploy, test-api, auto-test, validate-security, ollama
 ├── .claude/                         # agents/, output-styles/, settings
 ├── docs/                            # api-contract, decision-log, security-architecture
@@ -224,7 +225,7 @@ hestia/
 
 ---
 
-## API Summary (122 endpoints, 21 route modules)
+## API Summary (123 endpoints, 21 route modules)
 
 | Module | Endpoints | Key Routes |
 |--------|-----------|------------|
@@ -243,7 +244,7 @@ hestia/
 | User Profile | 11 | `/v1/user/profile/*` extended CRUD |
 | Proactive | 6 | `/v1/proactive/briefing`, `policy`, `patterns`, `notifications` |
 | Health Data | 7 | `/v1/health_data/sync`, `summary`, `trend`, `coaching` |
-| Wiki | 5 | `/v1/wiki/articles`, `generate`, `generate-all`, `refresh-static` |
+| Wiki | 6 | `/v1/wiki/articles`, `generate`, `generate-all`, `refresh-static`, `roadmap` |
 | Explorer | 6 | `/v1/explorer/resources` list/detail/content, drafts CRUD |
 | Newsfeed | 5 | `/v1/newsfeed/timeline`, `unread-count`, `items/{id}/read`, `items/{id}/dismiss`, `refresh` |
 | Investigate | 5 | `/v1/investigate/url`, `history`, `compare`, `{id}` (GET), `{id}` (DELETE) |

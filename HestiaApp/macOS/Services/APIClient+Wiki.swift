@@ -28,4 +28,8 @@ extension APIClient {
     func refreshWikiStatic() async throws -> WikiRefreshResponse {
         return try await post("/wiki/refresh-static", body: WikiEmptyBody())
     }
+
+    func getWikiRoadmap() async throws -> WikiRoadmapResponse {
+        return try await get("/wiki/roadmap")
+    }
 }

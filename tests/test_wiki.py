@@ -98,7 +98,20 @@ def project_fixture(temp_dir: Path) -> Path:
     )
     (docs_dir / "hestia-development-plan.md").write_text(
         "# Hestia Development Plan\n\n**Status**: All complete.\n\n"
-        "## Completed Milestones\n\n| Phase | Status |\n|---|---|\n| 0 | COMPLETE |\n"
+        "---\n\n"
+        "### Sprint 2: Explorer\n"
+        "| Title | Scope | Status |\n"
+        "|-------|-------|--------|\n"
+        "| Explorer Backend | Resource aggregation | COMPLETE |\n"
+        "| Explorer API | 6 endpoints | COMPLETE |\n\n"
+        "### Sprint 1: DevOps\n"
+        "| Title | Scope | Status |\n"
+        "|-------|-------|--------|\n"
+        "| QR Invite | Auth endpoints | COMPLETE |\n"
+        "| CI/CD Pipeline | GitHub Actions | COMPLETE |\n\n"
+        "---\n\n"
+        "## What's Next\n\n"
+        "Future work is feature-driven.\n"
     )
 
     # Create CLAUDE.md
@@ -392,11 +405,102 @@ class TestWikiScanner:
         assert decisions[1]["title"] == "Second Decision"
 
     def test_parse_roadmap(self, project_fixture: Path) -> None:
-        """Test parsing development plan."""
+        """Test parsing development plan into structured groups."""
         scanner = WikiScanner(project_root=project_fixture)
         roadmap = scanner.parse_roadmap()
-        assert "content" in roadmap
-        assert "Development Plan" in roadmap["content"]
+        assert "groups" in roadmap
+        assert "whats_next" in roadmap
+        assert len(roadmap["groups"]) == 2
+
+    def test_parse_roadmap_group_structure(self, project_fixture: Path) -> None:
+        """Test that roadmap groups have correct fields."""
+        scanner = WikiScanner(project_root=project_fixture)
+        roadmap = scanner.parse_roadmap()
+        group = roadmap["groups"][0]
+        assert "id" in group
+        assert "title" in group
+        assert "order" in group
+        assert "milestones" in group
+        assert group["title"] == "Sprint 2: Explorer"
+
+    def test_parse_roadmap_milestones(self, project_fixture: Path) -> None:
+        """Test that milestones are parsed from tables."""
+        scanner = WikiScanner(project_root=project_fixture)
+        roadmap = scanner.parse_roadmap()
+        milestones = roadmap["groups"][0]["milestones"]
+        assert len(milestones) == 2
+        assert milestones[0]["title"] == "Explorer Backend"
+        assert milestones[0]["scope"] == "Resource aggregation"
+        assert milestones[0]["status"] == "complete"
+
+    def test_parse_roadmap_status_normalization(self, project_fixture: Path) -> None:
+        """Test that COMPLETE status is normalized to lowercase."""
+        scanner = WikiScanner(project_root=project_fixture)
+        roadmap = scanner.parse_roadmap()
+        for group in roadmap["groups"]:
+            for m in group["milestones"]:
+                assert m["status"] == "complete"
+
+    def test_parse_roadmap_whats_next(self, project_fixture: Path) -> None:
+        """Test What's Next section extraction."""
+        scanner = WikiScanner(project_root=project_fixture)
+        roadmap = scanner.parse_roadmap()
+        assert "feature-driven" in roadmap["whats_next"]
+
+    def test_parse_roadmap_empty(self, temp_dir: Path) -> None:
+        """Test parsing empty development plan."""
+        docs = temp_dir / "docs"
+        docs.mkdir(parents=True, exist_ok=True)
+        (docs / "hestia-development-plan.md").write_text("")
+        scanner = WikiScanner(project_root=temp_dir)
+        roadmap = scanner.parse_roadmap()
+        assert roadmap["groups"] == []
+        assert roadmap["whats_next"] == ""
+
+    def test_parse_roadmap_no_file(self, temp_dir: Path) -> None:
+        """Test parsing when dev plan file doesn't exist."""
+        scanner = WikiScanner(project_root=temp_dir)
+        roadmap = scanner.parse_roadmap()
+        assert roadmap["groups"] == []
+
+    def test_parse_roadmap_malformed_table(self, temp_dir: Path) -> None:
+        """Test parsing with malformed table (missing columns)."""
+        docs = temp_dir / "docs"
+        docs.mkdir(parents=True, exist_ok=True)
+        (docs / "hestia-development-plan.md").write_text(
+            "# Dev Plan\n\n"
+            "### Sprint 1: Test\n"
+            "| Title | Status |\n"
+            "|-------|--------|\n"
+            "| Only Two Cols | COMPLETE |\n"
+        )
+        scanner = WikiScanner(project_root=temp_dir)
+        roadmap = scanner.parse_roadmap()
+        # 2-col table should not produce milestones (needs 3)
+        assert len(roadmap["groups"]) == 0
+
+    def test_parse_milestone_table_helper(self, project_fixture: Path) -> None:
+        """Test _parse_milestone_table directly."""
+        scanner = WikiScanner(project_root=project_fixture)
+        section = (
+            "### Test Group\n"
+            "| Title | Scope | Status |\n"
+            "|-------|-------|--------|\n"
+            "| Item A | Scope A | COMPLETE |\n"
+            "| Item B | Scope B | IN PROGRESS |\n"
+        )
+        milestones = scanner._parse_milestone_table(section)
+        assert len(milestones) == 2
+        assert milestones[0]["status"] == "complete"
+        assert milestones[1]["status"] == "in_progress"
+
+    def test_normalize_status(self) -> None:
+        """Test status normalization."""
+        assert WikiScanner._normalize_status("COMPLETE") == "complete"
+        assert WikiScanner._normalize_status("IN PROGRESS") == "in_progress"
+        assert WikiScanner._normalize_status("IN_PROGRESS") == "in_progress"
+        assert WikiScanner._normalize_status("PLANNED") == "planned"
+        assert WikiScanner._normalize_status("custom") == "custom"
 
     def test_check_staleness_fresh(self, project_fixture: Path) -> None:
         """Test staleness check for fresh content."""

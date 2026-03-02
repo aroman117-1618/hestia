@@ -1,14 +1,14 @@
 # Hestia API Contract
 
 **Status**: Complete — All Workstreams Implemented
-**Last Updated**: 2026-03-01
+**Last Updated**: 2026-03-02
 
 ## Executive Summary
 
 The FastAPI REST API provides HTTP access to all Hestia backend capabilities including chat, memory management, mode switching, cloud LLM routing, voice journaling, proactive intelligence, scheduled orders, agent profiles (V1 slot-based + V2 markdown-based), user settings, user profile configuration, background task management, health data management, resource exploration, wiki/architecture docs, and newsfeed timeline.
 
-**Endpoints**: 117 across 20 route modules
-**Test Coverage**: 1225 tests (1222 passing, 3 skipped)
+**Endpoints**: 123 across 21 route modules
+**Test Coverage**: 1234 tests (1231 passing, 3 skipped)
 **Server**: HTTPS on port 8443 (self-signed cert)
 **Documentation**: https://localhost:8443/docs (Swagger UI)
 
@@ -1472,7 +1472,7 @@ Force re-aggregation from all source managers. Rate limited to 1 request per 10 
 
 ---
 
-### Wiki (5 endpoints)
+### Wiki (6 endpoints)
 
 Architecture field guide with AI-generated narratives, module deep dives, and static content from decision log and roadmap.
 
@@ -1572,6 +1572,32 @@ Re-read static markdown content from disk (decisions and roadmap).
 {
   "decisions": 31,
   "roadmap": 1
+}
+```
+
+#### GET /v1/wiki/roadmap
+
+Structured development timeline with milestone groups parsed from the development plan.
+
+**Response:**
+```json
+{
+  "groups": [
+    {
+      "id": "sprint-6-stability-efficiency",
+      "title": "Sprint 6: Stability & Efficiency",
+      "order": 0,
+      "milestones": [
+        {
+          "id": "readiness-gate",
+          "title": "Readiness Gate",
+          "status": "complete",
+          "scope": "ReadinessMiddleware returns 503 during startup"
+        }
+      ]
+    }
+  ],
+  "whats_next": "Future work is feature-driven..."
 }
 ```
 

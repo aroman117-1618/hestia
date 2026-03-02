@@ -5,39 +5,25 @@ import HestiaShared
 @MainActor
 class WikiViewModel: ObservableObject {
 
-    // MARK: - Tab
-
-    enum Tab: String, CaseIterable, Identifiable {
-        case overview = "Overview"
-        case modules = "Modules"
-        case decisions = "Decisions"
-        case roadmap = "Roadmap"
-        case diagrams = "Diagrams"
-
-        var id: String { rawValue }
-
-        var iconName: String {
-            switch self {
-            case .overview: return "building.columns"
-            case .modules: return "puzzlepiece"
-            case .decisions: return "doc.text"
-            case .roadmap: return "flag"
-            case .diagrams: return "diagram.flow"
-            }
-        }
-    }
-
     // MARK: - Published State
 
-    @Published var selectedTab: Tab = .overview {
-        didSet { autoSelectFirstArticle() }
+    @Published var selectedTab: WikiTabCategory = .overview {
+        didSet {
+            selectedArticleId = nil
+            showingRoadmap = false
+        }
     }
     @Published var selectedArticleId: String?
+    @Published var showingRoadmap = false
     @Published var articles: [WikiArticle] = []
     @Published var isLoading = false
     @Published var isGenerating = false
     @Published var errorMessage: String?
     @Published var refreshResult: String?
+
+    // Roadmap state (Phase 3)
+    @Published var roadmapGroups: [WikiRoadmapMilestoneGroup] = []
+    @Published var roadmapWhatsNext: String = ""
 
     // MARK: - Computed Properties
 
@@ -47,20 +33,6 @@ class WikiViewModel: ObservableObject {
 
     var moduleArticles: [WikiArticle] {
         articles.filter { $0.articleType == "module" }
-            .sorted { $0.title < $1.title }
-    }
-
-    var decisionArticles: [WikiArticle] {
-        articles.filter { $0.articleType == "decision" }
-            .sorted { $0.title < $1.title }
-    }
-
-    var roadmapArticle: WikiArticle? {
-        articles.first { $0.articleType == "roadmap" }
-    }
-
-    var diagramArticles: [WikiArticle] {
-        articles.filter { $0.articleType == "diagram" }
     }
 
     var selectedArticle: WikiArticle? {
@@ -68,19 +40,16 @@ class WikiViewModel: ObservableObject {
         return articles.first { $0.id == id }
     }
 
-    /// Articles for the currently selected tab.
+    /// Articles for the currently selected tab, sorted to match declared module order.
     var currentTabArticles: [WikiArticle] {
         switch selectedTab {
         case .overview:
             return overviewArticle.map { [$0] } ?? []
-        case .modules:
-            return moduleArticles
-        case .decisions:
-            return decisionArticles
-        case .roadmap:
-            return roadmapArticle.map { [$0] } ?? []
-        case .diagrams:
-            return diagramArticles
+        case .core, .skills, .memory, .resources:
+            let moduleOrder = WikiTabCategory.modules(for: selectedTab)
+            return moduleOrder.compactMap { moduleName in
+                moduleArticles.first { $0.moduleName == moduleName }
+            }
         }
     }
 
@@ -99,10 +68,14 @@ class WikiViewModel: ObservableObject {
         errorMessage = nil
 
         do {
-            let response: WikiArticleListResponse = try await client.getWikiArticles()
+            async let articlesTask: WikiArticleListResponse = client.getWikiArticles()
+            async let roadmapTask: Void = loadRoadmap()
+
+            let response = try await articlesTask
+            _ = await roadmapTask
+
             articles = response.articles
             autoSelectBestTab()
-            autoSelectFirstArticle()
         } catch {
             #if DEBUG
             print("[WikiVM] Failed to load articles: \(error)")
@@ -113,43 +86,44 @@ class WikiViewModel: ObservableObject {
         isLoading = false
     }
 
+    func loadRoadmap() async {
+        do {
+            let response: WikiRoadmapResponse = try await client.getWikiRoadmap()
+            roadmapGroups = response.groups
+            roadmapWhatsNext = response.whatsNext
+        } catch {
+            #if DEBUG
+            print("[WikiVM] Failed to load roadmap: \(error)")
+            #endif
+            // Non-fatal — roadmap is optional
+        }
+    }
+
     /// Auto-select the first tab that has content, if the current tab is empty.
     private func autoSelectBestTab() {
-        // Only auto-switch if current tab has no content
-        let currentHasContent: Bool
-        switch selectedTab {
-        case .overview: currentHasContent = overviewArticle != nil
-        case .modules: currentHasContent = !moduleArticles.isEmpty
-        case .decisions: currentHasContent = !decisionArticles.isEmpty
-        case .roadmap: currentHasContent = roadmapArticle != nil
-        case .diagrams: currentHasContent = !diagramArticles.isEmpty
-        }
-
+        let currentHasContent = !currentTabArticles.isEmpty
         guard !currentHasContent else { return }
 
-        // Try tabs in priority order
-        let priority: [Tab] = [.overview, .decisions, .modules, .roadmap, .diagrams]
+        let priority: [WikiTabCategory] = [.overview, .core, .skills, .memory, .resources]
         for tab in priority {
-            switch tab {
-            case .overview where overviewArticle != nil,
-                 .decisions where !decisionArticles.isEmpty,
-                 .modules where !moduleArticles.isEmpty,
-                 .roadmap where roadmapArticle != nil,
-                 .diagrams where !diagramArticles.isEmpty:
+            let tabModules = WikiTabCategory.modules(for: tab)
+            let hasContent: Bool
+            if tab == .overview {
+                hasContent = overviewArticle != nil
+            } else {
+                hasContent = moduleArticles.contains { article in
+                    tabModules.contains(article.moduleName ?? "")
+                }
+            }
+            if hasContent {
                 selectedTab = tab
                 return
-            default:
-                continue
             }
         }
     }
 
-    /// Select the first article in the current tab.
-    private func autoSelectFirstArticle() {
-        selectedArticleId = currentTabArticles.first?.id
-    }
-
     func selectArticle(_ article: WikiArticle) {
+        showingRoadmap = false
         selectedArticleId = article.id
     }
 
@@ -205,7 +179,6 @@ class WikiViewModel: ObservableObject {
             let result: WikiGenerateAllResponse = try await client.generateAllWikiArticles()
             await loadArticles()
 
-            // Count how many actually generated vs failed
             let moduleResults = result.modules.values
             let diagramResults = result.diagrams.values
             let failedCount = moduleResults.filter { $0 == "failed" }.count

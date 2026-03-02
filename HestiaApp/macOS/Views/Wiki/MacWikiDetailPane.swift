@@ -7,7 +7,6 @@ struct MacWikiDetailPane: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Toolbar
             toolbar
                 .padding(.horizontal, MacSpacing.lg)
                 .padding(.vertical, MacSpacing.md)
@@ -15,20 +14,20 @@ struct MacWikiDetailPane: View {
             MacColors.divider.frame(height: 1)
                 .padding(.horizontal, MacSpacing.md)
 
-            // Error banner (shows above content when articles exist)
             if let error = viewModel.errorMessage, !viewModel.articles.isEmpty {
                 errorBanner(error)
             }
 
-            // Content
             if viewModel.isLoading && viewModel.articles.isEmpty {
                 loadingState
             } else if let error = viewModel.errorMessage, viewModel.articles.isEmpty {
                 errorState(error)
-            } else if let article = viewModel.selectedArticle ?? firstArticle {
+            } else if viewModel.showingRoadmap {
+                WikiRoadmapView(viewModel: viewModel)
+            } else if let article = viewModel.selectedArticle {
                 articleContent(article)
             } else {
-                emptyState
+                tabLanding
             }
         }
     }
@@ -37,7 +36,22 @@ struct MacWikiDetailPane: View {
 
     private var toolbar: some View {
         HStack(spacing: MacSpacing.md) {
-            Text(viewModel.selectedTab.rawValue)
+            if viewModel.selectedArticle != nil && !viewModel.showingRoadmap {
+                Button {
+                    viewModel.selectedArticleId = nil
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text(viewModel.selectedTab.rawValue)
+                            .font(.system(size: 13, weight: .medium))
+                    }
+                    .foregroundStyle(MacColors.amberAccent)
+                }
+                .buttonStyle(.plain)
+            }
+
+            Text(toolbarTitle)
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(MacColors.textPrimary)
 
@@ -89,21 +103,95 @@ struct MacWikiDetailPane: View {
         }
     }
 
+    private var toolbarTitle: String {
+        if viewModel.showingRoadmap {
+            return "Development Timeline"
+        }
+        if let article = viewModel.selectedArticle {
+            return article.title
+        }
+        return viewModel.selectedTab.rawValue
+    }
+
+    // MARK: - Tab Landing
+
+    private var tabLanding: some View {
+        ScrollView {
+            VStack(spacing: MacSpacing.xl) {
+                // Diagram hero
+                diagramForCurrentTab
+                    .padding(.horizontal, MacSpacing.xl)
+                    .padding(.top, MacSpacing.lg)
+
+                // Article card grid
+                if !viewModel.currentTabArticles.isEmpty {
+                    articleCardGrid
+                        .padding(.horizontal, MacSpacing.xl)
+                        .padding(.bottom, MacSpacing.xl)
+                } else {
+                    emptyTabState
+                        .padding(.top, MacSpacing.xl)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var diagramForCurrentTab: some View {
+        switch viewModel.selectedTab {
+        case .overview:
+            ArchitectureDiagramView()
+        case .core:
+            RequestLifecycleDiagramView()
+        case .skills:
+            CouncilFlowDiagramView()
+        case .memory:
+            DataFlowDiagramView()
+        case .resources:
+            IntegrationMapDiagramView()
+        }
+    }
+
+    private var articleCardGrid: some View {
+        LazyVGrid(columns: [
+            GridItem(.flexible(), spacing: MacSpacing.md),
+            GridItem(.flexible(), spacing: MacSpacing.md)
+        ], spacing: MacSpacing.md) {
+            ForEach(viewModel.currentTabArticles) { article in
+                ArticleCardView(article: article, viewModel: viewModel)
+            }
+        }
+    }
+
+    private var emptyTabState: some View {
+        VStack(spacing: MacSpacing.md) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 32))
+                .foregroundStyle(MacColors.amberAccent.opacity(0.4))
+            Text("No articles generated yet")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(MacColors.textSecondary)
+            Text("Use \"Generate All\" to create AI-written narratives for each module")
+                .font(.system(size: 12))
+                .foregroundStyle(MacColors.textFaint)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 280)
+        }
+        .padding(.bottom, MacSpacing.xxxl)
+    }
+
     // MARK: - Article Content
 
     private func articleContent(_ article: WikiArticle) -> some View {
         VStack(spacing: 0) {
-            // Native SwiftUI header (stays crisp, matches sidebar)
             articleHeader(article)
 
             MacColors.divider.frame(height: 1)
                 .padding(.horizontal, MacSpacing.lg)
 
             if article.content.isEmpty {
-                // No content — show generate prompt instead of blank WebView
                 notGeneratedState(article)
             } else {
-                // Rendered markdown content (WKWebView handles its own scrolling)
                 MarkdownWebView(
                     content: article.content,
                     articleId: article.id,
@@ -116,7 +204,7 @@ struct MacWikiDetailPane: View {
     private func articleHeader(_ article: WikiArticle) -> some View {
         VStack(alignment: .leading, spacing: MacSpacing.xs) {
             HStack(spacing: MacSpacing.sm) {
-                Image(systemName: article.type.iconName)
+                Image(systemName: article.type == .module ? article.moduleIcon : article.type.iconName)
                     .font(.system(size: 14))
                     .foregroundStyle(MacColors.amberAccent)
                 Text(article.title)
@@ -254,23 +342,6 @@ struct MacWikiDetailPane: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private var emptyState: some View {
-        VStack(spacing: MacSpacing.lg) {
-            Spacer()
-            Image(systemName: "book.closed")
-                .font(.system(size: 40))
-                .foregroundStyle(MacColors.textFaint)
-            Text("No articles in this section")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(MacColors.textSecondary)
-            Text("Refresh static content or generate articles with AI")
-                .font(.system(size: 13))
-                .foregroundStyle(MacColors.textFaint)
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
     private func errorState(_ message: String) -> some View {
         VStack(spacing: MacSpacing.lg) {
             Spacer()
@@ -302,16 +373,90 @@ struct MacWikiDetailPane: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
+}
 
-    // MARK: - Helpers
+// MARK: - Article Card View (for Tab Landing Grid)
 
-    private var firstArticle: WikiArticle? {
-        switch viewModel.selectedTab {
-        case .overview: return viewModel.overviewArticle
-        case .modules: return viewModel.moduleArticles.first
-        case .decisions: return viewModel.decisionArticles.first
-        case .roadmap: return viewModel.roadmapArticle
-        case .diagrams: return viewModel.diagramArticles.first
+private struct ArticleCardView: View {
+    let article: WikiArticle
+    let viewModel: WikiViewModel
+    @State private var isHovered = false
+
+    var body: some View {
+        Button {
+            viewModel.selectArticle(article)
+        } label: {
+            VStack(alignment: .leading, spacing: MacSpacing.sm) {
+                HStack(spacing: MacSpacing.sm) {
+                    Image(systemName: article.moduleIcon)
+                        .font(.system(size: 14))
+                        .foregroundStyle(MacColors.amberAccent)
+                        .frame(width: 20)
+                    Text(article.title)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(MacColors.textPrimary)
+                        .lineLimit(1)
+                    Spacer()
+                }
+
+                if !article.subtitle.isEmpty {
+                    Text(article.subtitle)
+                        .font(.system(size: 11))
+                        .foregroundStyle(MacColors.textSecondary)
+                        .lineLimit(2)
+                }
+
+                HStack(spacing: MacSpacing.sm) {
+                    if article.wordCount > 0 {
+                        Text(article.readTimeBadge)
+                            .font(.system(size: 10))
+                            .foregroundStyle(MacColors.textFaint)
+                    }
+
+                    Spacer()
+
+                    Circle()
+                        .fill(article.isGenerated ? MacColors.healthGreen :
+                              article.isStatic ? MacColors.amberAccent :
+                              MacColors.healthRed.opacity(0.6))
+                        .frame(width: 5, height: 5)
+                    Text(article.isGenerated ? "Generated" :
+                         article.isStatic ? "Static" : "Pending")
+                        .font(.system(size: 10))
+                        .foregroundStyle(MacColors.textFaint)
+
+                    if article.content.isEmpty {
+                        Button {
+                            Task {
+                                await viewModel.generateArticle(
+                                    type: article.articleType,
+                                    moduleName: article.moduleName
+                                )
+                            }
+                        } label: {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 10))
+                                .foregroundStyle(MacColors.amberAccent)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(MacSpacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: MacCornerRadius.tab)
+                    .fill(isHovered ? MacColors.activeNavBackground.opacity(0.5) : MacColors.panelBackground)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: MacCornerRadius.tab)
+                    .strokeBorder(MacColors.cardBorder, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.1)) {
+                isHovered = hovering
+            }
         }
     }
 }

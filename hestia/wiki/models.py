@@ -23,6 +23,40 @@ class ArticleType(Enum):
     DIAGRAM = "diagram"
 
 
+@dataclass
+class WikiRoadmapMilestone:
+    """A single milestone within a roadmap group."""
+    id: str
+    title: str
+    status: str
+    scope: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "title": self.title,
+            "status": self.status,
+            "scope": self.scope,
+        }
+
+
+@dataclass
+class WikiRoadmapMilestoneGroup:
+    """A group of milestones (e.g., a sprint or phase)."""
+    id: str
+    title: str
+    order: int
+    milestones: list
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "title": self.title,
+            "order": self.order,
+            "milestones": [m.to_dict() for m in self.milestones],
+        }
+
+
 class GenerationStatus(Enum):
     """Status of AI-generated content."""
     PENDING = "pending"

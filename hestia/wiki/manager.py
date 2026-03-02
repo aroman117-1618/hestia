@@ -157,12 +157,15 @@ class WikiManager:
 
         # Parse roadmap
         roadmap = self.scanner.parse_roadmap()
-        if roadmap.get("content"):
+        groups = roadmap.get("groups", [])
+        whats_next = roadmap.get("whats_next", "")
+        if groups or whats_next:
+            content = self._format_roadmap_content(groups, whats_next)
             article = WikiArticle.create(
                 article_type=ArticleType.ROADMAP,
                 title="Development Roadmap",
                 subtitle="Completed milestones and what's next",
-                content=roadmap["content"],
+                content=content,
                 generation_status=GenerationStatus.STATIC,
             )
             await self.database.upsert_article(article)
@@ -175,6 +178,33 @@ class WikiManager:
         )
 
         return counts
+
+    # =========================================================================
+    # Structured Roadmap
+    # =========================================================================
+
+    async def get_roadmap_structured(self) -> Dict[str, Any]:
+        """
+        Get structured roadmap data from the development plan.
+
+        Returns:
+            Dict with groups (sorted by order) and whats_next.
+        """
+        roadmap = self.scanner.parse_roadmap()
+
+        # Sort groups by order (already in document order from parser)
+        groups = roadmap.get("groups", [])
+        whats_next = roadmap.get("whats_next", "")
+
+        self.logger.debug(
+            f"Roadmap loaded: {len(groups)} groups",
+            component=LogComponent.WIKI,
+        )
+
+        return {
+            "groups": groups,
+            "whats_next": whats_next,
+        }
 
     # =========================================================================
     # AI Content Generation
@@ -437,6 +467,31 @@ class WikiManager:
                 component=LogComponent.WIKI,
             )
             return {}
+
+    def _format_roadmap_content(
+        self,
+        groups: List[Dict[str, Any]],
+        whats_next: str,
+    ) -> str:
+        """Format structured roadmap data into readable markdown."""
+        parts = []
+
+        if whats_next:
+            parts.append("## What's Next")
+            parts.append(whats_next)
+            parts.append("")
+
+        for group in groups:
+            parts.append(f"### {group['title']}")
+            milestones = group.get("milestones", [])
+            if milestones:
+                parts.append("| Title | Scope | Status |")
+                parts.append("|-------|-------|--------|")
+                for m in milestones:
+                    parts.append(f"| {m['title']} | {m['scope']} | {m['status'].upper()} |")
+            parts.append("")
+
+        return "\n".join(parts)
 
     def _format_decision_content(self, adr: Dict[str, Any]) -> str:
         """Format an ADR dict into readable markdown content."""

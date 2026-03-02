@@ -1411,6 +1411,33 @@ Hestia runs on an always-on Mac Mini via launchd. Recurring reliability issues: 
 - Logs: bounded disk usage via compression + retention policy.
 - Trade-off: in-memory state (response cache, rate limiter windows) resets on worker recycle. Acceptable — cache is optimization, not correctness.
 
+### ADR-038: Field Guide UI Restructure — Thematic Tabs + Native Diagrams
+
+**Date**: 2026-03-02
+**Status**: Accepted
+
+#### Context
+The Field Guide (Wiki) had 5 tabs mirroring backend article types: Overview, Modules (flat list of 19), Decisions, Roadmap, Diagrams. This was developer-centric, not great for discovery. Mermaid diagrams rendered via WKWebView were fragile and visually inconsistent.
+
+#### Decision
+1. **Thematic tabs**: 5 new categories (Overview, Core Functionality, Skills & Automation, Memory & Learning, Resources & Tools) grouping modules by theme. Module grouping is frontend-only via `WikiTabCategory.modules(for:)` — no backend schema change.
+2. **Native SwiftUI diagrams**: 5 hand-coded diagrams (Architecture, Request Lifecycle, Council Flow, Data Flow, Integration Map) replace Mermaid/WKWebView. Reusable DiagramKit primitives (node, edge, container, legend).
+3. **Tab landing mode**: When no article is selected, each tab shows a hero diagram + article card grid. Back button returns to landing.
+4. **Structured roadmap**: New `GET /v1/wiki/roadmap` endpoint returns parsed milestone groups from `docs/hestia-development-plan.md`. Frontend renders with `DisclosureGroup` (collapsible milestones).
+5. **Decisions tab removed**: ADRs still in database, not displayed in UI.
+6. **Pinned roadmap**: Development Timeline is a pinned sidebar item, always visible below article list.
+
+#### Alternatives Considered
+1. **Backend-driven grouping** — rejected: would require schema migration and config changes for what is purely a presentation concern.
+2. **Data-driven diagrams** — rejected: diagram layout is inherently visual/spatial. Hand-coded SwiftUI with DiagramKit primitives matches existing chart patterns (SparklineChart, RadarChart).
+3. **Client-side markdown parsing for roadmap** — rejected: server has the file, Python regex is more robust, follows `parse_decisions()` precedent.
+
+#### Consequences
+- Discovery: modules grouped by theme rather than alphabetically, easier to find related components.
+- Diagrams: native SwiftUI renders crisply at all resolutions, no WebView overhead.
+- Orphan articles: Mermaid diagram articles and decision articles remain in DB (harmless), `generate_all()` still works.
+- New endpoint: `/v1/wiki/roadmap` (123 total endpoints).
+
 ---
 
 ## Adding New Decisions

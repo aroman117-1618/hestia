@@ -93,6 +93,18 @@ modules:
     display_name: "Wiki Module"
     subtitle: "This very documentation system"
     icon: "book"
+  explorer:
+    display_name: "Explorer"
+    subtitle: "Resource aggregation and draft management"
+    icon: "folder.badge.gearshape"
+  investigate:
+    display_name: "Investigate"
+    subtitle: "URL content analysis and comparison"
+    icon: "magnifyingglass"
+  newsfeed:
+    display_name: "Newsfeed"
+    subtitle: "Materialized timeline and source aggregation"
+    icon: "newspaper"
 
 # Diagram types to generate
 diagrams:
