@@ -5,10 +5,10 @@ Stores structured metadata, tags, and relationships.
 Vector embeddings stored separately in ChromaDB.
 """
 
-import aiosqlite
 from pathlib import Path
 from typing import List, Optional
 
+from hestia.database import BaseDatabase
 from hestia.logging import get_logger, LogComponent
 from hestia.memory.models import (
     ConversationChunk,
@@ -93,61 +93,25 @@ CREATE INDEX IF NOT EXISTS idx_staged_status ON staged_memory(review_status);
 """
 
 
-class MemoryDatabase:
+class MemoryDatabase(BaseDatabase):
     """
     Async SQLite database for memory storage.
 
     Handles structured metadata while ChromaDB handles embeddings.
     """
 
-    def __init__(
-        self,
-        db_path: Optional[Path] = None,
-    ):
-        """
-        Initialize database connection.
-
-        Args:
-            db_path: Path to SQLite database. Defaults to ~/hestia/data/memory.db
-        """
-        if db_path is None:
-            db_path = Path.home() / "hestia" / "data" / "memory.db"
-
-        self.db_path = Path(db_path)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-
+    def __init__(self, db_path: Optional[Path] = None) -> None:
+        super().__init__("memory", db_path)
         self.logger = get_logger()
-        self._connection: Optional[aiosqlite.Connection] = None
 
     async def connect(self) -> None:
         """Open database connection and initialize schema."""
-        self._connection = await aiosqlite.connect(self.db_path)
-        self._connection.row_factory = aiosqlite.Row
-
-        # Enable foreign keys
-        await self._connection.execute("PRAGMA foreign_keys = ON")
-
-        # Initialize schema
-        await self._init_schema()
-
+        await super().connect()
         self.logger.info(
             f"Memory database connected: {self.db_path}",
             component=LogComponent.MEMORY,
             data={"db_path": str(self.db_path)}
         )
-
-    async def close(self) -> None:
-        """Close database connection."""
-        if self._connection:
-            await self._connection.close()
-            self._connection = None
-
-    async def __aenter__(self) -> "MemoryDatabase":
-        await self.connect()
-        return self
-
-    async def __aexit__(self, *args) -> None:
-        await self.close()
 
     async def _init_schema(self) -> None:
         """Initialize database schema."""

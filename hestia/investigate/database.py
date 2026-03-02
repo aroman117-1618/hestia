@@ -6,48 +6,29 @@ retrieval, history listing, and cleanup.
 """
 
 import json
-
-import aiosqlite
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional
 
+from hestia.database import BaseDatabase
 from hestia.logging import get_logger, LogComponent
 
 from .models import Investigation, InvestigationStatus
 
 
-class InvestigateDatabase:
+class InvestigateDatabase(BaseDatabase):
     """
     SQLite database for investigation persistence.
 
     Uses async aiosqlite for non-blocking I/O.
     """
 
-    def __init__(self, db_path: Optional[Path] = None):
-        """
-        Initialize investigation database.
-
-        Args:
-            db_path: Path to SQLite database file.
-                     Defaults to ~/hestia/data/investigate.db
-        """
-        if db_path is None:
-            db_path = Path.home() / "hestia" / "data" / "investigate.db"
-
-        self.db_path = Path(db_path)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-
-        self._connection: Optional[aiosqlite.Connection] = None
+    def __init__(self, db_path: Optional[Path] = None) -> None:
+        super().__init__("investigate", db_path)
         self.logger = get_logger()
 
     async def connect(self) -> None:
         """Open database connection and initialize schema."""
-        self._connection = await aiosqlite.connect(self.db_path)
-        self._connection.row_factory = aiosqlite.Row
-
-        await self._connection.execute("PRAGMA foreign_keys = ON")
-        await self._init_schema()
-
+        await super().connect()
         self.logger.info(
             f"Investigation database connected: {self.db_path}",
             component=LogComponent.INVESTIGATE,
@@ -90,26 +71,6 @@ class InvestigateDatabase:
                 ON investigations(content_type);
         """)
         await self._connection.commit()
-
-    async def close(self) -> None:
-        """Close database connection."""
-        if self._connection:
-            await self._connection.close()
-            self._connection = None
-
-    async def __aenter__(self) -> "InvestigateDatabase":
-        await self.connect()
-        return self
-
-    async def __aexit__(self, *args) -> None:
-        await self.close()
-
-    @property
-    def connection(self) -> aiosqlite.Connection:
-        """Get active connection."""
-        if self._connection is None:
-            raise RuntimeError("Database not connected. Call connect() first.")
-        return self._connection
 
     # =========================================================================
     # CRUD

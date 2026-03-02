@@ -16,6 +16,8 @@ from typing import Any, Dict, List, Optional
 
 import aiosqlite
 
+from hestia.database import BaseDatabase
+
 from .models import (
     NewsfeedItem,
     NewsfeedItemPriority,
@@ -29,19 +31,18 @@ _DB_PATH = _DB_DIR / "newsfeed.db"
 _instance: Optional["NewsfeedDatabase"] = None
 
 
-class NewsfeedDatabase:
+class NewsfeedDatabase(BaseDatabase):
     """SQLite storage for newsfeed items and read/dismiss state."""
 
-    def __init__(self, db_path: Optional[Path] = None):
-        self._db_path = db_path or _DB_PATH
-        self._connection: Optional[aiosqlite.Connection] = None
+    def __init__(self, db_path: Optional[Path] = None) -> None:
+        super().__init__("newsfeed", db_path or _DB_PATH)
 
     async def initialize(self) -> None:
-        """Create tables if they don't exist."""
-        self._db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._connection = await aiosqlite.connect(str(self._db_path))
-        self._connection.row_factory = aiosqlite.Row
+        """Alias for connect() — backward compat."""
+        await self.connect()
 
+    async def _init_schema(self) -> None:
+        """Create tables if they don't exist."""
         await self._connection.executescript("""
             CREATE TABLE IF NOT EXISTS newsfeed_items (
                 id TEXT PRIMARY KEY,
@@ -77,12 +78,6 @@ class NewsfeedDatabase:
                 ON newsfeed_state(user_id);
         """)
         await self._connection.commit()
-
-    async def close(self) -> None:
-        """Close database connection."""
-        if self._connection:
-            await self._connection.close()
-            self._connection = None
 
     # ── Upsert / Query ──────────────────────────────────────
 

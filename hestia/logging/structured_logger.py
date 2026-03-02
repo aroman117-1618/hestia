@@ -41,7 +41,6 @@ class LogSeverity(Enum):
 
 class LogComponent(Enum):
     """Hestia components for log categorization."""
-    ACCESS = "access"
     ORCHESTRATION = "orchestration"
     MEMORY = "memory"
     INFERENCE = "inference"
@@ -50,7 +49,6 @@ class LogComponent(Enum):
     API = "api"
     SYSTEM = "system"
     VOICE = "voice"
-    CLOUD = "cloud"
     COUNCIL = "council"
     HEALTH = "health"
     WIKI = "wiki"

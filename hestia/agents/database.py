@@ -5,17 +5,17 @@ Provides async database operations for agent storage, snapshots,
 and recovery using aiosqlite.
 """
 
-import aiosqlite
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from hestia.database import BaseDatabase
 from hestia.logging import get_logger, LogComponent
 
 from .models import AgentProfile, AgentSnapshot, SnapshotReason, DEFAULT_AGENTS
 
 
-class AgentDatabase:
+class AgentDatabase(BaseDatabase):
     """
     SQLite database for agent profile persistence.
 
@@ -25,32 +25,14 @@ class AgentDatabase:
     # Snapshot retention period (90 days)
     SNAPSHOT_RETENTION_DAYS = 90
 
-    def __init__(self, db_path: Optional[Path] = None):
-        """
-        Initialize agent database.
-
-        Args:
-            db_path: Path to SQLite database file.
-                     Defaults to ~/hestia/data/agents.db
-        """
-        if db_path is None:
-            db_path = Path.home() / "hestia" / "data" / "agents.db"
-
-        self.db_path = Path(db_path)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-
-        self._connection: Optional[aiosqlite.Connection] = None
+    def __init__(self, db_path: Optional[Path] = None) -> None:
+        super().__init__("agents", db_path)
         self.logger = get_logger()
 
     async def connect(self) -> None:
-        """Open database connection and initialize schema."""
-        self._connection = await aiosqlite.connect(self.db_path)
-        self._connection.row_factory = aiosqlite.Row
-
-        await self._connection.execute("PRAGMA foreign_keys = ON")
-        await self._init_schema()
+        """Open database connection, initialize schema, seed defaults."""
+        await super().connect()
         await self._ensure_default_agents()
-
         self.logger.info(
             f"Agent database connected: {self.db_path}",
             component=LogComponent.API,
@@ -110,26 +92,11 @@ class AgentDatabase:
     async def close(self) -> None:
         """Close database connection."""
         if self._connection:
-            await self._connection.close()
-            self._connection = None
             self.logger.debug(
                 "Agent database closed",
                 component=LogComponent.API,
             )
-
-    async def __aenter__(self) -> "AgentDatabase":
-        await self.connect()
-        return self
-
-    async def __aexit__(self, *args) -> None:
-        await self.close()
-
-    @property
-    def connection(self) -> aiosqlite.Connection:
-        """Get active connection."""
-        if self._connection is None:
-            raise RuntimeError("Database not connected. Call connect() first.")
-        return self._connection
+        await super().close()
 
     # =========================================================================
     # Agent CRUD

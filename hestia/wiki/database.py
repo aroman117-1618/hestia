@@ -9,50 +9,33 @@ import aiosqlite
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from hestia.database import BaseDatabase
 from hestia.logging import get_logger, LogComponent
 
 from .models import WikiArticle, ArticleType, GenerationStatus
 
 
-class WikiDatabase:
+class WikiDatabase(BaseDatabase):
     """
     SQLite database for wiki article persistence.
 
     Uses async aiosqlite for non-blocking I/O.
     """
 
-    def __init__(self, db_path: Optional[Path] = None):
-        """
-        Initialize wiki database.
-
-        Args:
-            db_path: Path to SQLite database file.
-                     Defaults to ~/hestia/data/wiki.db
-        """
-        if db_path is None:
-            db_path = Path.home() / "hestia" / "data" / "wiki.db"
-
-        self.db_path = Path(db_path)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-
-        self._connection: Optional[aiosqlite.Connection] = None
+    def __init__(self, db_path: Optional[Path] = None) -> None:
+        super().__init__("wiki", db_path)
         self.logger = get_logger()
 
     async def connect(self) -> None:
         """Open database connection and initialize schema."""
-        self._connection = await aiosqlite.connect(self.db_path)
-        self._connection.row_factory = aiosqlite.Row
-
-        await self._connection.execute("PRAGMA foreign_keys = ON")
-        await self._init_schema()
-
+        await super().connect()
         self.logger.info(
             f"Wiki database connected: {self.db_path}",
             component=LogComponent.WIKI,
         )
 
     async def _init_schema(self) -> None:
-        """Initialize database schema."""
+        """Initialize database schema with auto-migration."""
         await self._connection.executescript("""
             CREATE TABLE IF NOT EXISTS wiki_articles (
                 id TEXT PRIMARY KEY,
@@ -94,26 +77,11 @@ class WikiDatabase:
     async def close(self) -> None:
         """Close database connection."""
         if self._connection:
-            await self._connection.close()
-            self._connection = None
             self.logger.debug(
                 "Wiki database closed",
                 component=LogComponent.WIKI,
             )
-
-    async def __aenter__(self) -> "WikiDatabase":
-        await self.connect()
-        return self
-
-    async def __aexit__(self, *args) -> None:
-        await self.close()
-
-    @property
-    def connection(self) -> aiosqlite.Connection:
-        """Get active connection."""
-        if self._connection is None:
-            raise RuntimeError("Database not connected. Call connect() first.")
-        return self._connection
+        await super().close()
 
     # =========================================================================
     # Article CRUD

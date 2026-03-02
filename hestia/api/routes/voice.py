@@ -11,6 +11,7 @@ Pipeline:
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from hestia.api.errors import sanitize_for_log
 from hestia.api.schemas import (
     VoiceFlaggedWord,
     VoiceQualityCheckRequest,
@@ -90,7 +91,7 @@ async def quality_check(
 
     except Exception as e:
         logger.error(
-            f"Voice quality check failed: {type(e).__name__}",
+            f"Voice quality check failed: {sanitize_for_log(e)}",
             component=LogComponent.API,
         )
         raise HTTPException(
@@ -181,7 +182,7 @@ async def journal_analyze(
 
     except Exception as e:
         logger.error(
-            f"Voice journal analysis failed: {type(e).__name__}",
+            f"Voice journal analysis failed: {sanitize_for_log(e)}",
             component=LogComponent.API,
         )
         raise HTTPException(

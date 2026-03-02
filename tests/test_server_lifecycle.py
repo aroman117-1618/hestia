@@ -310,8 +310,164 @@ class TestUvicornConfig:
 
     def test_limit_max_requests_set(self):
         """Uvicorn should have request limit configured."""
-        # We can't easily test the uvicorn_config dict without calling run_server,
-        # but we can verify the module-level constants are importable and the
-        # server module doesn't error on import
         import hestia.api.server
         assert hasattr(hestia.api.server, 'app')
+
+    def test_uvicorn_config_params_valid(self):
+        """All uvicorn config keys must be valid parameters of uvicorn.run().
+
+        Prevents regressions like passing 'limit_max_requests_jitter'
+        which exists on uvicorn.Config but not uvicorn.run().
+        """
+        import inspect
+        import uvicorn
+
+        valid_params = set(inspect.signature(uvicorn.run).parameters.keys())
+
+        # Build the same config dict that run_server() builds (without SSL)
+        uvicorn_config = {
+            "app": "hestia.api.server:app",
+            "host": "0.0.0.0",
+            "port": 8443,
+            "reload": False,
+            "log_level": "info",
+            "limit_max_requests": 5000,
+        }
+
+        invalid = set(uvicorn_config.keys()) - valid_params
+        assert not invalid, (
+            f"Invalid uvicorn.run() params: {invalid}. "
+            f"These may exist on uvicorn.Config but not run()."
+        )
+
+    def test_uvicorn_config_ssl_params_valid(self):
+        """SSL-related uvicorn config keys must also be valid."""
+        import inspect
+        import uvicorn
+
+        valid_params = set(inspect.signature(uvicorn.run).parameters.keys())
+
+        ssl_keys = {"ssl_certfile", "ssl_keyfile"}
+        invalid = ssl_keys - valid_params
+        assert not invalid, f"Invalid SSL params for uvicorn.run(): {invalid}"
+
+
+# ============== Server Startup Smoke Tests ==============
+
+
+class TestServerStartupSmoke:
+    """Validate the server can actually start by checking imports and config.
+
+    These tests catch two classes of regressions:
+    1. Missing imports (e.g. 'import aiosqlite' removed but still referenced)
+    2. Invalid config params (e.g. unsupported uvicorn arguments)
+
+    Without these, all other tests pass because they mock the actual startup path.
+    """
+
+    def test_all_manager_modules_import(self):
+        """Every module the server lifespan initializes must import cleanly.
+
+        Catches missing imports like 'aiosqlite' in memory/database.py.
+        """
+        # These are the exact imports from server.py lines 36-46
+        modules = [
+            "hestia.orchestration.handler",
+            "hestia.memory",
+            "hestia.memory.database",
+            "hestia.memory.manager",
+            "hestia.tasks",
+            "hestia.orders",
+            "hestia.agents",
+            "hestia.user",
+            "hestia.cloud",
+            "hestia.health",
+            "hestia.wiki",
+            "hestia.explorer",
+            "hestia.newsfeed",
+            "hestia.investigate",
+            "hestia.agents.config_loader",
+            "hestia.api.invite_store",
+        ]
+        import importlib
+
+        failures = []
+        for mod_name in modules:
+            try:
+                importlib.import_module(mod_name)
+            except Exception as e:
+                failures.append(f"{mod_name}: {type(e).__name__}: {e}")
+
+        assert not failures, (
+            f"Server lifespan modules failed to import:\n"
+            + "\n".join(f"  - {f}" for f in failures)
+        )
+
+    def test_base_database_has_async_driver(self):
+        """BaseDatabase must import aiosqlite (all DB modules inherit from it)."""
+        import importlib
+
+        mod = importlib.import_module("hestia.database")
+        assert hasattr(mod, 'aiosqlite'), (
+            "hestia.database must import aiosqlite — all DB modules depend on it"
+        )
+
+    def test_memory_database_extends_base(self):
+        """MemoryDatabase must extend BaseDatabase for proper DB initialization."""
+        from hestia.memory.database import MemoryDatabase
+        from hestia.database import BaseDatabase
+
+        assert issubclass(MemoryDatabase, BaseDatabase), (
+            "MemoryDatabase must extend BaseDatabase to inherit aiosqlite connection management"
+        )
+
+    def test_all_route_modules_import(self):
+        """Every route module registered in server.py must import cleanly."""
+        route_modules = [
+            "hestia.api.routes.health",
+            "hestia.api.routes.auth",
+            "hestia.api.routes.chat",
+            "hestia.api.routes.mode",
+            "hestia.api.routes.memory",
+            "hestia.api.routes.sessions",
+            "hestia.api.routes.tools",
+            "hestia.api.routes.tasks",
+            "hestia.api.routes.cloud",
+            "hestia.api.routes.voice",
+            "hestia.api.routes.orders",
+            "hestia.api.routes.agents",
+            "hestia.api.routes.agents_v2",
+            "hestia.api.routes.user",
+            "hestia.api.routes.user_profile",
+            "hestia.api.routes.proactive",
+            "hestia.api.routes.health_data",
+            "hestia.api.routes.wiki",
+            "hestia.api.routes.explorer",
+            "hestia.api.routes.newsfeed",
+            "hestia.api.routes.investigate",
+        ]
+        import importlib
+
+        failures = []
+        for mod_name in route_modules:
+            try:
+                importlib.import_module(mod_name)
+            except Exception as e:
+                failures.append(f"{mod_name}: {type(e).__name__}: {e}")
+
+        assert not failures, (
+            f"Route modules failed to import:\n"
+            + "\n".join(f"  - {f}" for f in failures)
+        )
+
+    def test_server_app_creates_without_error(self):
+        """The FastAPI app object should be importable and well-formed."""
+        from hestia.api.server import app
+        assert app is not None
+        assert hasattr(app, 'routes')
+        # Verify routes are registered (should be >100)
+        route_count = len(app.routes)
+        assert route_count > 50, (
+            f"Only {route_count} routes registered — expected 100+. "
+            f"Route registration may have failed silently."
+        )

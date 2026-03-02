@@ -6,6 +6,7 @@ Handles persona mode switching and information.
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from hestia.api.errors import sanitize_for_log
 from hestia.api.schemas import (
     ModeResponse,
     ModeEnum,

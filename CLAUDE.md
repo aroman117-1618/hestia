@@ -85,7 +85,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | Hardware | Mac Mini M1 (16GB) |
 | Model | Qwen 2.5 7B (Ollama, local) + cloud providers (Anthropic/OpenAI/Google) |
 | SLM | qwen2.5:0.5b (council intent classification, ~100ms) |
-| Backend | Python 3.9+, FastAPI, 123 endpoints across 21 route modules |
+| Backend | Python 3.9+, FastAPI, 126 endpoints across 21 route modules |
 | Storage | ChromaDB (vectors) + SQLite (structured) + macOS Keychain (credentials) |
 | App | Native Swift/SwiftUI (iOS 26.0+) |
 | API | REST on port 8443 with JWT auth, HTTPS with self-signed cert |
@@ -102,7 +102,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 **Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
 **Field Guide UI Restructure: COMPLETE.** 5 thematic tabs, native SwiftUI diagrams, structured roadmap with `/v1/wiki/roadmap` endpoint.
 
-1234 tests (1231 passing, 3 skipped), 27 test files. Full details: `python -m pytest tests/ -v --timeout=30`
+1261 tests (1258 passing, 3 skipped), 27 test files. Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -110,7 +110,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 - **Type hints**: Always. Every function signature.
 - **Async/await**: For all I/O (database, inference, network).
-- **Logging**: `logger = get_logger()` — no arguments. Never `HestiaLogger(component=...)` or `get_logger(component=...)`. Import: `from hestia.logging import get_logger`. LogComponent enum: ACCESS, ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, CLOUD, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED, INVESTIGATE.
+- **Logging**: `logger = get_logger()` — no arguments. Never `HestiaLogger(component=...)` or `get_logger(component=...)`. Import: `from hestia.logging import get_logger`. LogComponent enum: ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED, INVESTIGATE.
 - **Config**: YAML files, never hardcode.
 - **Error handling in routes**: `sanitize_for_log(e)` from `hestia.api.errors` in logs (never raw `{e}`). Generic messages in HTTP responses (never `detail=str(e)`).
 - **File naming**: `snake_case.py` (Python), UpperCamelCase.swift (iOS).
@@ -168,6 +168,7 @@ Use Python 3.12 (not 3.13+). Pin version in pyproject.toml with `requires-python
 ```
 hestia/
 ├── hestia/                          # Python backend — 22 modules
+│   ├── database.py                  # BaseDatabase ABC (shared by all 11 SQLite modules)
 │   ├── security/                    # CredentialManager (Keychain + Fernet)
 │   ├── logging/                     # HestiaLogger, AuditLogger, LogComponent enum
 │   ├── inference/                   # InferenceClient (Ollama + cloud), ModelRouter (3-state)
@@ -191,7 +192,7 @@ hestia/
 │   │   └── extractors/             # BaseExtractor ABC, WebArticleExtractor, YouTubeExtractor
 │   ├── api/                         # FastAPI — 123 endpoints, 21 route modules
 │   │   ├── errors.py                # sanitize_for_log(), safe_error_detail()
-│   │   ├── schemas.py               # All Pydantic request/response models
+│   │   ├── schemas/                  # Pydantic request/response models (15 domain modules)
 │   │   ├── server.py                # App lifecycle, manager initialization
 │   │   ├── middleware/auth.py        # JWT device authentication
 │   │   └── routes/                  # auth, health, chat, mode, memory, sessions, tools,
@@ -216,7 +217,7 @@ hestia/
 │   │   ├── Services/                # APIClient+Wiki, APIClient+Tools, APIClient+Newsfeed, APIClient+Health, APIClient+Devices, APIClient+Investigate
 │   │   └── DesignSystem/            # MacColors, MacSpacing, MacTypography
 │   └── project.yml                  # xcodegen config (iOS 26.0, macOS 15.0, Swift 6.1)
-├── tests/                           # 1234 tests, 27 files
+├── tests/                           # 1260 tests, 27 files
 ├── scripts/                         # deploy, test-api, auto-test, validate-security, ollama
 ├── .claude/                         # agents/, output-styles/, settings
 ├── docs/                            # api-contract, decision-log, security-architecture
@@ -225,7 +226,7 @@ hestia/
 
 ---
 
-## API Summary (123 endpoints, 21 route modules)
+## API Summary (126 endpoints, 21 route modules)
 
 | Module | Endpoints | Key Routes |
 |--------|-----------|------------|

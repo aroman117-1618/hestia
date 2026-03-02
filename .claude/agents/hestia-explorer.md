@@ -22,7 +22,7 @@ You are Hestia's fast codebase navigator. You find things, trace connections, an
 
 ```
 hestia/
-├── hestia/                    # Python backend (20 modules, 109 API endpoints)
+├── hestia/                    # Python backend (22 modules, 126 API endpoints)
 │   ├── security/              # CredentialManager (3-tier, Fernet + Keychain)
 │   ├── logging/               # get_logger(), AuditLogger, log viewer
 │   ├── inference/             # InferenceClient (Ollama + cloud, 3-state routing)
@@ -42,7 +42,7 @@ hestia/
 │   ├── wiki/                  # Architecture field guide (AI-generated + static docs)
 │   ├── explorer/              # ExplorerManager, resource aggregation, draft CRUD, TTL cache
 │   ├── newsfeed/              # Newsfeed aggregation (RSS, system events)
-│   ├── api/                   # FastAPI REST API (109 endpoints)
+│   ├── api/                   # FastAPI REST API (126 endpoints)
 │   │   ├── server.py          # App lifecycle, TLS/HTTPS
 │   │   ├── schemas.py         # All Pydantic models
 │   │   ├── errors.py          # Error sanitization helpers

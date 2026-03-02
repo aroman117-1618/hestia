@@ -6,6 +6,7 @@ Lists available tools and their definitions.
 
 from fastapi import APIRouter, Depends
 
+from hestia.api.errors import sanitize_for_log
 from hestia.api.schemas import (
     ToolsResponse,
     ToolDefinition,

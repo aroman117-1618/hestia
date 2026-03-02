@@ -22,6 +22,24 @@ struct MacWikiSidebarView: View {
             pinnedRoadmapRow
                 .padding(.horizontal, MacSpacing.sm)
                 .padding(.vertical, MacSpacing.sm)
+
+            if viewModel.lastUpdatedText != nil {
+                cacheTimestampFooter
+            }
+        }
+    }
+
+    // MARK: - Cache Timestamp Footer
+
+    private var cacheTimestampFooter: some View {
+        TimelineView(.periodic(from: .now, by: 60)) { _ in
+            if let text = viewModel.lastUpdatedText {
+                Text(text)
+                    .font(.system(size: 10))
+                    .foregroundStyle(MacColors.textFaint)
+                    .frame(maxWidth: .infinity)
+                    .padding(.bottom, MacSpacing.xs)
+            }
         }
     }
 
@@ -103,7 +121,7 @@ struct MacWikiSidebarView: View {
                 Image(systemName: "flag.checkered")
                     .font(.system(size: 13))
                     .frame(width: 20)
-                Text("Development Timeline")
+                Text("Roadmap")
                     .font(.system(size: 13, weight: viewModel.showingRoadmap ? .semibold : .regular))
                 Spacer()
                 Image(systemName: "chevron.right")

@@ -763,7 +763,6 @@ def run_server(
         # Recycle worker after ~5000 requests to prevent memory leak accumulation.
         # launchd KeepAlive restarts the process automatically.
         "limit_max_requests": 5000,
-        "limit_max_requests_jitter": 500,
     }
 
     if cert_path and key_path:

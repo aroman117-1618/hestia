@@ -10,6 +10,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from hestia.database import BaseDatabase
 from hestia.logging import get_logger, LogComponent
 
 from .models import (
@@ -23,7 +24,7 @@ from .models import (
 SCHEMA_VERSION = 1
 
 
-class CloudDatabase:
+class CloudDatabase(BaseDatabase):
     """
     SQLite database for cloud provider persistence.
 
@@ -31,23 +32,12 @@ class CloudDatabase:
     """
 
     def __init__(self, db_path: Optional[Path] = None) -> None:
-        if db_path is None:
-            db_path = Path.home() / "hestia" / "data" / "cloud.db"
-
-        self.db_path = Path(db_path)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
-
-        self._connection: Optional[aiosqlite.Connection] = None
+        super().__init__("cloud", db_path)
         self.logger = get_logger()
 
     async def connect(self) -> None:
         """Open database connection and initialize schema."""
-        self._connection = await aiosqlite.connect(self.db_path)
-        self._connection.row_factory = aiosqlite.Row
-
-        await self._connection.execute("PRAGMA foreign_keys = ON")
-        await self._init_schema()
-
+        await super().connect()
         self.logger.info(
             f"Cloud database connected: {self.db_path}",
             component=LogComponent.API,
@@ -90,26 +80,6 @@ class CloudDatabase:
             CREATE INDEX IF NOT EXISTS idx_usage_request
                 ON cloud_usage(request_id);
         """)
-
-    async def close(self) -> None:
-        """Close database connection."""
-        if self._connection:
-            await self._connection.close()
-            self._connection = None
-
-    async def __aenter__(self) -> "CloudDatabase":
-        await self.connect()
-        return self
-
-    async def __aexit__(self, *args: Any) -> None:
-        await self.close()
-
-    @property
-    def connection(self) -> aiosqlite.Connection:
-        """Get active connection."""
-        if self._connection is None:
-            raise RuntimeError("Cloud database not connected")
-        return self._connection
 
     # ── Provider CRUD ──────────────────────────────────────────────────
 

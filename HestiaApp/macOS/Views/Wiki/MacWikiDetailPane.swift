@@ -105,7 +105,7 @@ struct MacWikiDetailPane: View {
 
     private var toolbarTitle: String {
         if viewModel.showingRoadmap {
-            return "Development Timeline"
+            return "Roadmap"
         }
         if let article = viewModel.selectedArticle {
             return article.title

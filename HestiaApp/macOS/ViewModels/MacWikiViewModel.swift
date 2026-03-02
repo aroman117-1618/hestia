@@ -53,50 +53,78 @@ class WikiViewModel: ObservableObject {
         }
     }
 
-    // MARK: - API Client
+    // MARK: - Cache & Freshness
 
     private let client: APIClient
+    private let cache = WikiCacheService.shared
+
+    @Published var lastFetchedDate: Date?
+
+    /// Human-readable relative timestamp, e.g. "5 min. ago"
+    var lastUpdatedText: String? {
+        guard let date = lastFetchedDate else { return nil }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return "Updated \(formatter.localizedString(for: date, relativeTo: Date()))"
+    }
 
     init(client: APIClient = .shared) {
         self.client = client
+        lastFetchedDate = cache.loadMeta().articlesLastFetched
     }
 
     // MARK: - Data Loading
 
     func loadArticles() async {
-        isLoading = true
         errorMessage = nil
 
+        // Phase 1: Load from disk cache instantly (no spinner)
+        if articles.isEmpty {
+            if let cached = cache.loadCachedArticles() {
+                articles = cached
+                autoSelectBestTab()
+            }
+            if roadmapGroups.isEmpty, let cachedRoadmap = cache.loadCachedRoadmap() {
+                roadmapGroups = cachedRoadmap.groups
+                roadmapWhatsNext = cachedRoadmap.whatsNext
+            }
+        }
+
+        // Phase 2: Show spinner only if we have nothing to display
+        let hadCachedData = !articles.isEmpty
+        if !hadCachedData {
+            isLoading = true
+        }
+
+        // Phase 3: Fetch fresh from server in background
         do {
             async let articlesTask: WikiArticleListResponse = client.getWikiArticles()
-            async let roadmapTask: Void = loadRoadmap()
+            async let roadmapTask: WikiRoadmapResponse = client.getWikiRoadmap()
 
             let response = try await articlesTask
-            _ = await roadmapTask
-
             articles = response.articles
             autoSelectBestTab()
+            cache.saveArticles(response.articles)
+
+            // Roadmap fetch is independent — don't let its failure block articles
+            if let roadmap = try? await roadmapTask {
+                roadmapGroups = roadmap.groups
+                roadmapWhatsNext = roadmap.whatsNext
+                cache.saveRoadmap(roadmap)
+            }
+
+            lastFetchedDate = Date()
         } catch {
             #if DEBUG
             print("[WikiVM] Failed to load articles: \(error)")
             #endif
-            errorMessage = "Could not load wiki articles"
+            // Only show error if we have no cached data to fall back on
+            if !hadCachedData {
+                errorMessage = "Could not load wiki articles"
+            }
         }
 
         isLoading = false
-    }
-
-    func loadRoadmap() async {
-        do {
-            let response: WikiRoadmapResponse = try await client.getWikiRoadmap()
-            roadmapGroups = response.groups
-            roadmapWhatsNext = response.whatsNext
-        } catch {
-            #if DEBUG
-            print("[WikiVM] Failed to load roadmap: \(error)")
-            #endif
-            // Non-fatal — roadmap is optional
-        }
     }
 
     /// Auto-select the first tab that has content, if the current tab is empty.

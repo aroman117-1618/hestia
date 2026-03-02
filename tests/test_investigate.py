@@ -9,6 +9,7 @@ Run with: python -m pytest tests/test_investigate.py -v --timeout=30
 
 import asyncio
 import json
+import socket
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,7 +29,7 @@ from hestia.investigate.models import (
     DEPTH_TOKEN_TARGETS,
 )
 from hestia.investigate.database import InvestigateDatabase
-from hestia.investigate.manager import InvestigateManager, _extract_key_points, _validate_url
+from hestia.investigate.manager import InvestigateManager, _extract_key_points, _validate_url, _is_dangerous_ip
 from hestia.investigate.extractors import classify_url, get_extractor
 from hestia.investigate.extractors.base import BaseExtractor
 
@@ -1110,42 +1111,173 @@ class TestInvestigateRoutes:
 class TestURLValidation:
     """Tests for _validate_url SSRF protection."""
 
-    def test_valid_url(self):
-        assert _validate_url("https://example.com/article") is None
+    @pytest.mark.asyncio
+    async def test_valid_url(self):
+        assert await _validate_url("https://example.com/article") is None
 
-    def test_valid_http(self):
-        assert _validate_url("http://example.com/article") is None
+    @pytest.mark.asyncio
+    async def test_valid_http(self):
+        assert await _validate_url("http://example.com/article") is None
 
-    def test_no_scheme(self):
-        error = _validate_url("example.com/article")
+    @pytest.mark.asyncio
+    async def test_no_scheme(self):
+        error = await _validate_url("example.com/article")
         assert error is not None
         assert "scheme" in error.lower()
 
-    def test_ftp_scheme(self):
-        error = _validate_url("ftp://files.example.com")
+    @pytest.mark.asyncio
+    async def test_ftp_scheme(self):
+        error = await _validate_url("ftp://files.example.com")
         assert error is not None
 
-    def test_localhost_blocked(self):
-        error = _validate_url("http://localhost:8443/v1/health")
+    @pytest.mark.asyncio
+    async def test_localhost_blocked(self):
+        error = await _validate_url("http://localhost:8443/v1/health")
         assert error is not None
         assert "localhost" in error.lower()
 
-    def test_127_blocked(self):
-        error = _validate_url("http://127.0.0.1/secret")
+    @pytest.mark.asyncio
+    async def test_127_blocked(self):
+        error = await _validate_url("http://127.0.0.1/secret")
         assert error is not None
 
-    def test_private_10_blocked(self):
-        error = _validate_url("http://10.0.0.1/internal")
+    @pytest.mark.asyncio
+    async def test_private_10_blocked(self):
+        error = await _validate_url("http://10.0.0.1/internal")
         assert error is not None
         assert "private" in error.lower()
 
-    def test_private_192_blocked(self):
-        error = _validate_url("http://192.168.1.1/admin")
+    @pytest.mark.asyncio
+    async def test_private_192_blocked(self):
+        error = await _validate_url("http://192.168.1.1/admin")
         assert error is not None
 
-    def test_no_hostname(self):
-        error = _validate_url("https://")
+    @pytest.mark.asyncio
+    async def test_no_hostname(self):
+        error = await _validate_url("https://")
         assert error is not None
+
+    # --- New SSRF bypass tests ---
+
+    @pytest.mark.asyncio
+    async def test_dns_rebinding_blocked(self):
+        """Hostname that resolves to 127.0.0.1 should be blocked."""
+        with patch("hestia.investigate.manager.socket.getaddrinfo") as mock_dns:
+            mock_dns.return_value = [
+                (2, 1, 6, "", ("127.0.0.1", 0)),
+            ]
+            error = await _validate_url("http://evil-rebind.example.com/steal")
+            assert error is not None
+            assert "private" in error.lower()
+
+    @pytest.mark.asyncio
+    async def test_decimal_ip_blocked(self):
+        """Decimal-encoded 127.0.0.1 (2130706433) should be blocked."""
+        error = await _validate_url("http://2130706433/secret")
+        # 2130706433 won't parse as IP via urlparse hostname, but getaddrinfo
+        # may resolve it. Either way, it should fail (resolve error or IP block).
+        assert error is not None
+
+    @pytest.mark.asyncio
+    async def test_ipv6_mapped_ipv4_blocked(self):
+        """IPv6-mapped IPv4 (::ffff:127.0.0.1) should be blocked."""
+        error = await _validate_url("http://[::ffff:127.0.0.1]/secret")
+        assert error is not None
+
+    @pytest.mark.asyncio
+    async def test_link_local_blocked(self):
+        """Link-local / cloud metadata (169.254.169.254) should be blocked."""
+        error = await _validate_url("http://169.254.169.254/latest/meta-data")
+        assert error is not None
+        assert "private" in error.lower()
+
+    @pytest.mark.asyncio
+    async def test_multicast_blocked(self):
+        """Multicast addresses should be blocked."""
+        error = await _validate_url("http://224.0.0.1/")
+        assert error is not None
+
+    @pytest.mark.asyncio
+    async def test_ipv6_loopback_blocked(self):
+        """IPv6 loopback (::1) should be blocked."""
+        error = await _validate_url("http://[::1]:8443/secret")
+        assert error is not None
+
+    @pytest.mark.asyncio
+    async def test_dns_resolves_to_private_10_blocked(self):
+        """Hostname resolving to 10.x.x.x should be blocked."""
+        with patch("hestia.investigate.manager.socket.getaddrinfo") as mock_dns:
+            mock_dns.return_value = [
+                (2, 1, 6, "", ("10.0.0.5", 0)),
+            ]
+            error = await _validate_url("http://internal-service.corp.com/api")
+            assert error is not None
+            assert "private" in error.lower()
+
+    @pytest.mark.asyncio
+    async def test_dns_multiple_ips_one_private_blocked(self):
+        """If ANY resolved IP is private, block the request."""
+        with patch("hestia.investigate.manager.socket.getaddrinfo") as mock_dns:
+            mock_dns.return_value = [
+                (2, 1, 6, "", ("93.184.216.34", 0)),  # Valid public IP
+                (2, 1, 6, "", ("192.168.1.1", 0)),    # Private IP
+            ]
+            error = await _validate_url("http://dual-homed.example.com/")
+            assert error is not None
+            assert "private" in error.lower()
+
+    @pytest.mark.asyncio
+    async def test_unresolvable_hostname(self):
+        """Hostname that can't be resolved should fail."""
+        with patch("hestia.investigate.manager.socket.getaddrinfo") as mock_dns:
+            mock_dns.side_effect = socket.gaierror("Name resolution failed")
+            error = await _validate_url("http://nonexistent.invalid/page")
+            assert error is not None
+            assert "resolve" in error.lower()
+
+    @pytest.mark.asyncio
+    async def test_valid_external_hostname_passes(self):
+        """A hostname resolving to a public IP should pass."""
+        with patch("hestia.investigate.manager.socket.getaddrinfo") as mock_dns:
+            mock_dns.return_value = [
+                (2, 1, 6, "", ("93.184.216.34", 0)),
+            ]
+            result = await _validate_url("http://example.com/article")
+            assert result is None
+
+
+class TestIsDangerousIP:
+    """Tests for _is_dangerous_ip helper."""
+
+    def test_loopback_v4(self):
+        assert _is_dangerous_ip("127.0.0.1") is not None
+
+    def test_loopback_v6(self):
+        assert _is_dangerous_ip("::1") is not None
+
+    def test_private_10(self):
+        assert _is_dangerous_ip("10.0.0.1") is not None
+
+    def test_private_172(self):
+        assert _is_dangerous_ip("172.16.0.1") is not None
+
+    def test_private_192(self):
+        assert _is_dangerous_ip("192.168.1.1") is not None
+
+    def test_link_local(self):
+        assert _is_dangerous_ip("169.254.169.254") is not None
+
+    def test_multicast(self):
+        assert _is_dangerous_ip("224.0.0.1") is not None
+
+    def test_public_ip_safe(self):
+        assert _is_dangerous_ip("93.184.216.34") is None
+
+    def test_invalid_not_ip(self):
+        assert _is_dangerous_ip("not-an-ip") is None
+
+    def test_ipv6_mapped_v4_private(self):
+        assert _is_dangerous_ip("::ffff:127.0.0.1") is not None
 
 
 # ============== Additional Key Point Tests ==============

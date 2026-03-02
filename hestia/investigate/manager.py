@@ -6,7 +6,9 @@ extractor framework and InferenceClient for LLM analysis.
 """
 
 import asyncio
+import ipaddress
 import re
+import socket
 import yaml
 from datetime import datetime, timezone
 from pathlib import Path
@@ -73,11 +75,36 @@ def _load_config() -> Dict[str, Any]:
     return {}
 
 
-def _validate_url(url: str) -> Optional[str]:
+def _is_dangerous_ip(ip_str: str) -> Optional[str]:
+    """Check if an IP address is private, loopback, link-local, or otherwise dangerous."""
+    try:
+        addr = ipaddress.ip_address(ip_str)
+    except ValueError:
+        return None  # Not an IP literal, will be resolved via DNS
+
+    if addr.is_loopback:
+        return "Cannot investigate localhost URLs"
+    if addr.is_private:
+        return "Cannot investigate private network URLs"
+    if addr.is_link_local:
+        return "Cannot investigate private network URLs"
+    if addr.is_multicast:
+        return "Cannot investigate multicast URLs"
+    if addr.is_reserved:
+        return "Cannot investigate reserved network URLs"
+    # Explicit cloud metadata endpoint (link-local covers it, but belt-and-suspenders)
+    if ip_str in ("169.254.169.254", "fd00::ec2"):
+        return "Cannot investigate private network URLs"
+    return None
+
+
+async def _validate_url(url: str) -> Optional[str]:
     """
     Validate a URL for safety. Returns error message or None if valid.
 
-    Checks scheme, hostname presence, and blocks private/internal addresses.
+    Checks scheme, hostname presence, and resolves DNS to block private/internal
+    addresses. Uses ipaddress module to catch DNS rebinding, decimal IP encoding,
+    IPv6-mapped IPv4, link-local, and multicast addresses.
     """
     try:
         parsed = urlparse(url)
@@ -90,14 +117,31 @@ def _validate_url(url: str) -> Optional[str]:
     if not parsed.hostname:
         return "URL must have a hostname"
 
-    # Block obvious SSRF targets
     hostname = parsed.hostname.lower()
-    if hostname in ("localhost", "127.0.0.1", "0.0.0.0", "::1"):
+
+    # Block "localhost" by name before DNS resolution
+    if hostname == "localhost":
         return "Cannot investigate localhost URLs"
-    if hostname.startswith("10.") or hostname.startswith("192.168."):
-        return "Cannot investigate private network URLs"
-    if hostname.startswith("172.") and 16 <= int(hostname.split(".")[1]) <= 31:
-        return "Cannot investigate private network URLs"
+
+    # Check if hostname is an IP literal (v4 or v6)
+    ip_error = _is_dangerous_ip(hostname)
+    if ip_error:
+        return ip_error
+
+    # DNS resolution: resolve hostname and check ALL resolved IPs
+    # Uses run_in_executor because socket.getaddrinfo is blocking
+    try:
+        loop = asyncio.get_event_loop()
+        addrinfo = await loop.run_in_executor(
+            None, socket.getaddrinfo, hostname, None
+        )
+        for family, _type, _proto, _canonname, sockaddr in addrinfo:
+            resolved_ip = sockaddr[0]
+            ip_error = _is_dangerous_ip(resolved_ip)
+            if ip_error:
+                return "Cannot investigate private network URLs"
+    except socket.gaierror:
+        return "Cannot resolve hostname"
 
     return None
 
@@ -248,8 +292,8 @@ class InvestigateManager:
         Returns:
             Investigation result as dict.
         """
-        # Validate URL
-        url_error = _validate_url(url)
+        # Validate URL (async — resolves DNS to prevent SSRF)
+        url_error = await _validate_url(url)
         if url_error:
             return {
                 "id": "",

@@ -86,9 +86,15 @@ get_test_file() {
         *hestia/api/server*)
             echo "tests/test_server_lifecycle.py" ;;
 
+        # Base database (shared by all modules)
+        *hestia/database*)
+            echo "tests/test_server_lifecycle.py" ;;
+
         # Backend modules
         *hestia/inference/*)
             echo "tests/test_inference.py" ;;
+        *hestia/memory/database*)
+            echo "tests/test_memory.py tests/test_server_lifecycle.py" ;;
         *hestia/memory/*)
             echo "tests/test_memory.py" ;;
         *hestia/orchestration/handler*)

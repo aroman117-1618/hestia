@@ -163,7 +163,7 @@ struct WikiRoadmapView: View {
             Text("No roadmap data")
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(MacColors.textSecondary)
-            Text("Refresh static content to load the development timeline")
+            Text("Refresh static content to load the roadmap")
                 .font(.system(size: 12))
                 .foregroundStyle(MacColors.textFaint)
             Spacer()

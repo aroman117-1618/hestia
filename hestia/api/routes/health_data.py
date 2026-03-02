@@ -9,6 +9,7 @@ from datetime import date, time
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from hestia.api.errors import sanitize_for_log
 from hestia.api.middleware.auth import get_device_token
 from hestia.api.schemas import (
     CoachingPreferencesRequest,
