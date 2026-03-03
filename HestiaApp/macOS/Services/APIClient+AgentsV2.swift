@@ -50,22 +50,24 @@ struct AgentConfigFileUpdateBody: Codable {
 }
 
 // MARK: - APIClient Extension
+// Note: The base URL includes /v1, but V2 agents live at /v2/agents.
+// We use "../v2/" which the server resolves correctly via URL normalization.
 
 extension APIClient {
     func getAgentsV2() async throws -> AgentConfigListInfo {
-        return try await get("/v2/agents")
+        return try await get("../v2/agents")
     }
 
     func getAgentV2(_ name: String) async throws -> AgentConfigInfo {
-        return try await get("/v2/agents/\(name)")
+        return try await get("../v2/agents/\(name)")
     }
 
     func getAgentConfigFile(_ agentName: String, fileName: String) async throws -> AgentConfigFileInfo {
-        return try await get("/v2/agents/\(agentName)/config/\(fileName)")
+        return try await get("../v2/agents/\(agentName)/config/\(fileName)")
     }
 
     func updateAgentConfigFile(_ agentName: String, fileName: String, content: String) async throws -> AgentConfigFileInfo {
         let body = AgentConfigFileUpdateBody(content: content, source: "user")
-        return try await post("/v2/agents/\(agentName)/config/\(fileName)", body: body)
+        return try await post("../v2/agents/\(agentName)/config/\(fileName)", body: body)
     }
 }

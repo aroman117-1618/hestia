@@ -27,12 +27,15 @@ class MacAgentsViewModel: ObservableObject {
             let response = try await APIClient.shared.getAgentsV2()
             agents = response.agents.filter { !$0.isArchived }
             defaultAgent = response.defaultAgent
+            errorMessage = nil
             CacheManager.shared.cache(response, forKey: CacheKey.agentsList)
         } catch {
             #if DEBUG
             print("[MacAgentsVM] Failed to load agents: \(error)")
             #endif
-            if agents.isEmpty { errorMessage = "Failed to load agents" }
+            if agents.isEmpty {
+                errorMessage = "Failed to load agents: \(error.localizedDescription)"
+            }
         }
     }
 

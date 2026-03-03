@@ -120,10 +120,28 @@ struct MacProfileView: View {
                     }
                     .accessibilityLabel("Description")
 
-                if vm.isSaving {
-                    Text("Saving...")
-                        .font(MacTypography.caption)
-                        .foregroundStyle(MacColors.textFaint)
+                HStack(spacing: MacSpacing.sm) {
+                    if vm.isSaving {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Saving...")
+                            .font(MacTypography.caption)
+                            .foregroundStyle(MacColors.amberAccent)
+                    }
+
+                    Button {
+                        Task { await vm.saveProfile() }
+                    } label: {
+                        Text("Save")
+                            .font(MacTypography.labelMedium)
+                            .foregroundStyle(MacColors.buttonTextDark)
+                            .padding(.horizontal, MacSpacing.lg)
+                            .padding(.vertical, MacSpacing.xs)
+                            .background(MacColors.amberAccent)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Save profile changes")
                 }
             }
 

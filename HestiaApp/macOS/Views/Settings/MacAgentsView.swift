@@ -9,6 +9,21 @@ struct MacAgentsView: View {
             if vm.isLoading && vm.agents.isEmpty {
                 ProgressView()
                     .frame(maxWidth: .infinity, minHeight: 150)
+            } else if let error = vm.errorMessage {
+                VStack(spacing: MacSpacing.md) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 24))
+                        .foregroundStyle(MacColors.statusWarning)
+                    Text(error)
+                        .font(MacTypography.body)
+                        .foregroundStyle(MacColors.textSecondary)
+                    Button("Retry") {
+                        Task { await vm.loadAgents() }
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(MacColors.amberAccent)
+                }
+                .frame(maxWidth: .infinity, minHeight: 150)
             } else if vm.agents.isEmpty {
                 emptyState
             } else {
