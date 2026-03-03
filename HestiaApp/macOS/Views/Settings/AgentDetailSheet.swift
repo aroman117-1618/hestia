@@ -39,23 +39,7 @@ struct AgentDetailSheet: View {
 
     private var sheetHeader: some View {
         HStack {
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(hex: agent.identity.gradientColor1),
-                                Color(hex: agent.identity.gradientColor2)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 36, height: 36)
-
-                Text(agent.identity.emoji.isEmpty ? String(agent.name.prefix(1)) : agent.identity.emoji)
-                    .font(.system(size: 18))
-            }
+            AgentAvatar(agent: agent, size: 36)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(agent.name)

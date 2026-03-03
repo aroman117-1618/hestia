@@ -70,6 +70,69 @@ struct MacAgentsView: View {
     }
 }
 
+// MARK: - Agent Avatar (matches chat panel rendering)
+
+/// Renders an agent avatar using the asset catalog image if available,
+/// falling back to a gradient circle with the agent's first initial.
+/// Matches the rendering in MacChatPanelView and MacMessageBubble.
+struct AgentAvatar: View {
+    let agent: AgentConfigInfo
+    let size: CGFloat
+
+    /// Map agent directory names to HestiaMode for avatar/gradient lookup
+    private var mode: HestiaMode? {
+        switch agent.directoryName {
+        case "tia": return .tia
+        case "mira": return .mira
+        case "olly": return .olly
+        default: return nil
+        }
+    }
+
+    var body: some View {
+        Group {
+            if let mode, let image = mode.avatarImage {
+                // Asset catalog image (hestia-profile, artemis-profile, apollo-profile)
+                image
+                    .resizable()
+                    .scaledToFill()
+            } else if let mode {
+                // Known agent without custom image — use mode gradient
+                Circle()
+                    .fill(mode.gradient)
+                    .overlay {
+                        Text(agent.name.prefix(1))
+                            .font(.system(size: size * 0.45, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+            } else {
+                // Unknown agent — use API gradient colors
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(hex: agent.identity.gradientColor1),
+                                Color(hex: agent.identity.gradientColor2)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .overlay {
+                        Text(agent.name.prefix(1))
+                            .font(.system(size: size * 0.45, weight: .bold))
+                            .foregroundStyle(.white)
+                    }
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+        .overlay {
+            Circle().strokeBorder(MacColors.aiAvatarBorder, lineWidth: 1)
+        }
+    }
+}
+
 // MARK: - Agent Card
 
 struct AgentCardView: View {
@@ -82,24 +145,8 @@ struct AgentCardView: View {
     var body: some View {
         Button(action: onTap) {
             VStack(spacing: MacSpacing.md) {
-                // Avatar circle with gradient
-                ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color(hex: agent.identity.gradientColor1),
-                                    Color(hex: agent.identity.gradientColor2)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 48, height: 48)
-
-                    Text(agent.identity.emoji.isEmpty ? String(agent.name.prefix(1)) : agent.identity.emoji)
-                        .font(.system(size: 22))
-                }
+                // Avatar (matches chat panel rendering)
+                AgentAvatar(agent: agent, size: 48)
 
                 // Name + vibe
                 VStack(spacing: 2) {
