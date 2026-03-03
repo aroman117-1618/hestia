@@ -4,6 +4,7 @@ import HestiaShared
 struct IconSidebar: View {
     @Environment(WorkspaceState.self) private var workspace
     @State private var hoveredView: WorkspaceView?
+    @Namespace private var indicatorNamespace
 
     var body: some View {
         VStack(spacing: 0) {
@@ -13,20 +14,22 @@ struct IconSidebar: View {
 
             // Nav icons (middle section, fixed order per design spec)
             VStack(spacing: 6) {
-                navIcon(.command, systemName: "house", yOffset: 0)
+                navIcon(.command, systemName: "house", shortcut: 1)
                     .padding(.top, MacSpacing.lg)
-                navIcon(.health, systemName: "waveform.path.ecg", yOffset: 1)
-                navIcon(.research, systemName: "point.3.connected.trianglepath.dotted", yOffset: 2)
-                navIcon(.wiki, systemName: "map", yOffset: 3)
-                navIcon(.explorer, systemName: "magnifyingglass", yOffset: 4)
-                navIcon(.resources, systemName: "wrench.and.screwdriver", yOffset: 5)
+                navIcon(.health, systemName: "waveform.path.ecg", shortcut: 2)
+                navIcon(.research, systemName: "point.3.connected.trianglepath.dotted", shortcut: 3)
+                navIcon(.explorer, systemName: "magnifyingglass", shortcut: 4)
             }
             .padding(.top, MacSpacing.xxl)
 
             Spacer()
 
-            // Profile (bottom, sticky — merged settings + avatar)
-            profileButton
+            // Settings (bottom, sticky — profile avatar)
+            settingsButton
+                .padding(.bottom, MacSpacing.lg)
+
+            // Chat panel toggle (always visible at sidebar bottom)
+            SidebarChatToggle()
                 .padding(.bottom, MacSpacing.xxl)
         }
         .frame(width: MacSize.iconSidebarWidth)
@@ -48,12 +51,12 @@ struct IconSidebar: View {
 
     // MARK: - Nav Icon
 
-    private func navIcon(_ view: WorkspaceView, systemName: String, yOffset: Int) -> some View {
+    private func navIcon(_ view: WorkspaceView, systemName: String, shortcut: Int) -> some View {
         let isActive = workspace.currentView == view
         let isHovered = hoveredView == view
 
         return Button {
-            withAnimation(.easeInOut(duration: 0.2)) {
+            withAnimation(MacAnimation.normalSpring) {
                 workspace.currentView = view
             }
         } label: {
@@ -68,7 +71,7 @@ struct IconSidebar: View {
                     }
                     .frame(width: MacSize.navIconButton, height: MacSize.navIconButton)
 
-                // Active indicator pill (left edge)
+                // Active indicator pill (left edge) — slides between nav items
                 if isActive {
                     UnevenRoundedRectangle(
                         topLeadingRadius: 0,
@@ -79,6 +82,7 @@ struct IconSidebar: View {
                     .fill(MacColors.activeIndicatorGradient)
                     .frame(width: MacSize.activeIndicatorWidth, height: MacSize.activeIndicatorHeight)
                     .offset(x: -1, y: 0)
+                    .matchedGeometryEffect(id: "activeIndicator", in: indicatorNamespace)
                 }
 
                 Image(systemName: systemName)
@@ -87,23 +91,36 @@ struct IconSidebar: View {
                     .frame(width: MacSize.navIconButton, height: MacSize.navIconButton)
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.hestiaNav)
         .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
+            withAnimation(.easeInOut(duration: MacAnimation.fast)) {
                 hoveredView = hovering ? view : nil
             }
         }
+        .accessibilityLabel(accessibilityLabel(for: view))
+        .accessibilityHint("Keyboard shortcut: Command \(shortcut)")
+        .hoverCursor()
     }
 
-    // MARK: - Profile Button (merged gear + avatar)
+    private func accessibilityLabel(for view: WorkspaceView) -> String {
+        switch view {
+        case .command: "Command Center"
+        case .health: "Vitals"
+        case .research: "Research"
+        case .explorer: "Explorer"
+        case .settings: "Settings"
+        }
+    }
 
-    private var profileButton: some View {
-        let isActive = workspace.currentView == .profile
-        let isHovered = hoveredView == .profile
+    // MARK: - Settings Button (bottom avatar)
+
+    private var settingsButton: some View {
+        let isActive = workspace.currentView == .settings
+        let isHovered = hoveredView == .settings
 
         return Button {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                workspace.currentView = .profile
+            withAnimation(MacAnimation.normalSpring) {
+                workspace.currentView = .settings
             }
         } label: {
             ZStack {
@@ -133,11 +150,21 @@ struct IconSidebar: View {
             .frame(width: MacSize.navIconButton, height: MacSize.navIconButton)
             .opacity(isHovered && !isActive ? 0.85 : 1.0)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.hestiaNav)
         .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
-                hoveredView = hovering ? .profile : nil
+            withAnimation(.easeInOut(duration: MacAnimation.fast)) {
+                hoveredView = hovering ? .settings : nil
             }
         }
+        .accessibilityLabel("Settings")
+        .accessibilityHint("Keyboard shortcut: Command 5")
+        .hoverCursor()
     }
+}
+
+// MARK: - Haptic feedback on nav switch
+
+extension IconSidebar {
+    // Haptic feedback is provided via .sensoryFeedback on the parent VStack,
+    // triggered by workspace.currentView changes. See WorkspaceRootView.
 }

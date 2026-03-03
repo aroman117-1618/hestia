@@ -68,7 +68,7 @@ struct MacResourcesView: View {
                     )
                     .cornerRadius(MacCornerRadius.tab)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestia)
             }
 
             Spacer()

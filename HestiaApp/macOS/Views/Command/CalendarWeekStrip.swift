@@ -29,7 +29,9 @@ struct CalendarWeekStrip: View {
                             .foregroundStyle(MacColors.textSecondary)
                             .frame(width: 26, height: 26)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.hestiaIcon)
+                    .accessibilityLabel("Previous week")
+                    .hoverCursor(.pointingHand)
 
                     HStack(spacing: MacSpacing.xs) {
                         Image(systemName: "calendar")
@@ -46,7 +48,9 @@ struct CalendarWeekStrip: View {
                             .foregroundStyle(MacColors.textSecondary)
                             .frame(width: 26, height: 26)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.hestiaIcon)
+                    .accessibilityLabel("Next week")
+                    .hoverCursor(.pointingHand)
                 }
             }
 

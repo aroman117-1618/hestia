@@ -63,7 +63,7 @@ struct FilePreviewArea: View {
                         .background(MacColors.amberAccent)
                         .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.hestia)
 
                     Text("Cmd+2 to switch here anytime")
                         .font(MacTypography.metadata)
@@ -119,7 +119,7 @@ struct FilePreviewArea: View {
                         .background(MacColors.amberAccent)
                         .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestia)
 
                 // More menu
                 Button {} label: {
@@ -134,7 +134,7 @@ struct FilePreviewArea: View {
                         }
                         .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestia)
             }
         }
         .padding(.top, MacSpacing.xl)
@@ -164,7 +164,7 @@ struct FilePreviewArea: View {
                     }
                     .padding(.horizontal, MacSpacing.lg)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestia)
             }
             Spacer()
         }

@@ -67,7 +67,7 @@ struct MacIntegrationsView: View {
                 }
                 .padding(MacSpacing.lg)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.hestia)
 
             // Expanded detail
             if expandedIntegration == integration.id {
@@ -91,7 +91,7 @@ struct MacIntegrationsView: View {
                             .background(MacColors.activeTabBackground)
                             .cornerRadius(MacCornerRadius.treeItem)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.hestia)
                     }
 
                     if integration.status == .denied {

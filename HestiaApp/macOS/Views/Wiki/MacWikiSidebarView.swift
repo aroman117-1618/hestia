@@ -74,7 +74,8 @@ struct MacWikiSidebarView: View {
                     )
                     .cornerRadius(MacCornerRadius.treeItem)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestia)
+                .hoverCursor(.pointingHand)
             }
         }
     }
@@ -138,7 +139,9 @@ struct MacWikiSidebarView: View {
             )
             .cornerRadius(MacCornerRadius.treeItem)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.hestia)
+        .accessibilityLabel("Roadmap")
+        .hoverCursor(.pointingHand)
     }
 
     // MARK: - Empty State
@@ -182,7 +185,7 @@ struct MacWikiSidebarView: View {
                 .background(MacColors.activeTabBackground)
                 .cornerRadius(MacCornerRadius.treeItem)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.hestia)
         }
         .padding(.top, MacSpacing.xxxl)
     }

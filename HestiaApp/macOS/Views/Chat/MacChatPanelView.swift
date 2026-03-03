@@ -93,7 +93,9 @@ struct MacChatPanelView: View {
                     .background(MacColors.textPrimary.opacity(0.06))
                     .clipShape(RoundedRectangle(cornerRadius: 8))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.hestiaIcon)
+            .accessibilityLabel("New chat session")
+            .hoverCursor(.pointingHand)
 
             // Agent tabs (active agent prominent, others faded)
             HStack(spacing: 5) {
@@ -103,6 +105,9 @@ struct MacChatPanelView: View {
             }
 
             Spacer()
+
+            // Collapse button (Option A — visible in-panel toggle)
+            HeaderChatToggle()
         }
         .padding(.vertical, 2)
         .frame(height: 69)
@@ -136,7 +141,7 @@ struct MacChatPanelView: View {
             .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.tab))
             .opacity(isActive ? 1 : 0.5)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.hestia)
     }
 
     // MARK: - Typing Bubble
@@ -223,7 +228,7 @@ struct MacChatPanelView: View {
             Spacer()
             Button("Dismiss") { viewModel.dismissError() }
                 .font(MacTypography.metadata)
-                .buttonStyle(.plain)
+                .buttonStyle(.hestia)
                 .foregroundStyle(MacColors.amberAccent)
         }
         .padding(.horizontal, MacSpacing.md)

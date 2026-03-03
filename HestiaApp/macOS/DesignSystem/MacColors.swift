@@ -92,8 +92,17 @@ enum MacColors {
     static let healthDimText = Color(red: 255/255, green: 185/255, blue: 0).opacity(0.35)
     static let healthLabelText = Color(red: 254/255, green: 230/255, blue: 133/255).opacity(0.55)
 
-    // MARK: - Status (shared)
+    // MARK: - Status (semantic)
     static let statusGreen = Color(hex: "72F69E")
+    static let statusWarning = Color(hex: "FF9800")
+    static let statusCritical = Color(hex: "D32F2F")
+    static let statusInfo = amberAccent
+
+    // MARK: - Interactive States
+    static let hoverBackground = amberAccent.opacity(0.08)
+    static let pressedBackground = amberAccent.opacity(0.20)
+    static let disabledForeground = Color.white.opacity(0.3)
+    static let focusRing = amberAccent.opacity(0.5)
 
     // MARK: - Mode Accents
     static func accentColor(for mode: HestiaMode) -> Color {

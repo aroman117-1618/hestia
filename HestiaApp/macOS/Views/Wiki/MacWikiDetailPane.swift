@@ -48,7 +48,9 @@ struct MacWikiDetailPane: View {
                     }
                     .foregroundStyle(MacColors.amberAccent)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestia)
+                .accessibilityLabel("Back")
+                .hoverCursor(.pointingHand)
             }
 
             Text(toolbarTitle)
@@ -73,7 +75,9 @@ struct MacWikiDetailPane: View {
                     .font(.system(size: 13))
                     .foregroundStyle(MacColors.textSecondary)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.hestia)
+            .accessibilityLabel("Refresh articles")
+            .hoverCursor(.pointingHand)
             .disabled(viewModel.isLoading)
 
             Button {
@@ -90,7 +94,9 @@ struct MacWikiDetailPane: View {
                 .background(MacColors.activeTabBackground)
                 .cornerRadius(MacCornerRadius.treeItem)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.hestia)
+            .accessibilityLabel("Generate all articles")
+            .hoverCursor(.pointingHand)
             .disabled(viewModel.isGenerating)
             .alert("Generate All Articles", isPresented: $showingGenerateAllAlert) {
                 Button("Generate") {
@@ -295,7 +301,7 @@ struct MacWikiDetailPane: View {
             .background(MacColors.activeTabBackground)
             .cornerRadius(MacCornerRadius.treeItem)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.hestia)
         .disabled(viewModel.isGenerating)
     }
 
@@ -318,7 +324,7 @@ struct MacWikiDetailPane: View {
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(MacColors.textFaint)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.hestia)
         }
         .padding(.horizontal, MacSpacing.lg)
         .padding(.vertical, MacSpacing.sm)
@@ -368,7 +374,7 @@ struct MacWikiDetailPane: View {
                 .background(MacColors.activeTabBackground)
                 .cornerRadius(MacCornerRadius.treeItem)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.hestia)
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -438,7 +444,7 @@ private struct ArticleCardView: View {
                                 .font(.system(size: 10))
                                 .foregroundStyle(MacColors.amberAccent)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.hestia)
                     }
                 }
             }
@@ -452,7 +458,7 @@ private struct ArticleCardView: View {
                     .strokeBorder(MacColors.cardBorder, lineWidth: 1)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.hestia)
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.1)) {
                 isHovered = hovering

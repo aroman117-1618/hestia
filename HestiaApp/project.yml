@@ -119,6 +119,13 @@ targets:
         type: group
         excludes:
           - "*.plist"
+      - path: Shared/Models
+        type: group
+        includes:
+          - "WikiModels.swift"
+          - "ToolModels.swift"
+          - "DeviceModels.swift"
+          - "NewsfeedModels.swift"
       - path: macOS/Fonts
         type: folder
         buildPhase: resources

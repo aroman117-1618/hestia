@@ -3,7 +3,7 @@ import HestiaShared
 
 struct StatCardsRow: View {
     @ObservedObject var viewModel: MacCommandCenterViewModel
-    var isCompact: Bool = false
+    @Environment(\.layoutMode) private var layoutMode
 
     private var cards: [(icon: String, label: String, count: String, subtitle: String, trend: String?)] {
         [
@@ -17,7 +17,7 @@ struct StatCardsRow: View {
     }
 
     private var columns: [GridItem] {
-        let count = isCompact ? 2 : 3
+        let count = layoutMode.isCompact ? 2 : 3
         return Array(repeating: GridItem(.flexible(), spacing: MacSpacing.md), count: count)
     }
 

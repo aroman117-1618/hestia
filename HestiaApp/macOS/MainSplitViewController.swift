@@ -9,8 +9,11 @@ class MainSplitViewController: NSSplitViewController {
 
     private let workspaceState = WorkspaceState()
     private let appState = AppState()
+    private let errorState = ErrorState()
+    private let commandPaletteState = CommandPaletteState()
     private let authService = AuthService()
     private var registrationObserver: NSObjectProtocol?
+    private nonisolated(unsafe) var chatToggleObserver: NSObjectProtocol?
 
     override init(nibName nibNameOrNil: NSNib.Name?, bundle nibBundleOrNil: Bundle?) {
         super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
@@ -43,6 +46,8 @@ class MainSplitViewController: NSSplitViewController {
         // Main content: icon sidebar + content area
         let rootView = WorkspaceRootView()
             .environment(workspaceState)
+            .environment(errorState)
+            .environment(commandPaletteState)
             .environmentObject(appState)
         let mainHost = NSHostingController(rootView: rootView)
         mainItem = NSSplitViewItem(contentListWithViewController: mainHost)
@@ -100,6 +105,26 @@ class MainSplitViewController: NSSplitViewController {
         } else {
             addSplitViewItem(mainItem)
             addSplitViewItem(chatItem)
+
+            // Restore persisted panel state
+            if !workspaceState.isChatPanelVisible {
+                chatItem.isCollapsed = true
+            }
+        }
+
+        // Bridge: SwiftUI ChatToggleButton → AppKit panel toggle
+        chatToggleObserver = NotificationCenter.default.addObserver(
+            forName: .hestiaChatPanelToggle,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.toggleChatPanel()
+        }
+    }
+
+    deinit {
+        if let observer = chatToggleObserver {
+            NotificationCenter.default.removeObserver(observer)
         }
     }
 

@@ -4,7 +4,7 @@ import HestiaShared
 struct ActivityFeed: View {
     let orders: [OrderResponse]
     let newsfeedItems: [NewsfeedItem]
-    var isCompact: Bool = false
+    @Environment(\.layoutMode) private var layoutMode
     @State private var selectedFilter: String = "All Updates"
     @State private var searchText: String = ""
 
@@ -44,7 +44,7 @@ struct ActivityFeed: View {
                 Spacer()
 
                 // Search bar — compact: icon-only, wide: full text field
-                if isCompact {
+                if layoutMode.isCompact {
                     Button {} label: {
                         Image(systemName: "magnifyingglass")
                             .font(.system(size: 14))
@@ -53,7 +53,9 @@ struct ActivityFeed: View {
                             .background(MacColors.searchInputBackground)
                             .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.hestia)
+                    .accessibilityLabel("Search activity")
+                    .hoverCursor(.pointingHand)
                 } else {
                     HStack(spacing: MacSpacing.sm) {
                         Image(systemName: "magnifyingglass")
@@ -62,6 +64,7 @@ struct ActivityFeed: View {
                         TextField("Search activity...", text: $searchText)
                             .font(MacTypography.label)
                             .textFieldStyle(.plain)
+                            .accessibilityLabel("Search activity")
                     }
                     .padding(.horizontal, MacSpacing.md)
                     .padding(.vertical, MacSpacing.sm)
@@ -80,14 +83,14 @@ struct ActivityFeed: View {
                                 selectedFilter = filter
                             }
                         } label: {
-                            Text(isCompact ? filterShortLabel(filter) : filter)
+                            Text(layoutMode.isCompact ? filterShortLabel(filter) : filter)
                                 .font(MacTypography.body)
                                 .foregroundStyle(
                                     selectedFilter == filter
                                         ? MacColors.textPrimary
                                         : MacColors.textSecondary
                                 )
-                                .padding(.horizontal, isCompact ? MacSpacing.sm : MacSpacing.md)
+                                .padding(.horizontal, layoutMode.isCompact ? MacSpacing.sm : MacSpacing.md)
                                 .padding(.vertical, MacSpacing.sm)
                                 .background(
                                     selectedFilter == filter
@@ -97,7 +100,8 @@ struct ActivityFeed: View {
                                 .clipShape(Capsule())
                                 .fixedSize()
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.hestia)
+                        .hoverCursor(.pointingHand)
                     }
 
                     Spacer(minLength: MacSpacing.sm)

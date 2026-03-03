@@ -73,7 +73,7 @@ struct MacOnboardingView: View {
                             .stroke(MacColors.amberAccent.opacity(0.5), lineWidth: 1)
                     )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.hestia)
 
             Spacer()
                 .frame(height: 40)
@@ -121,7 +121,7 @@ struct MacOnboardingView: View {
                     Text("Back")
                         .foregroundColor(MacColors.textSecondary)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestia)
 
                 Button {
                     handlePaste()
@@ -137,7 +137,7 @@ struct MacOnboardingView: View {
                                 .stroke(MacColors.amberAccent.opacity(0.5), lineWidth: 1)
                         )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestia)
                 .disabled(pastedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isProcessing)
             }
 
@@ -221,7 +221,7 @@ struct MacOnboardingView: View {
                     Text("Back")
                         .foregroundColor(MacColors.textSecondary)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestia)
 
                 Button {
                     step = .paste
@@ -234,7 +234,7 @@ struct MacOnboardingView: View {
                         .background(MacColors.amberAccent.opacity(0.3))
                         .cornerRadius(8)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestia)
             }
 
             Spacer()

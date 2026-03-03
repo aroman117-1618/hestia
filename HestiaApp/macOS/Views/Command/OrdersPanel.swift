@@ -27,7 +27,9 @@ struct OrdersPanel: View {
                             .foregroundStyle(MacColors.amberAccent)
                     }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestia)
+                .accessibilityLabel("View all orders")
+                .hoverCursor(.pointingHand)
             }
 
             // Order cards

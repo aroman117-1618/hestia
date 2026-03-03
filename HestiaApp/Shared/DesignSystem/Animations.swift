@@ -25,6 +25,20 @@ extension Animation {
 
     /// Loading pulse
     static let loadingPulse = Animation.easeInOut(duration: 1.0).repeatForever(autoreverses: true)
+
+    // MARK: - macOS UX Polish Springs
+
+    /// Navigation view switch — smooth lateral slide with slight overshoot
+    static let hestiaNavSwitch = Animation.spring(response: 0.3, dampingFraction: 0.75)
+
+    /// Panel open/close — slightly slower, controlled
+    static let hestiaPanel = Animation.spring(response: 0.35, dampingFraction: 0.8)
+
+    /// Hover feedback — snappy, no overshoot
+    static let hestiaHover = Animation.spring(response: 0.15, dampingFraction: 0.9)
+
+    /// Sidebar indicator slide — smooth tracking between nav items
+    static let hestiaIndicator = Animation.spring(response: 0.4, dampingFraction: 0.8)
 }
 
 // MARK: - View Modifiers

@@ -51,8 +51,8 @@ struct MacHealthTrendPoint: Codable {
     let count: Int?
 }
 
-// MARK: - AnyCodableValue (macOS duplicate)
-// Needed because macOS target doesn't include Shared/Models/APIModels.swift
+// MARK: - AnyCodableValue
+// Required for macOS target — shared definition lives in Shared/Models/APIModels.swift (iOS)
 
 enum AnyCodableValue: Codable {
     case string(String)

@@ -73,7 +73,7 @@ struct MacAddCloudProviderView: View {
                 Button("Cancel") {
                     dismiss()
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestia)
                 .foregroundStyle(MacColors.textSecondary)
 
                 Button {
@@ -104,7 +104,7 @@ struct MacAddCloudProviderView: View {
                     .background(MacColors.amberAccent)
                     .cornerRadius(MacCornerRadius.treeItem)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestia)
                 .disabled(apiKey.count < 10 || viewModel.isAddingProvider)
             }
         }

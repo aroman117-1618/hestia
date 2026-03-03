@@ -75,7 +75,7 @@ struct MacCloudSettingsView: View {
                         .font(.system(size: 13))
                         .foregroundStyle(MacColors.amberAccent)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestia)
             }
             .padding(.horizontal, MacSpacing.lg)
             .padding(.vertical, MacSpacing.md)
@@ -163,7 +163,7 @@ struct MacCloudSettingsView: View {
             .background(isSelected ? MacColors.activeTabBackground : Color.clear)
             .cornerRadius(MacCornerRadius.treeItem)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.hestia)
     }
 
     // MARK: - No Selection
@@ -192,7 +192,7 @@ struct MacCloudSettingsView: View {
                     .background(MacColors.activeTabBackground)
                     .cornerRadius(MacCornerRadius.treeItem)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestia)
             }
             Spacer()
         }

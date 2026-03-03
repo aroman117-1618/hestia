@@ -23,7 +23,7 @@ struct MacDeviceManagementView: View {
                         .font(.system(size: 14))
                         .foregroundStyle(MacColors.textSecondary)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestia)
             }
             .padding(.horizontal, MacSpacing.lg)
             .padding(.vertical, MacSpacing.md)
@@ -159,14 +159,14 @@ struct MacDeviceManagementView: View {
                     }
                     .font(MacTypography.caption)
                     .foregroundStyle(MacColors.healthRed)
-                    .buttonStyle(.plain)
+                    .buttonStyle(.hestia)
                 } else {
                     Button("Restore") {
                         Task { await viewModel.unrevokeDevice(device) }
                     }
                     .font(MacTypography.caption)
                     .foregroundStyle(MacColors.healthGreen)
-                    .buttonStyle(.plain)
+                    .buttonStyle(.hestia)
                 }
             }
         }
@@ -205,7 +205,7 @@ struct MacDeviceManagementView: View {
             }
             .font(MacTypography.label)
             .foregroundStyle(MacColors.amberAccent)
-            .buttonStyle(.plain)
+            .buttonStyle(.hestia)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

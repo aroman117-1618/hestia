@@ -178,7 +178,7 @@ struct UserProfileView: View {
             .background(isSelected ? MacColors.activeTabBackground : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.treeItem))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.hestia)
     }
 
     private func sidebarCommandRow(_ cmd: CommandInfo, isSelected: Bool) -> some View {
@@ -204,7 +204,7 @@ struct UserProfileView: View {
             .background(isSelected ? MacColors.activeTabBackground : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.treeItem))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.hestia)
     }
 
     private func sidebarNoteRow(_ note: DailyNoteInfo, isSelected: Bool) -> some View {
@@ -230,7 +230,7 @@ struct UserProfileView: View {
             .background(isSelected ? MacColors.activeTabBackground : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.treeItem))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.hestia)
     }
 
     // MARK: - Content Area
@@ -278,7 +278,7 @@ struct UserProfileView: View {
                     }
                     .font(MacTypography.label)
                     .foregroundStyle(MacColors.textSecondary)
-                    .buttonStyle(.plain)
+                    .buttonStyle(.hestia)
 
                     Button("Save") {
                         Task { await viewModel.saveFile() }
@@ -289,7 +289,7 @@ struct UserProfileView: View {
                     .padding(.vertical, MacSpacing.xs)
                     .background(MacColors.amberAccent)
                     .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.treeItem))
-                    .buttonStyle(.plain)
+                    .buttonStyle(.hestia)
                 } else {
                     Button {
                         viewModel.editedContent = viewModel.fileContent
@@ -299,7 +299,7 @@ struct UserProfileView: View {
                             .font(.system(size: 14))
                             .foregroundStyle(MacColors.textSecondary)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.hestia)
                 }
             }
         }

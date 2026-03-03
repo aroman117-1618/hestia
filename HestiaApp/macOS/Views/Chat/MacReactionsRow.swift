@@ -28,7 +28,7 @@ struct MacReactionsRow: View {
                         )
                         .frame(width: 22, height: 22)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestiaIcon)
             }
         }
     }

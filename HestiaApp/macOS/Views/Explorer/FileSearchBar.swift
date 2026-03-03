@@ -2,6 +2,8 @@ import SwiftUI
 
 struct FileSearchBar: View {
     @Binding var searchText: String
+    var onDebouncedSearch: ((String) -> Void)?
+    @State private var localText: String = ""
 
     var body: some View {
         HStack(spacing: MacSpacing.sm) {
@@ -9,18 +11,23 @@ struct FileSearchBar: View {
                 .font(.system(size: 14))
                 .foregroundStyle(MacColors.textFaint)
 
-            TextField("Search files...", text: $searchText)
+            TextField("Search files...", text: $localText)
                 .font(MacTypography.label)
                 .textFieldStyle(.plain)
                 .foregroundStyle(MacColors.textPrimary)
 
-            if !searchText.isEmpty {
-                Button { searchText = "" } label: {
+            if !localText.isEmpty {
+                Button {
+                    localText = ""
+                    searchText = ""
+                    onDebouncedSearch?("")
+                } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 12))
                         .foregroundStyle(MacColors.textSecondary)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestiaIcon)
+                .accessibilityLabel("Clear search")
             }
         }
         .padding(.horizontal, MacSpacing.md)
@@ -31,5 +38,10 @@ struct FileSearchBar: View {
         .padding(.horizontal, MacSpacing.md)
         .padding(.top, 14)
         .padding(.bottom, MacSpacing.sm)
+        .onAppear { localText = searchText }
+        .debounced(localText) { debounced in
+            searchText = debounced
+            onDebouncedSearch?(debounced)
+        }
     }
 }

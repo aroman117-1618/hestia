@@ -1,8 +1,87 @@
 # Hestia Development Plan
 
-**Status**: All planned phases and workstreams COMPLETE as of March 2026.
+**Status**: Sprints 1–6 COMPLETE. Sprints 7–14 PLANNED (Intelligence Evolution + UI Redesign).
+
+**Timeline**: ~103.5 working days (~621 hours). At 6hr/week = **18–24 calendar months** (corrected from original ~9 month estimate per audit 2026-03-03).
+
+**Decision gates**: Go/No-Go after Sprints 8, 10, and 12. See master roadmap for details.
+
+**Full sprint plans:** `docs/plans/sprint-7-14-master-roadmap.md`
+
+**Audit report:** `docs/audits/roadmap-audit-2026-03-03.md`
 
 ---
+
+### Sprint 14: Anticipatory Execution
+| Title | Scope | Status |
+|-------|-------|--------|
+| Three Operating Regimes | Anticipatory (act), Curious (ask), Observant (watch) per domain | PLANNED |
+| Anticipation Executor | Auto-generate draft orders for high-confidence predictions | PLANNED |
+| Regime Visualization | Per-domain regime indicators in Command Center | PLANNED |
+| Curiosity Questions | LLM-generated questions surfaced in chat + briefing (max 1/day) | PLANNED |
+
+### Sprint 13: Active Inference Foundation
+| Title | Scope | Status |
+|-------|-------|--------|
+| Generative World Model | 3-layer hierarchical model (abstract/routine/situational) | PLANNED |
+| Prediction Engine | Pre-interaction predictions with confidence scoring | PLANNED |
+| Surprise Detector | Free-energy prediction error with per-domain EMA | PLANNED |
+| Curiosity Drive | Information-theoretic domain ranking by expected info gain | PLANNED |
+
+### Sprint 12: Health Dashboard & Whoop
+| Title | Scope | Status |
+|-------|-------|--------|
+| Health Sub-Dashboard | Sleep, Fitness, Nutrition cards with 7-day sparklines | PLANNED |
+| Whoop API Integration | OAuth2 + Strain/Recovery/5-stage sleep (proprietary data) | PLANNED |
+| Clinical Data Module | Labs (PDF parser + manual) + prescriptions CRUD | PLANNED |
+| AI Health Analysis | LLM health insights integrated into daily briefing | PLANNED |
+
+### Sprint 11: Command Center Redesign + MetaMonitor
+| Title | Scope | Status |
+|-------|-------|--------|
+| Week Calendar | 7-day grid with event blocks from Apple Calendar | PLANNED |
+| Contextual Metrics | Auto-switch Personal (sleep/recovery) vs System (errors/latency) | PLANNED |
+| Orders Redesign | Recurring + Scheduled sections, multi-step creation wizard | PLANNED |
+| MetaMonitor | Background self-evaluation (confusion loops, acceptance trends) | PLANNED |
+| ConfidenceCalibrator | Per-domain prediction accuracy tracking | PLANNED |
+| KnowledgeGapDetector | Low-confidence domain insights in daily briefing | PLANNED |
+
+### Sprint 10: Chat Redesign + OutcomeTracker
+| Title | Scope | Status |
+|-------|-------|--------|
+| CLI-Style Input | SF Mono, dark bg, per-agent prompt char, history, /commands | PLANNED |
+| Rich Output Renderer | Markdown, syntax-highlighted code, tool cards, collapsible | PLANNED |
+| Floating Avatar | Cross-dissolve swap animation, orange glow when responding | PLANNED |
+| Background Sessions | Move to Background → Order with working status | PLANNED |
+| OutcomeTracker | Implicit feedback signals (timing, corrections, recurring asks) | PLANNED |
+
+### Sprint 9: Explorer — Files & Inbox
+| Title | Scope | Status |
+|-------|-------|--------|
+| File System Backend | Full Finder browsing with security (blacklist/whitelist paths) | PLANNED |
+| Files Tab UI | Breadcrumb nav, list/grid view, inline editing, drag-and-drop | PLANNED |
+| Gmail OAuth2 | Email provider module with unified inbox aggregation | PLANNED |
+| Inbox Tab | Apple Mail + Gmail + Reminders + Notifications unified view | PLANNED |
+| Email Compose | Send from any account with attachment support | PLANNED |
+
+### Sprint 8: Research Graph + PrincipleStore
+| Title | Scope | Status |
+|-------|-------|--------|
+| Graph Builder | Knowledge + activity nodes from ChromaDB + tool logs | PLANNED |
+| PrincipleStore | Distilled interaction principles via LLM (Learning Phase A) | PLANNED |
+| Graph Visualization | SceneKit 3D force-directed graph in Research tab | PLANNED |
+| Research API | Graph data + principle distillation endpoints | PLANNED |
+
+### Sprint 7: Profile, Settings & Field Guide Restructure
+| Title | Scope | Status |
+|-------|-------|--------|
+| Settings Accordion | 4-section layout (Profile, Agents, Resources, Field Guide) | PLANNED |
+| Profile View | Name, description, photo (crop/resize), MIND.md/BODY.md editors | PLANNED |
+| Agent Profiles | V2 API — Identity + Personality tabs per agent | PLANNED |
+| Resources Consolidation | Cloud LLMs + Integrations + Devices in one section | PLANNED |
+| Field Guide Migration | Wiki views moved into Settings with roadmap data wiring | PLANNED |
+| CacheManager | UserDefaults-backed cache with TTL for all settings data | PLANNED |
+| Orange Accent System | Global design system update replacing blue with #FF6B35 | PLANNED |
 
 ### Sprint 6: Stability & Efficiency
 | Title | Scope | Status |
@@ -186,8 +265,12 @@
 
 ## What's Next
 
-No predefined phases remain. Future work is feature-driven:
-- Field Guide UI restructure (thematic tabs, native diagrams, structured roadmap)
-- Additional Apple integrations
-- Performance optimization
-- Multi-user support groundwork
+Sprints 7–14 represent Hestia's evolution from tool to collaborator. The roadmap follows three arcs:
+
+**Arc 1 — UI Maturity (Sprints 7–10):** Rebuild every user-facing surface. Settings becomes a unified command post. Explorer gains full file system + unified inbox. Chat becomes CLI-grade with background session support. Each sprint generates implicit data for the learning cycle.
+
+**Arc 2 — Self-Awareness (Sprints 11–12):** Command Center becomes Hestia's brain dashboard. MetaMonitor enables self-evaluation. Health data (HealthKit + Whoop + clinical) completes the personal intelligence picture.
+
+**Arc 3 — Active Inference (Sprints 13–14):** The endgame. Hestia builds a hierarchical world model, predicts needs before they're expressed, and operates in three regimes: anticipatory (act), curious (ask), observant (watch). Commands become obsolete.
+
+**Beyond Sprint 14:** Fine-tuning on interaction data, multi-modal integration, long-term planning, and multi-user support groundwork. Full details: `docs/plans/sprint-7-14-master-roadmap.md`.

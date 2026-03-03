@@ -31,7 +31,4 @@ class MainWindowController: NSWindowController {
 }
 
 // MARK: - Notification for keyboard-driven view switching
-
-extension Notification.Name {
-    static let workspaceViewSwitch = Notification.Name("workspaceViewSwitch")
-}
+// Note: workspaceViewSwitch defined in ChatToggleButton.swift alongside other Hestia notification names

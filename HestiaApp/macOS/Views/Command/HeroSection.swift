@@ -3,11 +3,11 @@ import HestiaShared
 
 struct HeroSection: View {
     @ObservedObject var viewModel: MacCommandCenterViewModel
-    var isCompact: Bool = false
+    @Environment(\.layoutMode) private var layoutMode
 
     var body: some View {
         Group {
-            if isCompact {
+            if layoutMode.isCompact {
                 VStack(alignment: .leading, spacing: MacSpacing.lg) {
                     heroContent
                     progressRings
@@ -35,7 +35,7 @@ struct HeroSection: View {
             // Status badge row
             HStack(spacing: MacSpacing.md) {
                 statusBadge
-                if !isCompact {
+                if !layoutMode.isCompact {
                     Text("Last updated 2 min ago")
                         .font(MacTypography.label)
                         .foregroundStyle(MacColors.textSecondary)
@@ -53,7 +53,7 @@ struct HeroSection: View {
                 .font(MacTypography.body)
                 .foregroundStyle(MacColors.textSecondary)
                 .padding(.top, 2)
-                .lineLimit(isCompact ? 2 : nil)
+                .lineLimit(layoutMode.isCompact ? 2 : nil)
 
             // Action buttons
             HStack(spacing: MacSpacing.md) {
@@ -63,18 +63,18 @@ struct HeroSection: View {
                     HStack(spacing: MacSpacing.sm) {
                         Image(systemName: "bolt.fill")
                             .font(.system(size: 14))
-                        if !isCompact {
+                        if !layoutMode.isCompact {
                             Text("New Order")
                                 .font(MacTypography.bodyMedium)
                         }
                     }
                     .foregroundStyle(MacColors.buttonTextDark)
-                    .padding(.horizontal, isCompact ? MacSpacing.md : MacSpacing.lg)
+                    .padding(.horizontal, layoutMode.isCompact ? MacSpacing.md : MacSpacing.lg)
                     .padding(.vertical, MacSpacing.sm)
                     .background(MacColors.amberAccent)
                     .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestia)
 
                 Button {
                     // View Reports action
@@ -82,22 +82,22 @@ struct HeroSection: View {
                     Text("View Reports")
                         .font(MacTypography.bodyMedium)
                         .foregroundStyle(MacColors.textPrimary)
-                        .padding(.horizontal, isCompact ? MacSpacing.md : MacSpacing.lg)
+                        .padding(.horizontal, layoutMode.isCompact ? MacSpacing.md : MacSpacing.lg)
                         .padding(.vertical, MacSpacing.sm)
                         .background(MacColors.searchInputBackground)
                         .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestia)
             }
             .padding(.top, MacSpacing.md)
         }
     }
 
     private var progressRings: some View {
-        HStack(spacing: isCompact ? MacSpacing.lg : MacSpacing.xl) {
-            ProgressRing(value: 0.992, label: "99.2%", title: "Accuracy", subtitle: "E-commerce Engine", color: MacColors.healthGreen, isCompact: isCompact)
-            ProgressRing(value: 0.87, label: "87%", title: "Uptime", subtitle: "Agent Fleet", color: MacColors.amberAccent, isCompact: isCompact)
-            ProgressRing(value: 0.18, label: "18%", title: "Improved", subtitle: "Response Time", color: Color(hex: "00D7FF"), isCompact: isCompact)
+        HStack(spacing: layoutMode.isCompact ? MacSpacing.lg : MacSpacing.xl) {
+            ProgressRing(value: 0.992, label: "99.2%", title: "Accuracy", subtitle: "E-commerce Engine", color: MacColors.healthGreen, layoutMode: layoutMode)
+            ProgressRing(value: 0.87, label: "87%", title: "Uptime", subtitle: "Agent Fleet", color: MacColors.amberAccent, layoutMode: layoutMode)
+            ProgressRing(value: 0.18, label: "18%", title: "Improved", subtitle: "Response Time", color: Color(hex: "00D7FF"), layoutMode: layoutMode)
         }
     }
 
@@ -133,34 +133,57 @@ struct ProgressRing: View {
     let title: String
     let subtitle: String
     let color: Color
-    var isCompact: Bool = false
+    var layoutMode: LayoutMode = .regular
+
+    private var ringLineWidth: CGFloat {
+        switch layoutMode {
+        case .compact: 4
+        case .regular: 5
+        case .wide: 6
+        }
+    }
+
+    private var ringSize: CGFloat {
+        switch layoutMode {
+        case .compact: MacSize.progressRingSize * 0.65
+        case .regular: MacSize.progressRingSize * 0.85
+        case .wide: MacSize.progressRingSize
+        }
+    }
+
+    private var labelFontSize: CGFloat {
+        switch layoutMode {
+        case .compact: 13
+        case .regular: 16
+        case .wide: 20
+        }
+    }
 
     var body: some View {
         VStack(spacing: MacSpacing.sm) {
             ZStack {
                 Circle()
-                    .stroke(color.opacity(0.15), lineWidth: isCompact ? 4 : 6)
+                    .stroke(color.opacity(0.15), lineWidth: ringLineWidth)
                 Circle()
                     .trim(from: 0, to: value)
-                    .stroke(color, style: StrokeStyle(lineWidth: isCompact ? 4 : 6, lineCap: .round))
+                    .stroke(color, style: StrokeStyle(lineWidth: ringLineWidth, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                 Text(label)
-                    .font(.system(size: isCompact ? 14 : 20, weight: .bold))
+                    .font(.system(size: labelFontSize, weight: .bold))
                     .foregroundStyle(.white)
             }
-            .frame(
-                width: isCompact ? MacSize.progressRingSize * 0.7 : MacSize.progressRingSize,
-                height: isCompact ? MacSize.progressRingSize * 0.7 : MacSize.progressRingSize
-            )
+            .frame(width: ringSize, height: ringSize)
 
-            if !isCompact {
+            if !layoutMode.isCompact {
                 VStack(spacing: 2) {
                     Text(title)
                         .font(MacTypography.label)
                         .foregroundStyle(MacColors.textPrimary)
-                    Text(subtitle)
-                        .font(MacTypography.metadata)
-                        .foregroundStyle(MacColors.textSecondary)
+                    if layoutMode.isWide {
+                        Text(subtitle)
+                            .font(MacTypography.metadata)
+                            .foregroundStyle(MacColors.textSecondary)
+                    }
                 }
             }
         }

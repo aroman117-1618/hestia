@@ -80,7 +80,7 @@ struct HealthView: View {
                 .background(MacColors.amberAccent)
                 .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.tab))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.hestia)
 
             Spacer()
         }

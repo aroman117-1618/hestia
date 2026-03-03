@@ -86,7 +86,7 @@ struct FileTreeNodeView: View {
                 )
                 .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.treeItem))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.hestia)
             .onHover { isHovered = $0 }
 
             // Children

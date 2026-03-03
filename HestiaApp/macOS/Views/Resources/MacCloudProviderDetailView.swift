@@ -170,7 +170,7 @@ struct MacCloudProviderDetailView: View {
                             )
                             .cornerRadius(MacCornerRadius.treeItem)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.hestia)
                 }
             }
         }
@@ -203,7 +203,7 @@ struct MacCloudProviderDetailView: View {
                     .background(MacColors.activeTabBackground)
                     .cornerRadius(MacCornerRadius.treeItem)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestia)
                 .disabled(viewModel.isCheckingHealth)
 
                 if let result = viewModel.healthCheckResult {
@@ -259,7 +259,7 @@ struct MacCloudProviderDetailView: View {
                             .background(MacColors.activeTabBackground)
                             .cornerRadius(MacCornerRadius.treeItem)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.hestia)
                         .disabled(newApiKey.count < 10 || viewModel.isAddingProvider)
 
                         Button {
@@ -271,7 +271,7 @@ struct MacCloudProviderDetailView: View {
                                 .font(.system(size: 12))
                                 .foregroundStyle(MacColors.textSecondary)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.hestia)
                     }
 
                     if let error = viewModel.error {
@@ -296,7 +296,7 @@ struct MacCloudProviderDetailView: View {
                     .background(MacColors.activeTabBackground)
                     .cornerRadius(MacCornerRadius.treeItem)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestia)
             }
         }
     }
@@ -325,7 +325,7 @@ struct MacCloudProviderDetailView: View {
                         .strokeBorder(MacColors.healthRedBorder, lineWidth: 1)
                 }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.hestia)
         }
     }
 

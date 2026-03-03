@@ -30,6 +30,68 @@ enum WikiArticleType: String, Codable, CaseIterable {
     }
 }
 
+// MARK: - Wiki Tab Category (Thematic Grouping)
+
+enum WikiTabCategory: String, CaseIterable, Identifiable {
+    case overview = "Overview"
+    case core = "Core Functionality"
+    case skills = "Skills & Automation"
+    case memory = "Memory & Learning"
+    case resources = "Resources & Tools"
+
+    var id: String { rawValue }
+
+    var iconName: String {
+        switch self {
+        case .overview: return "building.columns"
+        case .core: return "gearshape.2"
+        case .skills: return "theatermasks"
+        case .memory: return "brain"
+        case .resources: return "wrench.and.screwdriver"
+        }
+    }
+
+    /// Module names belonging to this tab category.
+    static func modules(for category: WikiTabCategory) -> [String] {
+        switch category {
+        case .overview: return []
+        case .core: return ["security", "logging", "inference", "cloud", "orchestration", "api"]
+        case .skills: return ["execution", "council", "orders", "tasks", "agents", "proactive"]
+        case .memory: return ["memory", "voice", "wiki", "user"]
+        case .resources: return ["apple", "health", "explorer", "newsfeed", "investigate"]
+        }
+    }
+}
+
+// MARK: - Roadmap Milestone Models
+
+struct WikiRoadmapMilestone: Codable, Identifiable {
+    let id: String
+    let title: String
+    let status: String
+    let scope: String
+
+    var statusColor: String {
+        switch status.lowercased() {
+        case "complete": return "green"
+        case "in_progress", "in progress": return "amber"
+        default: return "gray"
+        }
+    }
+}
+
+struct WikiRoadmapMilestoneGroup: Codable, Identifiable {
+    let id: String
+    let title: String
+    let order: Int
+    let milestones: [WikiRoadmapMilestone]
+}
+
+struct WikiRoadmapResponse: Codable {
+    let groups: [WikiRoadmapMilestoneGroup]
+    let whatsNext: String
+}
+
 // MARK: - Wiki Article
 
 struct WikiArticle: Codable, Identifiable {
@@ -126,6 +188,9 @@ enum WikiModuleIcons {
         case "api": return "network"
         case "persona": return "person.text.rectangle"
         case "wiki": return "book"
+        case "explorer": return "folder.badge.gearshape"
+        case "investigate": return "magnifyingglass"
+        case "newsfeed": return "newspaper"
         // Diagram types
         case "architecture": return "building.columns"
         case "request-lifecycle": return "arrow.triangle.capsulepath"

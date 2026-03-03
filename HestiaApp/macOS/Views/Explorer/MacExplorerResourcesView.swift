@@ -68,7 +68,7 @@ struct MacExplorerResourcesView: View {
                         )
                         .cornerRadius(MacCornerRadius.treeItem)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestia)
             }
 
             Spacer()
@@ -80,7 +80,7 @@ struct MacExplorerResourcesView: View {
                     .font(.system(size: 13))
                     .foregroundStyle(MacColors.amberAccent)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.hestia)
         }
     }
 
@@ -109,7 +109,7 @@ struct MacExplorerResourcesView: View {
                         .font(.system(size: 12))
                         .foregroundStyle(MacColors.textPlaceholder)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestia)
             }
         }
         .padding(MacSpacing.sm)
@@ -233,7 +233,7 @@ struct MacExplorerResourceRow: View {
                         .font(.system(size: 11))
                         .foregroundStyle(MacColors.healthRed.opacity(0.7))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestia)
             }
         }
         .padding(.horizontal, MacSpacing.sm)

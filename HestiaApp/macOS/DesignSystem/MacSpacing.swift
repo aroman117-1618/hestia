@@ -71,4 +71,30 @@ enum MacSize {
 
     // MARK: - User Avatar
     static let userAvatarSize: CGFloat = 32
+
+    // MARK: - Profile
+    static let profilePhotoSize: CGFloat = 80
+    static let agentCardWidth: CGFloat = 200
+    static let agentCardHeight: CGFloat = 180
+    static let settingsMaxWidth: CGFloat = 720
+}
+
+// MARK: - Animation Timing Tokens
+
+enum MacAnimation {
+    static let fast: Double = 0.15
+    static let normal: Double = 0.25
+    static let slow: Double = 0.4
+
+    static var fastSpring: Animation {
+        .spring(duration: fast)
+    }
+
+    static var normalSpring: Animation {
+        .spring(duration: normal)
+    }
+
+    static var slowSpring: Animation {
+        .spring(duration: slow)
+    }
 }

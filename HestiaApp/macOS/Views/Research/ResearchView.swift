@@ -155,7 +155,7 @@ struct ResearchView: View {
                             .background(MacColors.textPrimary.opacity(0.06))
                             .clipShape(Circle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.hestia)
                 }
 
                 // Confidence
@@ -239,7 +239,7 @@ struct ResearchView: View {
                         .background(MacColors.amberAccent)
                         .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.hestia)
 
                     Button {} label: {
                         HStack {
@@ -257,7 +257,7 @@ struct ResearchView: View {
                                 .strokeBorder(MacColors.textSecondary.opacity(0.1), lineWidth: 1)
                         )
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.hestia)
                     .disabled(true)
                 }
             }
@@ -322,7 +322,7 @@ struct ResearchView: View {
             .background(MacColors.textPrimary.opacity(0.03))
             .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.treeItem))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.hestia)
     }
 
     // MARK: - Loading & Empty States
@@ -432,7 +432,7 @@ struct ResearchView: View {
                         .background(MacColors.textPrimary.opacity(0.04))
                         .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestia)
             } else {
                 timeRangePicker(compact: compact)
             }
@@ -474,7 +474,7 @@ struct ResearchView: View {
             .background(selectedMode == mode ? MacColors.amberAccent.opacity(0.15) : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.tab))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.hestia)
     }
 
     private func timeRangePicker(compact: Bool) -> some View {
@@ -526,7 +526,7 @@ struct ResearchView: View {
                         .background(MacColors.textPrimary.opacity(0.08))
                         .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hestia)
             } else {
                 HStack(spacing: MacSpacing.sm) {
                     Image(systemName: "magnifyingglass")
@@ -573,7 +573,7 @@ struct ResearchView: View {
             .background(isActive ? source.color.opacity(0.13) : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.hestia)
     }
 
     // MARK: - Ambient Background

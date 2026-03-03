@@ -87,7 +87,7 @@ struct CommandPickerView: View {
                                 .padding(.vertical, MacSpacing.sm)
                                 .contentShape(Rectangle())
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.hestia)
                             .background(Color.clear)
                         }
                     }

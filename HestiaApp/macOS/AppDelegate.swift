@@ -62,7 +62,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         editMenuItem.submenu = editMenu
         mainMenu.addItem(editMenuItem)
 
-        // View menu — matches new sidebar order
+        // View menu — matches new sidebar order (⌘1-4 + ⌘5 settings)
         let viewMenuItem = NSMenuItem(title: "View", action: nil, keyEquivalent: "")
         let viewMenu = NSMenu(title: "View")
 
@@ -78,23 +78,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         researchItem.target = self
         viewMenu.addItem(researchItem)
 
-        let wikiItem = NSMenuItem(title: "Field Guide", action: #selector(showWikiView), keyEquivalent: "4")
-        wikiItem.target = self
-        viewMenu.addItem(wikiItem)
-
-        let expItem = NSMenuItem(title: "Explorer", action: #selector(showExplorerView), keyEquivalent: "5")
+        let expItem = NSMenuItem(title: "Explorer", action: #selector(showExplorerView), keyEquivalent: "4")
         expItem.target = self
         viewMenu.addItem(expItem)
 
-        let resItem = NSMenuItem(title: "Resources", action: #selector(showResourcesView), keyEquivalent: "6")
-        resItem.target = self
-        viewMenu.addItem(resItem)
-
         viewMenu.addItem(.separator())
 
-        let profileItem = NSMenuItem(title: "Profile", action: #selector(showProfileView), keyEquivalent: "7")
-        profileItem.target = self
-        viewMenu.addItem(profileItem)
+        let settingsItem = NSMenuItem(title: "Settings", action: #selector(showSettingsView), keyEquivalent: "5")
+        settingsItem.target = self
+        viewMenu.addItem(settingsItem)
 
         viewMenu.addItem(.separator())
 
@@ -129,19 +121,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.switchView(to: .research)
                 return nil
             case "4":
-                self?.switchView(to: .wiki)
-                return nil
-            case "5":
                 self?.switchView(to: .explorer)
                 return nil
-            case "6":
-                self?.switchView(to: .resources)
-                return nil
-            case "7":
-                self?.switchView(to: .profile)
+            case "5":
+                self?.switchView(to: .settings)
                 return nil
             case "\\":
                 self?.mainWindowController?.toggleChatPanel(nil)
+                return nil
+            case "k":
+                NotificationCenter.default.post(name: .hestiaCommandPaletteToggle, object: nil)
                 return nil
             default:
                 return event
@@ -162,9 +151,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func showCommandView() { switchView(to: .command) }
     @objc private func showHealthView() { switchView(to: .health) }
     @objc private func showResearchView() { switchView(to: .research) }
-    @objc private func showWikiView() { switchView(to: .wiki) }
     @objc private func showExplorerView() { switchView(to: .explorer) }
-    @objc private func showResourcesView() { switchView(to: .resources) }
-    @objc private func showProfileView() { switchView(to: .profile) }
+    @objc private func showSettingsView() { switchView(to: .settings) }
     @objc private func toggleChatPanel() { mainWindowController?.toggleChatPanel(nil) }
 }
