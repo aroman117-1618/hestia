@@ -90,20 +90,11 @@ struct MacSettingsView: View {
         case .profile:
             MacProfileView()
         case .agents:
-            // Placeholder — will be replaced with MacAgentsView in Task 7.3
-            Text("Agent profiles coming soon")
-                .foregroundStyle(MacColors.textSecondary)
-                .frame(maxWidth: .infinity, minHeight: 200, alignment: .center)
+            MacAgentsView()
         case .resources:
-            // Placeholder — will be replaced with Resources consolidation in Task 7.4
-            Text("Resources coming soon")
-                .foregroundStyle(MacColors.textSecondary)
-                .frame(maxWidth: .infinity, minHeight: 200, alignment: .center)
+            MacResourcesView()
         case .fieldGuide:
-            // Placeholder — will embed MacWikiView in Task 7.5
-            Text("Field Guide coming soon")
-                .foregroundStyle(MacColors.textSecondary)
-                .frame(maxWidth: .infinity, minHeight: 200, alignment: .center)
+            MacWikiView()
         }
     }
 }

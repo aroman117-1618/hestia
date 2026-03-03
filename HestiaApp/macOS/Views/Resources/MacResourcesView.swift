@@ -7,12 +7,14 @@ struct MacResourcesView: View {
     enum ResourceTab: String, CaseIterable {
         case llms = "LLMs"
         case integrations = "Integrations"
+        case devices = "Devices"
         case mcps = "MCPs"
 
         var iconName: String {
             switch self {
             case .llms: return "cloud"
             case .integrations: return "link"
+            case .devices: return "laptopcomputer.and.iphone"
             case .mcps: return "cpu"
             }
         }
@@ -33,6 +35,8 @@ struct MacResourcesView: View {
                     MacCloudSettingsView()
                 case .integrations:
                     MacIntegrationsView()
+                case .devices:
+                    MacDeviceManagementView()
                 case .mcps:
                     MacMCPPlaceholderView()
                 }
