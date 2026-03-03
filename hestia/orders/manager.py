@@ -435,8 +435,8 @@ class OrderManager:
         # Start execution
         execution = await self.start_execution(order_id)
 
-        # TODO: Integrate with orchestration handler
-        # For now, simulate a successful execution
+        # Orchestration integration deferred (see ADR-021).
+        # Currently simulates execution; full pipeline pending.
         self.logger.info(
             f"Order execution triggered: {order.name}",
             component=LogComponent.EXECUTION,

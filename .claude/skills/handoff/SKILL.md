@@ -35,9 +35,11 @@ Also review:
 - Current `SPRINT.md` for phase updates needed
 - Current `CLAUDE.md` for any status changes
 
-## Phase 2: Documentation Spot-Check
+## Phase 2: Count Verification + Documentation Spot-Check
 
-Quickly verify these files still reflect reality:
+Run `./scripts/count-check.sh` first. If mismatches are found, fix them before proceeding.
+
+Then verify these files still reflect reality:
 
 | File | Check |
 |------|-------|

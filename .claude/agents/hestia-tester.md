@@ -25,7 +25,7 @@ You are Hestia's dedicated test runner and failure analyst. Your job is to run t
 - **Config**: `pytest.ini` with 600-second timeout (necessary for Ollama inference tests)
 - **Virtual env**: `.venv/` (Python 3.9+)
 - **Test files**: `tests/` directory
-- **Total tests**: 1086 (1083 passing, 3 skipped)
+- **Total tests**: 1261 (1258 passing, 3 skipped)
 
 ## Test Suite Inventory
 
@@ -49,12 +49,14 @@ You are Hestia's dedicated test runner and failure analyst. Your job is to run t
 | `test_voice_routes.py` | 25 | Voice API route tests |
 | `test_council.py` | 124 | Council models, roles, manager, handler integration |
 | `test_health.py` | 41 | HealthKit sync, metrics, coaching, chat tools |
-| `test_wiki.py` | ~30 | Wiki articles, generation, static docs |
+| `test_wiki.py` | 78 | Wiki articles, generation, static docs, roadmap |
 | `test_explorer.py` | 41 | Explorer resources, drafts, TTL cache |
 | `test_user_profile.py` | 57 | User profile models, loader, writer, commands, notes |
 | `test_auth_invite.py` | 28 | Invite-based device registration |
 | `test_newsfeed.py` | 42 | Newsfeed models, database, manager, routes |
 | `test_session_ttl.py` | 16 | Session auto-lock, TTL, cleanup |
+| `test_investigate.py` | 117 | URL validation, SSRF bypass, extractors, config, dedup |
+| `test_server_lifecycle.py` | 28 | Readiness, cache-control, shutdown |
 | `test_agent_config.py` | ~15 | Agent v2 markdown config CRUD |
 
 ## Source-to-Test Mapping
@@ -85,6 +87,8 @@ You are Hestia's dedicated test runner and failure analyst. Your job is to run t
 | `hestia/api/routes/auth.py` (invites) | `test_auth_invite.py` |
 | `hestia/orchestration/` (sessions) | `test_session_ttl.py` |
 | `hestia/agents/` (v2 config) | `test_agent_config.py` |
+| `hestia/investigate/` | `test_investigate.py` |
+| `hestia/api/server.py` (lifecycle) | `test_server_lifecycle.py` |
 
 ## When Invoked
 

@@ -44,10 +44,10 @@ hestia/
 │   ├── newsfeed/              # Newsfeed aggregation (RSS, system events)
 │   ├── api/                   # FastAPI REST API (126 endpoints)
 │   │   ├── server.py          # App lifecycle, TLS/HTTPS
-│   │   ├── schemas.py         # All Pydantic models
+│   │   ├── schemas/           # Pydantic models (15 domain modules)
 │   │   ├── errors.py          # Error sanitization helpers
 │   │   ├── middleware/        # JWT auth, rate limiting
-│   │   └── routes/            # 19 route modules
+│   │   └── routes/            # 21 route modules
 │   │       ├── auth.py        # /v1/auth/*
 │   │       ├── health.py      # /v1/ping, /v1/health
 │   │       ├── chat.py        # /v1/chat
@@ -66,7 +66,9 @@ hestia/
 │   │       ├── proactive.py   # /v1/proactive/*
 │   │       ├── health_data.py # /v1/health_data/*
 │   │       ├── wiki.py        # /v1/wiki/*
-│   │       └── explorer.py    # /v1/explorer/*
+│   │       ├── explorer.py    # /v1/explorer/*
+│   │       ├── newsfeed.py   # /v1/newsfeed/*
+│   │       └── investigate.py # /v1/investigate/*
 │   └── config/                # YAML configuration files
 │       ├── inference.yaml     # Inference + cloud routing config
 │       ├── execution.yaml     # Execution layer config
@@ -90,7 +92,7 @@ hestia/
 │       ├── Utilities/         # Shared utility code
 │       └── Persistence/       # Core Data stack
 │
-├── tests/                     # 1086 pytest tests (25 test files)
+├── tests/                     # 1261 pytest tests (27 test files)
 ├── scripts/                   # Deployment, build, hooks, health check
 ├── docs/                      # Project documentation
 └── CLAUDE.md                  # Project context (primary reference)
@@ -116,7 +118,7 @@ Logging (get_logger(), AuditLogger)
 Security (CredentialManager, Keychain, Fernet)
 ```
 
-Standalone modules (no layer dependency): Tasks, Orders, Agents, User, Proactive, Voice, Wiki, Explorer, Newsfeed
+Standalone modules (no layer dependency): Tasks, Orders, Agents, User, Proactive, Voice, Wiki, Explorer, Newsfeed, Investigate
 
 Council module sits between Orchestration and Inference (called by handler, calls inference directly)
 

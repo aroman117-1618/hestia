@@ -226,6 +226,19 @@
 
 ---
 
+## Backlog: Unwired Endpoints
+
+These backend endpoints exist but have no iOS/macOS UI wiring. Not blocking — tracked for future sprints.
+
+| Module | Endpoints | Notes |
+|--------|-----------|-------|
+| Tasks | 6 (create, list, get, approve, cancel, retry) | No task management UI on either platform |
+| Agents v2 | 10 (CRUD, config files, daily notes, reload) | .md-based agent config — no UI yet |
+| Memory sensitivity | 1 (set_memory_sensitivity) | No sensitivity control in memory UI |
+| User profile extended | 11 (partial — macOS Profile wired, iOS limited) | Commands + daily notes partially wired |
+
+---
+
 ## Previous Sprint: Claude Code Config Refresh (COMPLETE)
 
 All topics done: Direct API config, Figma MCP, macOS app (Hestia), Skills redesign, Cheat sheet.

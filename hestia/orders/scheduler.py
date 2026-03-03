@@ -269,9 +269,9 @@ class OrderScheduler:
                 },
             )
 
-            # TODO: When orchestration integration is complete,
-            # the execution completion/failure will be handled there.
-            # For now, we just start the execution.
+            # Orchestration integration deferred (see ADR-021).
+            # Currently starts execution only; completion/failure handled
+            # when orders→orchestration pipeline is wired.
 
         except Exception as e:
             self.logger.error(

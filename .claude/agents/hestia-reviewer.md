@@ -28,10 +28,10 @@ When invoked, determine the mode from the caller's prompt:
 
 ## Project Context
 
-- **Backend**: Python 3.9+ / FastAPI with 20 modules, 116 API endpoints, 1086 tests
+- **Backend**: Python 3.9+ / FastAPI with 22 modules, 126 API endpoints, 1261 tests
 - **iOS**: SwiftUI app (iOS 26.0+ target, ObservableObject pattern — NOT @Observable)
 - **Error handling**: All routes use `sanitize_for_log(e)` from `hestia.api.errors` (never raw `{e}` in logs, never `detail=str(e)` in HTTP responses)
-- **Logging**: `get_logger()` from `hestia.logging` (no arguments) with `LogComponent` enum (ACCESS, ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, CLOUD, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED)
+- **Logging**: `get_logger()` from `hestia.logging` (no arguments) with `LogComponent` enum (ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED, INVESTIGATE)
 - **Server**: HTTPS on port 8443 with self-signed cert, JWT auth
 - **Cloud routing**: 3-state (disabled → enabled_smart → enabled_full), state sync via `_sync_router_state()`
 - **Council**: 4-role dual-path (cloud parallel or SLM-only), purely additive with try/except fallbacks
@@ -260,7 +260,8 @@ Review the conversation history and assess:
 | Wiki | `hestia/wiki/` | WikiManager | ~30 |
 | Explorer | `hestia/explorer/` | ExplorerManager | 41 |
 | Newsfeed | `hestia/newsfeed/` | NewsfeedManager | ~20 |
-| API | `hestia/api/` | 19 route modules, 109 endpoints | 39 (cloud) + 25 (voice) + 28 (auth) |
+| Investigate | `hestia/investigate/` | InvestigateManager | 117 |
+| API | `hestia/api/` | 21 route modules, 126 endpoints | 39 (cloud) + 25 (voice) + 28 (auth) |
 
 ## Review Process
 

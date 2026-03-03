@@ -19,9 +19,12 @@
 ### Phase 3: Execute
 - Implement precisely. Run **@hestia-tester** (Sonnet) after each significant change
 - Fix issues immediately — never accumulate tech debt
+- Commit after each logical unit of work (one feature, one fix, one refactor)
+- Never combine unrelated changes in a single commit — enables git bisect and code review
 
 ### Phase 4: Review
-- Run **@hestia-reviewer** (Sonnet) on all changed files
+- Run **@hestia-reviewer** (Sonnet) on all changed files — REQUIRED for any change touching >5 files
+- Not optional when velocity is high — that's exactly when regressions hide
 - Update affected docs (this file, `docs/api-contract.md`, `docs/hestia-decision-log.md`)
 
 ### Sub-Agents
@@ -139,6 +142,11 @@ This project has both macOS and iOS targets. When creating or editing Swift file
 - Verify imports and APIs are available on both platforms (e.g., `OnboardingViewModel`, `APIClientProvider` may be iOS-only)
 - Use `#if os(macOS)` / `#if os(iOS)` guards when needed
 - Always build BOTH targets after changes: `xcodebuild -scheme HestiaWorkspace` and `xcodebuild -scheme HestiaApp`
+
+### macOS Model Duplication (Known Debt)
+5 model files are duplicated between `macOS/Models/` and `Shared/Models/`:
+WikiModels, ToolModels, DeviceModels, HealthDataModels, NewsfeedModels.
+When API models change, BOTH copies must be updated. No automated check exists yet.
 
 ## Python Environment
 
@@ -378,7 +386,7 @@ Definitions: `.claude/skills/`. Output saved to `docs/discoveries/`, `docs/plans
 | Decision Log (ADRs) | `docs/hestia-decision-log.md` |
 | Security Architecture | `docs/hestia-security-architecture.md` |
 | Development Plan | `docs/hestia-development-plan.md` |
-| UI Data Models | `docs/ui-data-models.md` |
+| UI Data Models | `docs/reference/ui-data-models.md` |
 | Cheat Sheet | `CHEATSHEET.md` |
 | Sprint Tracker | `SPRINT.md` |
 | Config Refresh Plan | `claude-config-refresh-plan.md` |

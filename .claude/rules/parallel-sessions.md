@@ -22,3 +22,5 @@ When multiple Claude Code sessions may be running simultaneously on the same rep
 7. **When running tests, check for port conflicts.** Another session may have a server running on port 8443. Use `lsof -i :8443` before starting a server.
 
 8. **Use `isolation: worktree`** for any sub-agent that writes code (scaffold sub-agents, bugfix agents). This gives each agent an isolated copy of the repo.
+
+9. **Before committing, check for overlapping work.** Run `git log --oneline -3` to verify another session hasn't already committed similar changes. If you see a recent commit with overlapping scope, rebase onto it or skip your commit.
