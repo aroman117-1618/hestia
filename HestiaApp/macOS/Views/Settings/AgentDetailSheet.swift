@@ -7,6 +7,14 @@ struct AgentDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var selectedTab: AgentDetailTab = .identity
 
+    // Editable identity fields (initialized from agent)
+    @State private var editName: String = ""
+    @State private var editFullName: String = ""
+    @State private var editVibe: String = ""
+    @State private var editColor1: String = ""
+    @State private var editColor2: String = ""
+    @State private var editTemperature: Double = 0.0
+
     enum AgentDetailTab: String, CaseIterable {
         case identity = "Identity"
         case personality = "Personality"
@@ -14,13 +22,9 @@ struct AgentDetailSheet: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
             sheetHeader
-
-            // Tab picker
             tabPicker
 
-            // Tab content
             ScrollView {
                 switch selectedTab {
                 case .identity:
@@ -31,8 +35,18 @@ struct AgentDetailSheet: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(width: 520, height: 580)
+        .frame(width: 520, height: 600)
         .background(MacColors.windowBackground)
+        .onAppear {
+            // Initialize editable fields from agent data
+            editName = agent.name
+            editFullName = agent.identity.fullName
+            editVibe = agent.identity.vibe
+            editColor1 = agent.identity.gradientColor1
+            editColor2 = agent.identity.gradientColor2
+            editTemperature = agent.identity.temperature
+            Task { await vm.loadAgentPhoto(for: agent) }
+        }
     }
 
     // MARK: - Header
@@ -53,6 +67,11 @@ struct AgentDetailSheet: View {
             }
 
             Spacer()
+
+            if vm.isSaving {
+                ProgressView()
+                    .controlSize(.small)
+            }
 
             Button {
                 dismiss()
@@ -101,43 +120,115 @@ struct AgentDetailSheet: View {
         }
     }
 
-    // MARK: - Identity Tab
+    // MARK: - Identity Tab (Editable)
 
     private var identityTab: some View {
         VStack(alignment: .leading, spacing: MacSpacing.lg) {
-            identityField("Name", value: agent.name, icon: "person")
-            identityField("Full Name", value: agent.identity.fullName, icon: "person.text.rectangle")
-            identityField("Vibe", value: agent.identity.vibe, icon: "sparkles")
+            // Photo
+            HStack {
+                Spacer()
+                ProfilePhotoEditor(
+                    currentPhotoData: vm.agentPhotoData,
+                    initialLetter: String(editName.prefix(1)).uppercased(),
+                    size: 72,
+                    onUpload: { data in
+                        Task { await vm.uploadAgentPhoto(for: agent, imageData: data) }
+                    },
+                    onDelete: {
+                        Task { await vm.deleteAgentPhoto(for: agent) }
+                    }
+                )
+                Spacer()
+            }
 
+            // Fields
+            editableField("Name", text: $editName, icon: "person")
+            editableField("Full Name", text: $editFullName, icon: "person.text.rectangle")
+            editableField("Vibe", text: $editVibe, icon: "sparkles")
+
+            // Colors
             HStack(spacing: MacSpacing.lg) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Colors")
+                    Text("Primary Color")
                         .font(MacTypography.caption)
                         .foregroundStyle(MacColors.textFaint)
                     HStack(spacing: MacSpacing.sm) {
                         Circle()
-                            .fill(Color(hex: agent.identity.gradientColor1))
+                            .fill(Color(hex: editColor1))
                             .frame(width: 24, height: 24)
-                        Circle()
-                            .fill(Color(hex: agent.identity.gradientColor2))
-                            .frame(width: 24, height: 24)
+                        TextField("#hex", text: $editColor1)
+                            .font(MacTypography.code)
+                            .foregroundStyle(MacColors.textPrimary)
+                            .textFieldStyle(.plain)
+                            .frame(width: 80)
                     }
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
+                    Text("Secondary Color")
+                        .font(MacTypography.caption)
+                        .foregroundStyle(MacColors.textFaint)
+                    HStack(spacing: MacSpacing.sm) {
+                        Circle()
+                            .fill(Color(hex: editColor2))
+                            .frame(width: 24, height: 24)
+                        TextField("#hex", text: $editColor2)
+                            .font(MacTypography.code)
+                            .foregroundStyle(MacColors.textPrimary)
+                            .textFieldStyle(.plain)
+                            .frame(width: 80)
+                    }
+                }
+            }
+
+            // Temperature slider
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
                     Text("Temperature")
                         .font(MacTypography.caption)
                         .foregroundStyle(MacColors.textFaint)
-                    Text(String(format: "%.1f", agent.identity.temperature))
-                        .font(MacTypography.body)
-                        .foregroundStyle(MacColors.textPrimary)
+                    Spacer()
+                    Text(String(format: "%.1f", editTemperature))
+                        .font(MacTypography.code)
+                        .foregroundStyle(MacColors.amberAccent)
                 }
+                Slider(value: $editTemperature, in: 0...2, step: 0.1)
+                    .tint(MacColors.amberAccent)
+            }
+
+            // Save button
+            HStack {
+                Spacer()
+                Button {
+                    Task {
+                        await vm.saveIdentity(
+                            for: agent,
+                            name: editName,
+                            fullName: editFullName,
+                            vibe: editVibe,
+                            color1: editColor1,
+                            color2: editColor2,
+                            temperature: editTemperature
+                        )
+                    }
+                } label: {
+                    Text("Save Identity")
+                        .font(MacTypography.labelMedium)
+                        .foregroundStyle(MacColors.buttonTextDark)
+                        .padding(.horizontal, MacSpacing.xl)
+                        .padding(.vertical, MacSpacing.sm)
+                        .background(MacColors.amberAccent)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Save identity changes")
+                Spacer()
             }
         }
         .padding(MacSpacing.xl)
     }
 
-    private func identityField(_ label: String, value: String, icon: String) -> some View {
+    private func editableField(_ label: String, text: Binding<String>, icon: String) -> some View {
         HStack(spacing: MacSpacing.md) {
             Image(systemName: icon)
                 .font(.system(size: 14))
@@ -148,9 +239,10 @@ struct AgentDetailSheet: View {
                 Text(label)
                     .font(MacTypography.caption)
                     .foregroundStyle(MacColors.textFaint)
-                Text(value.isEmpty ? "—" : value)
+                TextField(label, text: text)
                     .font(MacTypography.body)
-                    .foregroundStyle(value.isEmpty ? MacColors.textFaint : MacColors.textPrimary)
+                    .foregroundStyle(MacColors.textPrimary)
+                    .textFieldStyle(.plain)
             }
         }
     }
@@ -169,18 +261,26 @@ struct AgentDetailSheet: View {
             } else {
                 MarkdownEditorView(
                     text: $vm.personalityContent,
-                    isEditable: true,
-                    onSave: { _ in
-                        Task { await vm.savePersonality(for: agent) }
-                    }
+                    isEditable: true
                 )
                 .frame(minHeight: 350)
-                .onChange(of: vm.personalityContent) { _, _ in
-                    // Auto-save after 2s
-                    Task {
-                        try? await Task.sleep(for: .seconds(2))
-                        await vm.savePersonality(for: agent)
+
+                HStack {
+                    Spacer()
+                    Button {
+                        Task { await vm.savePersonality(for: agent) }
+                    } label: {
+                        Text("Save Personality")
+                            .font(MacTypography.labelMedium)
+                            .foregroundStyle(MacColors.buttonTextDark)
+                            .padding(.horizontal, MacSpacing.xl)
+                            .padding(.vertical, MacSpacing.sm)
+                            .background(MacColors.amberAccent)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Save personality changes")
+                    Spacer()
                 }
             }
         }
