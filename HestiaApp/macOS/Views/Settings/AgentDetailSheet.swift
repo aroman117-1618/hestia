@@ -107,9 +107,7 @@ struct AgentDetailSheet: View {
         VStack(alignment: .leading, spacing: MacSpacing.lg) {
             identityField("Name", value: agent.name, icon: "person")
             identityField("Full Name", value: agent.identity.fullName, icon: "person.text.rectangle")
-            identityField("Emoji", value: agent.identity.emoji, icon: "face.smiling")
             identityField("Vibe", value: agent.identity.vibe, icon: "sparkles")
-            identityField("Invoke Pattern", value: agent.identity.invokePattern, icon: "at")
 
             HStack(spacing: MacSpacing.lg) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -133,25 +131,6 @@ struct AgentDetailSheet: View {
                     Text(String(format: "%.1f", agent.identity.temperature))
                         .font(MacTypography.body)
                         .foregroundStyle(MacColors.textPrimary)
-                }
-            }
-
-            // Config files status
-            VStack(alignment: .leading, spacing: MacSpacing.sm) {
-                Text("Config Files")
-                    .font(MacTypography.cardSubtitle)
-                    .foregroundStyle(MacColors.textSecondary)
-
-                ForEach(Array(agent.files.sorted(by: { $0.key < $1.key })), id: \.key) { file, exists in
-                    HStack {
-                        Image(systemName: exists ? "checkmark.circle.fill" : "circle")
-                            .font(.system(size: 12))
-                            .foregroundStyle(exists ? MacColors.healthGreen : MacColors.textFaint)
-                        Text(file)
-                            .font(MacTypography.code)
-                            .foregroundStyle(exists ? MacColors.textPrimary : MacColors.textFaint)
-                        Spacer()
-                    }
                 }
             }
         }
