@@ -5,50 +5,78 @@ import HestiaShared
 
 /// macOS ViewModel for the Neural Net 3D graph visualization
 ///
-/// Adapted from the iOS NeuralNetViewModel — uses NSColor for SceneKit materials.
-/// Fetches memory chunks via APIClient and computes a force-directed 3D layout.
+/// Fetches graph data from /v1/research/graph (server-side layout + edges).
+/// Falls back to mock data when server is unavailable.
 @MainActor
 class MacNeuralNetViewModel: ObservableObject {
-    // MARK: - Published State
+    // MARK: - Published State (Graph)
 
     @Published var isLoading = false
     @Published var nodes: [GraphNode] = []
     @Published var edges: [GraphEdge] = []
+    @Published var clusters: [GraphCluster] = []
     @Published var selectedNode: GraphNode? {
         didSet { selectedConnectedNodes = connectedNodes(for: selectedNode?.id ?? "") }
     }
     @Published var selectedConnectedNodes: [GraphNode] = []
     @Published var memoryCount: Int = 0
 
+    // MARK: - Published State (Filters)
+
+    @Published var nodeTypeFilter: Set<String> = ["memory", "topic", "entity"]
+    @Published var focusTopic: String = ""
+    @Published var depthLimit: Int = 3
+
+    // MARK: - Published State (Principles)
+
+    @Published var principles: [ResearchPrinciple] = []
+    @Published var isLoadingPrinciples = false
+    @Published var isDistilling = false
+    @Published var principlesTotal: Int = 0
+
     // MARK: - Types
 
     struct GraphNode: Identifiable, Equatable {
         let id: String
         let content: String
-        let chunkType: ChunkType
+        let nodeType: String       // "memory", "topic", "entity", "principle"
+        let category: String       // maps to ChunkType for memory nodes
+        let label: String
         let confidence: Double
+        let weight: Double
         let topics: [String]
         let entities: [String]
         var position: SIMD3<Float> = .zero
+        let colorHex: String
 
         static func == (lhs: GraphNode, rhs: GraphNode) -> Bool {
             lhs.id == rhs.id
         }
 
         var color: NSColor {
-            chunkType.nodeColor
+            NSColor(hex: colorHex) ?? .gray
         }
 
         var swiftUIColor: Color {
-            chunkType.swiftUIColor
+            Color(nsColor: color)
         }
 
         var displayName: String {
-            chunkType.displayName
+            switch nodeType {
+            case "topic": return "Topic"
+            case "entity": return "Entity"
+            case "principle": return "Principle"
+            default: return ChunkType(rawValue: category)?.displayName ?? category.capitalized
+            }
         }
 
         var displayIcon: String {
-            chunkType.displayIcon
+            switch nodeType {
+            case "topic": return "tag"
+            case "entity": return "person.text.rectangle"
+            case "principle": return "lightbulb"
+            default: return ChunkType(rawValue: category)?.displayIcon ?? "circle"
+            }
         }
 
         var radius: Float {
@@ -70,52 +98,99 @@ class MacNeuralNetViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Public Methods
+    struct GraphCluster: Identifiable {
+        let id: String
+        let label: String
+        let nodeIds: [String]
+        let color: Color
+    }
+
+    // MARK: - Graph Loading
 
     func loadGraph() async {
         isLoading = true
+        defer { isLoading = false }
 
+        // Try cached data first for instant display
+        if let cached = CacheManager.shared.get(ResearchGraphResponse.self, forKey: CacheKey.researchGraph) {
+            applyGraphResponse(cached)
+        }
+
+        // Fetch from server
         do {
-            let results = try await APIClient.shared.searchMemory(query: "*", limit: 50)
-            memoryCount = results.count
+            let nodeTypesParam = nodeTypeFilter.isEmpty ? nil : nodeTypeFilter.sorted().joined(separator: ",")
+            let topicParam = focusTopic.isEmpty ? nil : focusTopic
 
-            var graphNodes = results.map { result in
-                GraphNode(
-                    id: result.chunk.id,
-                    content: result.chunk.content,
-                    chunkType: result.chunk.chunkType,
-                    confidence: result.chunk.metadata.confidence,
-                    topics: result.chunk.tags.topics,
-                    entities: result.chunk.tags.entities
-                )
-            }
-
-            var graphEdges: [GraphEdge] = []
-            for i in 0..<graphNodes.count {
-                for j in (i + 1)..<graphNodes.count {
-                    let sharedTopics = Set(graphNodes[i].topics).intersection(Set(graphNodes[j].topics))
-                    let sharedEntities = Set(graphNodes[i].entities).intersection(Set(graphNodes[j].entities))
-                    let sharedCount = sharedTopics.count + sharedEntities.count
-
-                    if sharedCount > 0 {
-                        let weight = min(Float(sharedCount) / 3.0, 1.0)
-                        graphEdges.append(GraphEdge(from: graphNodes[i].id, to: graphNodes[j].id, weight: weight))
-                    }
-                }
-            }
-
-            computeLayout(nodes: &graphNodes, edges: graphEdges)
-            self.nodes = graphNodes
-            self.edges = graphEdges
+            let response = try await APIClient.shared.getResearchGraph(
+                limit: 200,
+                nodeTypes: nodeTypesParam,
+                centerTopic: topicParam
+            )
+            applyGraphResponse(response)
+            CacheManager.shared.cache(response, forKey: CacheKey.researchGraph, ttl: 300)
 
         } catch {
             #if DEBUG
-            print("[MacNeuralNetViewModel] Failed to load graph: \(error)")
+            print("[MacNeuralNetViewModel] Server graph failed: \(error), using mock")
             #endif
-            loadMockGraph()
+            if nodes.isEmpty {
+                loadMockGraph()
+            }
+        }
+    }
+
+    private func applyGraphResponse(_ response: ResearchGraphResponse) {
+        memoryCount = response.nodeCount
+
+        nodes = response.nodes.map { apiNode in
+            GraphNode(
+                id: apiNode.id,
+                content: apiNode.content,
+                nodeType: apiNode.nodeType,
+                category: apiNode.category,
+                label: apiNode.label,
+                confidence: apiNode.confidence,
+                weight: apiNode.weight,
+                topics: apiNode.topics,
+                entities: apiNode.entities,
+                position: SIMD3<Float>(
+                    Float(apiNode.position.x),
+                    Float(apiNode.position.y),
+                    Float(apiNode.position.z)
+                ),
+                colorHex: apiNode.color
+            )
         }
 
-        isLoading = false
+        edges = response.edges.map { apiEdge in
+            GraphEdge(from: apiEdge.fromId, to: apiEdge.toId, weight: Float(apiEdge.weight))
+        }
+
+        clusters = response.clusters.map { apiCluster in
+            GraphCluster(
+                id: apiCluster.id,
+                label: apiCluster.label,
+                nodeIds: apiCluster.nodeIds,
+                color: Color(hex: apiCluster.color)
+            )
+        }
+    }
+
+    // MARK: - Filtered Access
+
+    var filteredNodes: [GraphNode] {
+        guard !focusTopic.isEmpty else { return nodes }
+        let lower = focusTopic.lowercased()
+        return nodes.filter { node in
+            node.topics.contains(where: { $0.lowercased().contains(lower) })
+            || node.label.lowercased().contains(lower)
+            || node.content.lowercased().contains(lower)
+        }
+    }
+
+    var filteredEdges: [GraphEdge] {
+        let validIds = Set(filteredNodes.map(\.id))
+        return edges.filter { validIds.contains($0.fromId) && validIds.contains($0.toId) }
     }
 
     /// Find all nodes connected to the given node via edges
@@ -128,9 +203,119 @@ class MacNeuralNetViewModel: ObservableObject {
         return connectedIds.compactMap { id in nodes.first(where: { $0.id == id }) }
     }
 
-    // MARK: - Force Simulation
+    // MARK: - Principles
 
-    private func computeLayout(nodes: inout [GraphNode], edges: [GraphEdge]) {
+    func loadPrinciples(status: String? = nil) async {
+        isLoadingPrinciples = true
+        defer { isLoadingPrinciples = false }
+
+        // Cached first
+        if let cached = CacheManager.shared.get(PrincipleListResponse.self, forKey: CacheKey.researchPrinciples) {
+            principles = cached.principles
+            principlesTotal = cached.total
+        }
+
+        do {
+            let response = try await APIClient.shared.getPrinciples(status: status)
+            principles = response.principles
+            principlesTotal = response.total
+            CacheManager.shared.cache(response, forKey: CacheKey.researchPrinciples, ttl: 120)
+        } catch {
+            #if DEBUG
+            print("[MacNeuralNetViewModel] Failed to load principles: \(error)")
+            #endif
+        }
+    }
+
+    func distillPrinciples() async {
+        isDistilling = true
+        defer { isDistilling = false }
+
+        do {
+            let result = try await APIClient.shared.distillPrinciples()
+            #if DEBUG
+            print("[MacNeuralNetViewModel] Distilled \(result.principles_extracted) principles")
+            #endif
+            // Reload principles to show new ones
+            await loadPrinciples()
+        } catch {
+            #if DEBUG
+            print("[MacNeuralNetViewModel] Distillation failed: \(error)")
+            #endif
+        }
+    }
+
+    func approvePrinciple(_ id: String) async {
+        do {
+            _ = try await APIClient.shared.approvePrinciple(id)
+            // Update local state
+            if let idx = principles.firstIndex(where: { $0.id == id }) {
+                await loadPrinciples()
+            }
+            CacheManager.shared.invalidate(forKey: CacheKey.researchPrinciples)
+        } catch {
+            #if DEBUG
+            print("[MacNeuralNetViewModel] Approve failed: \(error)")
+            #endif
+        }
+    }
+
+    func rejectPrinciple(_ id: String) async {
+        do {
+            _ = try await APIClient.shared.rejectPrinciple(id)
+            if let idx = principles.firstIndex(where: { $0.id == id }) {
+                await loadPrinciples()
+            }
+            CacheManager.shared.invalidate(forKey: CacheKey.researchPrinciples)
+        } catch {
+            #if DEBUG
+            print("[MacNeuralNetViewModel] Reject failed: \(error)")
+            #endif
+        }
+    }
+
+    // MARK: - Mock Data Fallback
+
+    private func loadMockGraph() {
+        let results = MemorySearchResult.mockResults
+        memoryCount = results.count
+
+        var graphNodes = results.map { result in
+            GraphNode(
+                id: result.chunk.id,
+                content: result.chunk.content,
+                nodeType: "memory",
+                category: result.chunk.chunkType.rawValue,
+                label: String(result.chunk.content.prefix(50)),
+                confidence: result.chunk.metadata.confidence,
+                weight: result.relevanceScore,
+                topics: result.chunk.tags.topics,
+                entities: result.chunk.tags.entities,
+                colorHex: result.chunk.chunkType.colorHex
+            )
+        }
+
+        var graphEdges: [GraphEdge] = []
+        for i in 0..<graphNodes.count {
+            for j in (i + 1)..<graphNodes.count {
+                let sharedTopics = Set(graphNodes[i].topics).intersection(Set(graphNodes[j].topics))
+                let sharedEntities = Set(graphNodes[i].entities).intersection(Set(graphNodes[j].entities))
+                let sharedCount = sharedTopics.count + sharedEntities.count
+
+                if sharedCount > 0 {
+                    let weight = min(Float(sharedCount) / 3.0, 1.0)
+                    graphEdges.append(GraphEdge(from: graphNodes[i].id, to: graphNodes[j].id, weight: weight))
+                }
+            }
+        }
+
+        // Client-side layout for mock data only
+        computeMockLayout(nodes: &graphNodes, edges: graphEdges)
+        self.nodes = graphNodes
+        self.edges = graphEdges
+    }
+
+    private func computeMockLayout(nodes: inout [GraphNode], edges: [GraphEdge]) {
         let count = nodes.count
         guard count > 0 else { return }
 
@@ -162,10 +347,7 @@ class MacNeuralNetViewModel: ObservableObject {
         var velocities = [SIMD3<Float>](repeating: .zero, count: count)
 
         for _ in 0..<iterations {
-            for i in 0..<count {
-                velocities[i] -= nodes[i].position * centerStrength
-            }
-
+            for i in 0..<count { velocities[i] -= nodes[i].position * centerStrength }
             for i in 0..<count {
                 for j in (i + 1)..<count {
                     var delta = nodes[i].position - nodes[j].position
@@ -176,7 +358,6 @@ class MacNeuralNetViewModel: ObservableObject {
                     velocities[j] -= delta * force
                 }
             }
-
             for (fromIdx, toIdx, weight) in edgePairs {
                 guard fromIdx != toIdx else { continue }
                 var delta = nodes[toIdx].position - nodes[fromIdx].position
@@ -186,48 +367,30 @@ class MacNeuralNetViewModel: ObservableObject {
                 velocities[fromIdx] += delta * displacement
                 velocities[toIdx] -= delta * displacement
             }
-
             for i in 0..<count {
                 velocities[i] *= damping
                 nodes[i].position += velocities[i]
             }
         }
     }
+}
 
-    // MARK: - Mock Data Fallback
+// MARK: - NSColor Hex Init
 
-    private func loadMockGraph() {
-        let results = MemorySearchResult.mockResults
-        memoryCount = results.count
+extension NSColor {
+    convenience init?(hex: String) {
+        let hexString = hex.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "#", with: "")
+        guard hexString.count == 6 else { return nil }
 
-        var graphNodes = results.map { result in
-            GraphNode(
-                id: result.chunk.id,
-                content: result.chunk.content,
-                chunkType: result.chunk.chunkType,
-                confidence: result.chunk.metadata.confidence,
-                topics: result.chunk.tags.topics,
-                entities: result.chunk.tags.entities
-            )
-        }
+        var rgbValue: UInt64 = 0
+        Scanner(string: hexString).scanHexInt64(&rgbValue)
 
-        var graphEdges: [GraphEdge] = []
-        for i in 0..<graphNodes.count {
-            for j in (i + 1)..<graphNodes.count {
-                let sharedTopics = Set(graphNodes[i].topics).intersection(Set(graphNodes[j].topics))
-                let sharedEntities = Set(graphNodes[i].entities).intersection(Set(graphNodes[j].entities))
-                let sharedCount = sharedTopics.count + sharedEntities.count
-
-                if sharedCount > 0 {
-                    let weight = min(Float(sharedCount) / 3.0, 1.0)
-                    graphEdges.append(GraphEdge(from: graphNodes[i].id, to: graphNodes[j].id, weight: weight))
-                }
-            }
-        }
-
-        computeLayout(nodes: &graphNodes, edges: graphEdges)
-        self.nodes = graphNodes
-        self.edges = graphEdges
+        self.init(
+            red: CGFloat((rgbValue & 0xFF0000) >> 16) / 255.0,
+            green: CGFloat((rgbValue & 0x00FF00) >> 8) / 255.0,
+            blue: CGFloat(rgbValue & 0x0000FF) / 255.0,
+            alpha: 1.0
+        )
     }
 }
 
@@ -283,6 +446,19 @@ extension ChunkType {
         case .conversation: return Color(red: 0.5, green: 0.5, blue: 0.5)
         case .research: return Color(red: 0.2, green: 0.8, blue: 0.6)
         case .system: return Color(red: 0.4, green: 0.4, blue: 0.4)
+        }
+    }
+
+    /// Hex string for server-side color matching
+    var colorHex: String {
+        switch self {
+        case .conversation: return "#5AC8FA"
+        case .fact: return "#4CD964"
+        case .preference: return "#FF9500"
+        case .decision: return "#FF3B30"
+        case .actionItem: return "#AF52DE"
+        case .research: return "#007AFF"
+        case .system: return "#8E8E93"
         }
     }
 }

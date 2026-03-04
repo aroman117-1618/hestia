@@ -29,7 +29,7 @@ struct ResearchView: View {
                 case .explorer:
                     ZStack {
                         ambientBackground
-                        ResearchExplorerPlaceholder()
+                        ResearchPrinciplesView(viewModel: graphViewModel)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
@@ -94,11 +94,30 @@ struct ResearchView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
+                // Graph control panel (top-left overlay)
+                GraphControlPanel(viewModel: graphViewModel)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .padding(MacSpacing.lg)
+
                 // Right: Detail panel (slides in when node selected)
                 if let selected = graphViewModel.selectedNode {
-                    detailPanel(selected)
-                        .frame(width: 300)
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                    NodeDetailPopover(
+                        node: selected,
+                        connectedNodes: graphViewModel.selectedConnectedNodes,
+                        viewModel: graphViewModel,
+                        onClose: {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                graphViewModel.selectedNode = nil
+                            }
+                        },
+                        onSelectNode: { node in
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                graphViewModel.selectedNode = node
+                            }
+                        }
+                    )
+                    .frame(width: 300)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
             }
             .animation(.easeInOut(duration: 0.25), value: graphViewModel.selectedNode)
@@ -112,7 +131,7 @@ struct ResearchView: View {
             Image(systemName: node.displayIcon)
                 .font(.system(size: 11))
                 .foregroundStyle(node.swiftUIColor)
-            Text(node.content)
+            Text(node.label.isEmpty ? node.content : node.label)
                 .font(.system(size: 11))
                 .foregroundStyle(MacColors.textPrimary)
                 .lineLimit(1)
@@ -129,8 +148,9 @@ struct ResearchView: View {
         )
     }
 
-    // MARK: - Detail Panel (Right Side)
+    // MARK: - Legacy Detail Panel (kept for reference, replaced by NodeDetailPopover)
 
+    @available(*, deprecated, message: "Use NodeDetailPopover instead")
     private func detailPanel(_ node: MacNeuralNetViewModel.GraphNode) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: MacSpacing.lg) {
@@ -444,7 +464,7 @@ struct ResearchView: View {
     private func modeToggle(compact: Bool) -> some View {
         HStack(spacing: 2) {
             modeButton(.graph, icon: "point.3.connected.trianglepath.dotted", label: "Graph", compact: compact)
-            modeButton(.explorer, icon: "tablecells", label: "Explorer", compact: compact)
+            modeButton(.explorer, icon: "lightbulb", label: "Principles", compact: compact)
         }
         .padding(MacSpacing.xs)
         .background(MacColors.textPrimary.opacity(0.04))
@@ -650,24 +670,249 @@ struct FlowLayout: Layout {
     }
 }
 
-// MARK: - Explorer Placeholder
+// MARK: - Principles View (replaces Explorer placeholder)
 
-struct ResearchExplorerPlaceholder: View {
+struct ResearchPrinciplesView: View {
+    @ObservedObject var viewModel: MacNeuralNetViewModel
+
     var body: some View {
-        VStack(spacing: MacSpacing.lg) {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Text("Principles")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(MacColors.textPrimary)
+
+                Spacer()
+
+                // Distill button
+                Button {
+                    Task { await viewModel.distillPrinciples() }
+                } label: {
+                    HStack(spacing: MacSpacing.xs) {
+                        if viewModel.isDistilling {
+                            ProgressView()
+                                .controlSize(.mini)
+                                .tint(MacColors.amberAccent)
+                        } else {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 12))
+                        }
+                        Text(viewModel.isDistilling ? "Distilling..." : "Distill New")
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                    .foregroundStyle(MacColors.buttonTextDark)
+                    .padding(.horizontal, MacSpacing.md)
+                    .padding(.vertical, MacSpacing.sm)
+                    .background(MacColors.amberAccent)
+                    .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
+                }
+                .buttonStyle(.plain)
+                .disabled(viewModel.isDistilling)
+                .accessibilityLabel("Distill new principles from recent conversations")
+            }
+            .padding(.horizontal, MacSpacing.xl)
+            .padding(.vertical, MacSpacing.md)
+
+            // Content
+            if viewModel.isLoadingPrinciples && viewModel.principles.isEmpty {
+                Spacer()
+                ProgressView()
+                    .controlSize(.regular)
+                Spacer()
+            } else if viewModel.principles.isEmpty {
+                principlesEmptyState
+            } else {
+                principlesList
+            }
+        }
+        .task {
+            await viewModel.loadPrinciples()
+        }
+    }
+
+    // MARK: - Empty State
+
+    private var principlesEmptyState: some View {
+        VStack(spacing: MacSpacing.md) {
             Spacer()
-            Image(systemName: "tablecells")
+            Image(systemName: "lightbulb")
                 .font(.system(size: 48))
                 .foregroundStyle(MacColors.textSecondary.opacity(0.3))
-            Text("Data Explorer")
+            Text("No principles yet")
                 .font(.system(size: 18, weight: .medium))
                 .foregroundStyle(MacColors.textSecondary)
-            Text("Unified timeline of all your data sources.\nComing in the next sprint.")
+            Text("Chat more to build your knowledge base,\nthen tap \"Distill New\" to extract patterns.")
                 .font(.system(size: 13))
                 .foregroundStyle(MacColors.textFaint)
                 .multilineTextAlignment(.center)
             Spacer()
         }
+    }
+
+    // MARK: - Principles List
+
+    private var principlesList: some View {
+        ScrollView {
+            LazyVStack(spacing: MacSpacing.md) {
+                // Pending section
+                let pending = viewModel.principles.filter(\.isPending)
+                if !pending.isEmpty {
+                    sectionHeader("Pending Review", count: pending.count, color: MacColors.statusWarning)
+                    ForEach(pending) { principle in
+                        principleCard(principle, showActions: true)
+                    }
+                }
+
+                // Approved section
+                let approved = viewModel.principles.filter(\.isApproved)
+                if !approved.isEmpty {
+                    sectionHeader("Approved", count: approved.count, color: MacColors.healthGreen)
+                    ForEach(approved) { principle in
+                        principleCard(principle, showActions: false)
+                    }
+                }
+
+                // Rejected section
+                let rejected = viewModel.principles.filter(\.isRejected)
+                if !rejected.isEmpty {
+                    sectionHeader("Rejected", count: rejected.count, color: MacColors.healthRed)
+                    ForEach(rejected) { principle in
+                        principleCard(principle, showActions: false)
+                    }
+                }
+            }
+            .padding(.horizontal, MacSpacing.xl)
+            .padding(.bottom, MacSpacing.xl)
+        }
+    }
+
+    private func sectionHeader(_ title: String, count: Int, color: Color) -> some View {
+        HStack(spacing: MacSpacing.sm) {
+            Circle()
+                .fill(color)
+                .frame(width: 8, height: 8)
+            Text(title)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(MacColors.textSecondary)
+            Text("(\(count))")
+                .font(.system(size: 11))
+                .foregroundStyle(MacColors.textFaint)
+            Spacer()
+        }
+        .padding(.top, MacSpacing.md)
+    }
+
+    private func principleCard(_ principle: ResearchPrinciple, showActions: Bool) -> some View {
+        VStack(alignment: .leading, spacing: MacSpacing.md) {
+            // Domain badge + confidence
+            HStack {
+                Text(principle.domain.capitalized)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(MacColors.amberAccent)
+                    .padding(.horizontal, MacSpacing.sm)
+                    .padding(.vertical, 2)
+                    .background(MacColors.amberAccent.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+
+                Spacer()
+
+                Text("\(Int(principle.confidence * 100))% confidence")
+                    .font(.system(size: 10))
+                    .foregroundStyle(MacColors.textFaint)
+            }
+
+            // Content
+            Text(principle.content)
+                .font(.system(size: 13))
+                .foregroundStyle(MacColors.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            // Source info
+            HStack(spacing: MacSpacing.sm) {
+                if !principle.sourceChunkIds.isEmpty {
+                    HStack(spacing: 2) {
+                        Image(systemName: "link")
+                            .font(.system(size: 9))
+                        Text("\(principle.sourceChunkIds.count) sources")
+                            .font(.system(size: 10))
+                    }
+                    .foregroundStyle(MacColors.textFaint)
+                }
+
+                if !principle.topics.isEmpty {
+                    HStack(spacing: 2) {
+                        Image(systemName: "tag")
+                            .font(.system(size: 9))
+                        Text(principle.topics.prefix(3).joined(separator: ", "))
+                            .font(.system(size: 10))
+                            .lineLimit(1)
+                    }
+                    .foregroundStyle(MacColors.textFaint)
+                }
+
+                Spacer()
+
+                if let dateStr = principle.createdAt,
+                   let date = ISO8601DateFormatter().date(from: dateStr) {
+                    Text(date, style: .relative)
+                        .font(.system(size: 10))
+                        .foregroundStyle(MacColors.textFaint)
+                }
+            }
+
+            // Approve/Reject buttons (pending only)
+            if showActions {
+                HStack(spacing: MacSpacing.sm) {
+                    Button {
+                        Task { await viewModel.approvePrinciple(principle.id) }
+                    } label: {
+                        HStack(spacing: MacSpacing.xs) {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 11))
+                            Text("Approve")
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .foregroundStyle(MacColors.buttonTextDark)
+                        .padding(.horizontal, MacSpacing.md)
+                        .padding(.vertical, MacSpacing.sm)
+                        .background(MacColors.healthGreen)
+                        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        Task { await viewModel.rejectPrinciple(principle.id) }
+                    } label: {
+                        HStack(spacing: MacSpacing.xs) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 11))
+                            Text("Reject")
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .foregroundStyle(MacColors.healthRed)
+                        .padding(.horizontal, MacSpacing.md)
+                        .padding(.vertical, MacSpacing.sm)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: MacCornerRadius.search)
+                                .strokeBorder(MacColors.healthRed.opacity(0.3), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+
+                    Spacer()
+                }
+            }
+        }
+        .padding(MacSpacing.lg)
+        .background(MacColors.cardGradient)
+        .overlay(
+            RoundedRectangle(cornerRadius: MacCornerRadius.panel)
+                .strokeBorder(MacColors.cardBorder, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(principle.domain) principle: \(principle.content)")
     }
 }
 

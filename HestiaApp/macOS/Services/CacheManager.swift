@@ -90,4 +90,8 @@ enum CacheKey {
     static func agentPersonality(_ name: String) -> String {
         "agent_\(name)_personality"
     }
+
+    // Research
+    static let researchGraph = "research_graph"
+    static let researchPrinciples = "research_principles"
 }
