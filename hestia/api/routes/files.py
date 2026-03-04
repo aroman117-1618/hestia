@@ -360,6 +360,20 @@ async def delete_file(
     return FileDeleteResponse(deleted=deleted, moved_to_trash=True)
 
 
+@router.post(
+    "/delete",
+    response_model=FileDeleteResponse,
+    summary="Delete file (POST alias)",
+    description="POST alias for DELETE — used by macOS client where generic delete() is private.",
+)
+async def delete_file_post(
+    path: str = Query(..., description="File path to delete"),
+    device_id: str = Depends(get_device_token),
+):
+    """POST alias for soft-delete. Delegates to the same manager method."""
+    return await delete_file(path=path, device_id=device_id)
+
+
 @router.put(
     "/move",
     response_model=FileEntryResponse,
