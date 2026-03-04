@@ -9,6 +9,7 @@ Provides file browsing, reading, writing, and deletion with:
 """
 
 from .models import FileEntry, FileAuditLog, FileSettings, FileOperation, FileType
+from .security import PathValidator, PathValidationError
 
 __all__ = [
     "FileEntry",
@@ -16,4 +17,6 @@ __all__ = [
     "FileSettings",
     "FileOperation",
     "FileType",
+    "PathValidator",
+    "PathValidationError",
 ]
