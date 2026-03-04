@@ -47,6 +47,7 @@ from hestia.investigate import get_investigate_manager, close_investigate_manage
 from hestia.research.manager import get_research_manager, close_research_manager
 from hestia.files import get_file_manager, close_file_manager
 from hestia.inbox import get_inbox_manager, close_inbox_manager
+from hestia.outcomes import get_outcome_manager, close_outcome_manager
 
 # Import routers
 from hestia.api.routes import (
@@ -73,6 +74,7 @@ from hestia.api.routes import (
     research_router,
     files_router,
     inbox_router,
+    outcomes_router,
 )
 from hestia.api.routes.agents_v2 import router as agents_v2_router
 
@@ -231,7 +233,7 @@ async def lifespan(app: FastAPI):
             "cloud_manager", "health_manager", "wiki_manager", "config_loader",
             "invite_store", "explorer_manager", "newsfeed_manager",
             "investigate_manager", "research_manager", "file_manager",
-            "inbox_manager",
+            "inbox_manager", "outcome_manager",
         ]
         phase2_coroutines = [
             get_task_manager(), get_order_manager(), get_agent_manager(),
@@ -240,6 +242,7 @@ async def lifespan(app: FastAPI):
             get_explorer_manager(), get_newsfeed_manager(),
             get_investigate_manager(), get_research_manager(),
             get_file_manager(), get_inbox_manager(),
+            get_outcome_manager(),
         ]
 
         try:
@@ -276,6 +279,7 @@ async def lifespan(app: FastAPI):
                     "research_manager": get_research_manager,
                     "file_manager": get_file_manager,
                     "inbox_manager": get_inbox_manager,
+                    "outcome_manager": get_outcome_manager,
                 }
                 for name, _ in failures:
                     await retry_map[name]()
@@ -311,6 +315,7 @@ async def lifespan(app: FastAPI):
             await get_research_manager()
             await get_file_manager()
             await get_inbox_manager()
+            await get_outcome_manager()
 
         # ── Phase 3: Sequential dependents ───────────────────────────
         # Schedulers depend on their managers from Phase 2
@@ -351,7 +356,7 @@ async def lifespan(app: FastAPI):
             component=LogComponent.API,
             data={
                 "startup_ms": startup_ms,
-                "managers_initialized": 17,
+                "managers_initialized": 18,
             }
         )
 
@@ -372,7 +377,17 @@ async def lifespan(app: FastAPI):
 
         shutdown_errors = 0
 
-        # 19. inbox_manager (newest -> first closed)
+        # 20. outcome_manager (newest -> first closed)
+        try:
+            await close_outcome_manager()
+        except Exception as e:
+            shutdown_errors += 1
+            logger.warning(
+                f"Outcome manager cleanup error: {type(e).__name__}",
+                component=LogComponent.API,
+            )
+
+        # 19. inbox_manager
         try:
             await close_inbox_manager()
         except Exception as e:
@@ -719,6 +734,7 @@ app.include_router(investigate_router)
 app.include_router(research_router)
 app.include_router(files_router)
 app.include_router(inbox_router)
+app.include_router(outcomes_router)
 
 
 # Root endpoint

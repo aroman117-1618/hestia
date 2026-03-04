@@ -7,9 +7,12 @@ learn from interactions over time.
 """
 
 from .models import OutcomeRecord, OutcomeFeedback, ImplicitSignal
+from .manager import get_outcome_manager, close_outcome_manager
 
 __all__ = [
     "OutcomeRecord",
     "OutcomeFeedback",
     "ImplicitSignal",
+    "get_outcome_manager",
+    "close_outcome_manager",
 ]
