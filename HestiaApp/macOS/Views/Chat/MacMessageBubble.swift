@@ -5,6 +5,10 @@ struct MacMessageBubble: View {
     let message: ConversationMessage
     let reactions: Set<String>
     let onReaction: (String) -> Void
+    let feedbackState: String?
+    let onFeedback: (String, String, String?) -> Void
+
+    @State private var isHovered: Bool = false
 
     private var isUser: Bool { message.role == .user }
 
@@ -112,9 +116,27 @@ struct MacMessageBubble: View {
                 onReaction: onReaction
             )
             .padding(.leading, 48)
+
+            // Outcome feedback (visible on hover or when feedback already submitted)
+            if isHovered || feedbackState != nil {
+                OutcomeFeedbackRow(
+                    messageId: message.id,
+                    currentFeedback: feedbackState,
+                    onFeedback: { feedback, note in
+                        onFeedback(message.id, feedback, note)
+                    }
+                )
+                .padding(.leading, 48)
+                .transition(.opacity)
+            }
         }
         .padding(.top, MacSpacing.sm)
         .padding(.bottom, MacSpacing.lg)
         .padding(.trailing, 96)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovered = hovering
+            }
+        }
     }
 }

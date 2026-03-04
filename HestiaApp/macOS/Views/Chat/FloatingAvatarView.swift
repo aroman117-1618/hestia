@@ -10,8 +10,11 @@ struct FloatingAvatarView: View {
     let currentMode: HestiaMode
     let isTyping: Bool
     let isLoading: Bool
+    let hasMessages: Bool
+    let sessionId: String?
     let onModePick: (HestiaMode) -> Void
     let onNewSession: () -> Void
+    let onMoveToBackground: (String) async -> Void
 
     @State private var showingUser = false
     @State private var glowOpacity: Double = 0.2
@@ -19,19 +22,14 @@ struct FloatingAvatarView: View {
 
     var body: some View {
         HStack(spacing: MacSpacing.md) {
-            // New session button (left side)
-            Button {
-                onNewSession()
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(MacColors.textSecondary)
-                    .frame(width: 28, height: 28)
-                    .background(MacColors.textPrimary.opacity(0.06))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-            }
-            .buttonStyle(.hestiaIcon)
-            .accessibilityLabel("New chat session")
+            // Background session / new session button (left side)
+            BackgroundSessionButton(
+                hasMessages: hasMessages,
+                sessionId: sessionId,
+                onMoveToBackground: onMoveToBackground,
+                onNewSession: onNewSession
+            )
+            .accessibilityLabel(hasMessages ? "Move to background" : "New chat session")
             .hoverCursor(.pointingHand)
 
             Spacer()

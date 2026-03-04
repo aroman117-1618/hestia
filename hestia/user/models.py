@@ -105,6 +105,7 @@ class UserSettings:
     default_mode: str = "tia"
     auto_lock_timeout_minutes: int = 5
     file_settings: Optional[Dict[str, Any]] = None  # FileSettings stored as dict to avoid circular import
+    experimental_chat_v2: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
@@ -112,6 +113,7 @@ class UserSettings:
             "push_notifications": self.push_notifications.to_dict(),
             "default_mode": self.default_mode,
             "auto_lock_timeout_minutes": self.auto_lock_timeout_minutes,
+            "experimental_chat_v2": self.experimental_chat_v2,
         }
         if self.file_settings is not None:
             result["file_settings"] = self.file_settings
@@ -129,6 +131,7 @@ class UserSettings:
             default_mode=data.get("default_mode", "tia"),
             auto_lock_timeout_minutes=data.get("auto_lock_timeout_minutes", 5),
             file_settings=data.get("file_settings"),
+            experimental_chat_v2=data.get("experimental_chat_v2", False),
         )
 
     def get_file_settings(self) -> "FileSettings":

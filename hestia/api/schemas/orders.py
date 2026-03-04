@@ -22,6 +22,10 @@ class OrderStatusEnum(str, Enum):
     """Order status values."""
     ACTIVE = "active"
     INACTIVE = "inactive"
+    DRAFTED = "drafted"
+    SCHEDULED = "scheduled"
+    WORKING = "working"
+    COMPLETED = "completed"
 
 
 class ExecutionStatusEnum(str, Enum):

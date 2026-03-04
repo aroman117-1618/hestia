@@ -13,6 +13,8 @@ struct MacChatPanelView: View {
                 currentMode: appState.currentMode,
                 isTyping: viewModel.isTyping,
                 isLoading: viewModel.isLoading,
+                hasMessages: !viewModel.messages.isEmpty,
+                sessionId: viewModel.currentSessionId,
                 onModePick: { mode in
                     Task {
                         await viewModel.switchMode(to: mode, appState: appState)
@@ -22,6 +24,12 @@ struct MacChatPanelView: View {
                     Task {
                         await viewModel.startNewConversation(appState: appState)
                     }
+                },
+                onMoveToBackground: { sessionId in
+                    await viewModel.moveSessionToBackground(
+                        sessionId: sessionId,
+                        appState: appState
+                    )
                 }
             )
 
@@ -35,6 +43,16 @@ struct MacChatPanelView: View {
                                 reactions: viewModel.reactions[message.id] ?? [],
                                 onReaction: { reaction in
                                     viewModel.toggleReaction(reaction, for: message.id)
+                                },
+                                feedbackState: viewModel.feedbackState[message.id],
+                                onFeedback: { messageId, feedback, note in
+                                    Task {
+                                        await viewModel.submitFeedback(
+                                            messageId: messageId,
+                                            feedback: feedback,
+                                            note: note
+                                        )
+                                    }
                                 }
                             )
                             .id(message.id)
