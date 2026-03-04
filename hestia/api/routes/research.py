@@ -5,100 +5,26 @@ Endpoints for the knowledge graph and principle distillation.
 Part of the Learning Cycle (Phase A).
 """
 
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, Optional, Set
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, Field
 
 from hestia.api.errors import sanitize_for_log
 from hestia.api.middleware.auth import get_device_token
+from hestia.api.schemas.research import (
+    DistillRequest,
+    DistillResponse,
+    GraphResponse,
+    PrincipleListResponse,
+    PrincipleResponse,
+    PrincipleUpdateRequest,
+)
 from hestia.logging import LogComponent, get_logger
 from hestia.research.manager import get_research_manager
 from hestia.research.models import PrincipleStatus
 
 router = APIRouter(prefix="/v1/research", tags=["research"])
 logger = get_logger()
-
-
-# =============================================================================
-# Request/Response Schemas
-# =============================================================================
-
-
-class GraphNodeResponse(BaseModel):
-    id: str
-    content: str
-    nodeType: str
-    category: str
-    label: str
-    confidence: float
-    weight: float
-    topics: List[str] = Field(default_factory=list)
-    entities: List[str] = Field(default_factory=list)
-    position: Dict[str, float] = Field(default_factory=dict)
-    radius: float = 0.15
-    color: str = "#8E8E93"
-    lastActive: Optional[str] = None
-    metadata: Dict[str, Any] = Field(default_factory=dict)
-
-
-class GraphEdgeResponse(BaseModel):
-    id: str
-    fromId: str
-    toId: str
-    edgeType: str
-    weight: float
-    count: int = 1
-
-
-class GraphClusterResponse(BaseModel):
-    id: str
-    label: str
-    nodeIds: List[str] = Field(default_factory=list)
-    color: str = "#8E8E93"
-
-
-class GraphResponse(BaseModel):
-    nodes: List[GraphNodeResponse]
-    edges: List[GraphEdgeResponse]
-    clusters: List[GraphClusterResponse]
-    nodeCount: int
-    edgeCount: int
-    metadata: Dict[str, Any] = Field(default_factory=dict)
-
-
-class PrincipleResponse(BaseModel):
-    id: str
-    content: str
-    domain: str
-    confidence: float
-    status: str
-    sourceChunkIds: List[str] = Field(default_factory=list)
-    topics: List[str] = Field(default_factory=list)
-    entities: List[str] = Field(default_factory=list)
-    validationCount: int = 0
-    contradictionCount: int = 0
-    createdAt: Optional[str] = None
-    updatedAt: Optional[str] = None
-
-
-class PrincipleListResponse(BaseModel):
-    principles: List[PrincipleResponse]
-    total: int
-
-
-class DistillRequest(BaseModel):
-    time_range_days: int = Field(default=7, ge=1, le=90)
-
-
-class DistillResponse(BaseModel):
-    principles_extracted: int
-    new: int
-    input_chunks: int = 0
-
-
-class PrincipleUpdateRequest(BaseModel):
-    content: str = Field(..., min_length=1, max_length=2000)
 
 
 # =============================================================================
