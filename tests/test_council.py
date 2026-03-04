@@ -1829,3 +1829,177 @@ class TestExecuteCouncilTools:
             result = await handler._execute_council_tools(tool_calls, request, task)
             assert result is not None
             assert "failed" in result.lower() or "denied" in result.lower()
+
+
+class TestExecuteNativeToolCalls:
+    """Tests for _execute_native_tool_calls() — Ollama native API tool calls."""
+
+    @pytest.mark.asyncio
+    async def test_native_tool_call_success(self):
+        """Native tool call with valid function format executes successfully."""
+        handler = _make_handler_with_mocks()
+
+        mock_result = MagicMock()
+        mock_result.success = True
+        mock_result.output = {"events": [{"title": "Standup", "start": "2026-03-04T09:00:00"}]}
+
+        executor = AsyncMock()
+        executor.execute = AsyncMock(return_value=mock_result)
+        handler._tool_executor = executor
+
+        # Mock registry to recognize the tool
+        mock_registry = MagicMock()
+        mock_registry.has_tool = MagicMock(return_value=True)
+
+        request = Request.create(content="Calendar", session_id="test")
+        task = handler.state_machine.create_task(request)
+        handler.state_machine.start_processing(task)
+
+        # Ollama native format: [{"function": {"name": ..., "arguments": ...}}]
+        tool_calls = [{"function": {"name": "get_today_events", "arguments": {}}}]
+
+        with patch("hestia.orchestration.handler.get_tool_registry", return_value=mock_registry):
+            result = await handler._execute_native_tool_calls(tool_calls, request, task)
+        assert result is not None
+        assert "Standup" in result
+        executor.execute.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_native_tool_call_empty_list(self):
+        """Empty tool_calls list returns None."""
+        handler = _make_handler_with_mocks()
+        request = Request.create(content="test", session_id="test")
+        task = handler.state_machine.create_task(request)
+
+        result = await handler._execute_native_tool_calls([], request, task)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_native_tool_call_missing_function_key(self):
+        """Tool call without 'function' key is skipped."""
+        handler = _make_handler_with_mocks()
+        request = Request.create(content="test", session_id="test")
+        task = handler.state_machine.create_task(request)
+
+        tool_calls = [{"bad_key": {"name": "get_today_events"}}]
+        result = await handler._execute_native_tool_calls(tool_calls, request, task)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_native_tool_call_missing_name(self):
+        """Tool call with empty name is skipped."""
+        handler = _make_handler_with_mocks()
+        request = Request.create(content="test", session_id="test")
+        task = handler.state_machine.create_task(request)
+
+        tool_calls = [{"function": {"name": "", "arguments": {}}}]
+        result = await handler._execute_native_tool_calls(tool_calls, request, task)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_native_tool_call_failure_reported(self):
+        """Failed native tool execution is reported in result."""
+        handler = _make_handler_with_mocks()
+
+        mock_result = MagicMock()
+        mock_result.success = False
+        mock_result.error = "Calendar access denied"
+
+        executor = AsyncMock()
+        executor.execute = AsyncMock(return_value=mock_result)
+        handler._tool_executor = executor
+
+        mock_registry = MagicMock()
+        mock_registry.has_tool = MagicMock(return_value=True)
+
+        request = Request.create(content="Calendar", session_id="test")
+        task = handler.state_machine.create_task(request)
+        handler.state_machine.start_processing(task)
+
+        tool_calls = [{"function": {"name": "get_today_events", "arguments": {}}}]
+        with patch("hestia.orchestration.handler.get_tool_registry", return_value=mock_registry):
+            result = await handler._execute_native_tool_calls(tool_calls, request, task)
+
+        assert result is not None
+        assert "failed" in result.lower()
+
+    @pytest.mark.asyncio
+    async def test_native_tool_call_multiple_tools(self):
+        """Multiple native tool calls execute and results are joined."""
+        handler = _make_handler_with_mocks()
+
+        mock_result_1 = MagicMock()
+        mock_result_1.success = True
+        mock_result_1.output = {"events": []}
+
+        mock_result_2 = MagicMock()
+        mock_result_2.success = True
+        mock_result_2.output = {"reminders": [{"title": "Buy milk"}]}
+
+        executor = AsyncMock()
+        executor.execute = AsyncMock(side_effect=[mock_result_1, mock_result_2])
+        handler._tool_executor = executor
+
+        mock_registry = MagicMock()
+        mock_registry.has_tool = MagicMock(return_value=True)
+
+        request = Request.create(content="Calendar and reminders", session_id="test")
+        task = handler.state_machine.create_task(request)
+        handler.state_machine.start_processing(task)
+
+        tool_calls = [
+            {"function": {"name": "get_today_events", "arguments": {}}},
+            {"function": {"name": "get_due_reminders", "arguments": {}}},
+        ]
+        with patch("hestia.orchestration.handler.get_tool_registry", return_value=mock_registry):
+            result = await handler._execute_native_tool_calls(tool_calls, request, task)
+
+        assert result is not None
+        assert "Buy milk" in result
+        assert executor.execute.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_native_tool_call_string_arguments(self):
+        """Arguments returned as JSON string are parsed to dict."""
+        handler = _make_handler_with_mocks()
+
+        mock_result = MagicMock()
+        mock_result.success = True
+        mock_result.output = {"events": []}
+
+        executor = AsyncMock()
+        executor.execute = AsyncMock(return_value=mock_result)
+        handler._tool_executor = executor
+
+        mock_registry = MagicMock()
+        mock_registry.has_tool = MagicMock(return_value=True)
+
+        request = Request.create(content="Calendar", session_id="test")
+        task = handler.state_machine.create_task(request)
+        handler.state_machine.start_processing(task)
+
+        # Ollama sometimes returns arguments as a JSON string instead of dict
+        tool_calls = [{"function": {"name": "get_today_events", "arguments": '{"days": 1}'}}]
+
+        with patch("hestia.orchestration.handler.get_tool_registry", return_value=mock_registry):
+            result = await handler._execute_native_tool_calls(tool_calls, request, task)
+        assert result is not None
+        executor.execute.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_native_tool_call_unknown_tool_skipped(self):
+        """Tool not in registry is skipped with warning."""
+        handler = _make_handler_with_mocks()
+
+        mock_registry = MagicMock()
+        mock_registry.has_tool = MagicMock(return_value=False)
+
+        request = Request.create(content="test", session_id="test")
+        task = handler.state_machine.create_task(request)
+        handler.state_machine.start_processing(task)
+
+        tool_calls = [{"function": {"name": "nonexistent_tool", "arguments": {}}}]
+
+        with patch("hestia.orchestration.handler.get_tool_registry", return_value=mock_registry):
+            result = await handler._execute_native_tool_calls(tool_calls, request, task)
+        assert result is None

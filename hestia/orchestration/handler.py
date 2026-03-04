@@ -542,6 +542,10 @@ IMPORTANT RULES:
         temperature = self._mode_manager.get_temperature(request.mode)
         max_tokens = self._prompt_builder.estimate_response_budget(prompt_components)
 
+        # Get native tool definitions once (stable across retries)
+        registry = get_tool_registry()
+        tool_definitions = registry.get_definitions_as_list()
+
         for attempt in range(max_retries):
             # Add retry guidance if not first attempt
             current_messages = messages.copy()
@@ -555,10 +559,6 @@ IMPORTANT RULES:
                         "role": "user",
                         "content": guidance
                     })
-
-            # Get native tool definitions for Ollama API
-            registry = get_tool_registry()
-            tool_definitions = registry.get_definitions_as_list()
 
             # Run inference with native tool calling
             inference_response = await self.state_machine.run_with_timeout(
@@ -658,9 +658,13 @@ IMPORTANT RULES:
                     )
                 response_type = ResponseType.TEXT
             else:
+                # Check if native tool calls were attempted but all failed
+                if inference_response.tool_calls:
+                    final_content = "I tried to help with that, but encountered an issue executing the action. Let me try a different approach - could you rephrase your request?"
+                    response_type = ResponseType.TEXT
                 # Check if content looks like a raw tool_call JSON that failed to execute
                 # Never show raw tool JSON to user
-                if self._looks_like_tool_call(content):
+                elif self._looks_like_tool_call(content):
                     final_content = "I tried to help with that, but encountered an issue executing the action. Let me try a different approach - could you rephrase your request?"
                     response_type = ResponseType.TEXT
                 else:
@@ -879,7 +883,10 @@ IMPORTANT RULES:
         """
         import json
 
+        executor = await self._get_tool_executor()
+        registry = get_tool_registry()
         results = []
+
         for tc in tool_calls:
             try:
                 func = tc.get("function", {})
@@ -887,6 +894,32 @@ IMPORTANT RULES:
                 arguments = func.get("arguments", {})
 
                 if not tool_name:
+                    self.logger.warning(
+                        "Native tool call missing tool name, skipping",
+                        component=LogComponent.ORCHESTRATION,
+                        data={"request_id": request.id, "raw_entry": str(tc)[:200]},
+                    )
+                    continue
+
+                # Ollama may return arguments as JSON string instead of dict
+                if isinstance(arguments, str):
+                    try:
+                        arguments = json.loads(arguments)
+                    except (json.JSONDecodeError, TypeError):
+                        self.logger.warning(
+                            f"Could not parse arguments string for {tool_name}",
+                            component=LogComponent.ORCHESTRATION,
+                            data={"request_id": request.id, "raw_args": arguments[:200]},
+                        )
+                        arguments = {}
+
+                # Validate tool exists in registry
+                if not registry.has_tool(tool_name):
+                    self.logger.warning(
+                        f"Native tool call references unknown tool: {tool_name}",
+                        component=LogComponent.ORCHESTRATION,
+                        data={"request_id": request.id},
+                    )
                     continue
 
                 self.logger.info(
@@ -899,9 +932,14 @@ IMPORTANT RULES:
                     },
                 )
 
-                executor = await self._get_tool_executor()
+                # State machine: transition to AWAITING_TOOL
+                self.state_machine.await_tool(task, tool_name)
+
                 call = ToolCall.create(tool_name=tool_name, arguments=arguments)
                 result = await executor.execute(call, request.id)
+
+                # State machine: resume processing after tool execution
+                self.state_machine.resume_processing(task)
 
                 if result.success:
                     result_data = result.output
@@ -923,8 +961,13 @@ IMPORTANT RULES:
                 self.logger.warning(
                     f"Error executing native tool call: {type(e).__name__}",
                     component=LogComponent.ORCHESTRATION,
-                    data={"request_id": request.id},
+                    data={"request_id": request.id, "tool_name": tc.get("function", {}).get("name", "unknown")},
                 )
+                # Ensure state machine returns to processing on error
+                try:
+                    self.state_machine.resume_processing(task)
+                except Exception:
+                    pass
 
         if results:
             return "\n\n".join(results)

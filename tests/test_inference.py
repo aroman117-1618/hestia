@@ -222,6 +222,142 @@ class TestLocalInference:
         await client.close()
 
 
+class TestNativeToolCalling:
+    """Tests for native Ollama tool calling support."""
+
+    def test_inference_response_tool_calls_default_none(self):
+        """InferenceResponse.tool_calls defaults to None."""
+        response = InferenceResponse(
+            content="Hello",
+            model="qwen2.5:7b",
+            tokens_in=5,
+            tokens_out=2,
+            duration_ms=50,
+        )
+        assert response.tool_calls is None
+
+    def test_inference_response_with_tool_calls(self):
+        """InferenceResponse can hold structured tool_calls."""
+        tool_calls = [{"function": {"name": "get_today_events", "arguments": {}}}]
+        response = InferenceResponse(
+            content="",
+            model="qwen2.5:7b",
+            tokens_in=100,
+            tokens_out=10,
+            duration_ms=200,
+            tool_calls=tool_calls,
+        )
+        assert response.tool_calls is not None
+        assert len(response.tool_calls) == 1
+        assert response.tool_calls[0]["function"]["name"] == "get_today_events"
+
+    def test_validation_allows_empty_content_with_tool_calls(self):
+        """Validation should not reject empty content when tool_calls present."""
+        client = InferenceClient()
+        response = InferenceResponse(
+            content="",
+            model="qwen2.5:7b",
+            tokens_in=100,
+            tokens_out=10,
+            duration_ms=200,
+            tool_calls=[{"function": {"name": "list_events", "arguments": {"days": 1}}}],
+        )
+        # Should not raise ValidationError
+        client._validate_response(response)
+
+    def test_validation_rejects_empty_content_without_tool_calls(self):
+        """Validation should reject empty content when no tool_calls."""
+        from hestia.inference.client import ValidationError
+        client = InferenceClient()
+        response = InferenceResponse(
+            content="",
+            model="qwen2.5:7b",
+            tokens_in=100,
+            tokens_out=10,
+            duration_ms=200,
+        )
+        with pytest.raises(ValidationError):
+            client._validate_response(response)
+
+    @pytest.mark.asyncio
+    async def test_tools_param_threaded_to_ollama(self):
+        """Verify tools param is passed through chat → routing → ollama."""
+        client = InferenceClient()
+        tools = [{"type": "function", "function": {"name": "test_tool", "parameters": {}}}]
+
+        with patch.object(client, '_call_ollama') as mock_ollama:
+            mock_ollama.return_value = InferenceResponse(
+                content="I'll help you.",
+                model="qwen2.5:7b",
+                tokens_in=100,
+                tokens_out=10,
+                duration_ms=200,
+            )
+
+            response = await client.chat(
+                messages=[Message(role="user", content="Hello")],
+                tools=tools,
+            )
+
+            # Verify _call_ollama was called with tools
+            call_kwargs = mock_ollama.call_args
+            assert call_kwargs.kwargs.get("tools") == tools or \
+                   (len(call_kwargs.args) > 0 and "tools" in str(call_kwargs))
+
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_tool_calls_extracted_from_ollama_response(self):
+        """Verify tool_calls are extracted from mock Ollama response."""
+        client = InferenceClient()
+
+        with patch.object(client, '_call_ollama') as mock_ollama:
+            mock_ollama.return_value = InferenceResponse(
+                content="",
+                model="qwen2.5:7b",
+                tokens_in=100,
+                tokens_out=10,
+                duration_ms=200,
+                tool_calls=[{"function": {"name": "get_today_events", "arguments": {}}}],
+            )
+
+            response = await client.chat(
+                messages=[Message(role="user", content="What's on my calendar?")],
+                tools=[{"type": "function", "function": {"name": "get_today_events"}}],
+            )
+
+            assert response.tool_calls is not None
+            assert response.tool_calls[0]["function"]["name"] == "get_today_events"
+
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_chat_without_tools_works_unchanged(self):
+        """Verify chat without tools param still works (backward compat)."""
+        client = InferenceClient()
+
+        with patch.object(client, '_call_ollama') as mock_ollama:
+            mock_ollama.return_value = InferenceResponse(
+                content="Hello!",
+                model="qwen2.5:7b",
+                tokens_in=5,
+                tokens_out=2,
+                duration_ms=50,
+            )
+
+            response = await client.chat(
+                messages=[Message(role="user", content="Hi")],
+            )
+
+            assert response.content == "Hello!"
+            assert response.tool_calls is None
+            # Verify tools was not passed (or passed as None)
+            call_kwargs = mock_ollama.call_args.kwargs
+            assert call_kwargs.get("tools") is None
+
+        await client.close()
+
+
 class TestInferenceClientIntegration:
     """
     Integration tests that require Ollama running.

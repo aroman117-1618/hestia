@@ -857,6 +857,11 @@ class InferenceClient:
         if not response.content or not response.content.strip():
             # Native tool calls may have empty content — that's valid
             if response.tool_calls:
+                self.logger.debug(
+                    "Empty content with native tool_calls — validation bypassed",
+                    component=LogComponent.INFERENCE,
+                    data={"model": response.model, "tool_count": len(response.tool_calls)},
+                )
                 return
             self.logger.warning(
                 "Empty response from model",
