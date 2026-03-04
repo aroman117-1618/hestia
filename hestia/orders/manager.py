@@ -406,6 +406,64 @@ class OrderManager:
         )
 
     # =========================================================================
+    # Session-to-Order
+    # =========================================================================
+
+    async def create_from_session(
+        self,
+        session_id: str,
+        user_id: str,
+        name: Optional[str] = None,
+    ) -> Order:
+        """
+        Create a background order from an active chat session.
+
+        Builds an Order with the session context as the prompt and
+        sets status to WORKING. The orchestration layer can pick this
+        up for continued processing.
+
+        Args:
+            session_id: The chat session to convert.
+            user_id: Owning user.
+            name: Optional human-readable name; defaults to generated name.
+
+        Returns:
+            Created Order in WORKING status.
+        """
+        order_name = name or f"Background session {session_id[:8]}"
+
+        # Build a prompt that references the session for continuity
+        prompt = (
+            f"Continue the conversation from session {session_id}. "
+            f"Pick up where the user left off and complete any pending tasks."
+        )
+
+        order = Order.create(
+            name=order_name,
+            prompt=prompt,
+            scheduled_time=time(0, 0),  # No scheduled time for background orders
+            frequency=OrderFrequency(type=FrequencyType.ONCE),
+            resources={MCPResource.CALENDAR},  # Minimal default resource
+            status=OrderStatus.WORKING,
+        )
+
+        # Store without validation (background orders skip resource/prompt-length checks)
+        await self.database.store_order(order)
+
+        self.logger.info(
+            f"Order created from session: {order.id}",
+            component=LogComponent.EXECUTION,
+            data={
+                "order_id": order.id,
+                "session_id": session_id,
+                "user_id": user_id,
+                "name": order_name,
+            },
+        )
+
+        return order
+
+    # =========================================================================
     # Execution (Placeholder - actual execution delegated to orchestration)
     # =========================================================================
 

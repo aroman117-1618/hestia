@@ -20,6 +20,14 @@ class MacChatViewModel: ObservableObject {
     /// Per-message reaction state: [messageId: Set of reaction names]
     @Published var reactions: [String: Set<String>] = [:]
 
+    /// Per-message outcome feedback state: [messageId: feedback type ("positive"/"negative")]
+    @Published var feedbackState: [String: String] = [:]
+
+    // MARK: - Public Accessors
+
+    /// Current session ID, exposed for background session support.
+    var currentSessionId: String? { sessionId }
+
     // MARK: - Private State
 
     private var client: HestiaClientProtocol
@@ -138,6 +146,7 @@ class MacChatViewModel: ObservableObject {
             sessionId = try await client.createSession(mode: appState.currentMode)
             messages.removeAll()
             reactions.removeAll()
+            feedbackState.removeAll()
             loadInitialGreeting(mode: appState.currentMode)
         } catch {
             handleError(.unknown("Failed to create session"))
@@ -159,6 +168,66 @@ class MacChatViewModel: ObservableObject {
             set.insert(reaction)
         }
         reactions[messageId] = set
+    }
+
+    // MARK: - Outcome Feedback
+
+    /// Submit feedback for a message via the outcomes API.
+    /// Looks up the outcome by session + message, then submits feedback.
+    func submitFeedback(messageId: String, feedback: String, note: String?) async {
+        // Optimistically update UI
+        feedbackState[messageId] = feedback
+
+        do {
+            // 1. Get outcomes for this session to find the outcome_id
+            guard let sid = sessionId else {
+                #if DEBUG
+                print("[MacChatVM] No session ID — cannot submit feedback")
+                #endif
+                return
+            }
+
+            let outcomes = try await APIClient.shared.getOutcomes(sessionId: sid)
+
+            // Find the outcome matching this message_id
+            guard let outcome = outcomes.outcomes.first(where: { $0.messageId == messageId }) else {
+                #if DEBUG
+                print("[MacChatVM] No outcome found for message \(messageId)")
+                #endif
+                return
+            }
+
+            // 2. Submit feedback
+            _ = try await APIClient.shared.submitOutcomeFeedback(
+                outcomeId: outcome.id,
+                feedback: feedback,
+                note: note
+            )
+
+            #if DEBUG
+            print("[MacChatVM] Feedback submitted: \(feedback) for outcome \(outcome.id)")
+            #endif
+        } catch {
+            // Revert optimistic update on failure
+            feedbackState.removeValue(forKey: messageId)
+            #if DEBUG
+            print("[MacChatVM] Feedback submission failed: \(error)")
+            #endif
+        }
+    }
+
+    // MARK: - Background Session
+
+    /// Move the current session to a background order, then start a new session.
+    func moveSessionToBackground(sessionId: String, appState: AppState) async {
+        do {
+            _ = try await APIClient.shared.createOrderFromSession(sessionId: sessionId)
+
+            // Start a fresh session
+            await startNewConversation(appState: appState)
+        } catch {
+            handleError(.unknown("Failed to move session to background"))
+        }
     }
 
     // MARK: - Private Methods

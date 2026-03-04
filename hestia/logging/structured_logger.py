@@ -58,6 +58,7 @@ class LogComponent(Enum):
     RESEARCH = "research"
     FILE = "file"
     INBOX = "inbox"
+    OUTCOMES = "outcomes"
 
 
 class EventType(Enum):

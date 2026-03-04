@@ -7,9 +7,31 @@ struct MacChatPanelView: View {
     @State private var messageText: String = ""
 
     var body: some View {
-        VStack(spacing: MacSpacing.md) {
-            // Agent tab bar
-            agentTabBar
+        VStack(spacing: 0) {
+            // Floating avatar header (replaces agent tab bar)
+            FloatingAvatarView(
+                currentMode: appState.currentMode,
+                isTyping: viewModel.isTyping,
+                isLoading: viewModel.isLoading,
+                hasMessages: !viewModel.messages.isEmpty,
+                sessionId: viewModel.currentSessionId,
+                onModePick: { mode in
+                    Task {
+                        await viewModel.switchMode(to: mode, appState: appState)
+                    }
+                },
+                onNewSession: {
+                    Task {
+                        await viewModel.startNewConversation(appState: appState)
+                    }
+                },
+                onMoveToBackground: { sessionId in
+                    await viewModel.moveSessionToBackground(
+                        sessionId: sessionId,
+                        appState: appState
+                    )
+                }
+            )
 
             // Chat window
             ScrollViewReader { proxy in
@@ -21,6 +43,16 @@ struct MacChatPanelView: View {
                                 reactions: viewModel.reactions[message.id] ?? [],
                                 onReaction: { reaction in
                                     viewModel.toggleReaction(reaction, for: message.id)
+                                },
+                                feedbackState: viewModel.feedbackState[message.id],
+                                onFeedback: { messageId, feedback, note in
+                                    Task {
+                                        await viewModel.submitFeedback(
+                                            messageId: messageId,
+                                            feedback: feedback,
+                                            note: note
+                                        )
+                                    }
                                 }
                             )
                             .id(message.id)
@@ -76,74 +108,6 @@ struct MacChatPanelView: View {
         }
     }
 
-    // MARK: - Agent Tab Bar
-
-    private var agentTabBar: some View {
-        HStack(spacing: MacSpacing.md) {
-            // New session button (left side)
-            Button {
-                Task {
-                    await viewModel.startNewConversation(appState: appState)
-                }
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(MacColors.textSecondary)
-                    .frame(width: 28, height: 28)
-                    .background(MacColors.textPrimary.opacity(0.06))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-            }
-            .buttonStyle(.hestiaIcon)
-            .accessibilityLabel("New chat session")
-            .hoverCursor(.pointingHand)
-
-            // Agent tabs (active agent prominent, others faded)
-            HStack(spacing: 5) {
-                agentTab(mode: .tia, isActive: appState.currentMode == .tia)
-                agentTab(mode: .mira, isActive: appState.currentMode == .mira)
-                agentTab(mode: .olly, isActive: appState.currentMode == .olly)
-            }
-
-            Spacer()
-
-            // Collapse button (Option A — visible in-panel toggle)
-            HeaderChatToggle()
-        }
-        .padding(.vertical, 2)
-        .frame(height: 69)
-        .overlay(alignment: .bottom) {
-            MacColors.primaryBorder.frame(height: 1)
-        }
-        .padding(.horizontal, MacSpacing.lg)
-    }
-
-    private func agentTab(mode: HestiaMode, isActive: Bool) -> some View {
-        Button {
-            Task {
-                await viewModel.switchMode(to: mode, appState: appState)
-            }
-        } label: {
-            HStack(spacing: MacSpacing.sm) {
-                // Agent avatar (centered, prominent for active)
-                agentTabAvatar(for: mode)
-                    .frame(
-                        width: isActive ? MacSize.agentTabAvatarSize : MacSize.agentTabAvatarSize - 2,
-                        height: isActive ? MacSize.agentTabAvatarSize : MacSize.agentTabAvatarSize - 2
-                    )
-
-                Text(mode.displayName)
-                    .font(MacTypography.label)
-                    .foregroundStyle(isActive ? MacColors.textPrimaryAlt : MacColors.textSecondary)
-            }
-            .padding(.horizontal, MacSpacing.sm)
-            .padding(.vertical, MacSpacing.xs)
-            .background(isActive ? MacColors.activeTabBackground : Color.clear)
-            .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.tab))
-            .opacity(isActive ? 1 : 0.5)
-        }
-        .buttonStyle(.hestia)
-    }
-
     // MARK: - Typing Bubble
 
     private func typingBubble(_ text: String) -> some View {
@@ -193,26 +157,6 @@ struct MacChatPanelView: View {
         .overlay {
             Circle().strokeBorder(MacColors.aiAvatarBorder, lineWidth: 1)
         }
-    }
-
-    private func agentTabAvatar(for mode: HestiaMode) -> some View {
-        Group {
-            if let image = mode.avatarImage {
-                image
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                Circle()
-                    .fill(MacColors.aiAvatarBackground)
-                    .overlay {
-                        Text(mode.displayName.prefix(1))
-                            .font(.system(size: MacSize.agentTabAvatarSize * 0.45, weight: .bold))
-                            .foregroundStyle(MacColors.amberAccent)
-                    }
-            }
-        }
-        .frame(width: MacSize.agentTabAvatarSize, height: MacSize.agentTabAvatarSize)
-        .clipShape(Circle())
     }
 
     // MARK: - Error Banner

@@ -524,3 +524,141 @@ class TestFrequencyType:
         # Without minutes, should still create but be invalid for scheduling
         freq_no_min = OrderFrequency(type=FrequencyType.CUSTOM)
         assert freq_no_min.minutes is None
+
+    def test_new_order_statuses(self):
+        """Test that new status values are available."""
+        expected = {"active", "inactive", "drafted", "scheduled", "working", "completed"}
+        actual = {s.value for s in OrderStatus}
+        assert expected == actual
+
+
+# ============== Session-to-Order Tests ==============
+
+class TestCreateFromSession:
+    """Tests for OrderManager.create_from_session."""
+
+    @pytest.mark.asyncio
+    async def test_create_from_session_default_name(self, manager: OrderManager):
+        """create_from_session should create an order with WORKING status."""
+        order = await manager.create_from_session(
+            session_id="sess-abc12345",
+            user_id="user-1",
+        )
+
+        assert order.id.startswith("order-")
+        assert order.status == OrderStatus.WORKING
+        assert "sess-abc" in order.name  # Auto-generated name uses first 8 chars
+        assert "sess-abc12345" in order.prompt  # Session ID in prompt
+
+    @pytest.mark.asyncio
+    async def test_create_from_session_custom_name(self, manager: OrderManager):
+        """create_from_session with custom name should use it."""
+        order = await manager.create_from_session(
+            session_id="sess-xyz",
+            user_id="user-1",
+            name="My background task",
+        )
+
+        assert order.name == "My background task"
+        assert order.status == OrderStatus.WORKING
+
+    @pytest.mark.asyncio
+    async def test_create_from_session_persisted(self, manager: OrderManager):
+        """Order created from session should be retrievable."""
+        order = await manager.create_from_session(
+            session_id="sess-persist",
+            user_id="user-1",
+        )
+
+        retrieved = await manager.get_order(order.id)
+        assert retrieved is not None
+        assert retrieved.status == OrderStatus.WORKING
+        assert retrieved.name == order.name
+
+
+# ============== From-Session API Route Tests ==============
+
+from unittest.mock import AsyncMock, patch as mock_patch
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from hestia.api.routes.orders import router as orders_router_instance
+
+
+class TestFromSessionRoute:
+    """Tests for POST /v1/orders/from-session API endpoint."""
+
+    @pytest.fixture
+    def mock_mgr(self):
+        """Create a mock OrderManager."""
+        return AsyncMock()
+
+    @pytest.fixture
+    def mock_scheduler(self):
+        """Create a mock OrderScheduler."""
+        return AsyncMock()
+
+    @pytest.fixture
+    def client(self, mock_mgr, mock_scheduler):
+        """Build a TestClient with the orders router and mocked manager."""
+        app = FastAPI()
+        app.include_router(orders_router_instance)
+
+        from hestia.api.middleware.auth import get_device_token
+        app.dependency_overrides[get_device_token] = lambda: "test-device-id"
+
+        with mock_patch(
+            "hestia.api.routes.orders.get_order_manager",
+            return_value=mock_mgr,
+        ), mock_patch(
+            "hestia.api.routes.orders.get_order_scheduler",
+            return_value=mock_scheduler,
+        ):
+            yield TestClient(app)
+
+    def test_from_session_success(self, mock_mgr, client):
+        """POST /v1/orders/from-session should create a WORKING order."""
+        mock_order = Order.create(
+            name="Background session sess-abc",
+            prompt="Continue session",
+            scheduled_time=time(0, 0),
+            frequency=OrderFrequency(type=FrequencyType.ONCE),
+            resources={MCPResource.CALENDAR},
+            status=OrderStatus.WORKING,
+        )
+        mock_mgr.create_from_session.return_value = mock_order
+
+        resp = client.post(
+            "/v1/orders/from-session",
+            json={"session_id": "sess-abc123", "name": "My background task"},
+        )
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["status"] == "working"
+        assert body["message"] == "Session moved to background order"
+        assert "order_id" in body
+
+    def test_from_session_no_name(self, mock_mgr, client):
+        """POST /v1/orders/from-session without name should still work."""
+        mock_order = Order.create(
+            name="Background session sess-xyz",
+            prompt="Continue session",
+            scheduled_time=time(0, 0),
+            frequency=OrderFrequency(type=FrequencyType.ONCE),
+            resources={MCPResource.CALENDAR},
+            status=OrderStatus.WORKING,
+        )
+        mock_mgr.create_from_session.return_value = mock_order
+
+        resp = client.post(
+            "/v1/orders/from-session",
+            json={"session_id": "sess-xyz"},
+        )
+        assert resp.status_code == 201
+
+    def test_from_session_missing_session_id(self, mock_mgr, client):
+        """POST /v1/orders/from-session without session_id should return 422."""
+        resp = client.post(
+            "/v1/orders/from-session",
+            json={},
+        )
+        assert resp.status_code == 422

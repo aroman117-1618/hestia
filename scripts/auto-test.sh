@@ -139,6 +139,10 @@ get_test_file() {
             echo "tests/test_inbox.py" ;;
         *hestia/api/routes/inbox*)
             echo "tests/test_inbox.py" ;;
+        *hestia/outcomes/*)
+            echo "tests/test_outcomes.py" ;;
+        *hestia/api/routes/outcomes*)
+            echo "tests/test_outcomes.py" ;;
 
         # No mapping found
         *)

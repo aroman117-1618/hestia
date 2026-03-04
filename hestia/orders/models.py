@@ -26,6 +26,10 @@ class OrderStatus(Enum):
     """Order status values."""
     ACTIVE = "active"
     INACTIVE = "inactive"
+    DRAFTED = "drafted"
+    SCHEDULED = "scheduled"
+    WORKING = "working"
+    COMPLETED = "completed"
 
 
 class ExecutionStatus(Enum):

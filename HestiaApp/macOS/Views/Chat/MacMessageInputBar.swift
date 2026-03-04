@@ -4,18 +4,30 @@ import HestiaShared
 struct MacMessageInputBar: View {
     @Binding var messageText: String
     @EnvironmentObject var appState: AppState
-    @FocusState private var isInputFocused: Bool
     @State private var showCommandPicker = false
     @State private var sendTrigger = false
     @State private var sendPulseScale: CGFloat = 1.0
+    /// History state for CLI recall (up/down arrow)
+    @State private var history: [String] = []
+    @State private var historyIndex: Int? = nil
+
     let onSend: () -> Void
 
     private var isEmpty: Bool {
         messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    /// Per-agent prompt character decoration
+    private var promptChar: String {
+        switch appState.currentMode {
+        case .tia: return "~"
+        case .mira: return "?"
+        case .olly: return "$"
+        }
+    }
+
     var body: some View {
-        HStack(spacing: MacSpacing.sm) {
+        HStack(alignment: .bottom, spacing: MacSpacing.sm) {
             // Commands
             Button { showCommandPicker.toggle() } label: {
                 Image(systemName: "terminal")
@@ -28,18 +40,30 @@ struct MacMessageInputBar: View {
                 CommandPickerView { command in
                     messageText = command
                     showCommandPicker = false
-                    isInputFocused = true
                 }
             }
             .accessibilityLabel("Commands")
+            .padding(.bottom, 6)
 
-            // Text field
-            TextField("Message \(appState.currentMode.displayName)...", text: $messageText)
-                .font(MacTypography.inputField)
-                .textFieldStyle(.plain)
-                .foregroundStyle(MacColors.textPrimary)
-                .focused($isInputFocused)
-                .onSubmit(handleSend)
+            // Prompt character decoration
+            Text(promptChar)
+                .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                .foregroundStyle(MacColors.amberAccent)
+                .padding(.bottom, 8)
+
+            // CLI text view
+            CLITextView(
+                text: $messageText,
+                placeholder: "Message \(appState.currentMode.displayName)...",
+                promptChar: promptChar,
+                onSend: handleSend,
+                onEscape: { /* clear handled inside CLITextView */ },
+                history: $history,
+                historyIndex: $historyIndex
+            )
+            .frame(minHeight: 30, maxHeight: 200)
+            .fixedSize(horizontal: false, vertical: true)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
 
             // Mic
             Button {} label: {
@@ -50,6 +74,7 @@ struct MacMessageInputBar: View {
             }
             .buttonStyle(.hestiaIcon)
             .accessibilityLabel("Voice input")
+            .padding(.bottom, 6)
 
             // Send button with pulse micro-interaction
             Button(action: handleSend) {
@@ -65,21 +90,20 @@ struct MacMessageInputBar: View {
             .disabled(isEmpty)
             .opacity(isEmpty ? 0.5 : 1)
             .accessibilityLabel("Send message")
+            .padding(.bottom, 6)
         }
         .padding(.horizontal, MacSpacing.sm)
         .padding(.vertical, MacSpacing.sm)
         .background(MacColors.aiBubbleBackground)
-        .contentShape(Capsule())
-        .onTapGesture { isInputFocused = true }
-        .clipShape(Capsule())
-        // Focus glow — amber border fades in when input is active
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        // Focus glow — amber border fades in when content is being composed
         .overlay {
-            Capsule()
+            RoundedRectangle(cornerRadius: 16)
                 .strokeBorder(
-                    MacColors.amberAccent.opacity(isInputFocused ? 0.5 : 0),
+                    MacColors.amberAccent.opacity(!isEmpty ? 0.4 : 0),
                     lineWidth: 1.5
                 )
-                .animation(.easeInOut(duration: 0.2), value: isInputFocused)
+                .animation(.easeInOut(duration: 0.2), value: isEmpty)
         }
         .padding(.horizontal, 33)
         .padding(.vertical, MacSpacing.lg)
@@ -90,7 +114,7 @@ struct MacMessageInputBar: View {
 
     private func handleSend() {
         guard !isEmpty else { return }
-        // Send pulse: scale 1.0 → 1.12 → 1.0
+        // Send pulse: scale 1.0 -> 1.12 -> 1.0
         withAnimation(.spring(response: 0.15, dampingFraction: 0.5)) {
             sendPulseScale = 1.12
         }

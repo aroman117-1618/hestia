@@ -39,9 +39,28 @@ from hestia.orders import (
 from hestia.api.errors import sanitize_for_log
 from hestia.logging import get_logger, LogComponent
 
+from pydantic import BaseModel, Field
+
 
 router = APIRouter(prefix="/v1/orders", tags=["orders"])
 logger = get_logger()
+
+# Default user ID until multi-user ships
+DEFAULT_USER_ID = "user-default"
+
+
+class SessionToOrderRequest(BaseModel):
+    """Request to create a background order from a chat session."""
+    session_id: str = Field(..., description="The chat session ID to convert")
+    name: Optional[str] = Field(None, description="Optional name for the order")
+
+
+class SessionToOrderResponse(BaseModel):
+    """Response after creating an order from a session."""
+    order_id: str = Field(description="Created order identifier")
+    name: str = Field(description="Order name")
+    status: OrderStatusEnum = Field(description="Order status")
+    message: str = Field(description="Status message")
 
 
 # =============================================================================
@@ -78,6 +97,10 @@ def _map_status(schema_status: OrderStatusEnum) -> OrderStatus:
     mapping = {
         OrderStatusEnum.ACTIVE: OrderStatus.ACTIVE,
         OrderStatusEnum.INACTIVE: OrderStatus.INACTIVE,
+        OrderStatusEnum.DRAFTED: OrderStatus.DRAFTED,
+        OrderStatusEnum.SCHEDULED: OrderStatus.SCHEDULED,
+        OrderStatusEnum.WORKING: OrderStatus.WORKING,
+        OrderStatusEnum.COMPLETED: OrderStatus.COMPLETED,
     }
     return mapping[schema_status]
 
@@ -129,6 +152,55 @@ def _order_to_response(order: Order, next_execution: Optional[datetime] = None) 
 # =============================================================================
 # Routes
 # =============================================================================
+
+@router.post(
+    "/from-session",
+    response_model=SessionToOrderResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create order from session",
+    description="Move an active chat session to a background order for continued processing.",
+)
+async def create_order_from_session(
+    request: SessionToOrderRequest,
+    device_id: str = Depends(get_device_token),
+):
+    """Create a background order from an active chat session."""
+    manager = await get_order_manager()
+
+    try:
+        order = await manager.create_from_session(
+            session_id=request.session_id,
+            user_id=DEFAULT_USER_ID,
+            name=request.name,
+        )
+
+        logger.info(
+            f"Order created from session via API: {order.id}",
+            component=LogComponent.API,
+            data={
+                "order_id": order.id,
+                "session_id": request.session_id,
+                "device_id": device_id,
+            },
+        )
+
+        return SessionToOrderResponse(
+            order_id=order.id,
+            name=order.name,
+            status=OrderStatusEnum(order.status.value),
+            message="Session moved to background order",
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Failed to create order from session: {sanitize_for_log(e)}",
+            component=LogComponent.API,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": "internal_error", "message": "Failed to create order from session."},
+        )
+
 
 @router.post(
     "",
