@@ -105,7 +105,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 **Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
 **Field Guide UI Restructure: COMPLETE.** 5 thematic tabs, native SwiftUI diagrams, structured roadmap with `/v1/wiki/roadmap` endpoint.
 
-1378 tests (1375 passing, 3 skipped), 29 test files. Full details: `python -m pytest tests/ -v --timeout=30`
+1414 tests (1411 passing, 3 skipped), 30 test files. Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -113,7 +113,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 - **Type hints**: Always. Every function signature.
 - **Async/await**: For all I/O (database, inference, network).
-- **Logging**: `logger = get_logger()` — no arguments. Never `HestiaLogger(component=...)` or `get_logger(component=...)`. Import: `from hestia.logging import get_logger`. LogComponent enum: ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED, INVESTIGATE, RESEARCH, FILE.
+- **Logging**: `logger = get_logger()` — no arguments. Never `HestiaLogger(component=...)` or `get_logger(component=...)`. Import: `from hestia.logging import get_logger`. LogComponent enum: ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED, INVESTIGATE, RESEARCH, FILE, INBOX.
 - **Config**: YAML files, never hardcode.
 - **Error handling in routes**: `sanitize_for_log(e)` from `hestia.api.errors` in logs (never raw `{e}`). Generic messages in HTTP responses (never `detail=str(e)`).
 - **File naming**: `snake_case.py` (Python), UpperCamelCase.swift (iOS).
@@ -173,7 +173,7 @@ Use Python 3.12 (not 3.13+). Pin version in pyproject.toml with `requires-python
 
 ```
 hestia/
-├── hestia/                          # Python backend — 24 modules
+├── hestia/                          # Python backend — 25 modules
 │   ├── database.py                  # BaseDatabase ABC (shared by all 11 SQLite modules)
 │   ├── security/                    # CredentialManager (Keychain + Fernet)
 │   ├── logging/                     # HestiaLogger, AuditLogger, LogComponent enum
@@ -194,6 +194,9 @@ hestia/
 │   ├── voice/                       # TranscriptQualityChecker, JournalAnalyzer (3-stage)
 │   ├── wiki/                        # Architecture field guide (AI-generated + static docs)
 │   ├── newsfeed/                    # Materialized timeline, source aggregation, per-user state
+│   ├── inbox/                       # Unified inbox (mail + reminders + calendar aggregation)
+│   │   ├── database.py             # InboxDatabase (items cache + per-user read/archive state)
+│   │   └── manager.py              # InboxManager (Apple client aggregation, 30s cache TTL)
 │   ├── files/                       # Secure filesystem CRUD with audit trail
 │   │   ├── security.py             # PathValidator (allowlist, TOCTOU-safe, null-byte protection)
 │   │   ├── database.py             # FileAuditDatabase (user-scoped audit log)
@@ -203,13 +206,13 @@ hestia/
 │   │   └── principle_store.py      # ChromaDB `hestia_principles` + LLM distillation
 │   ├── investigate/                 # URL content analysis (web articles, YouTube), LLM analysis pipeline
 │   │   └── extractors/             # BaseExtractor ABC, WebArticleExtractor, YouTubeExtractor
-│   ├── api/                         # FastAPI — 141 endpoints, 23 route modules
+│   ├── api/                         # FastAPI — 148 endpoints, 24 route modules
 │   │   ├── errors.py                # sanitize_for_log(), safe_error_detail()
 │   │   ├── schemas/                  # Pydantic request/response models (15 domain modules)
 │   │   ├── server.py                # App lifecycle, manager initialization
 │   │   ├── middleware/auth.py        # JWT device authentication
 │   │   └── routes/                  # auth, health, chat, mode, memory, sessions, tools,
-│   │                                # tasks, cloud, voice, orders, agents, agents_v2, user, user_profile, proactive, health_data, wiki, explorer, newsfeed, investigate, research, files
+│   │                                # tasks, cloud, voice, orders, agents, agents_v2, user, user_profile, proactive, health_data, wiki, explorer, newsfeed, investigate, research, files, inbox
 │   └── config/                      # inference.yaml, execution.yaml, memory.yaml, wiki.yaml
 ├── hestia-cli-tools/                # Swift CLIs (keychain, calendar, reminders, notes)
 ├── HestiaApp/                       # iOS SwiftUI app
@@ -239,7 +242,7 @@ hestia/
 
 ---
 
-## API Summary (141 endpoints, 23 route modules)
+## API Summary (148 endpoints, 24 route modules)
 
 | Module | Endpoints | Key Routes |
 |--------|-----------|------------|
@@ -264,6 +267,7 @@ hestia/
 | Investigate | 5 | `/v1/investigate/url`, `history`, `compare`, `{id}` (GET), `{id}` (DELETE) |
 | Research | 6 | `/v1/research/graph`, `principles/distill`, `principles` (list), `principles/{id}/approve`, `principles/{id}/reject`, `principles/{id}` (PUT) |
 | Files | 9 | `/v1/files` (list, create), `/v1/files/content`, `/v1/files/metadata`, `/v1/files` (PUT, DELETE), `/v1/files/move`, `/v1/files/delete` (POST alias), `/v1/files/audit-log` |
+| Inbox | 7 | `/v1/inbox` (list), `/v1/inbox/unread-count`, `/v1/inbox/{id}`, `/v1/inbox/{id}/read`, `/v1/inbox/mark-all-read`, `/v1/inbox/{id}/archive`, `/v1/inbox/refresh` |
 
 Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 
