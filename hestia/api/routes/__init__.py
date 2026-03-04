@@ -22,6 +22,7 @@ from .newsfeed import router as newsfeed_router
 from .investigate import router as investigate_router
 from .research import router as research_router
 from .files import router as files_router
+from .inbox import router as inbox_router
 
 __all__ = [
     "health_router",
@@ -46,4 +47,5 @@ __all__ = [
     "investigate_router",
     "research_router",
     "files_router",
+    "inbox_router",
 ]
