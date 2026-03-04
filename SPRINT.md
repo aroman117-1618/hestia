@@ -1,311 +1,86 @@
-# Current Sprint: Research & Graph + PrincipleStore (Sprint 8)
+# Current Sprint: Explorer Files (Sprint 9A) — COMPLETE
+
+**Started:** 2026-03-04
+**Plan:** `docs/plans/2026-03-04-sprint-9a-explorer-files.md`
+**Audit:** `docs/plans/sprint-9-plan-audit-2026-03-04.md`
+**Master Roadmap:** `docs/plans/sprint-7-14-master-roadmap.md`
+
+## Sprint 9A: Explorer Files — COMPLETE
+
+### Summary
+Security-hardened file system CRUD with audit trail. New `hestia/files/` module (models, security, database, manager). 9 API endpoints in `routes/files.py`. macOS file browser with breadcrumb nav, inline editing, and context menus. 66 new tests.
+
+### Deliverables
+- **Backend:** `hestia/files/` module — PathValidator (allowlist-first, TOCTOU-safe, null-byte, fs boundary), FileAuditDatabase (user-scoped), FileManager (CRUD + audit logging)
+- **API:** 9 endpoints at `/v1/files/*` — list, content, metadata, create, update, delete, move, delete-post-alias, audit-log
+- **macOS UI:** ExplorerFilesView replacing local FileManager, breadcrumb nav, sort/filter/search, FileContentSheet (preview + edit), HiddenPathsSheet
+- **Config:** `hestia/config/files.yaml`, FileSettings in UserSettings (per-user allowed roots)
+- **Audit conditions:** E5 (no osascript), E7 (null-byte), E8 (text-only content), T1 (SandboxRunner patterns), T2 (plural module), T3 (query param), T5 (noted for 9B)
+
+### Test Results
+- 66 new tests in `tests/test_files.py`
+- 1378 total (1375 passing, 3 skipped)
+- macOS build clean (xcodegen + xcodebuild verified)
+
+---
+
+## Next: Sprint 9B — Explorer: Inbox
+
+**Plan:** `docs/plans/sprint-9-explorer-files-inbox-plan.md` (section 9B)
+**Effort:** ~11 working days (~66 hours)
+
+### Pre-Sprint 9B Checklist (Andrew — manual steps)
+- [ ] **Create Google Cloud project** — OAuth consent screen + credentials
+- [ ] **Register callback URLs** — `https://localhost:8443/v1/inbox/accounts/gmail/callback` AND `https://hestia-3.local:8443/v1/inbox/accounts/gmail/callback`
+- [ ] **Test Tailscale callback URL** — verify Google accepts `hestia-3.local` as redirect URI
+- [ ] **Decide:** OAuth token tier confirmed as OPERATIONAL (no Face ID)
+- [ ] Apple Mail write capability assessment (read-only confirmed; send/delete/move deferred)
+
+### Sprint 9B Scope
+1. Email backend module (`hestia/email/`) — providers pattern (Apple Mail + Gmail)
+2. Shared `OAuthManager` in `hestia/security/oauth.py` (reused by Whoop in Sprint 12)
+3. Gmail OAuth2 with CSRF `state` parameter (audit E9)
+4. 8 inbox API endpoints at `/v1/inbox/*` (read-only: list, detail, mark-read, accounts, auth)
+5. macOS Inbox UI in Explorer — unified view of emails + reminders + notifications
+6. ~35 new tests
+
+### Key Audit Conditions for 9B
+- E6: OPERATIONAL tier for Gmail tokens (confirmed by Andrew)
+- E9: Gmail OAuth `state` parameter with HMAC for CSRF prevention
+- T4: Route file named `routes/inbox.py` (not `routes/email.py`)
+- T5: OAuthManager in `hestia/security/oauth.py` (shared infrastructure)
+
+---
+
+## Previous: Research & Graph + PrincipleStore (Sprint 8) — COMPLETE
 
 **Started:** 2026-03-03
 **Plan:** `docs/plans/sprint-8-research-graph-plan.md`
-**Master Roadmap:** `docs/plans/sprint-7-14-master-roadmap.md`
-**Build Plan:** `.claude/plans/swirling-sauteeing-marble.md`
 
-## Sprint 8: Research & Graph + PrincipleStore
-
-### Pre-Sprint Checklist
-- [ ] Add `LogComponent.RESEARCH` to `hestia/logging/structured_logger.py`
-- [ ] Add `auto-test.sh` mapping for `hestia/research/*`
-- [ ] Check ChromaDB data volume (`collection.count()`)
-
-### B1. Research Module Scaffold + Models + Database
-- **Phase:** Not started
-- **Key files:** `hestia/research/models.py`, `database.py`, `__init__.py`
-- **Notes:** Manager pattern following explorer module. GraphNode/GraphEdge/Principle dataclasses. SQLite for graph cache + principles.
-
-### B2. Graph Builder
-- **Phase:** Not started
-- **Key files:** `hestia/research/graph_builder.py`
-- **Notes:** Memory chunks → knowledge/topic/entity nodes. Force-directed 3D layout. 5-min cache.
-
-### B3. PrincipleStore + Manager + API
-- **Phase:** Not started
-- **Key files:** `hestia/research/principle_store.py`, `manager.py`, `hestia/api/routes/research.py`
-- **Notes:** ChromaDB `hestia_principles` collection. 6 API endpoints. Register in server.py.
-
-### C1. APIClient + ViewModel Refactor
-- **Phase:** Not started
-- **Key files:** `macOS/Services/APIClient+Research.swift`, `macOS/ViewModels/MacNeuralNetViewModel.swift`
-- **Notes:** Replace client-side graph with `/v1/research/graph` API.
-
-### C2. Graph Controls + Node Detail
-- **Phase:** Not started
-- **Key files:** `GraphControlPanel.swift`, `NodeDetailPopover.swift`
-- **Notes:** Filter by node type, depth, focus topic. Type-appropriate detail on tap.
-
-### C3. Principles UI + Polish
-- **Phase:** Not started
-- **Key files:** `ResearchView.swift` (replace placeholder)
-- **Notes:** Principles list with approve/reject. CacheManager integration.
-
-### D1. Integration Test + Decision Gate 1
-- **Phase:** Done
-- **Notes:** 124 ChromaDB chunks (above 100 threshold). Graph: 17 nodes, 15 edges, 4 clusters, 142ms. ADR-039 written (GO verdict). `docs/architecture/chromadb-collections.md` updated. CLAUDE.md counts: 132 endpoints, 22 routes, 23 modules, 1312 tests, 28 files. Decision log: ADR-039.
+### Sprint 8 Summary
+- **B1:** Research module scaffold — `hestia/research/` (models.py, database.py, __init__.py). 32 tests.
+- **B2:** Graph builder — memory/topic/entity nodes, 4 edge types, 3D layout, clustering. 51 total tests.
+- **B3:** PrincipleStore (ChromaDB `hestia_principles`), ResearchManager, 6 API routes.
+- **C1-C3:** macOS frontend — APIClient+Research, ViewModel refactor, GraphControlPanel, NodeDetailPopover, PrinciplesView.
+- **D1:** Decision Gate 1 — GO. 124 chunks, 142ms. ADR-039.
 
 ---
 
 ## Previous: Profile & Settings Restructure (Sprint 7) — COMPLETE
 
 **Started:** 2026-03-03
-**Plan:** `docs/plans/sprint-7-profile-settings-plan.md`
-**Audit:** `docs/plans/sprint-7-9-audit-2026-03-03.md`
 
-### Sprint 7 Summary
-Most Sprint 7 deliverables were built in previous sessions (Sprint 5). Sprint 7 polish completed in 2 sessions:
-- **A1:** Accent color audit (zero `Color.blue` remaining), empty state verification, VoiceOver accessibility labels on StatCards/Research filters/mode toggles. Design tokens added (diagram colors, unread dot, animation timing).
-- **A2:** MarkdownEditorView line numbers (NSRulerView), roadmap data verification, Sprint 7 close.
-
-### Model Dedup Note
-`macOS/Models/HealthDataModels.swift` is NOT a direct duplicate of `Shared/Models/HealthModels.swift` — it defines `Mac`-prefixed response types and bundles its own `AnyCodableValue`. Dedup would require extracting `AnyCodableValue` to a shared location. Deferred.
+- **A1:** Accent color audit, VoiceOver accessibility, design tokens
+- **A2:** MarkdownEditorView line numbers, roadmap verification
 
 ---
 
 ## Previous: Stability & Efficiency (Sprint 6) — COMPLETE
 
-**Started:** 2026-03-02
-**Plan:** `docs/plans/sprint-6-stability-efficiency-plan-2026-03-02.md`
-**Audit:** `docs/plans/sprint-6-stability-efficiency-audit-2026-03-02.md`
-
-## Sprint 6: Stability & Efficiency
-
-### 1B. Complete Shutdown Cleanup
-- **Phase:** Done
-- **Key files:** `hestia/memory/manager.py`, `hestia/cloud/manager.py`, `hestia/explorer/manager.py`, `hestia/api/server.py`
-- **Notes:** Added `close_memory_manager()`, `close_cloud_manager()`, `close_explorer_manager()`. Server lifespan finally block now closes all 15 managers in reverse init order, each in own try/except with `shutdown_errors` counter.
-
-### 1C. Startup Readiness Gate
-- **Phase:** Done
-- **Key files:** `hestia/api/server.py`, `hestia/api/routes/health.py`
-- **Notes:** `ReadinessMiddleware` returns 503 + `Retry-After: 5` during startup. Bypass for `/v1/ping`, `/v1/ready`, `/docs`, `/redoc`, `/openapi.json`, `/`. New `/v1/ready` endpoint returns ready state + uptime.
-
-### 1D. Enhanced Watchdog
-- **Phase:** Done
-- **Key files:** `scripts/hestia-watchdog.sh`, `scripts/deploy-to-mini.sh`, `.github/workflows/deploy.yml`
-- **Notes:** Health checks upgraded from `/v1/ping` to `/v1/ready` across watchdog, deploy script, and CI/CD.
-
-### 1A. Uvicorn Request Limit
-- **Phase:** Done
-- **Key files:** `hestia/api/server.py`, `scripts/com.hestia.server.plist`
-- **Notes:** `limit_max_requests: 5000` + jitter 500. `ThrottleInterval` reduced to 5s for fast recycling.
-
-### 2A. Pin Dependencies (pip-compile)
-- **Phase:** Done
-- **Key files:** `requirements.in`, `requirements.txt`, `.github/workflows/ci.yml`
-- **Notes:** `requirements.txt` is now a pip-compile lockfile (~390 lines, all `==` pins). `requirements.in` is the human-edited input. CI freshness check added.
-
-### 2B. Log Compression
-- **Phase:** Done
-- **Key files:** `scripts/compress-logs.sh`, `scripts/com.hestia.log-compressor.plist`, `hestia/logging/structured_logger.py`
-- **Notes:** Daily gzip logs >7 days, delete compressed >90 days. launchd at 3 AM. `retention_days` default fixed 90→30.
-
-### 3A. Parallel Manager Initialization
-- **Phase:** Done
-- **Key files:** `hestia/api/server.py`
-- **Notes:** 4-phase startup: sequential foundations → `asyncio.gather` for 12 managers → sequential dependents → fire-and-forget wiki refresh. Sequential fallback on gather failure. Logs `startup_ms` and `phase2_ms`.
-
-### 3B. Path-Aware Cache-Control
-- **Phase:** Done
-- **Key files:** `hestia/api/server.py`
-- **Notes:** `/v1/ping` max-age=10, `/v1/tools` max-age=60, `/v1/wiki/articles` max-age=30, everything else no-store.
-
-### Tests + Validation
-- **Phase:** Done
-- **Key files:** `tests/test_server_lifecycle.py`, `scripts/auto-test.sh`
-- **Notes:** 28 new tests (readiness middleware, cache-control, shutdown cleanup, explorer close, bypass paths, uvicorn config). 1225 total tests passing (1222 pass, 3 skip).
+Readiness gate, complete shutdown (15 managers), Uvicorn recycling, parallel init, pip-compile lockfile, log compression, Cache-Control.
 
 ---
 
-## Previous: Wire Frontend to Backend (COMPLETE)
+## Previous Sprints (1-5): COMPLETE
 
-**Started:** 2026-02-28
-**Target:** 5 sequential sprints (~10 sessions)
-**Plan:** `.claude/plans/nifty-exploring-rain.md`
-**Audit:** `docs/plans/wire-frontend-backend-audit-2026-02-28.md`
-
-## Sprint 1: DevOps & Deployment
-
-### 1A. Backend Invite Endpoints
-- **Phase:** Done
-- **Key files:** `hestia/api/routes/auth.py` (invite, register-with-invite, re-invite), `hestia/api/middleware/auth.py` (invite tokens), `hestia/api/schemas.py` (invite models)
-- **Notes:** 4 new endpoints, nonce-based one-time invites, rate limiting (5/hour), recovery via re-invite. 28 tests passing.
-
-### 1B. iOS/macOS Onboarding Flow
-- **Phase:** Done
-- **Key files:** `HestiaApp/Shared/Views/Auth/OnboardingView.swift`, `QRScannerView.swift`, `PermissionsOnboardingView.swift`, `HestiaApp/macOS/Views/Auth/MacOnboardingView.swift`
-- **Notes:** iOS: QR scanner + multi-step flow. macOS: paste JSON payload. Both build clean with Swift 6 strict concurrency. HestiaShared SPM updated with invite models + `registerWithInvite()`.
-
-### 1C. Permissions Harmony
-- **Phase:** Done
-- **Key files:** `HestiaApp/Shared/Views/Auth/PermissionsOnboardingView.swift`, `HestiaApp/Shared/App/ContentView.swift`
-- **Notes:** Apple HIG-compliant guided flow: Calendar → Reminders → Health → Notifications → Biometric. One at a time, Skip option, grant summary. Integrated between auth and main app in ContentView.
-
-### macOS App (Hestia)
-- **Phase:** Done
-- **Discovery:** Figma designs analyzed (command, explore, health screens)
-- **Key files:** `HestiaApp/macOS/` (35 Swift files), `HestiaApp/project.yml`
-- **Notes:** Renamed from HestiaWorkspace to Hestia. 3 views (Command, Explorer, Health) + chat panel + icon sidebar. UX polish complete: keyboard shortcuts (⌘1/2/3/\), sidebar hover effects, responsive layout (stat card grid, flexible chat panel), resizable chat divider with grabber, app icon matching iOS. Both schemes build clean.
-
-### 1D. Tests
-- **Phase:** Done
-- **Key files:** `tests/test_auth_invite.py`
-- **Notes:** 28 tests for invite generation, expiry, nonce consumption, register-with-invite, re-invite, rate limiting, device listing. All passing.
-
-## Sprint 2: Explorer — Both Platforms (~3 sessions)
-
-### 2A. Backend Explorer Module
-- **Phase:** Done
-- **Key files:** `hestia/explorer/models.py`, `database.py`, `manager.py`
-- **Notes:** Manager pattern with ExplorerResource model, SQLite drafts + TTL cache, asyncio.gather() aggregation from Apple clients (mail, notes, reminders). LogComponent.EXPLORER added. auto-test.sh mapping added.
-
-### 2B. Backend Explorer API
-- **Phase:** Done
-- **Key files:** `hestia/api/routes/explorer.py`
-- **Notes:** 6 endpoints: GET resources (filterable/searchable/paginated), GET resource/{id}, GET resource/{id}/content, POST/PATCH/DELETE drafts. Registered in routes/__init__.py and server.py lifespan.
-
-### 2C. iOS Explorer View
-- **Phase:** Done
-- **Key files:** `HestiaShared/.../Models/ExplorerModels.swift`, `HestiaApp/Shared/ViewModels/ExplorerViewModel.swift`, `HestiaApp/Shared/Views/Explorer/ExplorerView.swift`, `ExplorerResourceRow.swift`
-- **Notes:** Section filter chips (All/Drafts/Inbox/Tasks/Notes/Files), search bar, resource list with pull-to-refresh, swipe-to-delete drafts, new draft alert. Explorer tab added to ContentView (3rd tab). Both iOS + macOS builds clean.
-
-### 2D. macOS Explorer Enhancement
-- **Phase:** Deferred (half-time cut)
-- **Notes:** Existing macOS Explorer uses local FileManager. API-backed enhancement deferred per plan audit CPO-H1.
-
-### 2E. APIClient Extensions + Tests
-- **Phase:** Done
-- **Key files:** `HestiaShared/.../Networking/APIClient.swift` (6 Explorer methods), `tests/test_explorer.py`
-- **Notes:** 6 APIClient methods (getExplorerResources, getExplorerResource, getExplorerContent, createDraft, updateDraft, deleteDraft). 41 backend tests passing — models, database CRUD, caching, TTL, manager aggregation, filtering, search, pagination, ID formats.
-
-## Sprint 3: Command Center / Newsfeed (~2 sessions)
-
-### 3A. Backend Newsfeed Module
-- **Phase:** Done
-- **Key files:** `hestia/newsfeed/models.py`, `database.py`, `manager.py`
-- **Notes:** Materialized cache with 30s TTL. Aggregates from orders, memory, tasks, health sources via `asyncio.gather(return_exceptions=True)`. Per-user read/dismiss state (composite PK: item_id + user_id) for multi-device continuity. 30-day retention cleanup. LogComponent.NEWSFEED added. auto-test.sh mapping added.
-
-### 3B. Backend Newsfeed API
-- **Phase:** Done
-- **Key files:** `hestia/api/routes/newsfeed.py`
-- **Notes:** 5 endpoints: GET timeline (filterable by type/source, paginated), GET unread-count (by type), POST mark-read, POST dismiss, POST refresh (rate-limited 1/10s per device). All use `Depends(get_device_token)`.
-
-### 3C. iOS Command Center Rewrite
-- **Phase:** Done
-- **Key files:** `HestiaApp/Shared/Models/NewsfeedModels.swift`, `BriefingModels.swift`, `ViewModels/NewsfeedViewModel.swift`, `Views/CommandCenter/BriefingCard.swift`, `FilterBar.swift`, `NewsfeedTimeline.swift`, `NewsfeedItemRow.swift`, `CommandCenterView.swift`
-- **Notes:** CommandCenterView rewritten: Header > BriefingCard > FilterBar > NewsfeedTimeline > NeuralNetView. Old tab layout (Orders/Alerts/Memory) replaced. BriefingCard is persistent above timeline (not a feed item). Empty state for zero items. Swipe-to-dismiss, auto-mark-read on appear, pull-to-refresh.
-
-### 3D. macOS Command View Update
-- **Phase:** Done
-- **Key files:** `HestiaApp/macOS/Models/NewsfeedModels.swift`, `macOS/Services/APIClient+Newsfeed.swift`, `MacCommandCenterViewModel.swift`, `StatCardsRow.swift`, `ActivityFeed.swift`, `CommandView.swift`
-- **Notes:** macOS target sources separately from iOS — duplicate models created. StatCardsRow wired to real viewModel data (replaced hardcoded mocks). ActivityFeed renders actual newsfeed items with filtering and search.
-
-### 3E. APIClient + Tests
-- **Phase:** Done
-- **Key files:** `HestiaApp/Shared/Services/APIClient+Newsfeed.swift`, `tests/test_newsfeed.py`
-- **Notes:** 6 APIClient extension methods (timeline, unread-count, mark-read, dismiss, refresh, briefing). 42 backend tests: models (8), database (13), manager (13), routes (8). Also added `list_recent_executions()` bulk method to OrderManager [T1]. All 1085 tests pass.
-
-## Sprint 4: Settings Wiring + Health Dashboard (~2 sessions)
-
-### 4A. Dynamic Tool Discovery
-- **Phase:** Done
-- **Key files:** `Shared/Models/ToolModels.swift`, `Shared/Services/APIClient+Tools.swift`, `Shared/ViewModels/IntegrationsViewModel.swift`
-- **Notes:** Replaced hardcoded `toolsFor()` (23 tools, 5 categories) with `GET /v1/tools` API call. API-first with hardcoded fallback. Category mapping: backend `tool.category` → `IntegrationType`.
-
-### 4B. Device Management UI
-- **Phase:** Done
-- **Key files:** `Shared/Models/DeviceModels.swift`, `Shared/Services/APIClient+Devices.swift`, `Shared/ViewModels/DeviceManagementViewModel.swift`, `Shared/Views/Settings/DeviceManagementView.swift`, `macOS/Views/Profile/MacDeviceManagementView.swift`
-- **Notes:** Wired `GET /v1/user/devices`, `POST .../revoke`, `POST .../unrevoke`. iOS via Settings > Security > Manage Devices. macOS via Profile sidebar. Confirmation alert on revoke. Cannot revoke own device. Revoked devices show Restore button.
-
-### 4C. macOS Health View Redesign
-- **Phase:** Done
-- **Key files:** `macOS/Models/HealthDataModels.swift`, `macOS/Services/APIClient+Health.swift`, `macOS/ViewModels/MacHealthViewModel.swift`, `macOS/Views/Health/*.swift` (5 files)
-- **Notes:** Replaced fake biomarker data (telomere, methylation, CRP) with real HealthKit data from `/v1/health_data/summary` and `/v1/health_data/trend/{type}`. ActivityCard (steps/exercise/calories), Heart/Sleep/Body metric cards, CoachingCard. Empty state for no synced data. Reused GaugeArc, SparklineChart, GradientProgressBar. ADR-036.
-
-### 4D. Proactive Intelligence Settings
-- **Phase:** Done
-- **Key files:** `Shared/Models/ProactiveModels.swift`, `Shared/Services/APIClient+Proactive.swift`, `Shared/ViewModels/ProactiveSettingsViewModel.swift`, `Shared/Views/Settings/ProactiveSettingsView.swift`
-- **Notes:** Wired policy/patterns endpoints. Settings sections: Interruption Policy (picker), Daily Briefing (toggle + time), Quiet Hours (toggle + start/end), Pattern Detection (toggle + count), Weather (toggle + location). Added to iOS Settings as "Intelligence" section.
-
-## Sprint 5: Audit Remediation + macOS Frontend Wiring (~2 sessions)
-
-### 5A. Fix Proactive Auth Bug (CRITICAL)
-- **Phase:** Done
-- **Key files:** `hestia/api/routes/proactive.py`
-- **Notes:** All 6 `Depends(verify_device_token)` → `Depends(get_device_token)`. `verify_device_token` is a validation utility (takes `str`), not a FastAPI dependency — FastAPI resolved its param as query string instead of reading `X-Hestia-Device-Token` header.
-
-### 5B. Standardize Auth Dependency Naming
-- **Phase:** Done
-- **Key files:** `hestia/api/middleware/auth.py`, 9 route files (user, user_profile, orders, agents, agents_v2, wiki, explorer, auth, health_data)
-- **Notes:** Removed `get_current_device` alias. ~67 mechanical substitutions across 10 files. `get_device_token` is now the single canonical auth dependency.
-
-### 5C. macOS Navigation Infrastructure
-- **Phase:** Done
-- **Key files:** `macOS/State/WorkspaceState.swift`, `macOS/Views/Chrome/IconSidebar.swift`, `macOS/Views/WorkspaceRootView.swift`, `macOS/AppDelegate.swift`
-- **Notes:** Added `.wiki` + `.resources` to WorkspaceView enum. IconSidebar navIcon() calls. Cmd+5 (Field Guide) + Cmd+6 (Resources) keyboard shortcuts. Removed dead `inactiveIcon()` code.
-
-### 5D. macOS Wiki (Field Guide) Tab
-- **Phase:** Done
-- **Key files:** `macOS/Models/WikiModels.swift`, `macOS/Services/APIClient+Wiki.swift`, `macOS/ViewModels/MacWikiViewModel.swift`, `macOS/Views/Wiki/*.swift` (4 files)
-- **Notes:** 2-pane layout (sidebar + detail). Sidebar: vertical tab buttons (Overview/Modules/Decisions/Roadmap/Diagrams) with article counts + scrollable article list. Detail: toolbar (refresh/generate-all), article content, status badges, generate button for pending articles. Reuses WikiArticle models from HestiaShared.
-
-### 5E. macOS Explorer Resources Mode
-- **Phase:** Done
-- **Key files:** `macOS/ViewModels/MacExplorerResourcesViewModel.swift`, `macOS/Views/Explorer/MacExplorerResourcesView.swift`, `macOS/Views/Explorer/ExplorerView.swift`
-- **Notes:** Segmented control (Files/Resources) added to existing ExplorerView. Files mode = existing filesystem browser. Resources mode = backend `/v1/explorer/` API (matching iOS). Filter bar, search, draft CRUD.
-
-### 5F. macOS Resources Tab (LLMs/Integrations/MCPs)
-- **Phase:** Done
-- **Key files:** `macOS/ViewModels/MacCloudSettingsViewModel.swift`, `MacIntegrationsViewModel.swift`, `macOS/Views/Resources/*.swift` (6 files)
-- **Notes:** 3-tab container. LLMs: 2-column provider list + detail (model selector, health check, state toggle, add/remove). Integrations: expandable cards with status badges, permission requests, tool lists. MCPs: placeholder. macOS IntegrationsViewModel avoids UIKit (uses EventKit directly, excludes HealthKit).
-
-### 5G. Docs + Validation
-- **Phase:** Done
-- **Notes:** CLAUDE.md updated (sprint status, project structure, macOS app description — 66 files, 6 views). Both targets build clean. 1083 tests passing, 3 skipped.
-
----
-
-## Investigate Command (Phased Rollout)
-
-**Plan:** `.claude/plans/cheeky-humming-eclipse.md`
-**Discovery:** `docs/discoveries/investigate-command-link-analysis-2026-03-01.md`
-
-### Phase 1: Web Articles + YouTube Transcripts
-- **Phase:** Done
-- **Branch:** `feature/investigate-command` (not yet merged to main)
-- **Key files:** `hestia/investigate/` (10 files), `hestia/api/routes/investigate.py`, `hestia/config/investigate.yaml`, `tests/test_investigate.py`
-- **Notes:** 14 new files, 7 modified. 5 API endpoints, 2 chat tools. trafilatura (web), youtube-transcript-api (YouTube). SSRF protection, URL dedup (6h), config-driven limits. Devil's critique: 18 issues found and fixed. 97 tests passing.
-
-### Phase 2: TikTok + Audio Transcription
-- **Phase:** Not started
-- **Notes:** yt-dlp captions + mlx-whisper fallback. TikTok `enabled: false` by default.
-
-### Phase 3: Visual Analysis
-- **Phase:** Not started
-- **Notes:** ffmpeg keyframe extraction + vision model. Cloud-preferred.
-
-### Phase 4: Memory + UI + Share Sheet
-- **Phase:** Not started
-- **Notes:** Memory storage, `investigate_recall` tool, iOS share extension, macOS Research view.
-
----
-
-## Backlog: Unwired Endpoints
-
-These backend endpoints exist but have no iOS/macOS UI wiring. Not blocking — tracked for future sprints.
-
-| Module | Endpoints | Notes |
-|--------|-----------|-------|
-| Tasks | 6 (create, list, get, approve, cancel, retry) | No task management UI on either platform |
-| Agents v2 | 10 (CRUD, config files, daily notes, reload) | .md-based agent config — no UI yet |
-| Memory sensitivity | 1 (set_memory_sensitivity) | No sensitivity control in memory UI |
-| User profile extended | 11 (partial — macOS Profile wired, iOS limited) | Commands + daily notes partially wired |
-
----
-
-## Previous Sprint: Claude Code Config Refresh (COMPLETE)
-
-All topics done: Direct API config, Figma MCP, macOS app (Hestia), Skills redesign, Cheat sheet.
-Deferred: CI/CD pipeline, Fireproof (server reliability).
+Full details in `SESSION_HANDOFF.md` and git history.
