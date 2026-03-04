@@ -1438,6 +1438,38 @@ The Field Guide (Wiki) had 5 tabs mirroring backend article types: Overview, Mod
 - Orphan articles: Mermaid diagram articles and decision articles remain in DB (harmless), `generate_all()` still works.
 - New endpoint: `/v1/wiki/roadmap` (123 total endpoints).
 
+### ADR-039: Research Module — Knowledge Graph + PrincipleStore
+
+**Date**: 2026-03-03
+**Status**: Accepted
+**Decision Gate**: Gate 1 (post-Sprint 8) — **GO** with conditions
+
+#### Context
+Sprint 8 builds the Research module: a server-side knowledge graph and a PrincipleStore for distilling behavioral principles from memory. This is Learning Cycle Phase A — the foundation for Sprints 10-14 (OutcomeTracker, MetaMonitor, Active Inference). Decision Gate 1 evaluates whether the foundation is viable before committing to the full learning cycle.
+
+#### Decision
+1. **Server-side graph computation**: Graph building, edge computation, and force-directed 3D layout moved from the Swift client to the Python backend. API: `GET /v1/research/graph`. Cached in SQLite with 5-min TTL.
+2. **Dedicated ChromaDB collection**: PrincipleStore uses `hestia_principles` (separate from `hestia_memory`) to avoid namespace collision. Both collections coexist in the same PersistentClient.
+3. **Human review gate**: All distilled principles start as `status: "pending"`. Only `"approved"` principles influence downstream systems. Three-state lifecycle: pending → approved/rejected.
+4. **Three node types**: Memory (from chunks), Topic (aggregated from tags), Entity (aggregated from tags). Topic/entity nodes provide structural context that pure memory nodes lack.
+
+#### Decision Gate 1 Evaluation
+- **ChromaDB data volume**: 124 chunks — above 100 threshold for meaningful clustering. Sufficient for graph and basic principle distillation.
+- **Graph performance**: 17 nodes, 15 edges, 4 clusters from 10-chunk query. 142ms response time on dev machine. Well within the 10-second timeout.
+- **ChromaDB dual-collection**: Both `hestia_memory` and `hestia_principles` coexist without issues. Server startup adds ~200ms for the second collection init.
+- **PrincipleStore readiness**: Infrastructure complete (CRUD + distillation endpoint + ChromaDB search). LLM distillation untested in production (requires active Ollama or cloud provider). This is expected — principles will accumulate over normal usage.
+- **Verdict**: **GO** — proceed with Sprint 9+. The graph produces meaningful structure from real data. PrincipleStore infrastructure is sound. Data volume will grow naturally with usage.
+
+#### Conditions for Continued Progress
+1. PrincipleStore distillation needs live testing once more memory data accumulates (~200+ chunks)
+2. Graph node limits (200/500) should be profiled on Mac Mini M1 before Sprint 13
+3. Principle review should be surfaced in daily briefing (Sprint 11, not Sprint 8)
+
+#### Consequences
+- 6 new API endpoints (132 total). New `hestia/research/` module (5 files).
+- Frontend refactored: server computes layout, client just renders. Future clients (iOS, web) get the same graph for free.
+- 51 new tests (28 test files total, ~1310 tests).
+
 ---
 
 ## Adding New Decisions

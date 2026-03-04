@@ -1,6 +1,7 @@
 # ChromaDB Collection Strategy
 
 **Created:** 2026-03-03 (from audit recommendation)
+**Updated:** 2026-03-03 (Sprint 8 complete — both collections operational)
 **Status:** Reference document — update as collections are added
 
 ---

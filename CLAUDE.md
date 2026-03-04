@@ -88,7 +88,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | Hardware | Mac Mini M1 (16GB) |
 | Model | Qwen 2.5 7B (Ollama, local) + cloud providers (Anthropic/OpenAI/Google) |
 | SLM | qwen2.5:0.5b (council intent classification, ~100ms) |
-| Backend | Python 3.9+, FastAPI, 126 endpoints across 21 route modules |
+| Backend | Python 3.9+, FastAPI, 132 endpoints across 22 route modules |
 | Storage | ChromaDB (vectors) + SQLite (structured) + macOS Keychain (credentials) |
 | App | Native Swift/SwiftUI (iOS 26.0+) |
 | API | REST on port 8443 with JWT auth, HTTPS with self-signed cert |
@@ -105,7 +105,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 **Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
 **Field Guide UI Restructure: COMPLETE.** 5 thematic tabs, native SwiftUI diagrams, structured roadmap with `/v1/wiki/roadmap` endpoint.
 
-1261 tests (1258 passing, 3 skipped), 27 test files. Full details: `python -m pytest tests/ -v --timeout=30`
+1312 tests (1309 passing, 3 skipped), 28 test files. Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -175,7 +175,7 @@ Use Python 3.12 (not 3.13+). Pin version in pyproject.toml with `requires-python
 
 ```
 hestia/
-├── hestia/                          # Python backend — 22 modules
+├── hestia/                          # Python backend — 23 modules
 │   ├── database.py                  # BaseDatabase ABC (shared by all 11 SQLite modules)
 │   ├── security/                    # CredentialManager (Keychain + Fernet)
 │   ├── logging/                     # HestiaLogger, AuditLogger, LogComponent enum
@@ -196,15 +196,18 @@ hestia/
 │   ├── voice/                       # TranscriptQualityChecker, JournalAnalyzer (3-stage)
 │   ├── wiki/                        # Architecture field guide (AI-generated + static docs)
 │   ├── newsfeed/                    # Materialized timeline, source aggregation, per-user state
+│   ├── research/                    # Knowledge graph + PrincipleStore (Learning Cycle Phase A)
+│   │   ├── graph_builder.py        # Memory chunks → nodes, edges, force-directed layout
+│   │   └── principle_store.py      # ChromaDB `hestia_principles` + LLM distillation
 │   ├── investigate/                 # URL content analysis (web articles, YouTube), LLM analysis pipeline
 │   │   └── extractors/             # BaseExtractor ABC, WebArticleExtractor, YouTubeExtractor
-│   ├── api/                         # FastAPI — 123 endpoints, 21 route modules
+│   ├── api/                         # FastAPI — 132 endpoints, 22 route modules
 │   │   ├── errors.py                # sanitize_for_log(), safe_error_detail()
 │   │   ├── schemas/                  # Pydantic request/response models (15 domain modules)
 │   │   ├── server.py                # App lifecycle, manager initialization
 │   │   ├── middleware/auth.py        # JWT device authentication
 │   │   └── routes/                  # auth, health, chat, mode, memory, sessions, tools,
-│   │                                # tasks, cloud, voice, orders, agents, agents_v2, user, user_profile, proactive, health_data, wiki, explorer, newsfeed, investigate
+│   │                                # tasks, cloud, voice, orders, agents, agents_v2, user, user_profile, proactive, health_data, wiki, explorer, newsfeed, investigate, research
 │   └── config/                      # inference.yaml, execution.yaml, memory.yaml, wiki.yaml
 ├── hestia-cli-tools/                # Swift CLIs (keychain, calendar, reminders, notes)
 ├── HestiaApp/                       # iOS SwiftUI app
@@ -234,7 +237,7 @@ hestia/
 
 ---
 
-## API Summary (126 endpoints, 21 route modules)
+## API Summary (132 endpoints, 22 route modules)
 
 | Module | Endpoints | Key Routes |
 |--------|-----------|------------|
@@ -257,6 +260,7 @@ hestia/
 | Explorer | 6 | `/v1/explorer/resources` list/detail/content, drafts CRUD |
 | Newsfeed | 5 | `/v1/newsfeed/timeline`, `unread-count`, `items/{id}/read`, `items/{id}/dismiss`, `refresh` |
 | Investigate | 5 | `/v1/investigate/url`, `history`, `compare`, `{id}` (GET), `{id}` (DELETE) |
+| Research | 6 | `/v1/research/graph`, `principles/distill`, `principles` (list), `principles/{id}/approve`, `principles/{id}/reject`, `principles/{id}` (PUT) |
 
 Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 

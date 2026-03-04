@@ -43,8 +43,8 @@
 - **Notes:** Principles list with approve/reject. CacheManager integration.
 
 ### D1. Integration Test + Decision Gate 1
-- **Phase:** Not started
-- **Notes:** E2E test, ADR-039, docs update, count verification.
+- **Phase:** Done
+- **Notes:** 124 ChromaDB chunks (above 100 threshold). Graph: 17 nodes, 15 edges, 4 clusters, 142ms. ADR-039 written (GO verdict). `docs/architecture/chromadb-collections.md` updated. CLAUDE.md counts: 132 endpoints, 22 routes, 23 modules, 1312 tests, 28 files. Decision log: ADR-039.
 
 ---
 
