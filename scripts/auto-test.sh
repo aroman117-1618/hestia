@@ -131,6 +131,10 @@ get_test_file() {
             echo "tests/test_investigate.py" ;;
         *hestia/research/*)
             echo "tests/test_research.py" ;;
+        *hestia/files/*)
+            echo "tests/test_files.py" ;;
+        *hestia/api/routes/files*)
+            echo "tests/test_files.py" ;;
 
         # No mapping found
         *)
