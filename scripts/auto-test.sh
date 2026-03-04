@@ -129,6 +129,8 @@ get_test_file() {
             echo "tests/test_newsfeed.py" ;;
         *hestia/investigate/*)
             echo "tests/test_investigate.py" ;;
+        *hestia/research/*)
+            echo "tests/test_research.py" ;;
 
         # No mapping found
         *)
