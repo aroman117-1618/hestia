@@ -59,7 +59,7 @@ enum IntegrationStatus: Equatable {
         case .connected: return MacColors.healthGreen
         case .notConnected: return MacColors.textFaint
         case .denied: return MacColors.healthRed
-        case .backendOnly: return .blue
+        case .backendOnly: return MacColors.statusInfo
         }
     }
 }

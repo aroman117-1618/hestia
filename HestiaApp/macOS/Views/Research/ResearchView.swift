@@ -475,6 +475,8 @@ struct ResearchView: View {
             .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.tab))
         }
         .buttonStyle(.hestia)
+        .accessibilityLabel("\(label) mode")
+        .accessibilityAddTraits(selectedMode == mode ? .isSelected : [])
     }
 
     private func timeRangePicker(compact: Bool) -> some View {
@@ -574,6 +576,8 @@ struct ResearchView: View {
             .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
         }
         .buttonStyle(.hestia)
+        .accessibilityLabel("\(source.label) filter, \(isActive ? "active" : "inactive")")
+        .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 
     // MARK: - Ambient Background

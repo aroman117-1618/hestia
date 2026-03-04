@@ -104,6 +104,19 @@ enum MacColors {
     static let disabledForeground = Color.white.opacity(0.3)
     static let focusRing = amberAccent.opacity(0.5)
 
+    // MARK: - Diagram Semantic Colors
+    static let diagramApple = Color(hex: "007AFF")       // Apple ecosystem nodes
+    static let diagramExternal = Color(hex: "007AFF")     // External/client nodes
+    static let diagramCloud = Color(hex: "5AC8FA")        // Cloud provider nodes
+
+    // MARK: - Unread Indicator
+    static let unreadDot = amberBright                    // Replaces Color.blue for unread dots
+
+    // MARK: - Animation Timing
+    static let animationFast: Double = 0.15
+    static let animationNormal: Double = 0.25
+    static let animationSlow: Double = 0.4
+
     // MARK: - Mode Accents
     static func accentColor(for mode: HestiaMode) -> Color {
         switch mode {

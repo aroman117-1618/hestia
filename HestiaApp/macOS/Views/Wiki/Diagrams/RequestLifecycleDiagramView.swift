@@ -12,7 +12,7 @@ struct RequestLifecycleDiagramView: View {
 
                 ZStack {
                     // Main pipeline (left to right)
-                    DiagramNodeView(icon: "iphone", label: "iOS", accentColor: .blue, width: stepW * 0.9)
+                    DiagramNodeView(icon: "iphone", label: "iOS", accentColor: MacColors.diagramExternal, width: stepW * 0.9)
                         .position(x: startX, y: y)
 
                     DiagramNodeView(icon: "lock.shield", label: "Auth", sublabel: "JWT", accentColor: MacColors.healthGreen, width: stepW * 0.9)
@@ -67,7 +67,7 @@ struct RequestLifecycleDiagramView: View {
                     DiagramLegendView(items: [
                         DiagramLegendItem(color: MacColors.amberAccent, label: "Core Pipeline"),
                         DiagramLegendItem(color: MacColors.healthGreen, label: "Auth/Response"),
-                        DiagramLegendItem(color: .blue, label: "Client"),
+                        DiagramLegendItem(color: MacColors.diagramExternal, label: "Client"),
                     ])
                     .position(x: w / 2, y: h - 10)
                 }

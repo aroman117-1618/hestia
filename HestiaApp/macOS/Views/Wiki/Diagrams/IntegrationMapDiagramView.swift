@@ -10,7 +10,7 @@ struct IntegrationMapDiagramView: View {
     }
 
     private let spokes: [SpokeData] = [
-        SpokeData(id: 0, icon: "apple.logo", label: "Apple", sublabel: "20 tools", accentColor: .blue),
+        SpokeData(id: 0, icon: "apple.logo", label: "Apple", sublabel: "20 tools", accentColor: MacColors.diagramApple),
         SpokeData(id: 1, icon: "heart.fill", label: "HealthKit", sublabel: "28 metrics", accentColor: MacColors.healthRed),
         SpokeData(id: 2, icon: "folder.badge.gearshape", label: "Explorer", sublabel: "Files", accentColor: MacColors.amberAccent),
         SpokeData(id: 3, icon: "newspaper", label: "Newsfeed", sublabel: "Sources", accentColor: MacColors.amberAccent),
@@ -44,7 +44,7 @@ struct IntegrationMapDiagramView: View {
 
                     // Legend
                     DiagramLegendView(items: [
-                        DiagramLegendItem(color: .blue, label: "Apple"),
+                        DiagramLegendItem(color: MacColors.diagramApple, label: "Apple"),
                         DiagramLegendItem(color: MacColors.healthRed, label: "Health"),
                         DiagramLegendItem(color: MacColors.amberAccent, label: "Hestia Modules"),
                     ])

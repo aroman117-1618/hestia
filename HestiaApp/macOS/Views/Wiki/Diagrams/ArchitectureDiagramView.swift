@@ -10,7 +10,7 @@ struct ArchitectureDiagramView: View {
 
                 ZStack {
                     // Layer 1: iOS App (top)
-                    DiagramNodeView(icon: "iphone", label: "iOS App", sublabel: "SwiftUI", accentColor: .blue, width: 100)
+                    DiagramNodeView(icon: "iphone", label: "iOS App", sublabel: "SwiftUI", accentColor: MacColors.diagramExternal, width: 100)
                         .position(x: cx, y: 30)
 
                     // Layer 2: API
@@ -34,11 +34,11 @@ struct ArchitectureDiagramView: View {
                         .position(x: cx - 50, y: 240)
                     DiagramNodeView(icon: "tablecells", label: "SQLite", sublabel: "Structured", accentColor: MacColors.healthGreen, width: 80)
                         .position(x: cx + 45, y: 240)
-                    DiagramNodeView(icon: "apple.logo", label: "Apple Tools", sublabel: "20 tools", accentColor: .blue, width: 90)
+                    DiagramNodeView(icon: "apple.logo", label: "Apple Tools", sublabel: "20 tools", accentColor: MacColors.diagramApple, width: 90)
                         .position(x: cx + 140, y: 240)
 
                     // Cloud providers (far right)
-                    DiagramNodeView(icon: "cloud", label: "Cloud LLMs", sublabel: "3 providers", accentColor: .blue, width: 90)
+                    DiagramNodeView(icon: "cloud", label: "Cloud LLMs", sublabel: "3 providers", accentColor: MacColors.diagramCloud, width: 90)
                         .position(x: min(w - 50, cx + 220), y: 160)
 
                     // Security border overlay
@@ -78,7 +78,7 @@ struct ArchitectureDiagramView: View {
                     DiagramLegendView(items: [
                         DiagramLegendItem(color: MacColors.healthGreen, label: "Storage"),
                         DiagramLegendItem(color: MacColors.amberAccent, label: "Processing"),
-                        DiagramLegendItem(color: .blue, label: "External"),
+                        DiagramLegendItem(color: MacColors.diagramExternal, label: "External"),
                     ])
                     .position(x: cx, y: h - 15)
                 }

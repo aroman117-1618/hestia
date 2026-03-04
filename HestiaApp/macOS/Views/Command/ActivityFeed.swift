@@ -167,7 +167,7 @@ struct ActivityFeed: View {
             // Unread dot
             if !item.isRead {
                 Circle()
-                    .fill(Color.blue)
+                    .fill(MacColors.unreadDot)
                     .frame(width: MacSize.statusDotSize, height: MacSize.statusDotSize)
             }
 

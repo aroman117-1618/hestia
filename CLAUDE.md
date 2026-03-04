@@ -58,7 +58,7 @@ When resuming work from a previous session, FIRST read `SESSION_HANDOFF.md` (if 
 This is a multi-session project (Hestia). Key references:
 - Project plans and workstreams are in `docs/`
 - Previous session context may be compacted — check docs and CLAUDE.md FIRST before searching transcripts
-- Current workstreams: Wire Frontend to Backend (Sprints 1-4 COMPLETE). See `SPRINT.md`.
+- Current workstreams: Sprint 8 (Research & Graph + PrincipleStore). Sprints 1-7 COMPLETE. See `SPRINT.md`.
 - **2026-03-01:** Sprint 4 — audit remediation (proactive auth fix, auth dep standardization), macOS Wiki/Explorer Resources/Resources tab. 66 macOS files total.
 - **2026-02-28:** macOS app renamed to "Hestia" — UX polished: keyboard shortcuts (⌘1-6/\), sidebar, responsive layout, app icon. Both Xcode schemes build clean.
 - **2026-02-28:** Claude Code config refresh — new skills, CI/CD pipeline, sprint tracker. Direct API billing active.
@@ -315,6 +315,7 @@ Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 ### Stability & Efficiency
 | Sprint | Status | Scope |
 |--------|--------|-------|
+| Sprint 7: Profile & Settings | COMPLETE | Settings accordion (4 sections), profile editing, agent V2 API, Resources consolidation, Field Guide migration, CacheManager, MarkdownEditor line numbers, amber accent audit, VoiceOver a11y |
 | Sprint 6: Stability & Efficiency | COMPLETE | Readiness gate, complete shutdown (15 managers), Uvicorn recycling (5K req), parallel init, pip-compile lockfile, log compression, Cache-Control |
 
 ### Known Issues (Mac Mini)

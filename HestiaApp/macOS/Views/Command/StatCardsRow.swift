@@ -90,5 +90,7 @@ struct StatCard: View {
                 .strokeBorder(MacColors.cardBorder, lineWidth: 1)
         }
         .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(label): \(count) \(subtitle)")
     }
 }

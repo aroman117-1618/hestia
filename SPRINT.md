@@ -1,4 +1,70 @@
-# Current Sprint: Stability & Efficiency (Sprint 6)
+# Current Sprint: Research & Graph + PrincipleStore (Sprint 8)
+
+**Started:** 2026-03-03
+**Plan:** `docs/plans/sprint-8-research-graph-plan.md`
+**Master Roadmap:** `docs/plans/sprint-7-14-master-roadmap.md`
+**Build Plan:** `.claude/plans/swirling-sauteeing-marble.md`
+
+## Sprint 8: Research & Graph + PrincipleStore
+
+### Pre-Sprint Checklist
+- [ ] Add `LogComponent.RESEARCH` to `hestia/logging/structured_logger.py`
+- [ ] Add `auto-test.sh` mapping for `hestia/research/*`
+- [ ] Check ChromaDB data volume (`collection.count()`)
+
+### B1. Research Module Scaffold + Models + Database
+- **Phase:** Not started
+- **Key files:** `hestia/research/models.py`, `database.py`, `__init__.py`
+- **Notes:** Manager pattern following explorer module. GraphNode/GraphEdge/Principle dataclasses. SQLite for graph cache + principles.
+
+### B2. Graph Builder
+- **Phase:** Not started
+- **Key files:** `hestia/research/graph_builder.py`
+- **Notes:** Memory chunks → knowledge/topic/entity nodes. Force-directed 3D layout. 5-min cache.
+
+### B3. PrincipleStore + Manager + API
+- **Phase:** Not started
+- **Key files:** `hestia/research/principle_store.py`, `manager.py`, `hestia/api/routes/research.py`
+- **Notes:** ChromaDB `hestia_principles` collection. 6 API endpoints. Register in server.py.
+
+### C1. APIClient + ViewModel Refactor
+- **Phase:** Not started
+- **Key files:** `macOS/Services/APIClient+Research.swift`, `macOS/ViewModels/MacNeuralNetViewModel.swift`
+- **Notes:** Replace client-side graph with `/v1/research/graph` API.
+
+### C2. Graph Controls + Node Detail
+- **Phase:** Not started
+- **Key files:** `GraphControlPanel.swift`, `NodeDetailPopover.swift`
+- **Notes:** Filter by node type, depth, focus topic. Type-appropriate detail on tap.
+
+### C3. Principles UI + Polish
+- **Phase:** Not started
+- **Key files:** `ResearchView.swift` (replace placeholder)
+- **Notes:** Principles list with approve/reject. CacheManager integration.
+
+### D1. Integration Test + Decision Gate 1
+- **Phase:** Not started
+- **Notes:** E2E test, ADR-039, docs update, count verification.
+
+---
+
+## Previous: Profile & Settings Restructure (Sprint 7) — COMPLETE
+
+**Started:** 2026-03-03
+**Plan:** `docs/plans/sprint-7-profile-settings-plan.md`
+**Audit:** `docs/plans/sprint-7-9-audit-2026-03-03.md`
+
+### Sprint 7 Summary
+Most Sprint 7 deliverables were built in previous sessions (Sprint 5). Sprint 7 polish completed in 2 sessions:
+- **A1:** Accent color audit (zero `Color.blue` remaining), empty state verification, VoiceOver accessibility labels on StatCards/Research filters/mode toggles. Design tokens added (diagram colors, unread dot, animation timing).
+- **A2:** MarkdownEditorView line numbers (NSRulerView), roadmap data verification, Sprint 7 close.
+
+### Model Dedup Note
+`macOS/Models/HealthDataModels.swift` is NOT a direct duplicate of `Shared/Models/HealthModels.swift` — it defines `Mac`-prefixed response types and bundles its own `AnyCodableValue`. Dedup would require extracting `AnyCodableValue` to a shared location. Deferred.
+
+---
+
+## Previous: Stability & Efficiency (Sprint 6) — COMPLETE
 
 **Started:** 2026-03-02
 **Plan:** `docs/plans/sprint-6-stability-efficiency-plan-2026-03-02.md`

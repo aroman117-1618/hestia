@@ -259,7 +259,7 @@ struct MacExplorerResourceRow: View {
 
     private var iconColor: Color {
         switch resource.type {
-        case .draft: return .blue
+        case .draft: return MacColors.amberAccent
         case .mail: return .cyan
         case .task: return .orange
         case .note: return .yellow
@@ -272,7 +272,7 @@ struct MacExplorerResourceRow: View {
         HStack(spacing: 3) {
             if resource.flags.contains(.unread) {
                 Circle()
-                    .fill(Color.blue)
+                    .fill(MacColors.unreadDot)
                     .frame(width: 6, height: 6)
             }
             if resource.flags.contains(.flagged) {

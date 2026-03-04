@@ -75,13 +75,15 @@
 ### Sprint 7: Profile, Settings & Field Guide Restructure
 | Title | Scope | Status |
 |-------|-------|--------|
-| Settings Accordion | 4-section layout (Profile, Agents, Resources, Field Guide) | PLANNED |
-| Profile View | Name, description, photo (crop/resize), MIND.md/BODY.md editors | PLANNED |
-| Agent Profiles | V2 API — Identity + Personality tabs per agent | PLANNED |
-| Resources Consolidation | Cloud LLMs + Integrations + Devices in one section | PLANNED |
-| Field Guide Migration | Wiki views moved into Settings with roadmap data wiring | PLANNED |
-| CacheManager | UserDefaults-backed cache with TTL for all settings data | PLANNED |
-| Orange Accent System | Global design system update replacing blue with #FF6B35 | PLANNED |
+| Settings Accordion | 4-section layout (Profile, Agents, Resources, Field Guide) | COMPLETE |
+| Profile View | Name, description, photo (crop/resize), MIND.md/BODY.md editors | COMPLETE |
+| Agent Profiles | V2 API — Identity + Personality tabs per agent | COMPLETE |
+| Resources Consolidation | Cloud LLMs + Integrations + Devices in one section | COMPLETE |
+| Field Guide Migration | Wiki views moved into Settings with roadmap data wiring | COMPLETE |
+| CacheManager | UserDefaults-backed cache with TTL for all settings data | COMPLETE |
+| Amber Accent System | Design token audit — all Color.blue replaced with semantic tokens | COMPLETE |
+| MarkdownEditor Line Numbers | NSRulerView-based line numbers in markdown editor | COMPLETE |
+| Accessibility Pass | VoiceOver labels on StatCards, Research filters, mode toggles | COMPLETE |
 
 ### Sprint 6: Stability & Efficiency
 | Title | Scope | Status |
