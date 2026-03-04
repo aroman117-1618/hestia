@@ -3,10 +3,12 @@ import HestiaShared
 
 struct ExplorerView: View {
     @StateObject private var filesViewModel = MacExplorerFilesViewModel()
+    @StateObject private var inboxViewModel = MacInboxViewModel()
     @State private var explorerMode: ExplorerMode = .files
 
     enum ExplorerMode: String, CaseIterable {
         case files = "Files"
+        case inbox = "Inbox"
         case resources = "Resources"
     }
 
@@ -21,7 +23,7 @@ struct ExplorerView: View {
                 }
                 .pickerStyle(.segmented)
                 .tint(MacColors.amberAccent)
-                .frame(maxWidth: 220)
+                .frame(maxWidth: 300)
 
                 Spacer()
             }
@@ -33,6 +35,8 @@ struct ExplorerView: View {
             switch explorerMode {
             case .files:
                 ExplorerFilesView(viewModel: filesViewModel)
+            case .inbox:
+                ExplorerInboxView(viewModel: inboxViewModel)
             case .resources:
                 MacExplorerResourcesView()
             }
