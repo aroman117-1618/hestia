@@ -50,9 +50,9 @@ Transform Hestia from a functional backend with partial UI wiring into a fully l
 | **9A** | Explorer: Files | ~1 module (routes/files.py), ~8 endpoints | ~6 | ~43 | ~8 |
 | **9B** | Explorer: Inbox | ~1 module (email), ~9 endpoints | ~5 | ~35 | ~11 |
 | **10** | Chat Redesign + OutcomeTracker | ~3 endpoint changes | ~5 | ~35 | ~11 |
-| **11** | Command Center + MetaMonitor | ~3 endpoints + bg manager | ~6 | ~42 | ~15 |
+| **11** | Command Center + MetaMonitor + Self-Healing Foundation | ~3 endpoints + bg manager + settings tools + pipeline | ~6 | ~54 | ~16 |
 | **12** | Health Dashboard & Whoop | ~2 modules, ~10 endpoints | ~9 | ~65 | ~17 |
-| **13** | Active Inference Foundation | ~1 module, ~4 endpoints | ~2 | ~35 | ~12 |
+| **13** | Active Inference Foundation + Write Settings | ~1 module, ~4 endpoints + settings write tools | ~2 | ~45 | ~13 |
 | **14** | Anticipatory Execution | ~3 endpoints | ~3 | ~30 | ~10 |
 | **Total** | | **~8 modules, ~45 endpoints** | **~52** | **~379** | **~111.5** |
 
@@ -68,10 +68,17 @@ Sprint 8:  Research & Graph + PrincipleStore ← Learning Cycle Phase A (part 1)
 Sprint 9A: Explorer: Files                   ← Data breadth (file behavioral signals)
 Sprint 9B: Explorer: Inbox                   ← Data breadth (email behavioral signals)
 Sprint 10: Chat Redesign + OutcomeTracker    ← Learning Cycle Phase A (part 2)
-Sprint 11: Command + MetaMonitor             ← Learning Cycle Phase B
+       ↳ Phase 0: Timezone fix (pre-11)      ← Bug fix: timezone-aware datetime throughout
+Sprint 11: Command + MetaMonitor             ← Learning Cycle Phase B + Self-Healing Foundation
+       ↳ +11.8a: Read settings tools          ← Tia can diagnose her own config
+       ↳ +11.8b: Outcome→Principle pipeline   ← Corrections become knowledge (hybrid threshold)
+       ↳ +11.8c: Correction classification    ← Categorize mistake types
 Sprint 12: Health & Whoop                    ← Personal state data for world model
 Sprint 13: Active Inference Foundation       ← Learning Cycle Phase C (part 1)
+       ↳ +13.4: Write settings tools          ← Tia can apply corrections (SUGGEST gate)
+       ↳ +13.4: CorrectionConfidence scoring  ← Future auto-apply framework
 Sprint 14: Anticipatory Execution            ← Learning Cycle Phase C (part 2)
+       ↳ Granular ActionRisk tiering          ← Replace blanket NEVER with per-category risk
 ```
 
 ## Timeline

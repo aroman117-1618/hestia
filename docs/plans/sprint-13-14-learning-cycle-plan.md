@@ -183,7 +183,44 @@ class SurpriseDetector:
 
 **Threshold: surprise > 0.5 triggers curiosity drive for that domain.**
 
-### 13.4 Curiosity Drive (~3 days)
+### 13.4 Write Settings Tools with Tiered Risk (~1 day)
+
+> **Added 2026-03-04** from Self-Healing Loop Assessment. Enables Tia to apply approved corrections.
+
+**New file:** `hestia/execution/tools/settings_write_tools.py`
+
+**Tool:** `update_user_setting(key, value)` — writes to UserSettings with risk-gated approval.
+
+**Tiered Risk Classification:**
+
+| Setting Category | Risk | Gate | Examples |
+|-----------------|------|------|----------|
+| Display preferences | SUGGEST | Queued → principles view → approve/reject | timezone, date format, greeting style |
+| Behavioral preferences | SUGGEST | Queued → principles view → approve/reject | default mode, temperature, verbosity |
+| Security settings | NEVER | Always manual | auth timeout, biometric config |
+| System settings | NEVER | Always manual | model selection, provider config |
+
+**Default mode: SUGGEST for all categories.** Auto-apply (SILENT) is a future enhancement gated on a confidence weight that accounts for urgency, impact, security sensitivity, and correction frequency. The scoring framework:
+
+```python
+class CorrectionConfidence:
+    urgency: float        # How time-sensitive (timezone wrong = high, greeting style = low)
+    impact: float         # How many features affected (timezone = high, verbosity = low)
+    security_risk: float  # Risk of wrong application (timezone = zero, auth = critical)
+    frequency: float      # How often this correction has been made (3+ times = high confidence)
+
+    @property
+    def auto_apply_score(self) -> float:
+        """Score > 0.8 enables SILENT mode. Reviewed in principles view."""
+        return (self.urgency * 0.2 + self.impact * 0.2 +
+                (1 - self.security_risk) * 0.4 + self.frequency * 0.2)
+```
+
+**UX:** All suggested corrections surface in the existing `/research/principles` view/modal alongside knowledge principles. Tagged with `source=correction` and `correction_type`. Andrew approves or rejects. Approved corrections apply immediately via `update_user_setting()`.
+
+**Future (post-Sprint 14):** Once confidence scoring is validated against real correction data, settings with `auto_apply_score > 0.8` can be promoted to SILENT. This requires sufficient OutcomeTracker data to calibrate the weights — not before Sprint 14 completion at earliest.
+
+### 13.5 Curiosity Drive (~3 days)
 
 **File:** `hestia/learning/curiosity_drive.py`
 
@@ -348,7 +385,14 @@ ACTION_RISK = {
     "send_email": ActionRisk.NEVER,
     "delete_file": ActionRisk.NEVER,
     "create_order": ActionRisk.DRAFT,         # Auto-suggested orders need approval
-    "modify_settings": ActionRisk.NEVER,      # Never auto-change user settings
+    # Granular settings risk (replaces blanket "modify_settings: NEVER")
+    # 2026-03-04: All start as SUGGEST. Auto-apply gated on CorrectionConfidence
+    # scoring framework (see Sprint 13.4). Promotion to SILENT requires validated
+    # correction data from OutcomeTracker.
+    "update_display_setting": ActionRisk.SUGGEST,     # timezone, date format
+    "update_behavioral_setting": ActionRisk.SUGGEST,  # default mode, verbosity
+    "update_security_setting": ActionRisk.NEVER,      # auth, biometric — always manual
+    "update_system_setting": ActionRisk.NEVER,        # model, provider — always manual
 }
 ```
 
@@ -424,7 +468,11 @@ POST /v1/learning/curiosity/{id}/dismiss  → Dismiss a curiosity question
 | CuriosityDrive question generation with empty knowledge gaps | 1 | Unit |
 | CuriosityDrive questions grounded in observables (not abstract) | 1 | Integration |
 | Learning API endpoints | 3 | API |
-| **Subtotal** | **~35** | |
+| Write settings tools — risk classification | 3 | Unit |
+| Write settings tools — NEVER-risk blocked | 2 | Security |
+| Write settings tools — SUGGEST queues for approval | 2 | Integration |
+| CorrectionConfidence scoring (urgency, impact, security, frequency) | 3 | Unit |
+| **Subtotal** | **~45** | |
 
 ### Sprint 14
 | Area | Test Count | Type |
@@ -458,7 +506,10 @@ POST /v1/learning/curiosity/{id}/dismiss  → Dismiss a curiosity question
 - [ ] CuriosityDrive ranking domains by expected information gain
 - [ ] CuriosityDrive questions grounded in concrete observables (not abstract model metrics)
 - [ ] Learning API endpoints returning real-time data
-- [ ] All tests passing (existing + ~35 new)
+- [ ] Write settings tools with tiered risk classification (SUGGEST for display/behavioral, NEVER for security/system)
+- [ ] CorrectionConfidence scoring framework implemented (urgency/impact/security/frequency)
+- [ ] Suggested corrections surface in `/research/principles` view with `source=correction` tag
+- [ ] All tests passing (existing + ~45 new)
 
 ## Definition of Done (Sprint 14)
 

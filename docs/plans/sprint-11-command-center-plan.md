@@ -323,6 +323,53 @@ Areas where I'm learning:
   → "Which emails do you consider most urgent?"
 ```
 
+### 11.8 Self-Healing Foundation (~4 hours)
+
+> **Added 2026-03-04** from Self-Healing Loop Assessment (`docs/discoveries/self-healing-loop-assessment-2026-03-04.md`).
+
+#### 11.8a Read-Only Settings Tools (~1 hour)
+
+**New file:** `hestia/execution/tools/settings_tools.py`
+
+Register 3 diagnostic tools in `register_builtin_tools()`:
+
+| Tool | Returns | Purpose |
+|------|---------|---------|
+| `get_user_settings` | UserSettings as JSON | Tia can introspect her config ("your timezone is set to Pacific") |
+| `get_system_status` | Health check + active providers + model info | Tia can diagnose system issues |
+| `get_user_timezone` | Current timezone string | Quick timezone lookup for tool responses |
+
+Read-only — Tia can diagnose but not modify. Write tools deferred to Sprint 13 (requires safety framework).
+
+#### 11.8b Outcome → Principle Batch Pipeline (~2 hours)
+
+**New file:** `hestia/learning/outcome_pipeline.py`
+
+Connects OutcomeTracker (Sprint 10) → PrincipleStore (Sprint 8):
+
+1. Query OutcomeTracker: negative outcomes + quick_followup signals (last 24 hours)
+2. Group by domain/topic using correction_type classification
+3. **Hybrid threshold trigger**: distill when 3+ corrections in same domain within 24 hours, OR on daily schedule — whichever fires first
+4. Feed grouped corrections into `PrincipleStore.distill_principles()`
+5. All correction-derived principles start as `status=pending` — reviewed in `/research/principles` view
+
+**Integration:** Scheduled via APScheduler alongside MetaMonitor (daily run). Threshold trigger runs on each new negative outcome.
+
+#### 11.8c Correction Classification Enhancement (~1 hour)
+
+**File:** `hestia/outcomes/manager.py` (enhance `detect_implicit_signal()`)
+
+Add `correction_type` to OutcomeRecord metadata on follow-up detection:
+
+| Type | Detection | Example |
+|------|-----------|---------|
+| `timezone` | Keywords: "EST", "PST", "timezone", "wrong time", "local time" | "That's 6 PM EST, not PST" |
+| `factual` | Keywords: "actually", "no it's", "that's wrong", "incorrect" | "No, the meeting is Thursday" |
+| `preference` | Keywords: "I prefer", "don't", "too", "less", "more" | "Too verbose, keep it short" |
+| `tool_usage` | Keywords: "wrong tool", "use calendar", "check reminders" | "Check my calendar, not reminders" |
+
+Simple keyword matching on user's follow-up message. Stored in `OutcomeRecord.metadata["correction_type"]`.
+
 ---
 
 ## Testing Plan
@@ -342,7 +389,11 @@ Areas where I'm learning:
 | ConfidenceCalibrator cold start (no data) | 2 | Unit |
 | KnowledgeGapDetector gap identification | 2 | Unit |
 | Order creation wizard validation (empty prompt, no resources) | 3 | UI |
-| **Total** | **~42** | |
+| Read-only settings tools (get_user_settings, get_system_status, get_user_timezone) | 3 | Unit |
+| Outcome → Principle pipeline (daily batch + threshold trigger) | 4 | Unit + Integration |
+| Correction classification (keyword detection for 4 types) | 3 | Unit |
+| Pipeline deduplication (same correction not distilled twice) | 2 | Unit |
+| **Total** | **~54** | |
 
 ## SWOT
 
@@ -366,4 +417,8 @@ Areas where I'm learning:
 - [ ] MetaMonitor false positive rate tested (normal conversations don't trigger confusion loops)
 - [ ] ConfidenceCalibrator handles cold start gracefully (no data)
 - [ ] Order wizard validates empty prompt, no resources selected
-- [ ] All tests passing (existing + ~42 new)
+- [ ] Read-only settings tools registered and functional (get_user_settings, get_system_status, get_user_timezone)
+- [ ] Outcome → Principle pipeline running (daily + 3-correction threshold trigger)
+- [ ] Correction classification detecting timezone/factual/preference/tool_usage types
+- [ ] Correction-derived principles appear in `/research/principles` view with pending status
+- [ ] All tests passing (existing + ~54 new)
