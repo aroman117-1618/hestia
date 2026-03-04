@@ -20,6 +20,7 @@ from .user_profile import router as user_profile_router
 from .explorer import router as explorer_router
 from .newsfeed import router as newsfeed_router
 from .investigate import router as investigate_router
+from .research import router as research_router
 
 __all__ = [
     "health_router",
@@ -42,4 +43,5 @@ __all__ = [
     "explorer_router",
     "newsfeed_router",
     "investigate_router",
+    "research_router",
 ]
