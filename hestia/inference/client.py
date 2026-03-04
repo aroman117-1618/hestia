@@ -120,6 +120,8 @@ class InferenceResponse:
     # Track which tier was used
     tier: Optional[str] = None
     fallback_used: bool = False
+    # Native tool calls from Ollama API (structured, not text-parsed)
+    tool_calls: Optional[List[Dict[str, Any]]] = None
 
     @property
     def total_tokens(self) -> int:
@@ -309,6 +311,7 @@ class InferenceClient:
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
         timeout: Optional[float] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
     ) -> InferenceResponse:
         """Make request to Ollama API."""
         # Create client with appropriate timeout
@@ -333,6 +336,9 @@ class InferenceClient:
             ]
             if system:
                 request_data["messages"].insert(0, {"role": "system", "content": system})
+            # Pass native tool definitions to Ollama (structured tool calling)
+            if tools:
+                request_data["tools"] = tools
             endpoint = f"{self.config.ollama_host}/api/chat"
         else:
             request_data["prompt"] = prompt
@@ -348,9 +354,15 @@ class InferenceClient:
         duration_ms = (time.perf_counter() - start_time) * 1000
         data = response.json()
 
-        # Extract response content
+        # Extract response content and native tool calls
+        tool_calls_response = None
         if messages:
-            content = data.get("message", {}).get("content", "")
+            message_data = data.get("message", {})
+            content = message_data.get("content", "")
+            # Ollama returns tool_calls as list of {"function": {"name": ..., "arguments": {...}}}
+            raw_tool_calls = message_data.get("tool_calls")
+            if raw_tool_calls:
+                tool_calls_response = raw_tool_calls
         else:
             content = data.get("response", "")
 
@@ -372,6 +384,7 @@ class InferenceClient:
             duration_ms=duration_ms,
             finish_reason=data.get("done_reason", "stop"),
             raw_response=data,
+            tool_calls=tool_calls_response,
         )
 
     async def _call_with_routing(
@@ -381,6 +394,7 @@ class InferenceClient:
         messages: Optional[List[Message]] = None,
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
     ) -> InferenceResponse:
         """
         Call inference with smart model routing (local + cloud).
@@ -450,6 +464,7 @@ class InferenceClient:
                         max_tokens=max_tokens,
                         timeout=self.router._get_config_for_tier(routing.fallback_tier).request_timeout,
                         tier=routing.fallback_tier,
+                        tools=tools,
                     )
                 raise LocalModelFailed(
                     f"Cloud inference failed and no local fallback: {cloud_error}"
@@ -466,6 +481,7 @@ class InferenceClient:
                 max_tokens=max_tokens,
                 timeout=routing.model_config.request_timeout,
                 tier=routing.tier,
+                tools=tools,
             )
         except LocalModelFailed as local_error:
             # Local failed — try cloud fallback if available
@@ -506,6 +522,7 @@ class InferenceClient:
         max_tokens: Optional[int],
         timeout: float,
         tier: ModelTier,
+        tools: Optional[List[Dict[str, Any]]] = None,
     ) -> InferenceResponse:
         """
         Call local Ollama model with retry logic.
@@ -537,6 +554,7 @@ class InferenceClient:
                     temperature=temperature,
                     max_tokens=max_tokens,
                     timeout=timeout,
+                    tools=tools,
                 )
                 response.tier = tier.value
                 self.router.record_success(tier)
@@ -764,6 +782,7 @@ class InferenceClient:
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
         validate: bool = True,
+        tools: Optional[List[Dict[str, Any]]] = None,
     ) -> InferenceResponse:
         """
         Generate response for chat conversation.
@@ -802,6 +821,7 @@ class InferenceClient:
                 messages=messages,
                 temperature=temperature,
                 max_tokens=max_tokens,
+                tools=tools,
             )
 
             if validate:
@@ -835,6 +855,9 @@ class InferenceClient:
         - No error indicators in response
         """
         if not response.content or not response.content.strip():
+            # Native tool calls may have empty content — that's valid
+            if response.tool_calls:
+                return
             self.logger.warning(
                 "Empty response from model",
                 component=LogComponent.INFERENCE,

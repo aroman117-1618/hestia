@@ -6,7 +6,7 @@ Request -> Validation -> Memory Retrieval -> Prompt Building -> Inference -> [To
 """
 
 import time
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from hestia.logging import get_logger, LogComponent
 from hestia.inference import get_inference_client, InferenceClient, Message
@@ -356,18 +356,12 @@ class RequestHandler:
                 cloud_safe=will_use_cloud,
             )
 
-            # Step 6: Build prompt with tool definitions
-            tool_definitions = self.get_tool_definitions()
-            tool_instructions = f"""
-## Available Tools
+            # Step 6: Build prompt with tool behavior guidance
+            # Tool schemas are passed via native API (tools parameter), not in the prompt
+            tool_instructions = """
+## Tool Usage Rules
 
-You have access to tools for interacting with Apple ecosystem apps. When the user asks about their calendar, reminders, notes, or email, you MUST use the appropriate tool to get real data. NEVER make up placeholder information.
-
-To call a tool, respond with ONLY a JSON object in this exact format:
-{{"tool_call": {{"name": "tool_name", "arguments": {{"arg1": "value1"}}}}}}
-
-Available tools:
-{tool_definitions}
+You have access to tools for interacting with Apple ecosystem apps. When the user asks about their data, you MUST use the appropriate tool. NEVER make up placeholder information.
 
 IMPORTANT RULES:
 1. When asked about calendar/schedule/events - use list_events or get_today_events
@@ -562,13 +556,18 @@ IMPORTANT RULES:
                         "content": guidance
                     })
 
-            # Run inference
+            # Get native tool definitions for Ollama API
+            registry = get_tool_registry()
+            tool_definitions = registry.get_definitions_as_list()
+
+            # Run inference with native tool calling
             inference_response = await self.state_machine.run_with_timeout(
                 task,
                 self.inference_client.chat,
                 messages=current_messages,
                 temperature=temperature,
                 max_tokens=max_tokens,
+                tools=tool_definitions if tool_definitions else None,
             )
 
             # Check if response contains a tool call
@@ -580,6 +579,7 @@ IMPORTANT RULES:
                 and intent
                 and intent.primary_intent != IntentType.CHAT
                 and not self._looks_like_tool_call(content)
+                and not inference_response.tool_calls
             ):
                 content = await self._apply_local_persona(content, request)
                 inference_response = type(inference_response)(
@@ -592,6 +592,7 @@ IMPORTANT RULES:
                     raw_response=inference_response.raw_response,
                     tier=inference_response.tier,
                     fallback_used=inference_response.fallback_used,
+                    tool_calls=inference_response.tool_calls,
                 )
 
             # Step 7.5: Council post-inference (Analyzer + Validator)
@@ -616,8 +617,13 @@ IMPORTANT RULES:
                     data={"request_id": request.id},
                 )
 
-            # Use council Analyzer for tool extraction if available
-            if (
+            # Priority 1: Native tool calls from Ollama API (structured, reliable)
+            if inference_response.tool_calls:
+                tool_result = await self._execute_native_tool_calls(
+                    inference_response.tool_calls, request, task
+                )
+            # Priority 2: Council Analyzer tool extraction
+            elif (
                 council_result
                 and council_result.tool_extraction
                 and council_result.tool_extraction.tool_calls
@@ -627,7 +633,7 @@ IMPORTANT RULES:
                     council_result.tool_extraction.tool_calls, request, task
                 )
             else:
-                # Fallback to existing regex-based tool parsing
+                # Priority 3: Fallback to text regex-based tool parsing
                 tool_result = await self._try_execute_tool_from_response(content, request, task)
 
             if tool_result is not None:
@@ -857,6 +863,72 @@ IMPORTANT RULES:
                 data={"request_id": request.id, "content_preview": content[:200]}
             )
             return None
+
+    async def _execute_native_tool_calls(
+        self,
+        tool_calls: List[Dict[str, Any]],
+        request: Request,
+        task: Task,
+    ) -> Optional[str]:
+        """
+        Execute tool calls returned natively by Ollama API.
+
+        Ollama returns tool_calls as: [{"function": {"name": "...", "arguments": {...}}}]
+
+        Returns the formatted result if successful, or None on failure.
+        """
+        import json
+
+        results = []
+        for tc in tool_calls:
+            try:
+                func = tc.get("function", {})
+                tool_name = func.get("name", "")
+                arguments = func.get("arguments", {})
+
+                if not tool_name:
+                    continue
+
+                self.logger.info(
+                    f"Executing native tool call: {tool_name}",
+                    component=LogComponent.ORCHESTRATION,
+                    data={
+                        "request_id": request.id,
+                        "tool_name": tool_name,
+                        "arguments": arguments,
+                    },
+                )
+
+                executor = await self._get_tool_executor()
+                call = ToolCall.create(tool_name=tool_name, arguments=arguments)
+                result = await executor.execute(call, request.id)
+
+                if result.success:
+                    result_data = result.output
+                    if isinstance(result_data, dict):
+                        results.append(json.dumps(result_data, indent=2))
+                    else:
+                        results.append(str(result_data))
+                else:
+                    error_msg = result.error or "Unknown error"
+                    self.logger.warning(
+                        f"Native tool execution failed: {error_msg}",
+                        component=LogComponent.ORCHESTRATION,
+                        data={"request_id": request.id, "tool_name": tool_name},
+                    )
+                    results.append(
+                        f"Tool {tool_name} failed: {error_msg}"
+                    )
+            except Exception as e:
+                self.logger.warning(
+                    f"Error executing native tool call: {type(e).__name__}",
+                    component=LogComponent.ORCHESTRATION,
+                    data={"request_id": request.id},
+                )
+
+        if results:
+            return "\n\n".join(results)
+        return None
 
     async def _execute_council_tools(
         self,
