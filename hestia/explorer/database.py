@@ -8,7 +8,7 @@ resources from external sources with TTL-based expiry.
 import json
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -83,7 +83,7 @@ class ExplorerDatabase(BaseDatabase):
     ) -> ExplorerResource:
         """Create a new Hestia draft."""
         draft_id = f"drafts:{uuid.uuid4().hex[:12]}"
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         flag_values = [f.value for f in (flags or [])]
         meta = metadata or {}
 
@@ -135,7 +135,7 @@ class ExplorerDatabase(BaseDatabase):
         if not row:
             return None
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         new_title = title if title is not None else row["title"]
         new_body = body if body is not None else row["body"]
         new_color = color if color is not None else row["color"]

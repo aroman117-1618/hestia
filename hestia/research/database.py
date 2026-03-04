@@ -7,7 +7,7 @@ Principles table stores distilled interaction principles with status lifecycle.
 
 import json
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -134,8 +134,8 @@ class ResearchDatabase(BaseDatabase):
                 json.dumps(principle.entities),
                 principle.validation_count,
                 principle.contradiction_count,
-                principle.created_at.isoformat() if principle.created_at else datetime.utcnow().isoformat(),
-                principle.updated_at.isoformat() if principle.updated_at else datetime.utcnow().isoformat(),
+                principle.created_at.isoformat() if principle.created_at else datetime.now(timezone.utc).isoformat(),
+                principle.updated_at.isoformat() if principle.updated_at else datetime.now(timezone.utc).isoformat(),
             ),
         )
         await self._connection.commit()
@@ -209,7 +209,7 @@ class ResearchDatabase(BaseDatabase):
         if not self._connection:
             return None
 
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         update_fields = "status = ?, updated_at = ?"
         params: List[Any] = [status.value, now]
 
@@ -232,7 +232,7 @@ class ResearchDatabase(BaseDatabase):
         if not self._connection:
             return None
 
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         await self._connection.execute(
             "UPDATE principles SET content = ?, updated_at = ? WHERE id = ?",
             (content, now, principle_id),

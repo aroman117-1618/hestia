@@ -6,7 +6,7 @@ require external communication.
 """
 
 import aiosqlite
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 
@@ -149,7 +149,7 @@ class ExternalCommunicationGate:
             (service, approved_at, approved_by, scope, notes)
             VALUES (?, ?, 'user', ?, ?)
             """,
-            (service, datetime.utcnow().isoformat(), scope, notes)
+            (service, datetime.now(timezone.utc).isoformat(), scope, notes)
         )
         await self._connection.commit()
 
@@ -227,7 +227,7 @@ class ExternalCommunicationGate:
                 request.tool_name,
                 decision.value,
                 request.reason,
-                datetime.utcnow().isoformat(),
+                datetime.now(timezone.utc).isoformat(),
             )
         )
         await self._connection.commit()

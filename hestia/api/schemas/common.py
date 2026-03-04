@@ -2,7 +2,7 @@
 Common schemas: enums, error models, and shared response types.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -85,6 +85,6 @@ class ErrorResponse(BaseModel):
     message: str = Field(description="Error message")
     request_id: Optional[str] = Field(None, description="Request ID if available")
     timestamp: datetime = Field(
-        default_factory=lambda: datetime.utcnow(),
+        default_factory=lambda: datetime.now(timezone.utc),
         description="Error timestamp"
     )

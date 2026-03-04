@@ -5,7 +5,7 @@ Defines Tool, ToolCall, ToolResult, and related dataclasses.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 import uuid
@@ -161,7 +161,7 @@ class ToolResult:
     output: Any = None                           # Tool output (if success)
     error: Optional[str] = None                  # Error message (if failed)
     duration_ms: float = 0.0                     # Execution time
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     @property
     def success(self) -> bool:
@@ -190,7 +190,7 @@ class ToolResult:
             output=data.get("output"),
             error=data.get("error"),
             duration_ms=data.get("duration_ms", 0.0),
-            timestamp=datetime.fromisoformat(data["timestamp"]) if "timestamp" in data else datetime.utcnow(),
+            timestamp=datetime.fromisoformat(data["timestamp"]) if "timestamp" in data else datetime.now(timezone.utc),
         )
 
     def to_message_content(self) -> str:
@@ -216,7 +216,7 @@ class GateRequest:
     action: str                                  # Action being performed
     tool_name: str                               # Tool requesting access
     reason: str                                  # Why access is needed
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     @classmethod
     def create(cls, service: str, action: str, tool_name: str, reason: str) -> "GateRequest":

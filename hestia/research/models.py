@@ -7,7 +7,7 @@ Graph models match the frontend contract in MacNeuralNetViewModel.swift.
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -289,7 +289,7 @@ class Principle:
                topics: Optional[List[str]] = None,
                entities: Optional[List[str]] = None) -> "Principle":
         """Factory method with auto-generated ID and timestamps."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         return cls(
             id=str(uuid.uuid4()),
             content=content,

@@ -5,7 +5,7 @@ Implements ADR-017: Proactive Intelligence Framework.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, time
+from datetime import datetime, time, timezone
 from enum import Enum
 from typing import List, Optional, Dict, Any
 
@@ -144,7 +144,7 @@ class BehaviorPattern:
     confidence: float         # 0.0 to 1.0
     occurrences: int          # Number of times observed
     last_triggered: Optional[datetime] = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     # For generating suggestions
     suggestion_template: Optional[str] = None
@@ -232,7 +232,7 @@ class ProactiveNotification:
     title: str
     body: str
     priority: NotificationPriority
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     scheduled_for: Optional[datetime] = None
     delivered_at: Optional[datetime] = None
     dismissed_at: Optional[datetime] = None

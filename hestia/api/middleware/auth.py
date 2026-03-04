@@ -14,6 +14,10 @@ from typing import Optional
 from fastapi import Header, HTTPException, status
 from jose import jwt, JWTError
 
+from hestia.logging import get_logger, LogComponent
+
+logger = get_logger()
+
 
 # Configuration - in production, load from secure config
 # Generate a secure key on first run and store it
@@ -48,8 +52,11 @@ def get_secret_key() -> str:
                     "jwt_secret",
                     reason="API authentication initialization"
                 )
-            except Exception:
-                pass  # Keychain not available, will generate new key
+            except Exception as e:
+                logger.warning(
+                    f"Keychain JWT secret retrieval failed: {type(e).__name__}",
+                    component=LogComponent.SECURITY,
+                )
 
         if not _SECRET_KEY:
             # Generate new key and persist to Keychain
@@ -62,8 +69,11 @@ def get_secret_key() -> str:
                     _SECRET_KEY,
                     reason="Initial JWT secret generation for API authentication"
                 )
-            except Exception:
-                pass  # Fall back to in-memory only
+            except Exception as e:
+                logger.warning(
+                    f"Keychain JWT secret storage failed, using in-memory only: {type(e).__name__}",
+                    component=LogComponent.SECURITY,
+                )
 
     return _SECRET_KEY
 
