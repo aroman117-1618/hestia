@@ -1,0 +1,469 @@
+"""
+Graph builder — constructs a knowledge graph from memory chunks.
+
+Pipeline:
+1. Query MemoryManager for all chunks (or filtered subset)
+2. Build memory nodes (one per chunk)
+3. Extract unique topics/entities → create topic and entity nodes
+4. Build edges (shared topics/entities, topic/entity membership)
+5. Compute force-directed 3D layout
+6. Simple clustering by dominant topic
+7. Cache result in SQLite with TTL
+
+Port of the client-side graph logic from MacNeuralNetViewModel.swift,
+moved server-side for consistency and performance.
+"""
+
+import asyncio
+import math
+import random
+import time
+from collections import Counter, defaultdict
+from typing import Any, Dict, List, Optional, Set, Tuple
+
+from hestia.logging import LogComponent, get_logger
+
+from .models import (
+    CATEGORY_COLORS,
+    EdgeType,
+    GraphCluster,
+    GraphEdge,
+    GraphNode,
+    GraphResponse,
+    NodeType,
+)
+
+logger = get_logger()
+
+# Limits to prevent runaway computation on M1 16GB
+MAX_NODES = 200
+MAX_EDGES = 500
+LAYOUT_ITERATIONS = 120
+COMPUTATION_TIMEOUT_SECONDS = 10
+
+
+class GraphBuilder:
+    """
+    Builds a knowledge graph from memory search results.
+
+    The graph contains three node types:
+    - Memory nodes (from ConversationChunk)
+    - Topic nodes (aggregated from chunk tags)
+    - Entity nodes (aggregated from chunk tags)
+
+    Edges represent shared tags or membership relationships.
+    """
+
+    def __init__(self) -> None:
+        self._memory_manager = None
+
+    async def _get_memory_manager(self) -> Any:
+        """Lazy import to avoid circular dependencies."""
+        if self._memory_manager is None:
+            from hestia.memory import get_memory_manager
+            self._memory_manager = await get_memory_manager()
+        return self._memory_manager
+
+    async def build_graph(
+        self,
+        limit: int = MAX_NODES,
+        node_types: Optional[Set[str]] = None,
+        center_topic: Optional[str] = None,
+    ) -> GraphResponse:
+        """
+        Build the full knowledge graph.
+
+        Args:
+            limit: Max memory chunks to query.
+            node_types: Filter to specific node types (memory, topic, entity).
+            center_topic: Focus on nodes related to this topic.
+
+        Returns:
+            GraphResponse with nodes, edges, clusters, and metadata.
+        """
+        start_time = time.time()
+
+        try:
+            memory_mgr = await self._get_memory_manager()
+            results = await memory_mgr.search(
+                query="*",
+                limit=min(limit, MAX_NODES),
+                semantic_threshold=0.0,
+            )
+        except Exception as e:
+            logger.warning(
+                "Graph builder: memory search failed, returning empty graph",
+                component=LogComponent.RESEARCH,
+                data={"error": type(e).__name__},
+            )
+            return GraphResponse(
+                nodes=[], edges=[], clusters=[],
+                metadata={"error": type(e).__name__, "query_time_ms": 0},
+            )
+
+        if not results:
+            return GraphResponse(
+                nodes=[], edges=[], clusters=[],
+                metadata={"total_chunks": 0, "query_time_ms": 0},
+            )
+
+        # Step 1: Build memory nodes
+        memory_nodes = self._build_memory_nodes(results)
+
+        # Step 2: Extract topic and entity nodes
+        topic_nodes = self._build_topic_nodes(results)
+        entity_nodes = self._build_entity_nodes(results)
+
+        # Step 3: Filter by node_types if specified
+        all_nodes: List[GraphNode] = []
+        include_types = node_types or {"memory", "topic", "entity"}
+        if "memory" in include_types:
+            all_nodes.extend(memory_nodes)
+        if "topic" in include_types:
+            all_nodes.extend(topic_nodes)
+        if "entity" in include_types:
+            all_nodes.extend(entity_nodes)
+
+        # Step 4: Filter by center_topic
+        if center_topic:
+            all_nodes = self._filter_by_topic(all_nodes, center_topic)
+
+        # Step 5: Enforce node limit
+        all_nodes = all_nodes[:MAX_NODES]
+
+        # Step 6: Build edges
+        node_ids = {n.id for n in all_nodes}
+        edges = self._build_edges(all_nodes, results, node_ids)
+        edges = edges[:MAX_EDGES]
+
+        # Step 7: Compute layout
+        self._compute_layout(all_nodes, edges)
+
+        # Step 8: Cluster by dominant topic
+        clusters = self._build_clusters(all_nodes)
+
+        query_time_ms = int((time.time() - start_time) * 1000)
+
+        logger.info(
+            "Graph built",
+            component=LogComponent.RESEARCH,
+            data={
+                "nodes": len(all_nodes),
+                "edges": len(edges),
+                "clusters": len(clusters),
+                "query_time_ms": query_time_ms,
+            },
+        )
+
+        return GraphResponse(
+            nodes=all_nodes,
+            edges=edges,
+            clusters=clusters,
+            metadata={
+                "total_chunks": len(results),
+                "node_count": len(all_nodes),
+                "edge_count": len(edges),
+                "query_time_ms": query_time_ms,
+            },
+        )
+
+    # ── Node Builders ───────────────────────────────────
+
+    def _build_memory_nodes(self, results: List[Any]) -> List[GraphNode]:
+        """Build one GraphNode per memory chunk."""
+        nodes = []
+        for result in results:
+            chunk = result.chunk
+            nodes.append(GraphNode(
+                id=chunk.id,
+                content=chunk.content[:200],
+                node_type=NodeType.MEMORY,
+                category=chunk.chunk_type.value,
+                label=chunk.content[:50].replace("\n", " "),
+                confidence=chunk.metadata.confidence if chunk.metadata else 0.5,
+                weight=result.relevance_score,
+                topics=list(chunk.tags.topics) if chunk.tags else [],
+                entities=list(chunk.tags.entities) if chunk.tags else [],
+                last_active=chunk.timestamp,
+                metadata={
+                    "session_id": chunk.session_id,
+                    "chunk_type": chunk.chunk_type.value,
+                    "scope": chunk.scope.value if chunk.scope else "session",
+                },
+            ))
+        return nodes
+
+    def _build_topic_nodes(self, results: List[Any]) -> List[GraphNode]:
+        """Build aggregated topic nodes from all chunks."""
+        topic_counts: Counter = Counter()
+        topic_chunks: Dict[str, List[str]] = defaultdict(list)
+
+        for result in results:
+            chunk = result.chunk
+            for topic in (chunk.tags.topics if chunk.tags else []):
+                topic_lower = topic.lower().strip()
+                if topic_lower:
+                    topic_counts[topic_lower] += 1
+                    topic_chunks[topic_lower].append(chunk.id)
+
+        nodes = []
+        max_count = max(topic_counts.values()) if topic_counts else 1
+
+        for topic, count in topic_counts.most_common(50):
+            nodes.append(GraphNode(
+                id=f"topic:{topic}",
+                content=f"Topic: {topic} ({count} mentions)",
+                node_type=NodeType.TOPIC,
+                category="topic",
+                label=topic.title(),
+                confidence=min(count / max_count, 1.0),
+                weight=min(count / max_count, 1.0),
+                topics=[topic],
+                metadata={"mention_count": count, "chunk_ids": topic_chunks[topic][:10]},
+            ))
+        return nodes
+
+    def _build_entity_nodes(self, results: List[Any]) -> List[GraphNode]:
+        """Build aggregated entity nodes from all chunks."""
+        entity_counts: Counter = Counter()
+        entity_chunks: Dict[str, List[str]] = defaultdict(list)
+
+        for result in results:
+            chunk = result.chunk
+            for entity in (chunk.tags.entities if chunk.tags else []):
+                entity_lower = entity.lower().strip()
+                if entity_lower:
+                    entity_counts[entity_lower] += 1
+                    entity_chunks[entity_lower].append(chunk.id)
+
+        nodes = []
+        max_count = max(entity_counts.values()) if entity_counts else 1
+
+        for entity, count in entity_counts.most_common(50):
+            nodes.append(GraphNode(
+                id=f"entity:{entity}",
+                content=f"Entity: {entity} ({count} mentions)",
+                node_type=NodeType.ENTITY,
+                category="entity",
+                label=entity.title(),
+                confidence=min(count / max_count, 1.0),
+                weight=min(count / max_count, 1.0),
+                entities=[entity],
+                metadata={"mention_count": count, "chunk_ids": entity_chunks[entity][:10]},
+            ))
+        return nodes
+
+    def _filter_by_topic(self, nodes: List[GraphNode], topic: str) -> List[GraphNode]:
+        """Keep nodes that are related to the given topic."""
+        topic_lower = topic.lower()
+        return [
+            n for n in nodes
+            if topic_lower in [t.lower() for t in n.topics]
+            or topic_lower in n.label.lower()
+            or topic_lower in n.content.lower()
+        ]
+
+    # ── Edge Builder ────────────────────────────────────
+
+    def _build_edges(
+        self,
+        nodes: List[GraphNode],
+        results: List[Any],
+        valid_ids: Set[str],
+    ) -> List[GraphEdge]:
+        """
+        Build edges between nodes.
+
+        Edge types:
+        - SHARED_TOPIC: Two memory nodes share a topic
+        - SHARED_ENTITY: Two memory nodes share an entity
+        - TOPIC_MEMBERSHIP: Memory node → topic node
+        - ENTITY_MEMBERSHIP: Memory node → entity node
+        """
+        edges: List[GraphEdge] = []
+        seen: Set[Tuple[str, str]] = set()
+
+        # Memory-to-memory edges (shared topics/entities)
+        memory_nodes = [n for n in nodes if n.node_type == NodeType.MEMORY]
+        for i, node_a in enumerate(memory_nodes):
+            for node_b in memory_nodes[i + 1:]:
+                shared_topics = set(t.lower() for t in node_a.topics) & set(t.lower() for t in node_b.topics)
+                shared_entities = set(e.lower() for e in node_a.entities) & set(e.lower() for e in node_b.entities)
+                shared_count = len(shared_topics) + len(shared_entities)
+
+                if shared_count > 0:
+                    pair = (min(node_a.id, node_b.id), max(node_a.id, node_b.id))
+                    if pair not in seen:
+                        seen.add(pair)
+                        weight = min(shared_count / 3.0, 1.0)
+                        edge_type = EdgeType.SHARED_TOPIC if shared_topics else EdgeType.SHARED_ENTITY
+                        edges.append(GraphEdge(
+                            from_id=node_a.id,
+                            to_id=node_b.id,
+                            edge_type=edge_type,
+                            weight=weight,
+                            count=shared_count,
+                        ))
+
+        # Memory-to-topic membership edges
+        topic_id_set = {n.id for n in nodes if n.node_type == NodeType.TOPIC}
+        for node in memory_nodes:
+            for topic in node.topics:
+                topic_id = f"topic:{topic.lower().strip()}"
+                if topic_id in topic_id_set and topic_id in valid_ids:
+                    pair = (min(node.id, topic_id), max(node.id, topic_id))
+                    if pair not in seen:
+                        seen.add(pair)
+                        edges.append(GraphEdge(
+                            from_id=node.id,
+                            to_id=topic_id,
+                            edge_type=EdgeType.TOPIC_MEMBERSHIP,
+                            weight=0.5,
+                        ))
+
+        # Memory-to-entity membership edges
+        entity_id_set = {n.id for n in nodes if n.node_type == NodeType.ENTITY}
+        for node in memory_nodes:
+            for entity in node.entities:
+                entity_id = f"entity:{entity.lower().strip()}"
+                if entity_id in entity_id_set and entity_id in valid_ids:
+                    pair = (min(node.id, entity_id), max(node.id, entity_id))
+                    if pair not in seen:
+                        seen.add(pair)
+                        edges.append(GraphEdge(
+                            from_id=node.id,
+                            to_id=entity_id,
+                            edge_type=EdgeType.ENTITY_MEMBERSHIP,
+                            weight=0.5,
+                        ))
+
+        return edges
+
+    # ── Force-Directed Layout ───────────────────────────
+
+    def _compute_layout(self, nodes: List[GraphNode], edges: List[GraphEdge]) -> None:
+        """
+        Force-directed 3D layout.
+
+        Ported from MacNeuralNetViewModel.swift computeLayout().
+        Same parameters: center attraction, node repulsion, link springs, damping.
+        Modifies nodes in-place (sets position dict).
+        """
+        count = len(nodes)
+        if count == 0:
+            return
+
+        # Initialize on random sphere
+        positions: List[List[float]] = []
+        for _ in range(count):
+            theta = random.uniform(0, 2 * math.pi)
+            phi = random.uniform(0, math.pi)
+            r = 2.0
+            positions.append([
+                r * math.sin(phi) * math.cos(theta),
+                r * math.sin(phi) * math.sin(theta),
+                r * math.cos(phi),
+            ])
+
+        # Build index map for edge lookups
+        node_index = {n.id: i for i, n in enumerate(nodes)}
+        edge_pairs = []
+        for edge in edges:
+            from_idx = node_index.get(edge.from_id)
+            to_idx = node_index.get(edge.to_id)
+            if from_idx is not None and to_idx is not None and from_idx != to_idx:
+                edge_pairs.append((from_idx, to_idx, edge.weight))
+
+        # Simulation parameters (match Swift values)
+        center_strength = 0.01
+        repulsion_strength = 1.5
+        link_strength = 0.05
+        link_distance = 2.0
+        damping = 0.9
+
+        velocities = [[0.0, 0.0, 0.0] for _ in range(count)]
+
+        for _ in range(LAYOUT_ITERATIONS):
+            # Center attraction
+            for i in range(count):
+                for d in range(3):
+                    velocities[i][d] -= positions[i][d] * center_strength
+
+            # Node repulsion (inverse square)
+            for i in range(count):
+                for j in range(i + 1, count):
+                    dx = positions[i][0] - positions[j][0]
+                    dy = positions[i][1] - positions[j][1]
+                    dz = positions[i][2] - positions[j][2]
+                    dist = max(math.sqrt(dx * dx + dy * dy + dz * dz), 0.1)
+                    force = repulsion_strength / (dist * dist)
+                    fx, fy, fz = dx / dist * force, dy / dist * force, dz / dist * force
+                    velocities[i][0] += fx
+                    velocities[i][1] += fy
+                    velocities[i][2] += fz
+                    velocities[j][0] -= fx
+                    velocities[j][1] -= fy
+                    velocities[j][2] -= fz
+
+            # Link spring forces
+            for from_idx, to_idx, weight in edge_pairs:
+                dx = positions[to_idx][0] - positions[from_idx][0]
+                dy = positions[to_idx][1] - positions[from_idx][1]
+                dz = positions[to_idx][2] - positions[from_idx][2]
+                dist = max(math.sqrt(dx * dx + dy * dy + dz * dz), 0.1)
+                displacement = (dist - link_distance) * link_strength * weight
+                fx = dx / dist * displacement
+                fy = dy / dist * displacement
+                fz = dz / dist * displacement
+                velocities[from_idx][0] += fx
+                velocities[from_idx][1] += fy
+                velocities[from_idx][2] += fz
+                velocities[to_idx][0] -= fx
+                velocities[to_idx][1] -= fy
+                velocities[to_idx][2] -= fz
+
+            # Apply velocity with damping
+            for i in range(count):
+                for d in range(3):
+                    velocities[i][d] *= damping
+                    positions[i][d] += velocities[i][d]
+
+        # Write positions back to nodes
+        for i, node in enumerate(nodes):
+            node.position = {
+                "x": round(positions[i][0], 4),
+                "y": round(positions[i][1], 4),
+                "z": round(positions[i][2], 4),
+            }
+
+    # ── Clustering ──────────────────────────────────────
+
+    def _build_clusters(self, nodes: List[GraphNode]) -> List[GraphCluster]:
+        """
+        Simple clustering by dominant topic.
+
+        Groups memory nodes by their first topic. Topic and entity nodes
+        join the cluster of their most-connected memory nodes.
+        """
+        topic_groups: Dict[str, List[str]] = defaultdict(list)
+
+        for node in nodes:
+            if node.topics:
+                primary_topic = node.topics[0].lower()
+                topic_groups[primary_topic].append(node.id)
+            elif node.node_type in (NodeType.TOPIC, NodeType.ENTITY):
+                topic_groups[node.label.lower()].append(node.id)
+
+        # Only create clusters with 2+ members
+        clusters = []
+        palette = list(CATEGORY_COLORS.values())
+        for i, (topic, member_ids) in enumerate(topic_groups.items()):
+            if len(member_ids) >= 2:
+                clusters.append(GraphCluster(
+                    id=f"cluster:{topic}",
+                    label=topic.title(),
+                    node_ids=member_ids,
+                    color=palette[i % len(palette)],
+                ))
+
+        return clusters
