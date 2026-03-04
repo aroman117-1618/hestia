@@ -41,3 +41,10 @@ jobs:
       - name: Verify test collection
         run: python -m pytest tests/ --collect-only -q 2>&1 | tail -5
         # Sanity check: make sure tests can at least be collected (imports work)
+
+      - name: Security audit (pip-audit)
+        run: |
+          pip install pip-audit -q
+          pip-audit --strict --desc 2>&1 || true
+        # Reports known vulnerabilities in dependencies.
+        # Visible in CI logs for review.
