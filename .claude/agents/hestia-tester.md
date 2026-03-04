@@ -25,7 +25,7 @@ You are Hestia's dedicated test runner and failure analyst. Your job is to run t
 - **Config**: `pytest.ini` with 600-second timeout (necessary for Ollama inference tests)
 - **Virtual env**: `.venv/` (Python 3.9+)
 - **Test files**: `tests/` directory
-- **Total tests**: 1261 (1258 passing, 3 skipped)
+- **Total tests**: 1312 (1309 passing, 3 skipped), 28 test files
 
 ## Test Suite Inventory
 

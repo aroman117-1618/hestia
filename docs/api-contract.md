@@ -1,14 +1,14 @@
 # Hestia API Contract
 
 **Status**: Complete — All Workstreams Implemented
-**Last Updated**: 2026-03-02
+**Last Updated**: 2026-03-03
 
 ## Executive Summary
 
-The FastAPI REST API provides HTTP access to all Hestia backend capabilities including chat, memory management, mode switching, cloud LLM routing, voice journaling, proactive intelligence, scheduled orders, agent profiles (V1 slot-based + V2 markdown-based), user settings, user profile configuration, background task management, health data management, resource exploration, wiki/architecture docs, and newsfeed timeline.
+The FastAPI REST API provides HTTP access to all Hestia backend capabilities including chat, memory management, mode switching, cloud LLM routing, voice journaling, proactive intelligence, scheduled orders, agent profiles (V1 slot-based + V2 markdown-based), user settings, user profile configuration, background task management, health data management, resource exploration, wiki/architecture docs, newsfeed timeline, knowledge graph, and principle distillation.
 
-**Endpoints**: 123 across 21 route modules
-**Test Coverage**: 1234 tests (1231 passing, 3 skipped)
+**Endpoints**: 132 across 22 route modules
+**Test Coverage**: 1312 tests (1309 passing, 3 skipped)
 **Server**: HTTPS on port 8443 (self-signed cert)
 **Documentation**: https://localhost:8443/docs (Swagger UI)
 
@@ -1903,6 +1903,31 @@ Force re-aggregate timeline from all sources. Rate limited to 1 request per 10 s
 ```
 
 **Errors:** `429` if rate limit exceeded.
+
+---
+
+### Investigate (5 endpoints)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/v1/investigate/url` | Analyze a URL (web article or YouTube) |
+| GET | `/v1/investigate/history` | List investigation history |
+| GET | `/v1/investigate/{id}` | Get investigation by ID |
+| DELETE | `/v1/investigate/{id}` | Delete investigation |
+| POST | `/v1/investigate/compare` | Compare multiple investigations |
+
+---
+
+### Research (6 endpoints)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/v1/research/graph` | Knowledge graph (nodes, edges, clusters). Query params: `limit`, `node_types`, `center_topic` |
+| POST | `/v1/research/principles/distill` | Trigger LLM distillation from recent memory. Body: `{ "time_range_days": 7 }` |
+| GET | `/v1/research/principles` | List principles. Query params: `status` (pending/approved/rejected), `domain`, `limit`, `offset` |
+| POST | `/v1/research/principles/{id}/approve` | Approve a pending principle |
+| POST | `/v1/research/principles/{id}/reject` | Reject a pending principle |
+| PUT | `/v1/research/principles/{id}` | Update principle content. Body: `{ "content": "..." }` |
 
 ---
 

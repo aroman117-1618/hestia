@@ -143,10 +143,8 @@ This project has both macOS and iOS targets. When creating or editing Swift file
 - Use `#if os(macOS)` / `#if os(iOS)` guards when needed
 - Always build BOTH targets after changes: `xcodebuild -scheme HestiaWorkspace` and `xcodebuild -scheme HestiaApp`
 
-### macOS Model Duplication (Known Debt)
-5 model files are duplicated between `macOS/Models/` and `Shared/Models/`:
-WikiModels, ToolModels, DeviceModels, HealthDataModels, NewsfeedModels.
-When API models change, BOTH copies must be updated. No automated check exists yet.
+### macOS Model Files
+`macOS/Models/` contains 2 files: `HealthDataModels.swift` (Mac-specific response types + bundled `AnyCodableValue`) and `ResearchModels.swift` (macOS-only research graph types). WikiModels, ToolModels, DeviceModels, and NewsfeedModels are in `Shared/Models/` and included in the macOS target via `project.yml` selective includes — they are NOT duplicated.
 
 ## Python Environment
 
@@ -221,7 +219,7 @@ hestia/
 │   │   ├── Views/                   # Chat, CommandCenter (+ NeuralNet), Settings (+ Resources, Integrations, Wiki, DeviceManagement, ProactiveSettings), Auth
 │   │   ├── Views/Common/            # LottieAnimationView, LoadingView, GradientBackground
 │   │   └── Persistence/             # Core Data stack
-│   ├── macOS/                       # macOS app (66 files)
+│   ├── macOS/                       # macOS app (105 files)
 │   │   ├── Views/                   # Command, Explorer (Files+Resources), Health, Profile, Wiki (4 views), Resources (6 views), Chat, Chrome, Auth
 │   │   ├── ViewModels/              # MacChat, MacExplorer, MacExplorerResources, MacCloudSettings, MacIntegrations, MacWiki, MacHealth, MacUserProfile, MacCommandCenter
 │   │   ├── Models/                  # WikiModels, ToolModels, NewsfeedModels, HealthDataModels, DeviceModels
@@ -305,7 +303,7 @@ Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 | Phase 4: Settings Integrations | COMPLETE | IntegrationsView (Calendar, Reminders, Notes, Mail), API contract rewrite |
 | Apple HealthKit Integration | COMPLETE | 27 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools, iOS HealthKitService |
 | Wiki / Architecture Field Guide | COMPLETE | AI-generated narratives, module deep dives, ADR browser, roadmap, Mermaid diagrams, iOS tabbed UI |
-| macOS App (Hestia) | COMPLETE | 66 files, 6 views (Command/Explorer/Health/Profile/Wiki/Resources), icon sidebar, chat panel, keyboard shortcuts ⌘1-6/\, responsive layout, app icon. |
+| macOS App (Hestia) | COMPLETE | 105 files, 6 views (Command/Explorer/Health/Profile/Wiki/Resources), icon sidebar, chat panel, keyboard shortcuts ⌘1-6/\, responsive layout, app icon. |
 
 ### Frontend Wiring — COMPLETE
 | Sprint | Status | Scope |

@@ -22,7 +22,7 @@ You are Hestia's fast codebase navigator. You find things, trace connections, an
 
 ```
 hestia/
-├── hestia/                    # Python backend (22 modules, 126 API endpoints)
+├── hestia/                    # Python backend (23 modules, 132 API endpoints)
 │   ├── security/              # CredentialManager (3-tier, Fernet + Keychain)
 │   ├── logging/               # get_logger(), AuditLogger, log viewer
 │   ├── inference/             # InferenceClient (Ollama + cloud, 3-state routing)
@@ -42,12 +42,13 @@ hestia/
 │   ├── wiki/                  # Architecture field guide (AI-generated + static docs)
 │   ├── explorer/              # ExplorerManager, resource aggregation, draft CRUD, TTL cache
 │   ├── newsfeed/              # Newsfeed aggregation (RSS, system events)
-│   ├── api/                   # FastAPI REST API (126 endpoints)
+│   ├── research/              # Knowledge graph + PrincipleStore (Learning Cycle Phase A)
+│   ├── api/                   # FastAPI REST API (132 endpoints)
 │   │   ├── server.py          # App lifecycle, TLS/HTTPS
-│   │   ├── schemas/           # Pydantic models (15 domain modules)
+│   │   ├── schemas/           # Pydantic models (16 domain modules)
 │   │   ├── errors.py          # Error sanitization helpers
 │   │   ├── middleware/        # JWT auth, rate limiting
-│   │   └── routes/            # 21 route modules
+│   │   └── routes/            # 22 route modules
 │   │       ├── auth.py        # /v1/auth/*
 │   │       ├── health.py      # /v1/ping, /v1/health
 │   │       ├── chat.py        # /v1/chat
@@ -118,7 +119,7 @@ Logging (get_logger(), AuditLogger)
 Security (CredentialManager, Keychain, Fernet)
 ```
 
-Standalone modules (no layer dependency): Tasks, Orders, Agents, User, Proactive, Voice, Wiki, Explorer, Newsfeed, Investigate
+Standalone modules (no layer dependency): Tasks, Orders, Agents, User, Proactive, Voice, Wiki, Explorer, Newsfeed, Investigate, Research
 
 Council module sits between Orchestration and Inference (called by handler, calls inference directly)
 
