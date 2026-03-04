@@ -313,9 +313,38 @@ async def re_invite(
     summary="Refresh device token",
     description="Get a new token for an existing device (requires valid current token).",
 )
-async def refresh_token() -> DeviceRegisterResponse:
-    """Placeholder for token refresh functionality."""
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Token refresh not yet implemented. Register a new device instead.",
-    )
+async def refresh_token(
+    device_token: str = Depends(get_device_token),
+) -> DeviceRegisterResponse:
+    """
+    Refresh a device token.
+
+    Requires a valid current token. Returns a new token with fresh expiry.
+    The old token remains valid until its own expiry.
+    """
+    try:
+        # create_device_token generates a new JWT for the same device_id
+        new_token, expires_at = create_device_token(device_token)
+
+        logger.info(
+            "Device token refreshed",
+            component=LogComponent.API,
+            data={"device_id": device_token},
+        )
+
+        return DeviceRegisterResponse(
+            device_id=device_token,
+            token=new_token,
+            expires_at=expires_at,
+        )
+
+    except Exception as e:
+        logger.error(
+            "Token refresh failed",
+            component=LogComponent.API,
+            data={"error": sanitize_for_log(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Token refresh failed",
+        )
