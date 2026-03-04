@@ -942,3 +942,235 @@ class TestFileManager:
             await manager.create_file(
                 str(outside), "evil.txt", "u1", "d1", content="hack"
             )
+
+
+# ===================================================================
+# 14. File API Routes
+# ===================================================================
+
+from unittest.mock import AsyncMock, patch as mock_patch
+from datetime import datetime, timezone as tz
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+from hestia.api.routes.files import router as files_router_instance
+from hestia.files.models import FileEntry, FileType
+
+
+def _make_entry(**overrides) -> FileEntry:
+    """Helper to create a FileEntry with sensible defaults."""
+    defaults = dict(
+        name="test.txt",
+        path="/home/user/docs/test.txt",
+        type=FileType.FILE,
+        size=42,
+        modified=datetime(2026, 3, 1, 12, 0, 0, tzinfo=tz.utc),
+        mime_type="text/plain",
+        is_hidden=False,
+        extension=".txt",
+    )
+    defaults.update(overrides)
+    return FileEntry(**defaults)
+
+
+def _build_test_app(mock_manager: AsyncMock) -> TestClient:
+    """Build a minimal FastAPI app with the files router and mocked deps."""
+    app = FastAPI()
+    app.include_router(files_router_instance)
+
+    # Override auth dependency
+    from hestia.api.middleware.auth import get_device_token
+    app.dependency_overrides[get_device_token] = lambda: "test-device-id"
+
+    return app, mock_manager
+
+
+class TestFileRoutes:
+    """Tests for /v1/files API routes using mocked FileManager."""
+
+    @pytest.fixture
+    def mock_mgr(self):
+        """Create a mock FileManager."""
+        return AsyncMock()
+
+    @pytest.fixture
+    def client(self, mock_mgr):
+        """Build a TestClient with the files router and mocked manager."""
+        app = FastAPI()
+        app.include_router(files_router_instance)
+
+        from hestia.api.middleware.auth import get_device_token
+        app.dependency_overrides[get_device_token] = lambda: "test-device-id"
+
+        with mock_patch(
+            "hestia.api.routes.files.get_file_manager",
+            return_value=mock_mgr,
+        ):
+            yield TestClient(app)
+
+    # ---- 1. List directory ----
+
+    def test_list_directory_success(self, mock_mgr, client):
+        """GET /v1/files should return a list of file entries."""
+        entries = [
+            _make_entry(name="a.txt", path="/docs/a.txt"),
+            _make_entry(name="b.txt", path="/docs/b.txt"),
+        ]
+        mock_mgr.list_directory.return_value = (entries, "/home/user")
+
+        resp = client.get("/v1/files?path=/home/user/docs")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["path"] == "/home/user/docs"
+        assert body["parent_path"] == "/home/user"
+        assert body["total"] == 2
+        assert len(body["files"]) == 2
+        assert body["files"][0]["name"] == "a.txt"
+
+    def test_list_directory_access_denied(self, mock_mgr, client):
+        """GET /v1/files with path outside roots should return 403."""
+        mock_mgr.list_directory.side_effect = PathValidationError("denied")
+
+        resp = client.get("/v1/files?path=/etc/secret")
+        assert resp.status_code == 403
+        assert resp.json()["detail"] == "Access denied"
+
+    # ---- 2. Read content ----
+
+    def test_read_content_success(self, mock_mgr, client):
+        """GET /v1/files/content should return file text content."""
+        mock_mgr.read_content.return_value = (
+            "Hello, Hestia!",
+            "text/plain",
+            14,
+        )
+        mock_mgr.get_metadata.return_value = _make_entry()
+
+        resp = client.get("/v1/files/content?path=/docs/test.txt")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["content"] == "Hello, Hestia!"
+        assert body["mime_type"] == "text/plain"
+        assert body["size"] == 14
+        assert body["encoding"] == "utf-8"
+        assert "modified" in body
+
+    def test_read_content_binary_rejected(self, mock_mgr, client):
+        """GET /v1/files/content for binary file should return 403."""
+        mock_mgr.read_content.side_effect = PathValidationError("binary")
+
+        resp = client.get("/v1/files/content?path=/docs/image.png")
+        assert resp.status_code == 403
+        assert resp.json()["detail"] == "Access denied"
+
+    # ---- 3. Get metadata ----
+
+    def test_get_metadata_success(self, mock_mgr, client):
+        """GET /v1/files/metadata should return file metadata."""
+        entry = _make_entry(name="info.md", path="/docs/info.md", size=256)
+        mock_mgr.get_metadata.return_value = entry
+
+        resp = client.get("/v1/files/metadata?path=/docs/info.md")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["name"] == "info.md"
+        assert body["size"] == 256
+        assert body["type"] == "file"
+
+    # ---- 4. Create file ----
+
+    def test_create_file_success(self, mock_mgr, client):
+        """POST /v1/files should create a file and return 201."""
+        entry = _make_entry(name="new.txt", path="/docs/new.txt")
+        mock_mgr.create_file.return_value = entry
+
+        resp = client.post(
+            "/v1/files",
+            json={
+                "path": "/docs",
+                "name": "new.txt",
+                "content": "hello",
+                "type": "file",
+            },
+        )
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["name"] == "new.txt"
+        mock_mgr.create_file.assert_called_once()
+
+    # ---- 5. Update file ----
+
+    def test_update_file_success(self, mock_mgr, client):
+        """PUT /v1/files should update content and return entry."""
+        entry = _make_entry(name="updated.txt", path="/docs/updated.txt")
+        mock_mgr.update_file.return_value = entry
+
+        resp = client.put(
+            "/v1/files?path=/docs/updated.txt",
+            json={"content": "new content"},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["name"] == "updated.txt"
+        mock_mgr.update_file.assert_called_once()
+
+    # ---- 6. Delete file ----
+
+    def test_delete_file_success(self, mock_mgr, client):
+        """DELETE /v1/files should soft-delete and return response."""
+        mock_mgr.delete_file.return_value = (True, "/trash/test.txt")
+
+        resp = client.delete("/v1/files?path=/docs/test.txt")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["deleted"] is True
+        assert body["moved_to_trash"] is True
+
+    # ---- 7. Move file ----
+
+    def test_move_file_success(self, mock_mgr, client):
+        """PUT /v1/files/move should move and return entry at new path."""
+        entry = _make_entry(name="moved.txt", path="/docs/moved.txt")
+        mock_mgr.move_file.return_value = entry
+
+        resp = client.put(
+            "/v1/files/move",
+            json={"source": "/docs/old.txt", "destination": "/docs/moved.txt"},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["name"] == "moved.txt"
+        mock_mgr.move_file.assert_called_once()
+
+    # ---- 8. Audit log ----
+
+    def test_audit_log_success(self, mock_mgr, client):
+        """GET /v1/files/audit-log should return audit log entries."""
+        mock_mgr.get_audit_logs.return_value = [
+            {
+                "id": "abc-123",
+                "operation": "read",
+                "path": "/docs/test.txt",
+                "result": "success",
+                "timestamp": "2026-03-01T12:00:00+00:00",
+                "destination_path": None,
+                "metadata": {},
+            },
+            {
+                "id": "def-456",
+                "operation": "delete",
+                "path": "/docs/old.txt",
+                "result": "success",
+                "timestamp": "2026-03-01T11:00:00+00:00",
+                "destination_path": None,
+                "metadata": {"trash_path": "/trash/old.txt"},
+            },
+        ]
+
+        resp = client.get("/v1/files/audit-log")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["count"] == 2
+        assert len(body["logs"]) == 2
+        assert body["logs"][0]["id"] == "abc-123"
+        assert body["logs"][1]["operation"] == "delete"

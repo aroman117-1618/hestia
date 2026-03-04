@@ -45,6 +45,7 @@ from hestia.explorer import get_explorer_manager, close_explorer_manager
 from hestia.newsfeed import get_newsfeed_manager, close_newsfeed_manager
 from hestia.investigate import get_investigate_manager, close_investigate_manager
 from hestia.research.manager import get_research_manager, close_research_manager
+from hestia.files import get_file_manager, close_file_manager
 
 # Import routers
 from hestia.api.routes import (
@@ -69,6 +70,7 @@ from hestia.api.routes import (
     newsfeed_router,
     investigate_router,
     research_router,
+    files_router,
 )
 from hestia.api.routes.agents_v2 import router as agents_v2_router
 
@@ -226,7 +228,7 @@ async def lifespan(app: FastAPI):
             "task_manager", "order_manager", "agent_manager", "user_manager",
             "cloud_manager", "health_manager", "wiki_manager", "config_loader",
             "invite_store", "explorer_manager", "newsfeed_manager",
-            "investigate_manager", "research_manager",
+            "investigate_manager", "research_manager", "file_manager",
         ]
         phase2_coroutines = [
             get_task_manager(), get_order_manager(), get_agent_manager(),
@@ -234,6 +236,7 @@ async def lifespan(app: FastAPI):
             get_wiki_manager(), get_config_loader(), get_invite_store(),
             get_explorer_manager(), get_newsfeed_manager(),
             get_investigate_manager(), get_research_manager(),
+            get_file_manager(),
         ]
 
         try:
@@ -268,6 +271,7 @@ async def lifespan(app: FastAPI):
                     "newsfeed_manager": get_newsfeed_manager,
                     "investigate_manager": get_investigate_manager,
                     "research_manager": get_research_manager,
+                    "file_manager": get_file_manager,
                 }
                 for name, _ in failures:
                     await retry_map[name]()
@@ -301,6 +305,7 @@ async def lifespan(app: FastAPI):
             await get_newsfeed_manager()
             await get_investigate_manager()
             await get_research_manager()
+            await get_file_manager()
 
         # ── Phase 3: Sequential dependents ───────────────────────────
         # Schedulers depend on their managers from Phase 2
@@ -341,7 +346,7 @@ async def lifespan(app: FastAPI):
             component=LogComponent.API,
             data={
                 "startup_ms": startup_ms,
-                "managers_initialized": 16,
+                "managers_initialized": 17,
             }
         )
 
@@ -362,7 +367,17 @@ async def lifespan(app: FastAPI):
 
         shutdown_errors = 0
 
-        # 17. research_manager (last initialized → first closed)
+        # 18. file_manager (newest → first closed)
+        try:
+            await close_file_manager()
+        except Exception as e:
+            shutdown_errors += 1
+            logger.warning(
+                f"File manager cleanup error: {type(e).__name__}",
+                component=LogComponent.API,
+            )
+
+        # 17. research_manager
         try:
             await close_research_manager()
         except Exception as e:
@@ -687,6 +702,7 @@ app.include_router(explorer_router)
 app.include_router(newsfeed_router)
 app.include_router(investigate_router)
 app.include_router(research_router)
+app.include_router(files_router)
 
 
 # Root endpoint
