@@ -436,3 +436,194 @@ class TestDirectoryValidation:
         """The allowed root directory itself should pass validation."""
         result = validator.validate_path(str(tmp_root))
         assert result == tmp_root.resolve()
+
+
+# ===================================================================
+# 12. FileAuditDatabase
+# ===================================================================
+
+import asyncio
+import json
+from datetime import datetime, timedelta, timezone
+
+from hestia.files.database import FileAuditDatabase
+
+
+class TestFileAuditDatabase:
+    """Tests for FileAuditDatabase — SQLite audit trail for file operations."""
+
+    @pytest.fixture
+    def db_path(self, tmp_path: Path) -> Path:
+        """Provide a temp database path."""
+        return tmp_path / "test_file_audit.db"
+
+    @pytest.mark.asyncio
+    async def test_log_operation_stores_all_fields(self, db_path: Path) -> None:
+        """Insert an audit log and verify all fields round-trip correctly."""
+        async with FileAuditDatabase(db_path) as db:
+            entry_id = await db.log_operation(
+                user_id="user-1",
+                device_id="device-1",
+                operation="read",
+                path="/home/user/docs/file.txt",
+                result="success",
+            )
+
+            assert entry_id  # non-empty UUID string
+
+            logs = await db.get_logs("user-1")
+            assert len(logs) == 1
+            log = logs[0]
+            assert log["id"] == entry_id
+            assert log["user_id"] == "user-1"
+            assert log["device_id"] == "device-1"
+            assert log["operation"] == "read"
+            assert log["path"] == "/home/user/docs/file.txt"
+            assert log["result"] == "success"
+            assert log["timestamp"]  # non-empty ISO string
+            assert log["destination_path"] is None
+            assert log["metadata"] == {}
+
+    @pytest.mark.asyncio
+    async def test_get_logs_scoped_by_user_id(self, db_path: Path) -> None:
+        """Logs for different users must not leak across user boundaries."""
+        async with FileAuditDatabase(db_path) as db:
+            await db.log_operation("alice", "dev-a", "read", "/a.txt", "success")
+            await db.log_operation("bob", "dev-b", "read", "/b.txt", "success")
+            await db.log_operation("alice", "dev-a", "list", "/docs", "success")
+
+            alice_logs = await db.get_logs("alice")
+            bob_logs = await db.get_logs("bob")
+
+            assert len(alice_logs) == 2
+            assert len(bob_logs) == 1
+            assert all(l["user_id"] == "alice" for l in alice_logs)
+            assert all(l["user_id"] == "bob" for l in bob_logs)
+
+    @pytest.mark.asyncio
+    async def test_get_logs_pagination(self, db_path: Path) -> None:
+        """Limit and offset should control which entries are returned."""
+        async with FileAuditDatabase(db_path) as db:
+            for i in range(5):
+                await db.log_operation(
+                    "user-1", "dev-1", "read", f"/file_{i}.txt", "success"
+                )
+
+            # First page: 2 entries
+            page1 = await db.get_logs("user-1", limit=2, offset=0)
+            assert len(page1) == 2
+
+            # Second page: 2 entries
+            page2 = await db.get_logs("user-1", limit=2, offset=2)
+            assert len(page2) == 2
+
+            # Third page: 1 entry
+            page3 = await db.get_logs("user-1", limit=2, offset=4)
+            assert len(page3) == 1
+
+            # No overlap between pages
+            all_ids = [l["id"] for l in page1 + page2 + page3]
+            assert len(set(all_ids)) == 5
+
+    @pytest.mark.asyncio
+    async def test_get_logs_filter_by_operation(self, db_path: Path) -> None:
+        """Operation filter should return only matching operation types."""
+        async with FileAuditDatabase(db_path) as db:
+            await db.log_operation("user-1", "dev-1", "read", "/a.txt", "success")
+            await db.log_operation("user-1", "dev-1", "delete", "/b.txt", "success")
+            await db.log_operation("user-1", "dev-1", "read", "/c.txt", "denied")
+
+            reads = await db.get_logs("user-1", operation="read")
+            assert len(reads) == 2
+            assert all(l["operation"] == "read" for l in reads)
+
+            deletes = await db.get_logs("user-1", operation="delete")
+            assert len(deletes) == 1
+            assert deletes[0]["operation"] == "delete"
+
+    @pytest.mark.asyncio
+    async def test_get_logs_ordered_newest_first(self, db_path: Path) -> None:
+        """Logs must be returned in timestamp DESC order."""
+        async with FileAuditDatabase(db_path) as db:
+            # Insert with small delays to ensure distinct timestamps
+            ids = []
+            for i in range(3):
+                eid = await db.log_operation(
+                    "user-1", "dev-1", "read", f"/file_{i}.txt", "success"
+                )
+                ids.append(eid)
+
+            logs = await db.get_logs("user-1")
+            timestamps = [l["timestamp"] for l in logs]
+            # Newest first: timestamps should be in descending order
+            assert timestamps == sorted(timestamps, reverse=True)
+
+    @pytest.mark.asyncio
+    async def test_cleanup_old_entries(self, db_path: Path) -> None:
+        """Cleanup should remove entries older than retention and keep recent ones."""
+        async with FileAuditDatabase(db_path) as db:
+            # Insert a "recent" entry via normal log_operation
+            await db.log_operation("user-1", "dev-1", "read", "/new.txt", "success")
+
+            # Insert an "old" entry by directly writing an old timestamp
+            old_ts = (
+                datetime.now(timezone.utc) - timedelta(days=120)
+            ).isoformat()
+            await db.connection.execute(
+                """
+                INSERT INTO file_audit
+                    (id, user_id, device_id, operation, path, result, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                ("old-entry-id", "user-1", "dev-1", "read", "/old.txt", "success", old_ts),
+            )
+            await db.connection.commit()
+
+            # Verify both exist
+            all_logs = await db.get_logs("user-1")
+            assert len(all_logs) == 2
+
+            # Cleanup with 90-day retention
+            deleted = await db.cleanup_old_entries(retention_days=90)
+            assert deleted == 1
+
+            # Only the recent entry should remain
+            remaining = await db.get_logs("user-1")
+            assert len(remaining) == 1
+            assert remaining[0]["path"] == "/new.txt"
+
+    @pytest.mark.asyncio
+    async def test_log_operation_with_destination_path(self, db_path: Path) -> None:
+        """Move operations should store destination_path."""
+        async with FileAuditDatabase(db_path) as db:
+            entry_id = await db.log_operation(
+                user_id="user-1",
+                device_id="dev-1",
+                operation="move",
+                path="/docs/old_name.txt",
+                result="success",
+                destination_path="/docs/new_name.txt",
+            )
+
+            logs = await db.get_logs("user-1")
+            assert len(logs) == 1
+            assert logs[0]["id"] == entry_id
+            assert logs[0]["destination_path"] == "/docs/new_name.txt"
+
+    @pytest.mark.asyncio
+    async def test_log_operation_with_metadata(self, db_path: Path) -> None:
+        """Metadata dict should be stored as JSON and round-trip correctly."""
+        async with FileAuditDatabase(db_path) as db:
+            meta = {"mime_type": "text/plain", "size_bytes": "1024", "reason": "user request"}
+            entry_id = await db.log_operation(
+                user_id="user-1",
+                device_id="dev-1",
+                operation="read",
+                path="/docs/report.txt",
+                result="success",
+                metadata=meta,
+            )
+
+            logs = await db.get_logs("user-1")
+            assert len(logs) == 1
+            assert logs[0]["metadata"] == meta
