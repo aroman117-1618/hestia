@@ -8,6 +8,7 @@ import asyncio
 import json
 import logging
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import List, Optional
 
@@ -201,13 +202,17 @@ class CalendarClient:
         return result.get("data", {}).get("deleted", False)
 
     async def get_today_events(self) -> List[Event]:
-        """Get all events for today."""
-        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        """Get all events for today in the user's local timezone."""
+        from hestia.user.config_loader import get_user_timezone
+        tz = ZoneInfo(get_user_timezone())
+        today = datetime.now(tz).replace(hour=0, minute=0, second=0, microsecond=0)
         tomorrow = today + timedelta(days=1)
         return await self.list_events(after=today, before=tomorrow)
 
     async def get_upcoming_events(self, days: int = 7) -> List[Event]:
-        """Get events for the next N days."""
-        today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        """Get events for the next N days in the user's local timezone."""
+        from hestia.user.config_loader import get_user_timezone
+        tz = ZoneInfo(get_user_timezone())
+        today = datetime.now(tz).replace(hour=0, minute=0, second=0, microsecond=0)
         end_date = today + timedelta(days=days)
         return await self.list_events(after=today, before=end_date)

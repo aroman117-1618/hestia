@@ -49,9 +49,12 @@ class OrderScheduler:
         if self._manager is None:
             self._manager = await get_order_manager()
 
-        # Create scheduler
+        # Create scheduler with user's local timezone
+        from hestia.user.config_loader import get_user_timezone
+        scheduler_tz = get_user_timezone()
+
         self._scheduler = AsyncIOScheduler(
-            timezone="UTC",
+            timezone=scheduler_tz,
             job_defaults={
                 "coalesce": True,  # Combine missed executions
                 "max_instances": 1,  # Only one instance per order

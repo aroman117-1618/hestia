@@ -8,6 +8,7 @@ import asyncio
 import json
 import logging
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import List, Optional
 
@@ -165,13 +166,17 @@ class RemindersClient:
         return await self.list_reminders(list_name=list_name, incomplete=True)
 
     async def get_due_today(self) -> List[Reminder]:
-        """Get reminders due today (incomplete only)."""
+        """Get reminders due today in the user's local timezone."""
+        from hestia.user.config_loader import get_user_timezone
+        tz = ZoneInfo(get_user_timezone())
         reminders = await self.get_incomplete()
-        today = datetime.now().date()
+        today = datetime.now(tz).date()
         return [r for r in reminders if r.due and r.due.date() == today]
 
     async def get_overdue(self) -> List[Reminder]:
-        """Get overdue reminders (incomplete, past due date)."""
+        """Get overdue reminders (incomplete, past due date) in user's local timezone."""
+        from hestia.user.config_loader import get_user_timezone
+        tz = ZoneInfo(get_user_timezone())
         reminders = await self.get_incomplete()
-        now = datetime.now()
+        now = datetime.now(tz)
         return [r for r in reminders if r.due and r.due < now]

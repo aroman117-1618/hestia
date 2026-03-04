@@ -106,7 +106,10 @@ class BriefingGenerator:
         Returns:
             Complete Briefing object.
         """
-        now = datetime.now(timezone.utc)
+        from zoneinfo import ZoneInfo
+        from hestia.user.config_loader import get_user_timezone
+        user_tz = ZoneInfo(get_user_timezone())
+        now = datetime.now(user_tz)
 
         self.logger.info(
             "Generating daily briefing",
@@ -114,7 +117,7 @@ class BriefingGenerator:
             data={"timestamp": now.isoformat()},
         )
 
-        # Generate greeting based on time of day
+        # Generate greeting based on user's local time of day
         greeting = self._generate_greeting(now)
 
         # Gather data from all sources in parallel

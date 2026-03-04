@@ -54,7 +54,10 @@ class InterruptionManager:
         Returns:
             InterruptionContext with current state.
         """
-        now = datetime.now(timezone.utc)
+        from zoneinfo import ZoneInfo
+        from hestia.user.config_loader import get_user_timezone
+        user_tz = ZoneInfo(get_user_timezone())
+        now = datetime.now(user_tz)
 
         return InterruptionContext(
             current_time=now,

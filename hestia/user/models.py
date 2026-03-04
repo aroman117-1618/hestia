@@ -104,6 +104,7 @@ class UserSettings:
     )
     default_mode: str = "tia"
     auto_lock_timeout_minutes: int = 5
+    timezone: str = "America/Los_Angeles"  # IANA timezone (from USER-IDENTITY.md)
     file_settings: Optional[Dict[str, Any]] = None  # FileSettings stored as dict to avoid circular import
     experimental_chat_v2: bool = False
 
@@ -113,6 +114,7 @@ class UserSettings:
             "push_notifications": self.push_notifications.to_dict(),
             "default_mode": self.default_mode,
             "auto_lock_timeout_minutes": self.auto_lock_timeout_minutes,
+            "timezone": self.timezone,
             "experimental_chat_v2": self.experimental_chat_v2,
         }
         if self.file_settings is not None:
@@ -130,6 +132,7 @@ class UserSettings:
             push_notifications=push_settings,
             default_mode=data.get("default_mode", "tia"),
             auto_lock_timeout_minutes=data.get("auto_lock_timeout_minutes", 5),
+            timezone=data.get("timezone", "America/Los_Angeles"),
             file_settings=data.get("file_settings"),
             experimental_chat_v2=data.get("experimental_chat_v2", False),
         )

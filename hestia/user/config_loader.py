@@ -317,3 +317,30 @@ async def get_user_config_loader(
         _loader_instance = UserConfigLoader(user_root=user_root)
         await _loader_instance.initialize()
     return _loader_instance
+
+
+def get_user_timezone() -> str:
+    """
+    Get the user's IANA timezone string.
+
+    Reads from UserSettings.timezone (persisted in DB), falling back to
+    the system's local timezone if not set.
+
+    Returns:
+        IANA timezone string (e.g., "America/Los_Angeles").
+    """
+    # Default — matches UserSettings.timezone default
+    default_tz = "America/Los_Angeles"
+
+    try:
+        # Try to read from the loaded user config cache
+        # This is synchronous because timezone is needed in sync contexts too
+        # (e.g., APScheduler timezone param)
+        if _loader_instance is not None and _loader_instance._cache is not None:
+            identity = _loader_instance._cache.identity
+            if identity and identity.timezone:
+                return identity.timezone
+    except Exception:
+        pass
+
+    return default_tz
