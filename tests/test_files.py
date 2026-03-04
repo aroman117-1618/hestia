@@ -627,3 +627,318 @@ class TestFileAuditDatabase:
             logs = await db.get_logs("user-1")
             assert len(logs) == 1
             assert logs[0]["metadata"] == meta
+
+
+# ===================================================================
+# 13. FileManager
+# ===================================================================
+
+from hestia.files.manager import FileManager
+from hestia.files.models import FileSettings
+
+
+class TestFileManager:
+    """Tests for FileManager — async CRUD with audit trail."""
+
+    @pytest.fixture
+    def allowed_root(self, tmp_path: Path) -> Path:
+        """Create a temp directory to serve as the single allowed root."""
+        root = tmp_path / "files_root"
+        root.mkdir()
+        return root
+
+    @pytest.fixture
+    def db_path(self, tmp_path: Path) -> Path:
+        return tmp_path / "fm_audit.db"
+
+    @pytest.fixture
+    def settings(self, allowed_root: Path) -> FileSettings:
+        return FileSettings(
+            allowed_roots=[str(allowed_root)],
+            hidden_paths=[".DS_Store", ".git", "__pycache__", "node_modules", ".hestia-trash"],
+        )
+
+    @pytest.fixture
+    async def manager(
+        self, db_path: Path, settings: FileSettings
+    ) -> FileManager:
+        """Create an initialized FileManager scoped to the temp root."""
+        db = FileAuditDatabase(db_path)
+        fm = FileManager(db=db, settings=settings)
+        await fm.initialize()
+        yield fm
+        await fm.close()
+
+    # ---- list_directory ----
+
+    @pytest.mark.asyncio
+    async def test_list_directory_returns_entries(
+        self, manager: FileManager, allowed_root: Path
+    ) -> None:
+        """Create 3 files in the root, list, verify count and names."""
+        for name in ["alpha.txt", "beta.txt", "gamma.txt"]:
+            (allowed_root / name).write_text(f"content of {name}")
+
+        entries, parent = await manager.list_directory(
+            str(allowed_root), "u1", "d1"
+        )
+        assert len(entries) == 3
+        names = {e.name for e in entries}
+        assert names == {"alpha.txt", "beta.txt", "gamma.txt"}
+
+    @pytest.mark.asyncio
+    async def test_list_directory_hides_hidden_files(
+        self, manager: FileManager, allowed_root: Path
+    ) -> None:
+        """Hidden files should be filtered by default."""
+        (allowed_root / "visible.txt").write_text("ok")
+        (allowed_root / ".hidden").write_text("secret")
+
+        entries, _ = await manager.list_directory(
+            str(allowed_root), "u1", "d1"
+        )
+        names = [e.name for e in entries]
+        assert "visible.txt" in names
+        assert ".hidden" not in names
+
+    @pytest.mark.asyncio
+    async def test_list_directory_show_hidden(
+        self, manager: FileManager, allowed_root: Path
+    ) -> None:
+        """With show_hidden=True, hidden files should be included."""
+        (allowed_root / "visible.txt").write_text("ok")
+        (allowed_root / ".hidden").write_text("secret")
+
+        entries, _ = await manager.list_directory(
+            str(allowed_root), "u1", "d1", show_hidden=True
+        )
+        names = [e.name for e in entries]
+        assert "visible.txt" in names
+        assert ".hidden" in names
+
+    @pytest.mark.asyncio
+    async def test_list_directory_sort_by_name(
+        self, manager: FileManager, allowed_root: Path
+    ) -> None:
+        """Entries should be sorted alphabetically (case-insensitive)."""
+        for name in ["Charlie.txt", "alpha.txt", "Bravo.txt"]:
+            (allowed_root / name).write_text("x")
+
+        entries, _ = await manager.list_directory(
+            str(allowed_root), "u1", "d1", sort_by="name"
+        )
+        assert [e.name for e in entries] == [
+            "alpha.txt", "Bravo.txt", "Charlie.txt"
+        ]
+
+    @pytest.mark.asyncio
+    async def test_list_directory_sort_by_size(
+        self, manager: FileManager, allowed_root: Path
+    ) -> None:
+        """Entries should be sorted by size descending."""
+        (allowed_root / "small.txt").write_text("a")
+        (allowed_root / "big.txt").write_text("a" * 1000)
+        (allowed_root / "medium.txt").write_text("a" * 100)
+
+        entries, _ = await manager.list_directory(
+            str(allowed_root), "u1", "d1", sort_by="size"
+        )
+        sizes = [e.size for e in entries]
+        assert sizes == sorted(sizes, reverse=True)
+
+    @pytest.mark.asyncio
+    async def test_list_directory_pagination(
+        self, manager: FileManager, allowed_root: Path
+    ) -> None:
+        """Limit/offset should correctly paginate sorted results."""
+        for i in range(5):
+            (allowed_root / f"file_{i:02d}.txt").write_text(f"{i}")
+
+        page1, _ = await manager.list_directory(
+            str(allowed_root), "u1", "d1", limit=2, offset=0
+        )
+        page2, _ = await manager.list_directory(
+            str(allowed_root), "u1", "d1", limit=2, offset=2
+        )
+        page3, _ = await manager.list_directory(
+            str(allowed_root), "u1", "d1", limit=2, offset=4
+        )
+
+        assert len(page1) == 2
+        assert len(page2) == 2
+        assert len(page3) == 1
+
+        all_names = [e.name for e in page1 + page2 + page3]
+        assert len(set(all_names)) == 5
+
+    @pytest.mark.asyncio
+    async def test_list_directory_rejects_invalid_path(
+        self, manager: FileManager, tmp_path: Path
+    ) -> None:
+        """A path outside allowed roots should raise PathValidationError."""
+        outside = tmp_path / "outside_dir"
+        outside.mkdir()
+        with pytest.raises(PathValidationError):
+            await manager.list_directory(str(outside), "u1", "d1")
+
+    # ---- read_content ----
+
+    @pytest.mark.asyncio
+    async def test_read_content_text_file(
+        self, manager: FileManager, allowed_root: Path
+    ) -> None:
+        """Reading a text file should return its content."""
+        f = allowed_root / "note.txt"
+        f.write_text("Hello from Hestia")
+
+        content, mime, size = await manager.read_content(
+            str(f), "u1", "d1"
+        )
+        assert content == "Hello from Hestia"
+        assert size == len(b"Hello from Hestia")
+        assert "text" in mime
+
+    @pytest.mark.asyncio
+    async def test_read_content_rejects_binary(
+        self, manager: FileManager, allowed_root: Path
+    ) -> None:
+        """A .png binary file should be rejected."""
+        f = allowed_root / "image.png"
+        f.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 100)
+
+        with pytest.raises(PathValidationError):
+            await manager.read_content(str(f), "u1", "d1")
+
+    # ---- create_file / create_directory ----
+
+    @pytest.mark.asyncio
+    async def test_create_file(
+        self, manager: FileManager, allowed_root: Path
+    ) -> None:
+        """Creating a new file should write content and return FileEntry."""
+        entry = await manager.create_file(
+            str(allowed_root), "new.txt", "u1", "d1", content="new content"
+        )
+        created = allowed_root / "new.txt"
+        assert created.exists()
+        assert created.read_text() == "new content"
+        assert entry.name == "new.txt"
+
+    @pytest.mark.asyncio
+    async def test_create_directory(
+        self, manager: FileManager, allowed_root: Path
+    ) -> None:
+        """Creating a directory should make it exist and return DIRECTORY type."""
+        entry = await manager.create_file(
+            str(allowed_root), "subdir", "u1", "d1", file_type="directory"
+        )
+        created = allowed_root / "subdir"
+        assert created.exists()
+        assert created.is_dir()
+        assert entry.type.value == "directory"
+
+    # ---- update_file ----
+
+    @pytest.mark.asyncio
+    async def test_update_file(
+        self, manager: FileManager, allowed_root: Path
+    ) -> None:
+        """Updating a file should replace its content."""
+        f = allowed_root / "updatable.txt"
+        f.write_text("original")
+
+        entry = await manager.update_file(
+            str(f), "modified content", "u1", "d1"
+        )
+        assert f.read_text() == "modified content"
+        assert entry.name == "updatable.txt"
+
+    # ---- delete_file ----
+
+    @pytest.mark.asyncio
+    async def test_delete_file_moves_to_trash(
+        self, manager: FileManager, allowed_root: Path, tmp_path: Path
+    ) -> None:
+        """Deleting a file should soft-delete it to .hestia-trash/."""
+        f = allowed_root / "doomed.txt"
+        f.write_text("goodbye")
+
+        trash = tmp_path / ".hestia-trash"
+        with patch("hestia.files.security.TRASH_DIR", trash):
+            success, trash_path = await manager.delete_file(
+                str(f), "u1", "d1"
+            )
+
+        assert success is True
+        assert not f.exists()
+        assert Path(trash_path).exists()
+        assert Path(trash_path).read_text() == "goodbye"
+
+    # ---- move_file ----
+
+    @pytest.mark.asyncio
+    async def test_move_file(
+        self, manager: FileManager, allowed_root: Path
+    ) -> None:
+        """Moving a file should relocate it and return entry at new path."""
+        src = allowed_root / "moveme.txt"
+        src.write_text("mobile data")
+        dst = allowed_root / "moved.txt"
+
+        entry = await manager.move_file(
+            str(src), str(dst), "u1", "d1"
+        )
+        assert not src.exists()
+        assert dst.exists()
+        assert dst.read_text() == "mobile data"
+        assert entry.name == "moved.txt"
+
+    # ---- audit trail ----
+
+    @pytest.mark.asyncio
+    async def test_all_operations_log_audit(
+        self, manager: FileManager, allowed_root: Path, tmp_path: Path
+    ) -> None:
+        """All CRUD operations should create audit log entries."""
+        # CREATE
+        await manager.create_file(
+            str(allowed_root), "audit_test.txt", "u1", "d1", content="x"
+        )
+        f = allowed_root / "audit_test.txt"
+
+        # READ
+        await manager.read_content(str(f), "u1", "d1")
+
+        # UPDATE
+        await manager.update_file(str(f), "y", "u1", "d1")
+
+        # LIST
+        await manager.list_directory(str(allowed_root), "u1", "d1")
+
+        # DELETE (with trash override)
+        trash = tmp_path / ".hestia-trash"
+        with patch("hestia.files.security.TRASH_DIR", trash):
+            await manager.delete_file(str(f), "u1", "d1")
+
+        logs = await manager.get_audit_logs("u1")
+        operations = [l["operation"] for l in logs]
+
+        assert "create" in operations
+        assert "read" in operations
+        assert "update" in operations
+        assert "list" in operations
+        assert "delete" in operations
+
+    # ---- security: create outside roots ----
+
+    @pytest.mark.asyncio
+    async def test_create_file_outside_roots_rejected(
+        self, manager: FileManager, tmp_path: Path
+    ) -> None:
+        """Attempting to create a file outside allowed roots should fail."""
+        outside = tmp_path / "forbidden_dir"
+        outside.mkdir()
+        with pytest.raises(PathValidationError):
+            await manager.create_file(
+                str(outside), "evil.txt", "u1", "d1", content="hack"
+            )
