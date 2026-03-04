@@ -104,14 +104,18 @@ class UserSettings:
     )
     default_mode: str = "tia"
     auto_lock_timeout_minutes: int = 5
+    file_settings: Optional[Dict[str, Any]] = None  # FileSettings stored as dict to avoid circular import
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
-        return {
+        result: Dict[str, Any] = {
             "push_notifications": self.push_notifications.to_dict(),
             "default_mode": self.default_mode,
             "auto_lock_timeout_minutes": self.auto_lock_timeout_minutes,
         }
+        if self.file_settings is not None:
+            result["file_settings"] = self.file_settings
+        return result
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "UserSettings":
@@ -124,7 +128,19 @@ class UserSettings:
             push_notifications=push_settings,
             default_mode=data.get("default_mode", "tia"),
             auto_lock_timeout_minutes=data.get("auto_lock_timeout_minutes", 5),
+            file_settings=data.get("file_settings"),
         )
+
+    def get_file_settings(self) -> "FileSettings":
+        """Get FileSettings, lazily importing to avoid circular dependency."""
+        from hestia.files.models import FileSettings
+        if self.file_settings is not None:
+            return FileSettings.from_dict(self.file_settings)
+        return FileSettings()
+
+    def set_file_settings(self, settings: "FileSettings") -> None:
+        """Store FileSettings as dict."""
+        self.file_settings = settings.to_dict()
 
 
 @dataclass

@@ -1,0 +1,25 @@
+# File system access configuration
+file_access:
+  # Default allowed roots (overridden by per-user settings)
+  default_allowed_roots:
+    - ~/Documents
+    - ~/Desktop
+    - ~/Downloads
+    - ~/Projects
+
+  # Maximum file content size for reads (bytes)
+  max_content_size: 10485760  # 10MB
+
+  # Audit log retention (days)
+  audit_retention_days: 90
+
+  # Default hidden patterns
+  default_hidden_patterns:
+    - .DS_Store
+    - .git
+    - __pycache__
+    - node_modules
+    - .hestia-trash
+
+  # Trash directory for soft-delete
+  trash_dir: ~/.hestia-trash
