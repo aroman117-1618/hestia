@@ -275,6 +275,11 @@ struct MacOnboardingView: View {
                 #endif
 
                 step = .success
+
+                // Notify MainSplitViewController to transition to workspace
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    NotificationCenter.default.post(name: .hestiaConfigurationChanged, object: nil)
+                }
             } catch {
                 #if DEBUG
                 print("[MacOnboarding] Registration failed: \(error)")

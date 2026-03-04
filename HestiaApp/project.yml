@@ -1,6 +1,6 @@
 name: HestiaApp
 options:
-  bundleIdPrefix: com.hestia
+  bundleIdPrefix: com.andrewlonati
   deploymentTarget:
     iOS: "26.0"
     macOS: "15.0"
@@ -83,10 +83,10 @@ targets:
         embed: false
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.hestia.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.andrewlonati.hestia
         INFOPLIST_FILE: iOS/Info.plist
         CODE_SIGN_ENTITLEMENTS: iOS/HestiaApp.entitlements
-        DEVELOPMENT_TEAM: ""
+        DEVELOPMENT_TEAM: 563968AM8L
         CODE_SIGN_IDENTITY: "Apple Development"
         TARGETED_DEVICE_FAMILY: "1,2"
         SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: YES
@@ -140,15 +140,15 @@ targets:
         embed: false
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.hestia.workspace
+        PRODUCT_BUNDLE_IDENTIFIER: com.andrewlonati.hestia-macos
         PRODUCT_NAME: Hestia
         INFOPLIST_FILE: macOS/Info.plist
         CODE_SIGN_ENTITLEMENTS: macOS/HestiaWorkspace.entitlements
         MACOSX_DEPLOYMENT_TARGET: "15.0"
         COMBINE_HIDPI_IMAGES: YES
-        DEVELOPMENT_TEAM: ""
-        CODE_SIGN_IDENTITY: "-"
-        CODE_SIGNING_ALLOWED: NO
+        DEVELOPMENT_TEAM: 563968AM8L
+        CODE_SIGN_IDENTITY: "Apple Development"
+        CODE_SIGN_STYLE: Automatic
     info:
       path: macOS/Info.plist
       properties:
@@ -169,7 +169,7 @@ targets:
       - package: HestiaShared
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.hestia.app.tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.andrewlonati.hestia.tests
         GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/HestiaApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/HestiaApp"
         BUNDLE_LOADER: "$(TEST_HOST)"
