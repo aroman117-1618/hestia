@@ -91,10 +91,8 @@ struct MacMessageBubble: View {
                         .foregroundStyle(MacColors.textSender)
                         .padding(.horizontal, MacSpacing.sm)
 
-                    // Message bubble
-                    Text(message.content)
-                        .font(MacTypography.chatMessage)
-                        .foregroundStyle(MacColors.textPrimary)
+                    // Message bubble with markdown rendering
+                    MarkdownMessageView(content: message.content)
                         .padding(.horizontal, MacSpacing.lg)
                         .padding(.vertical, MacSpacing.md)
                         .background(MacColors.aiBubbleBackground)
