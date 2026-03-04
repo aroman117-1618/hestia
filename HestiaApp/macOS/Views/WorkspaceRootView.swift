@@ -41,6 +41,7 @@ struct WorkspaceRootView: View {
                     .animation(.hestiaNavSwitch, value: workspace.currentView)
                 }
                 .background(MacColors.windowBackground)
+                .tint(MacColors.amberAccent)
 
                 // Command palette overlay (⌘K)
                 CommandPaletteView()

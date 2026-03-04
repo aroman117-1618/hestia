@@ -28,6 +28,7 @@ struct MacAddCloudProviderView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                .tint(MacColors.amberAccent)
             }
 
             // API Key
@@ -57,6 +58,7 @@ struct MacAddCloudProviderView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                .tint(MacColors.amberAccent)
             }
 
             // Error

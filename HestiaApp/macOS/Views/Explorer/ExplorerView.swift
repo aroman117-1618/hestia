@@ -20,6 +20,7 @@ struct ExplorerView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                .tint(MacColors.amberAccent)
                 .frame(maxWidth: 220)
 
                 Spacer()
