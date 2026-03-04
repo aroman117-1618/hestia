@@ -7,7 +7,7 @@ and serves them through a TTL cache for fast responses.
 """
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 from hestia.logging import get_logger, LogComponent
@@ -122,10 +122,14 @@ class ExplorerManager:
             ]
 
         # Sort by modification time (most recent first), then creation time
-        all_resources.sort(
-            key=lambda r: (r.modified_at or r.created_at or datetime.min),
-            reverse=True,
-        )
+        def _sort_key(r: "ExplorerResource") -> datetime:
+            dt = r.modified_at or r.created_at or datetime.min
+            # Normalize to naive UTC for comparison (handles mixed aware/naive)
+            if dt.tzinfo is not None:
+                return dt.replace(tzinfo=None)
+            return dt
+
+        all_resources.sort(key=_sort_key, reverse=True)
 
         # Paginate
         return all_resources[offset:offset + limit]
