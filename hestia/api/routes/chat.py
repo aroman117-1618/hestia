@@ -22,6 +22,7 @@ from hestia.api.middleware.auth import get_device_token
 from hestia.orchestration.handler import get_request_handler
 from hestia.orchestration.models import Request, RequestSource, Mode, ResponseType
 from hestia.api.errors import sanitize_for_log
+from hestia.outcomes import get_outcome_manager
 from hestia.logging import get_logger, LogComponent
 
 router = APIRouter(prefix="/v1/chat", tags=["chat"])
@@ -114,6 +115,17 @@ async def send_message(
         if request.context_hints:
             internal_request.context_hints = request.context_hints
 
+        # Detect implicit signal from previous response (Learning Cycle)
+        try:
+            outcome_mgr = await get_outcome_manager()
+            await outcome_mgr.detect_implicit_signal(
+                session_id=session_id,
+                user_id=device_id,
+                new_message_content=request.message,
+            )
+        except Exception:
+            pass  # Outcome tracking must never break chat
+
         # Process request
         response = await handler.handle(internal_request)
 
@@ -136,6 +148,26 @@ async def send_message(
                 message=response.error_message,
             ) if response.error_code else None,
         )
+
+        # Track outcome for Learning Cycle
+        try:
+            outcome_mgr = await get_outcome_manager()
+            await outcome_mgr.track_response(
+                user_id=device_id,
+                device_id=device_id,
+                session_id=session_id,
+                message_id=request_id,
+                response_content=response.content[:500] if response.content else None,
+                response_type=api_response.response_type.value,
+                duration_ms=response.duration_ms or 0,
+                metadata={
+                    "mode": api_response.mode.value,
+                    "tool_calls": len(response.tool_calls) if response.tool_calls else 0,
+                    "tokens_out": response.tokens_out or 0,
+                },
+            )
+        except Exception:
+            pass  # Outcome tracking must never break chat
 
         logger.info(
             "Chat response sent",
