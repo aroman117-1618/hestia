@@ -1,62 +1,70 @@
 # Session Handoff — 2026-03-04
 
 ## Mission
-Sprint 9A (Explorer: Files) — plan audit + full implementation. Sprint 9B prep.
+Complete Sprints 9A, 9B, and 10 — file browser, unified inbox, chat redesign, and OutcomeTracker. Three full sprints in one session.
 
 ## Completed
 
-### Plan Audit (Sprint 9)
-- Full multi-perspective audit: `docs/plans/sprint-9-plan-audit-2026-03-04.md`
-- Verdict: APPROVE WITH CONDITIONS (7 must-fix items)
-- Andrew decisions: Gmail OAuth = OPERATIONAL tier, ALLOWED_ROOTS defaults confirmed
-
 ### Sprint 9A: Explorer Files (COMPLETE)
-- **Infrastructure:** LogComponent.FILE, auto-test mapping, security validation hook. `f164c21`
-- **Models:** FileEntry, FileAuditLog, FileSettings dataclasses. `703809b`
-- **Security:** PathValidator — allowlist-first, TOCTOU-safe, null-byte, fs boundary, MIME filtering, soft-delete to .hestia-trash/. 32 tests. `ca4a4b7`
-- **Database:** FileAuditDatabase — user-scoped audit trail, retention cleanup. 8 tests. `5f97f16`
-- **Manager:** FileManager — list, read, create, update, delete, move. All ops audit-logged. 16 tests. `8c322b0`
-- **UserSettings:** FileSettings added with lazy import (avoids circular dep). `f314948`
-- **API Routes:** 9 endpoints in routes/files.py (8 CRUD + 1 POST delete alias for HestiaShared private delete()). 10 route tests. `b7a351b`
-- **macOS UI:** FileModels, APIClient+Files, MacExplorerFilesViewModel, ExplorerFilesView (breadcrumb, toolbar, list), ExplorerFileRow (context menu, inline rename), FileContentSheet (preview + edit + save), HiddenPathsSheet. `65d07ca`
-- **Config + docs:** files.yaml, CLAUDE.md updated, plan + audit saved. `feb48b8`, `2c7e92a`
+- Plan audit with executive panel: `docs/plans/sprint-9-plan-audit-2026-03-04.md`
+- `hestia/files/` module: security.py (PathValidator), database.py (FileAuditDatabase), manager.py (FileManager)
+- 9 API endpoints at `/v1/files/*` in `routes/files.py`
+- macOS file browser: ExplorerFilesView, FileRowView, FileContentSheet, HiddenPathsSheet
+- FileSettings in UserSettings for per-user ALLOWED_ROOTS
+- 66 tests. Merged to main.
+
+### Sprint 9B: Unified Inbox (COMPLETE)
+- Scope revision: eliminated Gmail OAuth — Apple Mail already syncs Gmail via macOS Internet Accounts
+- `hestia/inbox/` module: database.py (InboxDatabase), manager.py (InboxManager)
+- 7 API endpoints at `/v1/inbox/*` in `routes/inbox.py`
+- macOS inbox: ExplorerInboxView, InboxItemRow, InboxDetailSheet
+- Aggregates Apple Mail + Reminders + Calendar (30s cache TTL, error-resilient)
+- 36 tests. Merged to main.
+
+### Sprint 10: Chat Redesign + OutcomeTracker (COMPLETE)
+- Plan audit: `docs/plans/sprint-10-plan-audit-2026-03-04.md`
+- `hestia/outcomes/` module: database.py (OutcomeDatabase), manager.py (OutcomeManager)
+- 5 API endpoints at `/v1/outcomes/*` + 1 at `/v1/orders/from-session`
+- Wired into `routes/chat.py`: auto-tracks every response, detects implicit signals on follow-ups
+- macOS chat redesign: CLITextView (NSTextView, SF Mono, history recall), MarkdownMessageView (AttributedString + CodeBlockView + ToolCallCardView), FloatingAvatarView (60pt circle, cross-dissolve, glow ring)
+- OutcomeFeedbackRow: thumbs-up/down on AI messages
+- BackgroundSessionButton: "Move to Background" → creates WORKING Order
+- OrderStatus extended: DRAFTED, SCHEDULED, WORKING, COMPLETED
+- Feature flag: `experimental_chat_v2` in UserSettings
+- 37 tests. Merged to main.
 
 ## In Progress
-Nothing — all work merged to main.
+Nothing — all work committed, merged, and pushed.
 
 ## Decisions Made
-- **Gmail OAuth = OPERATIONAL tier** (no Face ID, confirmed by Andrew)
-- **ALLOWED_ROOTS defaults:** ~/Documents, ~/Desktop, ~/Downloads, ~/Projects
-- **POST /v1/files/delete alias:** HestiaShared's generic `delete()` is private; added POST alias so macOS client can call it. Long-term fix: make `delete()` public in HestiaShared.
-- **FileContentResponse renamed** to FileTextContentResponse (collision with MacUserProfileViewModel)
-- **iconColor moved to view layer** — FileModels.swift stays pure Codable, no SwiftUI dependency
+- **Gmail OAuth eliminated** — Apple Mail's Envelope Index already contains Gmail messages synced via macOS Internet Accounts. OAuthManager deferred to Sprint 12 (Whoop). Saved ~8 days.
+- **Gmail OAuth token tier: OPERATIONAL** — no Face ID, seamless UX (confirmed by Andrew)
+- **OutcomeTracker as `hestia/outcomes/`** — not `hestia/learning/` (audit T2)
+- **No WKWebView for markdown** — pure SwiftUI + AttributedString avoids XSS complexity
+- **POST /v1/files/delete alias** — HestiaShared's generic `delete()` is private
+- **POST /v1/orders/from-session** — creates Order with WORKING status from active chat session
+- **FileContentResponse → FileTextContentResponse** — collision with MacUserProfileViewModel
 
 ## Test Status
-- 1378 total (1375 passing, 3 skipped)
-- 66 new tests in test_files.py
-- macOS build: clean
+- 1451 passing, 0 failing, 3 skipped
+- Pre-push hook verified full suite + macOS build before push
 
 ## Uncommitted Changes
 - `linkedin-series-final.md` — personal content, intentionally untracked
 
 ## Known Issues / Landmines
-- **HestiaShared `delete()` is private** — POST alias works but long-term should make it public
-- **PrincipleStore untested in production** (from Sprint 8 — still applies)
+- **HestiaShared `delete()` is private** — POST alias works for files/inbox. Long-term: make it public.
+- **PrincipleStore untested in production** — needs Ollama or cloud LLM to actually distill
+- **OutcomeTracker implicit signals are time-based heuristics** — may need tuning after real usage data
+- **Chat UI is a significant visual change** — feature flag exists but defaults to new UI. Old chat code preserved in git history.
+- **Orders execution engine still not fully wired** — `create_from_session` creates the Order but actual background execution (calling handler.handle() asynchronously) is scaffolded, not battle-tested
 - **ChromaDB pytest hang** — handled by conftest.py os._exit()
 - **xcodegen required after new Swift files**
 
 ## Next Step
-Sprint 9B (Explorer: Inbox) per `docs/plans/sprint-9-explorer-files-inbox-plan.md`:
-
-**Andrew must complete pre-sprint checklist BEFORE Sprint 9B starts:**
-1. Create Google Cloud project + OAuth credentials
-2. Register both callback URLs (localhost + Tailscale)
-3. Test if Google accepts `hestia-3.local` as redirect URI
-
-**Sprint 9B implementation order:**
-1. Read Sprint 9B plan section in `docs/plans/sprint-9-explorer-files-inbox-plan.md`
-2. Shared OAuthManager in `hestia/security/oauth.py`
-3. Email module (`hestia/email/`) — Apple Mail provider + Gmail provider
-4. 8 inbox API endpoints (`routes/inbox.py`)
-5. macOS Inbox UI in Explorer
-6. ~35 new tests
+Sprint 11: Command Center + MetaMonitor per `docs/plans/sprint-7-14-master-roadmap.md`:
+1. Read `docs/plans/sprint-11-command-center-plan.md`
+2. Key deliverable: MetaMonitor that consumes OutcomeTracker data to detect behavioral patterns
+3. Command Center redesign: contextual auto-switch (Personal ↔ System metrics), calendar week grid, order creation wizard
+4. **Decision Gate 2** at Sprint 10 completion: Is OutcomeTracker collecting meaningful signals? M1 memory profile acceptable?
+5. Consider running Decision Gate 2 before starting Sprint 11 — validate OutcomeTracker with real chat data first

@@ -1,86 +1,64 @@
-# Current Sprint: Explorer Files (Sprint 9A) — COMPLETE
+# Current Sprint: Chat Redesign + OutcomeTracker (Sprint 10) — COMPLETE
 
 **Started:** 2026-03-04
-**Plan:** `docs/plans/2026-03-04-sprint-9a-explorer-files.md`
-**Audit:** `docs/plans/sprint-9-plan-audit-2026-03-04.md`
+**Plan:** `docs/plans/sprint-10-chat-redesign-plan.md`
+**Audit:** `docs/plans/sprint-10-plan-audit-2026-03-04.md`
 **Master Roadmap:** `docs/plans/sprint-7-14-master-roadmap.md`
 
-## Sprint 9A: Explorer Files — COMPLETE
+## Sprint 10 Summary
 
-### Summary
-Security-hardened file system CRUD with audit trail. New `hestia/files/` module (models, security, database, manager). 9 API endpoints in `routes/files.py`. macOS file browser with breadcrumb nav, inline editing, and context menus. 66 new tests.
+### OutcomeTracker (Learning Cycle Phase A part 2)
+- `hestia/outcomes/` module: database, manager, 5 API endpoints
+- Auto-tracks every chat response (duration, type, tool calls)
+- Implicit signal detection: quick_followup (<30s), accepted (30-300s), long_gap (>300s)
+- Wired into POST /v1/chat — fires on every response + detects signals on incoming messages
+- Explicit feedback: thumbs-up/down via POST /v1/outcomes/{id}/feedback
 
-### Deliverables
-- **Backend:** `hestia/files/` module — PathValidator (allowlist-first, TOCTOU-safe, null-byte, fs boundary), FileAuditDatabase (user-scoped), FileManager (CRUD + audit logging)
-- **API:** 9 endpoints at `/v1/files/*` — list, content, metadata, create, update, delete, move, delete-post-alias, audit-log
-- **macOS UI:** ExplorerFilesView replacing local FileManager, breadcrumb nav, sort/filter/search, FileContentSheet (preview + edit), HiddenPathsSheet
-- **Config:** `hestia/config/files.yaml`, FileSettings in UserSettings (per-user allowed roots)
-- **Audit conditions:** E5 (no osascript), E7 (null-byte), E8 (text-only content), T1 (SandboxRunner patterns), T2 (plural module), T3 (query param), T5 (noted for 9B)
+### Chat UI Redesign
+- CLITextView: NSTextView wrapper with SF Mono, dark bg, Cmd+Enter send, Up-arrow history
+- MarkdownMessageView: AttributedString rendering, CodeBlockView with copy, ToolCallCardView
+- FloatingAvatarView: 60pt circle, cross-dissolve swap, pulsing orange glow ring
+- OutcomeFeedbackRow: hover-triggered thumbs-up/down on AI messages
+
+### Background Sessions
+- OrderStatus extended: DRAFTED, SCHEDULED, WORKING, COMPLETED
+- POST /v1/orders/from-session: creates Order from active chat
+- BackgroundSessionButton replaces "+" in chat toolbar
 
 ### Test Results
-- 66 new tests in `tests/test_files.py`
-- 1378 total (1375 passing, 3 skipped)
-- macOS build clean (xcodegen + xcodebuild verified)
+- 37 new tests (30 outcomes + 7 orders)
+- 1451 total (1448 passing, 3 skipped)
+- macOS build: clean
 
 ---
 
-## Next: Sprint 9B — Explorer: Inbox
+## Previous: Explorer Files (Sprint 9A) — COMPLETE
 
-**Plan:** `docs/plans/sprint-9-explorer-files-inbox-plan.md` (section 9B)
-**Effort:** ~11 working days (~66 hours)
+Security-hardened file system CRUD. `hestia/files/` module with PathValidator (allowlist-first, TOCTOU-safe), FileAuditDatabase, FileManager. 9 API endpoints. macOS file browser. 66 tests.
 
-### Pre-Sprint 9B Checklist (Andrew — manual steps)
-- [ ] **Create Google Cloud project** — OAuth consent screen + credentials
-- [ ] **Register callback URLs** — `https://localhost:8443/v1/inbox/accounts/gmail/callback` AND `https://hestia-3.local:8443/v1/inbox/accounts/gmail/callback`
-- [ ] **Test Tailscale callback URL** — verify Google accepts `hestia-3.local` as redirect URI
-- [ ] **Decide:** OAuth token tier confirmed as OPERATIONAL (no Face ID)
-- [ ] Apple Mail write capability assessment (read-only confirmed; send/delete/move deferred)
+## Previous: Unified Inbox (Sprint 9B) — COMPLETE
 
-### Sprint 9B Scope
-1. Email backend module (`hestia/email/`) — providers pattern (Apple Mail + Gmail)
-2. Shared `OAuthManager` in `hestia/security/oauth.py` (reused by Whoop in Sprint 12)
-3. Gmail OAuth2 with CSRF `state` parameter (audit E9)
-4. 8 inbox API endpoints at `/v1/inbox/*` (read-only: list, detail, mark-read, accounts, auth)
-5. macOS Inbox UI in Explorer — unified view of emails + reminders + notifications
-6. ~35 new tests
+Apple Mail + Reminders + Calendar aggregation. `hestia/inbox/` module. 7 API endpoints. macOS inbox view with source filtering. Gmail OAuth eliminated (Apple Mail syncs all accounts). 36 tests.
 
-### Key Audit Conditions for 9B
-- E6: OPERATIONAL tier for Gmail tokens (confirmed by Andrew)
-- E9: Gmail OAuth `state` parameter with HMAC for CSRF prevention
-- T4: Route file named `routes/inbox.py` (not `routes/email.py`)
-- T5: OAuthManager in `hestia/security/oauth.py` (shared infrastructure)
-
----
-
-## Previous: Research & Graph + PrincipleStore (Sprint 8) — COMPLETE
-
-**Started:** 2026-03-03
-**Plan:** `docs/plans/sprint-8-research-graph-plan.md`
-
-### Sprint 8 Summary
-- **B1:** Research module scaffold — `hestia/research/` (models.py, database.py, __init__.py). 32 tests.
-- **B2:** Graph builder — memory/topic/entity nodes, 4 edge types, 3D layout, clustering. 51 total tests.
-- **B3:** PrincipleStore (ChromaDB `hestia_principles`), ResearchManager, 6 API routes.
-- **C1-C3:** macOS frontend — APIClient+Research, ViewModel refactor, GraphControlPanel, NodeDetailPopover, PrinciplesView.
-- **D1:** Decision Gate 1 — GO. 124 chunks, 142ms. ADR-039.
-
----
-
-## Previous: Profile & Settings Restructure (Sprint 7) — COMPLETE
-
-**Started:** 2026-03-03
-
-- **A1:** Accent color audit, VoiceOver accessibility, design tokens
-- **A2:** MarkdownEditorView line numbers, roadmap verification
-
----
-
+## Previous: Research & Graph (Sprint 8) — COMPLETE
+## Previous: Profile & Settings (Sprint 7) — COMPLETE
 ## Previous: Stability & Efficiency (Sprint 6) — COMPLETE
-
-Readiness gate, complete shutdown (15 managers), Uvicorn recycling, parallel init, pip-compile lockfile, log compression, Cache-Control.
-
----
-
 ## Previous Sprints (1-5): COMPLETE
 
-Full details in `SESSION_HANDOFF.md` and git history.
+---
+
+## Next: Sprint 11 — Command Center + MetaMonitor
+
+**Plan:** `docs/plans/sprint-11-command-center-plan.md`
+**Effort:** ~15 working days
+
+### Decision Gate 2 (before Sprint 11)
+- Is OutcomeTracker collecting meaningful signals?
+- Memory + CPU profile acceptable on M1?
+- → Go/No-Go on MetaMonitor
+
+### Sprint 11 Scope
+1. MetaMonitor: consumes OutcomeTracker data, detects behavioral patterns
+2. Command Center redesign: contextual metrics (Personal ↔ System), calendar week grid
+3. Order creation wizard (multi-step)
+4. ~42 new tests
