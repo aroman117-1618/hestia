@@ -135,19 +135,26 @@ func listNotes(folderName: String?) {
         script = """
         tell application "Notes"
             set output to ""
-            try
-                set theFolder to folder "\(folder)"
-                repeat with n in notes of theFolder
-                    set noteId to id of n
-                    set noteTitle to name of n
-                    set folderName to name of container of n
-                    set createdDate to creation date of n as string
-                    set modifiedDate to modification date of n as string
-                    set output to output & noteId & "|" & noteTitle & "|" & folderName & "|" & createdDate & "|" & modifiedDate & linefeed
+            set theFolder to missing value
+            repeat with a in accounts
+                repeat with f in folders of a
+                    if name of f is "\(folder)" then
+                        set theFolder to f
+                        exit repeat
+                    end if
                 end repeat
-            on error
+                if theFolder is not missing value then exit repeat
+            end repeat
+            if theFolder is missing value then
                 error "Folder not found: \(folder)"
-            end try
+            end if
+            repeat with n in notes of theFolder
+                set noteId to id of n
+                set noteTitle to name of n
+                set createdDate to creation date of n as string
+                set modifiedDate to modification date of n as string
+                set output to output & noteId & "|" & noteTitle & "|" & "\(folder)" & "|" & createdDate & "|" & modifiedDate & linefeed
+            end repeat
             return output
         end tell
         """
