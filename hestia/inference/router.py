@@ -258,7 +258,7 @@ class ModelRouter:
             fallback = ModelTier.CLOUD if self.cloud_routing.spillover_on_local_failure else None
 
             # Check for coding patterns (coding takes priority over complex)
-            if self.coding_model.enabled and self._matches_routing_patterns(prompt, token_count):
+            if self.coding_model.enabled and self._matches_keyword_patterns(prompt):
                 return RoutingDecision(
                     tier=ModelTier.CODING,
                     model_config=self.coding_model,
@@ -283,7 +283,7 @@ class ModelRouter:
             )
 
         # disabled (or no cloud configured): local-only routing
-        if self.coding_model.enabled and self._matches_routing_patterns(prompt, token_count):
+        if self.coding_model.enabled and self._matches_keyword_patterns(prompt):
             return RoutingDecision(
                 tier=ModelTier.CODING,
                 model_config=self.coding_model,
@@ -306,19 +306,19 @@ class ModelRouter:
             fallback_tier=None,
         )
 
-    def _matches_routing_patterns(self, prompt: str, token_count: int) -> bool:
-        """Check if request matches routing patterns for coding/complex tier."""
-        # Check token threshold
-        if token_count >= self.routing.complex_token_threshold:
-            return True
-
-        # Check patterns
+    def _matches_keyword_patterns(self, prompt: str) -> bool:
+        """Check if request matches keyword patterns (coding tier: keywords only)."""
         prompt_lower = prompt.lower()
         for pattern in self.routing.complex_patterns:
             if re.search(pattern, prompt_lower, re.IGNORECASE):
                 return True
-
         return False
+
+    def _matches_routing_patterns(self, prompt: str, token_count: int) -> bool:
+        """Check if request matches routing patterns (complex tier: keywords + token threshold)."""
+        if token_count >= self.routing.complex_token_threshold:
+            return True
+        return self._matches_keyword_patterns(prompt)
 
     def _get_config_for_tier(self, tier: ModelTier) -> Optional[ModelConfig]:
         """Get model config for a tier."""

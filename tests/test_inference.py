@@ -204,6 +204,26 @@ class TestCodingTier:
         assert config is not None
         assert config.name == "qwen2.5-coder:7b"
 
+    def test_long_noncoding_prompt_routes_to_complex_not_coding(self):
+        """Long prompts without coding keywords go to COMPLEX, not CODING."""
+        router = ModelRouter()
+        router.complex_model.enabled = True
+        # Token count above threshold but no coding/complex keyword
+        decision = router.route("tell me about the history of Rome", token_count=600)
+        assert decision.tier == ModelTier.COMPLEX
+        assert decision.reason == "complex_request_pattern"
+
+    def test_coding_keywords_only_no_token_threshold(self):
+        """Coding tier triggers on keywords, not token count alone."""
+        router = ModelRouter()
+        # Short prompt with coding keyword → CODING
+        decision = router.route("write code for a parser")
+        assert decision.tier == ModelTier.CODING
+        # Long prompt with no coding keyword, complex disabled → PRIMARY
+        router.complex_model.enabled = False
+        decision = router.route("tell me about the weather today", token_count=600)
+        assert decision.tier == ModelTier.PRIMARY
+
 
 class TestLocalInference:
     """Tests for local-only inference flow."""

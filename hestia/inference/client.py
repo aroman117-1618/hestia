@@ -450,7 +450,7 @@ class InferenceClient:
                     component=LogComponent.INFERENCE,
                 )
                 # If cloud was primary, try falling back to local
-                if routing.fallback_tier in (ModelTier.PRIMARY, ModelTier.COMPLEX):
+                if routing.fallback_tier and routing.fallback_tier != ModelTier.CLOUD:
                     self.logger.info(
                         f"Falling back from cloud to {routing.fallback_tier.value}",
                         component=LogComponent.INFERENCE,
@@ -911,7 +911,7 @@ class InferenceClient:
             except Exception as cloud_error:
                 self.router.record_failure(ModelTier.CLOUD)
                 # Try local fallback if available
-                if routing.fallback_tier in (ModelTier.PRIMARY, ModelTier.COMPLEX):
+                if routing.fallback_tier and routing.fallback_tier != ModelTier.CLOUD:
                     self.logger.info(
                         f"Cloud stream failed, falling back to local streaming",
                         component=LogComponent.INFERENCE,
