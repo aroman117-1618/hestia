@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hestia-cli"
+version = "0.1.0"
+description = "Terminal interface for Hestia personal AI assistant"
+requires-python = ">=3.9,<3.13"
+license = {text = "MIT"}
+
+dependencies = [
+    "websockets>=12.0",
+    "rich>=13.0",
+    "typer>=0.9",
+    "prompt_toolkit>=3.0",
+    "httpx>=0.24",
+    "pyyaml>=6.0",
+    "keyring>=24.0",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+]
+
+[project.scripts]
+hestia = "hestia_cli.app:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["hestia_cli*"]
