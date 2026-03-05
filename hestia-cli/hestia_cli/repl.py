@@ -6,6 +6,8 @@ and Rich for output (streaming, markdown, panels).
 """
 
 import asyncio
+import traceback
+from datetime import datetime
 from typing import Optional
 
 from prompt_toolkit import PromptSession
@@ -20,6 +22,17 @@ from hestia_cli.config import get_config_dir, load_config
 from hestia_cli.context import get_repo_context
 from hestia_cli.models import ServerEventType
 from hestia_cli.renderer import HestiaRenderer
+
+
+def _log_error(error: Exception) -> None:
+    """Append error details to ~/.hestia/error.log."""
+    try:
+        log_path = get_config_dir() / "error.log"
+        with open(log_path, "a") as f:
+            f.write(f"\n--- {datetime.now().isoformat()} ---\n")
+            traceback.print_exception(type(error), error, error.__traceback__, file=f)
+    except Exception:
+        pass  # Don't fail on logging failures
 
 
 async def repl_loop(client: HestiaWSClient, console: Console) -> None:
@@ -148,6 +161,12 @@ async def repl_loop(client: HestiaWSClient, console: Console) -> None:
                 console.print("[green]Reconnected.[/green]")
             else:
                 console.print("[red]Failed to reconnect.[/red]")
+
+        except Exception as e:
+            # Catch-all: log and continue
+            renderer.finish_streaming()
+            _log_error(e)
+            console.print(f"[red]Unexpected error: {type(e).__name__}. Details logged to ~/.hestia/error.log[/red]")
 
 
 async def _prompt_tool_approval(session: PromptSession, console: Console) -> bool:

@@ -14,6 +14,7 @@ from hestia.inference.client import InferenceResponse
 from hestia.memory import get_memory_manager, MemoryManager
 from hestia.orchestration.models import (
     Request,
+    RequestSource,
     Response,
     ResponseType,
     Task,

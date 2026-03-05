@@ -11,6 +11,7 @@ Provides:
 
 import asyncio
 import json
+import os
 import sys
 from typing import Optional
 
@@ -51,7 +52,9 @@ def main_callback(
     if ctx.invoked_subcommand is not None:
         return
 
-    if no_color:
+    # Support HESTIA_NO_COLOR or NO_COLOR env vars
+    env_no_color = os.environ.get("HESTIA_NO_COLOR") or os.environ.get("NO_COLOR")
+    if no_color or env_no_color:
         console_override = Console(no_color=True)
     else:
         console_override = console

@@ -151,14 +151,20 @@ class TestHandleStreaming:
 
                 # Mock user profile loader
                 with patch('hestia.user.config_loader.get_user_config_loader', side_effect=Exception("test")):
-                    # Mock _looks_like_tool_call
-                    handler._looks_like_tool_call = MagicMock(return_value=False)
+                    # Mock user manager (trust tier loading in Step 3.5)
+                    mock_user_settings = MagicMock()
+                    mock_user_settings.get_tool_trust_tiers.return_value = MagicMock(to_dict=MagicMock(return_value={}))
+                    mock_user_mgr = AsyncMock()
+                    mock_user_mgr.get_settings = AsyncMock(return_value=mock_user_settings)
+                    with patch('hestia.user.get_user_manager', new_callable=AsyncMock, return_value=mock_user_mgr):
+                        # Mock _looks_like_tool_call
+                        handler._looks_like_tool_call = MagicMock(return_value=False)
 
-                    # Mock store conversation
-                    handler._store_conversation = AsyncMock()
+                        # Mock store conversation
+                        handler._store_conversation = AsyncMock()
 
-                    request = make_request()
-                    events = await collect_events(handler.handle_streaming(request))
+                        request = make_request()
+                        events = await collect_events(handler.handle_streaming(request))
 
         # Verify event sequence
         event_types = [e["type"] for e in events]
@@ -328,10 +334,15 @@ class TestHandleStreaming:
                 handler._format_tool_result_with_personality = AsyncMock(return_value="Here are your calendar events: Meeting at 3pm")
 
                 with patch('hestia.user.config_loader.get_user_config_loader', side_effect=Exception("test")):
-                    request = make_request("Show calendar")
-                    events = await collect_events(
-                        handler.handle_streaming(request, tool_approval_callback=approval_callback)
-                    )
+                    mock_user_settings = MagicMock()
+                    mock_user_settings.get_tool_trust_tiers.return_value = MagicMock(to_dict=MagicMock(return_value={}))
+                    mock_user_mgr = AsyncMock()
+                    mock_user_mgr.get_settings = AsyncMock(return_value=mock_user_settings)
+                    with patch('hestia.user.get_user_manager', new_callable=AsyncMock, return_value=mock_user_mgr):
+                        request = make_request("Show calendar")
+                        events = await collect_events(
+                            handler.handle_streaming(request, tool_approval_callback=approval_callback)
+                        )
 
         # Should have tool execution status
         assert any(e["type"] == "status" and e.get("stage") == "tools" for e in events)
@@ -428,8 +439,13 @@ class TestHandleStreaming:
                 handler._store_conversation = AsyncMock()
 
                 with patch('hestia.user.config_loader.get_user_config_loader', side_effect=Exception("test")):
-                    request = make_request("@mira Explain this")
-                    events = await collect_events(handler.handle_streaming(request))
+                    mock_user_settings = MagicMock()
+                    mock_user_settings.get_tool_trust_tiers.return_value = MagicMock(to_dict=MagicMock(return_value={}))
+                    mock_user_mgr = AsyncMock()
+                    mock_user_mgr.get_settings = AsyncMock(return_value=mock_user_settings)
+                    with patch('hestia.user.get_user_manager', new_callable=AsyncMock, return_value=mock_user_mgr):
+                        request = make_request("@mira Explain this")
+                        events = await collect_events(handler.handle_streaming(request))
 
         done = [e for e in events if e["type"] == "done"][0]
         assert done["mode"] == "mira"

@@ -4,6 +4,8 @@ Slash command handlers for the REPL.
 Minimal command set — natural language first, commands for control flow.
 """
 
+import os
+import subprocess
 from typing import Optional, Tuple
 
 import httpx
@@ -30,6 +32,8 @@ async def handle_slash_command(
         "/status": _cmd_status,
         "/mode": _cmd_mode,
         "/trust": _cmd_trust,
+        "/memory": _cmd_memory,
+        "/config": _cmd_config,
         "/session": _cmd_session,
         "/clear": _cmd_clear,
         "/exit": _cmd_exit,
@@ -56,6 +60,8 @@ async def _cmd_help(args: str, client: HestiaWSClient, console: Console) -> None
   /trust [tier] [level]     Set tier (e.g. /trust read auto)
   /trust save               Persist tiers to backend
   /trust reset              Reset to defaults
+  /memory search [query]    Search Hestia memory
+  /config                   Open config in $EDITOR
   /session new              Start a fresh session
   /clear                    Clear the screen
   /exit                     Quit
@@ -162,6 +168,60 @@ async def _cmd_trust(args: str, client: HestiaWSClient, console: Console) -> Non
         return
 
     console.print("[yellow]Usage: /trust, /trust [tier] [auto|prompt], /trust save, /trust reset[/yellow]")
+
+
+async def _cmd_memory(args: str, client: HestiaWSClient, console: Console) -> None:
+    """Search Hestia memory."""
+    parts = args.strip().split(None, 1)
+    action = parts[0].lower() if parts else ""
+    query = parts[1] if len(parts) > 1 else ""
+
+    if action != "search" or not query:
+        console.print("[yellow]Usage: /memory search [query][/yellow]")
+        return
+
+    token = get_stored_token()
+    if not token:
+        console.print("[red]Not authenticated.[/red]")
+        return
+
+    try:
+        async with httpx.AsyncClient(verify=False, timeout=10.0) as http:
+            response = await http.post(
+                f"{client.server_url}/v1/memory/search",
+                headers={"X-Hestia-Device-Token": token},
+                json={"query": query, "limit": 5},
+            )
+            if response.status_code == 200:
+                data = response.json()
+                results = data.get("results", [])
+                if not results:
+                    console.print("[dim]  No memories found.[/dim]")
+                    return
+                console.print(f"\n[bold]Memory Search: {query}[/bold]")
+                for i, r in enumerate(results, 1):
+                    content = r.get("content", "")[:120]
+                    score = r.get("score", 0)
+                    console.print(f"  {i}. [dim]({score:.2f})[/dim] {content}")
+                console.print()
+            else:
+                console.print(f"[red]Memory search failed: {response.status_code}[/red]")
+    except Exception as e:
+        console.print(f"[red]Memory search failed: {type(e).__name__}[/red]")
+
+
+async def _cmd_config(args: str, client: HestiaWSClient, console: Console) -> None:
+    """Open config file in $EDITOR."""
+    from hestia_cli.config import get_config_path
+
+    config_path = get_config_path()
+    editor = os.environ.get("EDITOR", "nano")
+
+    console.print(f"[dim]  Opening {config_path} in {editor}...[/dim]")
+    try:
+        subprocess.call([editor, str(config_path)])
+    except FileNotFoundError:
+        console.print(f"[red]Editor not found: {editor}. Set $EDITOR environment variable.[/red]")
 
 
 async def _cmd_session(args: str, client: HestiaWSClient, console: Console) -> None:
