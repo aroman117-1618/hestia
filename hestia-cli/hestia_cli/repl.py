@@ -16,6 +16,7 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.patch_stdout import patch_stdout
 from rich.console import Console
 
+from hestia_cli.bootstrap import ensure_server_running, ensure_authenticated
 from hestia_cli.client import HestiaWSClient, ConnectionError, AuthenticationError
 from hestia_cli.commands import handle_slash_command, detect_mode_prefix
 from hestia_cli.config import get_config_dir, load_config
@@ -47,6 +48,15 @@ async def repl_loop(client: HestiaWSClient, console: Console) -> None:
     vi_mode = config.get("preferences", {}).get("vi_mode", False)
 
     renderer = HestiaRenderer(console=console, show_metrics=show_metrics)
+
+    # Bootstrap: ensure server is running and we're authenticated
+    auto_start = config.get("server", {}).get("auto_start", True)
+    server_ok = await ensure_server_running(client.server_url, client.verify_ssl, console, auto_start=auto_start)
+    if not server_ok:
+        return
+    auth_ok = await ensure_authenticated(client.server_url, client.verify_ssl, console)
+    if not auth_ok:
+        return
 
     # Connect
     try:

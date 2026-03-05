@@ -33,7 +33,7 @@ app.add_typer(auth_app, name="auth")
 console = Console()
 
 
-_SUBCOMMANDS = {"auth"}
+_SUBCOMMANDS = {"auth", "setup"}
 
 
 @app.callback(invoke_without_command=True)
@@ -99,25 +99,35 @@ async def _batch_mode(
     if mode:
         client.mode = mode
 
-    try:
-        await client.connect()
-    except AuthenticationError as e:
-        if json_output:
-            print(json.dumps({"error": str(e)}))
-        else:
-            con.print(f"[red]Auth error: {e}[/red]", file=sys.stderr)
-        sys.exit(1)
-    except ConnectionError as e:
-        if json_output:
-            print(json.dumps({"error": str(e)}))
-        else:
-            con.print(f"[red]{e}[/red]", file=sys.stderr)
-        sys.exit(1)
-
-    # Send repo context in batch mode too
+    # Bootstrap: ensure server is running and we're authenticated
+    from hestia_cli.bootstrap import ensure_server_running, ensure_authenticated
     from hestia_cli.config import load_config
     from hestia_cli.context import get_repo_context
     config = load_config()
+    auto_start = config.get("server", {}).get("auto_start", True)
+    server_ok = await ensure_server_running(client.server_url, client.verify_ssl, con, auto_start=auto_start)
+    if not server_ok:
+        sys.exit(1)
+    auth_ok = await ensure_authenticated(client.server_url, client.verify_ssl, con)
+    if not auth_ok:
+        sys.exit(1)
+
+    try:
+        await client.connect()
+    except AuthenticationError:
+        if json_output:
+            print(json.dumps({"error": "authentication_failed"}))
+        else:
+            con.print("[red]Authentication failed.[/red]", file=sys.stderr)
+        sys.exit(1)
+    except ConnectionError:
+        if json_output:
+            print(json.dumps({"error": "connection_failed"}))
+        else:
+            con.print(f"[red]Cannot connect to server at {client.server_url}[/red]", file=sys.stderr)
+        sys.exit(1)
+
+    # Send repo context in batch mode too
     auto_context = config.get("preferences", {}).get("auto_context", True)
     context_hints = get_repo_context() if auto_context else {}
 
@@ -208,7 +218,7 @@ async def _auth_login_flow(
         console.print("\n  Run [bold]hestia[/bold] to start chatting.\n")
 
     except Exception as e:
-        console.print(f"\n  [red]Registration failed: {e}[/red]")
+        console.print(f"\n  [red]Registration failed: {type(e).__name__}[/red]")
         console.print("  Check the invite token and server URL.\n")
         raise typer.Exit(1)
 
@@ -237,6 +247,103 @@ def auth_logout():
 
     clear_credentials()
     console.print("  [green]Credentials cleared.[/green]")
+
+
+setup_app = typer.Typer(help="Setup and service management commands.")
+app.add_typer(setup_app, name="setup")
+
+
+@setup_app.callback(invoke_without_command=True)
+def setup_default(ctx: typer.Context):
+    """Run full setup: start server, register CLI device."""
+    if ctx.invoked_subcommand is not None:
+        return
+    asyncio.run(_setup_full())
+
+
+async def _setup_full() -> None:
+    """Full setup: ensure server running + ensure authenticated."""
+    from hestia_cli.bootstrap import ensure_server_running, ensure_authenticated
+    from hestia_cli.config import load_config as _load_config, get_server_url, get_verify_ssl
+
+    config = _load_config()
+    server_url = get_server_url(config)
+    verify_ssl = get_verify_ssl(config)
+
+    server_ok = await ensure_server_running(server_url, verify_ssl, console, auto_start=True)
+    if not server_ok:
+        raise typer.Exit(1)
+
+    auth_ok = await ensure_authenticated(server_url, verify_ssl, console)
+    if not auth_ok:
+        raise typer.Exit(1)
+
+    console.print("\n  [green]Setup complete![/green] Run [bold]hestia[/bold] to start chatting.\n")
+
+
+@setup_app.command("install-service")
+def setup_install_service():
+    """Install the Hestia server as a launchd service."""
+    import shutil
+
+    plist_name = "com.hestia.server.plist"
+    # Look for plist in repo scripts/
+    source_candidates = [
+        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "scripts", plist_name),
+    ]
+    source = None
+    for candidate in source_candidates:
+        if os.path.exists(candidate):
+            source = candidate
+            break
+
+    if not source:
+        console.print(f"[red]Cannot find {plist_name} in scripts/[/red]")
+        raise typer.Exit(1)
+
+    dest_dir = os.path.expanduser("~/Library/LaunchAgents")
+    os.makedirs(dest_dir, exist_ok=True)
+    dest = os.path.join(dest_dir, plist_name)
+
+    shutil.copy2(source, dest)
+    console.print(f"  Installed [cyan]{dest}[/cyan]")
+
+    import subprocess as sp
+    sp.run(["launchctl", "load", dest], capture_output=True)
+    console.print("  [green]Service loaded.[/green] Server will auto-start on login.")
+
+
+@setup_app.command("status")
+def setup_status():
+    """Show server and authentication status."""
+    asyncio.run(_setup_status())
+
+
+async def _setup_status() -> None:
+    from hestia_cli.auth import get_stored_token, get_stored_device_id
+    from hestia_cli.bootstrap import _ping_server, _is_localhost
+    from hestia_cli.config import load_config as _load_config, get_server_url, get_verify_ssl
+
+    config = _load_config()
+    server_url = get_server_url(config)
+    verify_ssl = get_verify_ssl(config)
+
+    console.print(f"\n  Server: [cyan]{server_url}[/cyan]")
+    console.print(f"  Local:  {'yes' if _is_localhost(server_url) else 'no'}")
+
+    reachable = await _ping_server(server_url, verify_ssl)
+    if reachable:
+        console.print("  Status: [green]running[/green]")
+    else:
+        console.print("  Status: [red]not reachable[/red]")
+
+    token = get_stored_token()
+    device_id = get_stored_device_id()
+    if token and device_id:
+        console.print(f"  Auth:   [green]authenticated[/green] (device: {device_id[:12]}...)")
+    else:
+        console.print("  Auth:   [yellow]not authenticated[/yellow]")
+    console.print()
 
 
 def main():

@@ -14,6 +14,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "server": {
         "url": "https://localhost:8443",
         "verify_ssl": False,
+        "auto_start": True,
     },
     "preferences": {
         "default_mode": "tia",
