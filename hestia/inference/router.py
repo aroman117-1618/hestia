@@ -13,6 +13,7 @@ Tiers:
 4. Cloud: Cloud LLM provider - for full cloud mode or smart spillover after local failure
 """
 
+import os
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -61,6 +62,15 @@ class CloudRoutingConfig:
 
 
 @dataclass
+class HardwareAdaptationConfig:
+    """Configuration for hardware-aware model adaptation."""
+    enabled: bool = True
+    fallback_primary: str = "qwen2.5:7b"
+    auto_cloud_smart: bool = True
+    min_tokens_per_sec: float = 8.0
+
+
+@dataclass
 class RoutingConfig:
     """Configuration for model routing."""
     complex_patterns: List[str] = field(default_factory=list)
@@ -103,6 +113,19 @@ class ModelRouter:
             config_path = Path(__file__).parent.parent / "config" / "inference.yaml"
 
         self._load_config(config_path)
+
+        # Environment variable override for primary model
+        env_model = os.environ.get("HESTIA_PRIMARY_MODEL")
+        if env_model:
+            self.primary_model.name = env_model
+            self.logger.info(
+                f"Primary model overridden by HESTIA_PRIMARY_MODEL: {env_model}",
+                component=LogComponent.INFERENCE,
+            )
+
+        # Hardware adaptation state (checked once after first inference)
+        self._adaptation_checked = False
+        self._adaptation_applied = False
 
         # Override cloud state if provided
         if cloud_state is not None:
@@ -194,6 +217,15 @@ class ModelRouter:
         self.routing = RoutingConfig(
             complex_patterns=routing_data.get("complex_patterns", []),
             complex_token_threshold=routing_data.get("complex_token_threshold", 500),
+        )
+
+        # Parse hardware adaptation config
+        hw_data = data.get("hardware_adaptation", {})
+        self.hardware_adaptation = HardwareAdaptationConfig(
+            enabled=hw_data.get("enabled", True),
+            fallback_primary=hw_data.get("fallback_primary", "qwen2.5:7b"),
+            auto_cloud_smart=hw_data.get("auto_cloud_smart", True),
+            min_tokens_per_sec=hw_data.get("min_tokens_per_sec", 8.0),
         )
 
         # Store ollama host
@@ -395,6 +427,92 @@ class ModelRouter:
             ModelTier.CLOUD: 0,
         }
 
+    def check_hardware_adaptation(
+        self,
+        tokens_out: int = 0,
+        duration_ms: float = 0,
+    ) -> None:
+        """
+        Check if primary model runs fast enough on this hardware.
+
+        Called once after first successful local inference. Uses the actual
+        generation speed (tokens/sec) from the response to decide if the
+        model is too heavy for this machine.
+
+        Args:
+            tokens_out: Number of tokens generated in the response.
+            duration_ms: Total inference duration in milliseconds.
+        """
+        if self._adaptation_checked:
+            return
+        self._adaptation_checked = True
+
+        if not self.hardware_adaptation.enabled:
+            return
+        if os.environ.get("HESTIA_PRIMARY_MODEL"):
+            return  # Manual override takes precedence
+
+        # Need meaningful output to measure speed (skip trivial responses)
+        if tokens_out < 5 or duration_ms <= 0:
+            self._adaptation_checked = False  # Retry on next inference
+            return
+
+        tokens_per_sec = tokens_out / (duration_ms / 1000)
+        threshold = self.hardware_adaptation.min_tokens_per_sec
+
+        self.logger.info(
+            f"Hardware check: {self.primary_model.name} generating at "
+            f"{tokens_per_sec:.1f} tok/s (threshold: {threshold:.1f})",
+            component=LogComponent.INFERENCE,
+            data={
+                "model": self.primary_model.name,
+                "tokens_per_sec": round(tokens_per_sec, 1),
+                "threshold": threshold,
+                "tokens_out": tokens_out,
+                "duration_ms": round(duration_ms),
+            },
+        )
+
+        if tokens_per_sec >= threshold:
+            self.logger.info(
+                f"Primary model speed OK ({tokens_per_sec:.1f} tok/s), no adaptation needed",
+                component=LogComponent.INFERENCE,
+            )
+            return
+
+        # Model too slow — apply adaptation
+        fallback = self.hardware_adaptation.fallback_primary
+        original = self.primary_model.name
+
+        # Don't adapt if already using the fallback model
+        if original == fallback:
+            return
+
+        self.primary_model.name = fallback
+        self._adaptation_applied = True
+
+        self.logger.warning(
+            f"Hardware adaptation: {original} → {fallback} "
+            f"({tokens_per_sec:.1f} tok/s < {threshold:.1f} threshold)",
+            component=LogComponent.INFERENCE,
+            data={
+                "original_model": original,
+                "fallback_model": fallback,
+                "tokens_per_sec": round(tokens_per_sec, 1),
+            },
+        )
+
+        # Auto-enable cloud smart mode for additional capacity
+        if (
+            self.hardware_adaptation.auto_cloud_smart
+            and self.cloud_routing.state == "disabled"
+        ):
+            self.set_cloud_state("enabled_smart")
+            self.logger.info(
+                "Hardware adaptation: auto-enabled cloud smart mode",
+                component=LogComponent.INFERENCE,
+            )
+
     def get_status(self) -> Dict[str, Any]:
         """Get current router status."""
         cloud_state = self.cloud_routing.state
@@ -428,6 +546,12 @@ class ModelRouter:
                 "spillover_on_local_failure": self.cloud_routing.spillover_on_local_failure,
             },
             "architecture": architecture,
+            "hardware_adaptation": {
+                "enabled": self.hardware_adaptation.enabled,
+                "checked": self._adaptation_checked,
+                "applied": self._adaptation_applied,
+                "fallback_primary": self.hardware_adaptation.fallback_primary,
+            },
         }
         return status
 

@@ -558,6 +558,14 @@ class InferenceClient:
                 )
                 response.tier = tier.value
                 self.router.record_success(tier)
+
+                # Check hardware fitness after first successful local inference
+                if tier == ModelTier.PRIMARY:
+                    self.router.check_hardware_adaptation(
+                        tokens_out=response.tokens_out,
+                        duration_ms=response.duration_ms,
+                    )
+
                 return response
 
             except httpx.HTTPStatusError as e:
@@ -1080,6 +1088,12 @@ class InferenceClient:
 
         if tier:
             self.router.record_success(tier)
+            # Check hardware fitness after first successful local inference
+            if tier == ModelTier.PRIMARY:
+                self.router.check_hardware_adaptation(
+                    tokens_out=tokens_out,
+                    duration_ms=duration_ms,
+                )
 
         # Log completion
         self.logger.log_inference(

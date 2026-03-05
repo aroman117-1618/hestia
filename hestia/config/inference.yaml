@@ -198,3 +198,22 @@ council:
       enabled: true
       temperature: 0.3
       max_tokens: 2048
+
+# -----------------------------------------------------------------------------
+# Hardware Adaptation (ADR-041)
+# -----------------------------------------------------------------------------
+# Detects when the primary model doesn't fit fully in GPU (Apple Silicon
+# unified memory) and automatically falls back to a smaller model.
+# Checked once after first successful inference via Ollama /api/ps.
+#
+# Override with env var: HESTIA_PRIMARY_MODEL=qwen2.5:7b
+
+hardware_adaptation:
+  enabled: true
+  # Fallback model when primary is too slow on this hardware
+  fallback_primary: "qwen2.5:7b"
+  # Auto-enable cloud smart mode on constrained hardware
+  auto_cloud_smart: true
+  # Minimum acceptable generation speed (tokens/sec)
+  # Below this, the primary model is too heavy for this hardware
+  min_tokens_per_sec: 8.0

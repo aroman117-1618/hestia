@@ -7,6 +7,7 @@ Run with: python -m pytest tests/test_inference.py -v
 """
 
 import asyncio
+import os
 import pytest
 import pytest_asyncio
 from pathlib import Path
@@ -223,6 +224,87 @@ class TestCodingTier:
         router.complex_model.enabled = False
         decision = router.route("tell me about the weather today", token_count=600)
         assert decision.tier == ModelTier.PRIMARY
+
+
+class TestHardwareAdaptation:
+    """Tests for hardware-aware model adaptation (speed-based)."""
+
+    def test_adaptation_not_checked_initially(self):
+        router = ModelRouter()
+        assert router._adaptation_checked is False
+        assert router._adaptation_applied is False
+
+    def test_adaptation_skipped_when_disabled(self):
+        router = ModelRouter()
+        router.hardware_adaptation.enabled = False
+        router.check_hardware_adaptation(tokens_out=50, duration_ms=20000)
+        assert router._adaptation_checked is True
+        assert router._adaptation_applied is False
+        assert router.primary_model.name == "qwen3.5:9b"
+
+    def test_adaptation_skipped_with_env_override(self):
+        router = ModelRouter()
+        with patch.dict(os.environ, {"HESTIA_PRIMARY_MODEL": "custom:model"}):
+            router._adaptation_checked = False  # Reset
+            router.check_hardware_adaptation(tokens_out=50, duration_ms=20000)
+        assert router._adaptation_applied is False
+
+    def test_adaptation_swaps_model_when_too_slow(self):
+        """When generation speed is below threshold, swap to fallback."""
+        router = ModelRouter()
+        # 50 tokens in 20s = 2.5 tok/s (well below 8.0 threshold)
+        router.check_hardware_adaptation(tokens_out=50, duration_ms=20000)
+        assert router._adaptation_applied is True
+        assert router.primary_model.name == "qwen2.5:7b"
+
+    def test_adaptation_keeps_model_when_fast_enough(self):
+        """When generation speed is above threshold, keep primary."""
+        router = ModelRouter()
+        # 50 tokens in 2s = 25 tok/s (well above 8.0 threshold)
+        router.check_hardware_adaptation(tokens_out=50, duration_ms=2000)
+        assert router._adaptation_applied is False
+        assert router.primary_model.name == "qwen3.5:9b"
+
+    def test_adaptation_enables_cloud_smart(self):
+        """When adaptation triggers, cloud smart mode is auto-enabled."""
+        router = ModelRouter()
+        assert router.cloud_routing.state == "disabled"
+        # Slow: 3 tok/s
+        router.check_hardware_adaptation(tokens_out=30, duration_ms=10000)
+        assert router.cloud_routing.state == "enabled_smart"
+        assert router.cloud_model.enabled is True
+
+    def test_adaptation_runs_only_once(self):
+        """Check runs only once per server lifecycle."""
+        router = ModelRouter()
+        router._adaptation_checked = True
+        original_name = router.primary_model.name
+        # Even with slow speed, should no-op since already checked
+        router.check_hardware_adaptation(tokens_out=10, duration_ms=50000)
+        assert router.primary_model.name == original_name
+
+    def test_adaptation_retries_on_trivial_response(self):
+        """Responses with <5 tokens are too short to measure — retry next time."""
+        router = ModelRouter()
+        router.check_hardware_adaptation(tokens_out=2, duration_ms=1000)
+        assert router._adaptation_checked is False  # Will retry
+        assert router._adaptation_applied is False
+
+    def test_adaptation_status_in_get_status(self):
+        router = ModelRouter()
+        status = router.get_status()
+        assert "hardware_adaptation" in status
+        assert status["hardware_adaptation"]["enabled"] is True
+        assert status["hardware_adaptation"]["checked"] is False
+
+    def test_adaptation_skips_if_already_on_fallback(self):
+        """Don't adapt if primary is already the fallback model."""
+        router = ModelRouter()
+        router.primary_model.name = "qwen2.5:7b"
+        router.hardware_adaptation.fallback_primary = "qwen2.5:7b"
+        # Slow speed but already on fallback
+        router.check_hardware_adaptation(tokens_out=50, duration_ms=20000)
+        assert router._adaptation_applied is False
 
 
 class TestLocalInference:
