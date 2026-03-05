@@ -69,7 +69,7 @@ class InferenceConfig:
     """Configuration for inference client."""
     # Ollama settings
     ollama_host: str = "http://localhost:11434"
-    model_name: str = "qwen2.5:7b"  # Default to fast model
+    model_name: str = "qwen3.5:9b"  # Default to fast model
 
     # Generation parameters
     temperature: float = 0.0

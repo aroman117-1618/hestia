@@ -71,8 +71,8 @@ class TestInferenceConfig:
 
     def test_default_config(self):
         config = InferenceConfig()
-        # Default is now qwen2.5:7b (fast model)
-        assert config.model_name == "qwen2.5:7b"
+        # Default is now qwen3.5:9b (fast model)
+        assert config.model_name == "qwen3.5:9b"
         assert config.context_limit == 32768
         assert config.max_retries == 3
 
@@ -86,7 +86,7 @@ class TestInferenceConfig:
     def test_config_from_missing_yaml(self):
         config = InferenceConfig.from_yaml(Path("/nonexistent/path.yaml"))
         # Should return default config
-        assert config.model_name == "qwen2.5:7b"
+        assert config.model_name == "qwen3.5:9b"
 
 
 class TestInferenceClient:
