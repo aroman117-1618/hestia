@@ -1,0 +1,212 @@
+================================================================================
+SPRINT 12 PRE-IMPLEMENTATION CODE REVIEW — SUMMARY
+================================================================================
+Date: 2026-03-05
+Reviewer: Senior Backend Engineer
+Status: READY TO EXECUTE (with pre-impl fixes)
+
+================================================================================
+KEY FINDINGS
+================================================================================
+
+Overall Code Health: 7.5/10 (solid but architecturally loose)
+
+CRITICAL BLOCKERS: 6
+  🔴 MemoryManager.store_exchange() missing source parameter
+  🔴 MemoryDatabase.query_chunks() missing source filtering
+  🔴 PrincipleStore.initialize() is synchronous (will deadlock)
+  🔴 HestiaRenderer has no async animation framework
+  🔴 Missing MemorySource enum (type safety)
+  🔴 InboxManager.export_to_memory() method doesn't exist
+
+HIGH ISSUES: 5
+  🟠 Handler not passing source to store_exchange()
+  🟠 No bulk store API for inbox export (100+ items/day)
+  🟠 No deduplication mechanism (will re-store same email)
+  🟠 Tag filtering is post-query (should be SQL)
+  🟠 GraphBuilder missing source filter parameter
+
+All blockers are resolvable with surgical, targeted refactoring.
+No architectural rewrites needed.
+
+================================================================================
+ESTIMATED PRE-IMPL WORK
+================================================================================
+
+Phase 1: Add MemorySource enum                              30 min
+Phase 2: Update method signatures + handler calls           1 hour
+Phase 3: Add database source filtering + tx safety          1 hour
+Phase 4: Make PrincipleStore async + add guards            45 min
+Phase 5: Refactor renderer to state machine + animation     2-3 hours
+Phase 6: Add bulk APIs + dedup + export method              2 hours
+
+TOTAL: 8-10 hours before feature development begins
+
+After completion, feature work will be straightforward and low-risk.
+
+================================================================================
+CRITICAL PATH
+================================================================================
+
+1. Add MemorySource enum (blocks all other work)
+   → File: hestia/memory/models.py
+   → Lines: After line 41 (after ChunkType enum)
+   → Time: 15 min
+
+2. Update MemoryManager signatures
+   → Files: hestia/memory/manager.py (lines 207, 299)
+   → Time: 20 min
+   → Blocks: Handler, memory tests
+
+3. Update handler call
+   → File: hestia/orchestration/handler.py (line 1229)
+   → Time: 5 min
+   → Blocks: All integration tests
+
+4. Add database source filtering
+   → File: hestia/memory/database.py (line 296)
+   → Time: 20 min
+   → Blocks: DataSource filters, graph filtering
+
+5. Make PrincipleStore async
+   → File: hestia/research/principle_store.py (line 56)
+   → Time: 45 min
+   → Blocks: Research graph loading
+
+6. Refactor renderer + animation
+   → File: hestia-cli/hestia_cli/renderer.py (all)
+   → Time: 2-3 hours
+   → Blocks: CLI agent colors + thinking animation
+
+Once #1-4 complete, Sprint 12A (data pipeline) can proceed in parallel with #5-6.
+
+================================================================================
+BLOCKING DEPENDENCY MAP
+================================================================================
+
+Sprint 12A (Multi-source memory):
+  ├─ Blocker 1: MemorySource enum ✓
+  ├─ Blocker 2: store_exchange() signature ✓
+  ├─ Blocker 3: query_chunks() source filter ✓
+  └─ Blocker 6: InboxManager.export_to_memory() ✓
+
+Sprint 12B (CLI polish):
+  ├─ Blocker 4: HestiaRenderer refactor ✓
+  ├─ Blocker 5: MemorySource enum ✓
+  └─ CLI verb constants (models.py) ✓
+
+Sprint 12C (Research deep dive):
+  ├─ Blocker 3: Principle store async ✓
+  ├─ Blocker 4: GraphBuilder sources filter ✓
+  └─ Blocker 5: graph_builder.py enhancement ✓
+
+Can proceed with feature work ONLY after all 6 blockers fixed.
+
+================================================================================
+ARCHITECTURAL ASSESSMENT
+================================================================================
+
+Current State: Three independent data towers
+  - Conversation → Memory (working)
+  - Apple Apps → Inbox (working)
+  - Memory → Research Graph (working)
+  - MISSING: Apple → Memory pipeline
+
+Sprint 12 Required State: Connected layers
+  - All sources (Conversation + Apple) → Memory
+  - All sources → Research Graph
+  - DataSource filters work end-to-end
+
+Coupling Changes:
+  - NEW: InboxManager → MemoryManager (unidirectional, loose)
+  - CHANGE: Handler → MemoryManager (interface change, tight)
+  - CHANGE: PrincipleStore ↔ ChromaDB (async refactor, tight)
+  - CHANGE: GraphBuilder ↔ MemoryManager (enhancement, loose)
+
+Overall Coupling Health: MEDIUM (manageable, well-mitigated)
+
+================================================================================
+CODE QUALITY ISSUES
+================================================================================
+
+MUST FIX BEFORE SPRINT:
+  ✓ Type hints: Add MemorySource enum
+  ✓ Async/await: PrincipleStore initialization
+  ✓ Error handling: Bulk store partial failures
+  ✓ Interfaces: store_exchange() signature
+  ✓ SQL: Source filtering in query_chunks()
+
+SHOULD FIX (optional but recommended):
+  ◯ Tag filtering: Move to SQL WHERE (instead of post-query Python)
+  ◯ Transaction safety: Wrap store/update in explicit transactions
+  ◯ Animation safety: Test Rich + asyncio integration
+  ◯ Dedup: Add content hash indexing
+
+================================================================================
+VERIFICATION CHECKLIST
+================================================================================
+
+Before starting Sprint 12:
+
+□ MemorySource enum added to models.py
+□ MemoryQuery has sources parameter
+□ MemoryManager.store() signature updated
+□ MemoryManager.store_exchange() signature updated
+□ handler.py line 1229 passes source=MemorySource.CONVERSATION
+□ MemoryDatabase.query_chunks() filters by source (SQL)
+□ PrincipleStore.initialize() is async
+□ All PrincipleStore methods guard for None collection
+□ HestiaRenderer refactored to state machine
+□ ThinkingAnimation class implemented
+□ MemoryManager.store_many() method added
+□ MemoryManager.dedup_by_hash() method added
+□ InboxManager.export_to_memory() method added
+□ CLI verb constants added to models.py
+□ Type checking passes: mypy hestia/memory/ --strict
+□ Tests pass: pytest tests/memory/ tests/research/ -v
+□ Imports verified: python -c "from hestia.memory import MemoryManager"
+□ Handler integration works: No broken memory calls
+
+================================================================================
+FINAL VERDICT
+================================================================================
+
+✅ GREEN LIGHT TO PROCEED
+
+Code is well-structured for required changes. All blockers are resolvable
+with 8-10 hours of surgical, targeted refactoring. No architectural rewrites.
+
+Once blockers fixed, feature implementations are straightforward:
+  - Multi-source ingestion: ~4h (export_to_memory + integration)
+  - CLI polish: ~6h (colors + animation)
+  - Research wiring: ~3h (source filters + principle nodes)
+
+Recommendation: Complete blocker fixes THIS SESSION, then proceed with
+Sprint 12A/B/C feature work with high confidence.
+
+================================================================================
+DETAILED DOCUMENTS
+================================================================================
+
+See the following files for comprehensive analysis:
+
+  /docs/SPRINT-12-PRE-IMPL-REVIEW.md
+    └─ File-by-file code review (9 files)
+    └─ Issue severity ratings and line references
+    └─ Detailed recommendations with code samples
+    └─ Impact analysis for each change
+
+  /docs/SPRINT-12-BLOCKERS.md
+    └─ Critical blockers (6 total)
+    └─ Phase-by-phase fix checklist
+    └─ Verification steps
+    └─ Do-not-start-until checklist
+
+  /docs/SPRINT-12-COUPLING-ANALYSIS.md
+    └─ Coupling diagrams (before/after)
+    └─ Interface contracts
+    └─ Data consistency patterns
+    └─ Testing strategy
+    └─ Coupling summary table
+
+================================================================================

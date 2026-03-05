@@ -105,7 +105,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 **Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
 **Field Guide UI Restructure: COMPLETE.** 5 thematic tabs, native SwiftUI diagrams, structured roadmap with `/v1/wiki/roadmap` endpoint.
 
-1611 tests (1608 passing, 3 skipped), 41 test files (35 backend + 6 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
+1629 tests (1626 passing, 3 skipped), 41 test files (35 backend + 6 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -289,6 +289,8 @@ Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 **Temporal Decay:** `adjusted = raw_score * e^(-λ * age_days) * recency_boost`. Per-chunk-type λ in `config/memory.yaml`. Facts/system never decay.
 
 **Voice Pipeline:** iOS SpeechAnalyzer → transcript → quality check (LLM flags words) → user review → journal analysis (intent extraction + cross-referencing + action plan).
+
+**Hardware Adaptation:** After first inference, measures tok/s. If below 8 tok/s, swaps primary model to `qwen2.5:7b` and enables cloud smart mode. Override: `HESTIA_PRIMARY_MODEL=qwen2.5:7b`. Config: `inference.yaml → hardware_adaptation`.
 
 **Key ADRs** (full list: `docs/hestia-decision-log.md`):
 - ADR-001/040: Dual local model — Qwen 3.5 9B primary + Qwen 2.5 Coder 7B specialist

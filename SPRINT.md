@@ -80,10 +80,37 @@ M5 Ultra Mac Studio (H2-2026, expected 256GB+ unified memory) — documented in 
 
 ---
 
-## Next: Sprint 11B — Command Center + MetaMonitor
+## Next: Sprint 12A — Data Pipeline + Research Wiring
+
+**Discovery:** `docs/discoveries/sprint-12-cli-macos-polish-2026-03-05.md`
+**Audit:** `docs/plans/sprint-12-plan-audit-2026-03-05.md`
+**Effort:** ~12-14h (+ 8-10h pre-sprint blockers)
+
+### Critical: Multi-Source Memory Ingestion
+Hestia has Apple integration access (Mail, Calendar, Reminders, Notes) but nothing flows into the memory system. `ChunkMetadata.source` field exists but is never populated. All memory is conversation-only.
+
+### Sprint 12A Scope
+1. Multi-source memory ingestion — source tagging, MemoryQuery filter, InboxManager.export_to_memory(), full email bodies
+2. Wire DataSource filters to `sources` API param on graph endpoint
+3. Fix graph black block (SceneKit opacity + ambient bg z-order)
+4. Fix principles loading (daily auto-distill via Orders, error state, review workflow)
+5. Profile sections full-window adaptive layout
+6. Profile file templates (MIND/BODY scaffolds) + agent section icon change
+
+### Sprint 12B Scope (CLI + Agent Polish, ~10-12h)
+7. CLI agent-colored prompts (synced from macOS agent prefs via V2 API)
+8. CLI fire emoji thinking animation + Jarvis/Friday spinner verbs (100+ words)
+9. Default agent per model tier (configurable in macOS, just `@olly` in prompt)
+10. macOS agent customization GUI (full editing: name, photo, colors, .md files)
+11. Device setup wizard (QR for iOS + copy-paste CLI install command)
+
+---
+
+## Deferred: Sprint 11B — Command Center + MetaMonitor
 
 **Plan:** `docs/plans/sprint-11-command-center-plan.md`
 **Effort:** ~15 working days
+**Status:** Deferred — Sprint 12 (polish/wiring) takes priority per Andrew's direction.
 
 ### Decision Gate 2 (before Sprint 11B)
 - Is OutcomeTracker collecting meaningful signals?
