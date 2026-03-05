@@ -15,15 +15,15 @@ from typing import Any, Dict, List, Optional
 # Project files to auto-include, in priority order.
 # We stop adding files once we hit the token budget.
 PROJECT_FILES: List[str] = [
+    "CLAUDE.md",
     "SPRINT.md",
     "ROADMAP.md",
     "README.md",
-    "CLAUDE.md",
 ]
 
 # Max characters per file and total budget
-MAX_CHARS_PER_FILE = 2000
-MAX_TOTAL_CHARS = 6000
+MAX_CHARS_PER_FILE = 4000
+MAX_TOTAL_CHARS = 16000
 
 
 def get_repo_context() -> Dict[str, Any]:
@@ -66,9 +66,9 @@ def get_project_file_snippets() -> Dict[str, str]:
     Returns {filename: content} dict.
 
     Priority order (stops at budget):
-    1. SPRINT.md / ROADMAP.md — current work context
-    2. README.md — project overview
-    3. CLAUDE.md — conventions & architecture (truncated to first section)
+    1. CLAUDE.md — conventions & architecture (highest value for coding)
+    2. SPRINT.md / ROADMAP.md — current work context
+    3. README.md — project overview
     """
     root = _get_git_root() or os.getcwd()
     snippets: Dict[str, str] = {}

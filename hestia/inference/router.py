@@ -141,7 +141,7 @@ class ModelRouter:
         # Parse model configs
         primary_data = data.get("primary_model", {})
         self.primary_model = ModelConfig(
-            name=primary_data.get("name", "qwen2.5:7b"),
+            name=primary_data.get("name", "qwen3.5:9b"),
             context_limit=primary_data.get("context_limit", 32768),
             max_tokens=primary_data.get("max_tokens", 2048),
             temperature=primary_data.get("temperature", 0.0),
@@ -258,7 +258,7 @@ class ModelRouter:
             fallback = ModelTier.CLOUD if self.cloud_routing.spillover_on_local_failure else None
 
             # Check for coding patterns (coding takes priority over complex)
-            if self.coding_model.enabled and self._is_complex_request(prompt, token_count):
+            if self.coding_model.enabled and self._matches_routing_patterns(prompt, token_count):
                 return RoutingDecision(
                     tier=ModelTier.CODING,
                     model_config=self.coding_model,
@@ -267,7 +267,7 @@ class ModelRouter:
                 )
 
             # Check for complex patterns
-            if self.complex_model.enabled and self._is_complex_request(prompt, token_count):
+            if self.complex_model.enabled and self._matches_routing_patterns(prompt, token_count):
                 return RoutingDecision(
                     tier=ModelTier.COMPLEX,
                     model_config=self.complex_model,
@@ -283,7 +283,7 @@ class ModelRouter:
             )
 
         # disabled (or no cloud configured): local-only routing
-        if self.coding_model.enabled and self._is_complex_request(prompt, token_count):
+        if self.coding_model.enabled and self._matches_routing_patterns(prompt, token_count):
             return RoutingDecision(
                 tier=ModelTier.CODING,
                 model_config=self.coding_model,
@@ -291,7 +291,7 @@ class ModelRouter:
                 fallback_tier=ModelTier.PRIMARY,
             )
 
-        if self.complex_model.enabled and self._is_complex_request(prompt, token_count):
+        if self.complex_model.enabled and self._matches_routing_patterns(prompt, token_count):
             return RoutingDecision(
                 tier=ModelTier.COMPLEX,
                 model_config=self.complex_model,
@@ -306,8 +306,8 @@ class ModelRouter:
             fallback_tier=None,
         )
 
-    def _is_complex_request(self, prompt: str, token_count: int) -> bool:
-        """Check if request should use complex model."""
+    def _matches_routing_patterns(self, prompt: str, token_count: int) -> bool:
+        """Check if request matches routing patterns for coding/complex tier."""
         # Check token threshold
         if token_count >= self.routing.complex_token_threshold:
             return True

@@ -177,7 +177,7 @@ class TestGetProjectFileSnippets:
             assert snippets == {}
 
     def test_priority_order(self):
-        """Files are read in priority order (SPRINT > ROADMAP > README > CLAUDE)."""
+        """Files are read in priority order (CLAUDE > SPRINT > ROADMAP > README)."""
         with tempfile.TemporaryDirectory() as tmpdir:
             for filename in PROJECT_FILES:
                 (Path(tmpdir) / filename).write_text(f"# {filename}")
@@ -186,5 +186,5 @@ class TestGetProjectFileSnippets:
                 snippets = get_project_file_snippets()
 
             keys = list(snippets.keys())
-            # First file should be SPRINT.md (highest priority)
-            assert keys[0] == "SPRINT.md"
+            # First file should be CLAUDE.md (highest priority for coding)
+            assert keys[0] == "CLAUDE.md"

@@ -43,7 +43,7 @@ def make_request(content: str = "Hello", mode: Mode = Mode.TIA, source: RequestS
     )
 
 
-async def mock_chat_stream_tokens(tokens: list[str], model: str = "qwen2.5:7b"):
+async def mock_chat_stream_tokens(tokens: list[str], model: str = "qwen3.5:9b"):
     """Create a mock chat_stream that yields tokens then InferenceResponse."""
     content = "".join(tokens)
     for token in tokens:
@@ -61,7 +61,7 @@ async def mock_chat_stream_with_tool_calls(tool_calls: list[dict]):
     """Mock chat_stream that returns tool calls."""
     yield InferenceResponse(
         content="",
-        model="qwen2.5:7b",
+        model="qwen3.5:9b",
         tokens_in=50,
         tokens_out=5,
         duration_ms=200.0,

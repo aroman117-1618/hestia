@@ -60,13 +60,13 @@ def make_ollama_stream_lines(tokens: list[str], prompt_eval_count: int = 50, eva
     lines = []
     for token in tokens:
         lines.append(json.dumps({
-            "model": "qwen2.5:7b",
+            "model": "qwen3.5:9b",
             "message": {"role": "assistant", "content": token},
             "done": False,
         }))
     # Final event with metrics
     lines.append(json.dumps({
-        "model": "qwen2.5:7b",
+        "model": "qwen3.5:9b",
         "message": {"role": "assistant", "content": ""},
         "done": True,
         "done_reason": "stop",
@@ -81,7 +81,7 @@ def make_ollama_tool_call_lines(tool_name: str, arguments: dict) -> list[str]:
     """Build Ollama streaming response lines with a tool call."""
     lines = [
         json.dumps({
-            "model": "qwen2.5:7b",
+            "model": "qwen3.5:9b",
             "message": {
                 "role": "assistant",
                 "content": "",
@@ -90,7 +90,7 @@ def make_ollama_tool_call_lines(tool_name: str, arguments: dict) -> list[str]:
             "done": False,
         }),
         json.dumps({
-            "model": "qwen2.5:7b",
+            "model": "qwen3.5:9b",
             "message": {"role": "assistant", "content": ""},
             "done": True,
             "done_reason": "stop",
@@ -105,7 +105,7 @@ def make_routing_decision(tier: ModelTier = ModelTier.PRIMARY) -> RoutingDecisio
     """Create a routing decision for testing."""
     return RoutingDecision(
         tier=tier,
-        model_config=ModelConfig(name="qwen2.5:7b", context_limit=32768),
+        model_config=ModelConfig(name="qwen3.5:9b", context_limit=32768),
         reason="test routing",
         fallback_tier=ModelTier.CLOUD if tier == ModelTier.PRIMARY else ModelTier.PRIMARY,
     )
@@ -201,9 +201,9 @@ class TestChatStream:
         """Empty content tokens from Ollama should not be yielded."""
         client = InferenceClient()
         lines = [
-            json.dumps({"model": "qwen2.5:7b", "message": {"role": "assistant", "content": ""}, "done": False}),
-            json.dumps({"model": "qwen2.5:7b", "message": {"role": "assistant", "content": "Hi"}, "done": False}),
-            json.dumps({"model": "qwen2.5:7b", "message": {"role": "assistant", "content": ""}, "done": True, "done_reason": "stop", "prompt_eval_count": 10, "eval_count": 1}),
+            json.dumps({"model": "qwen3.5:9b", "message": {"role": "assistant", "content": ""}, "done": False}),
+            json.dumps({"model": "qwen3.5:9b", "message": {"role": "assistant", "content": "Hi"}, "done": False}),
+            json.dumps({"model": "qwen3.5:9b", "message": {"role": "assistant", "content": ""}, "done": True, "done_reason": "stop", "prompt_eval_count": 10, "eval_count": 1}),
         ]
 
         mock_http = AsyncMock()
@@ -314,9 +314,9 @@ class TestChatStream:
         client = InferenceClient()
         lines = [
             "not valid json",
-            json.dumps({"model": "qwen2.5:7b", "message": {"role": "assistant", "content": "OK"}, "done": False}),
+            json.dumps({"model": "qwen3.5:9b", "message": {"role": "assistant", "content": "OK"}, "done": False}),
             "",  # empty line
-            json.dumps({"model": "qwen2.5:7b", "message": {"role": "assistant", "content": ""}, "done": True, "done_reason": "stop", "prompt_eval_count": 5, "eval_count": 1}),
+            json.dumps({"model": "qwen3.5:9b", "message": {"role": "assistant", "content": ""}, "done": True, "done_reason": "stop", "prompt_eval_count": 5, "eval_count": 1}),
         ]
 
         mock_http = AsyncMock()
@@ -338,9 +338,9 @@ class TestChatStream:
         """If Ollama doesn't provide token counts, fallback estimation should kick in."""
         client = InferenceClient()
         lines = [
-            json.dumps({"model": "qwen2.5:7b", "message": {"role": "assistant", "content": "test"}, "done": False}),
+            json.dumps({"model": "qwen3.5:9b", "message": {"role": "assistant", "content": "test"}, "done": False}),
             # Final event with 0 counts (Ollama omits them sometimes)
-            json.dumps({"model": "qwen2.5:7b", "message": {"role": "assistant", "content": ""}, "done": True, "done_reason": "stop", "prompt_eval_count": 0, "eval_count": 0}),
+            json.dumps({"model": "qwen3.5:9b", "message": {"role": "assistant", "content": ""}, "done": True, "done_reason": "stop", "prompt_eval_count": 0, "eval_count": 0}),
         ]
 
         mock_http = AsyncMock()

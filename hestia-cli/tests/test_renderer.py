@@ -26,13 +26,13 @@ class TestRenderer:
         renderer.render_event({
             "type": "done",
             "request_id": "req-1",
-            "metrics": {"tokens_out": 42, "duration_ms": 1500.0, "model": "qwen2.5:7b"},
+            "metrics": {"tokens_out": 42, "duration_ms": 1500.0, "model": "qwen3.5:9b"},
             "mode": "tia",
         })
         text = output.getvalue()
         assert "42 tokens" in text
         assert "1.5s" in text
-        assert "qwen2.5:7b" in text
+        assert "qwen3.5:9b" in text
 
     def test_render_done_no_metrics(self):
         renderer, output = make_renderer()

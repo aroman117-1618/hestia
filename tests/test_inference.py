@@ -171,6 +171,7 @@ class TestModelRouter:
         status = router.get_status()
 
         assert "primary_model" in status
+        assert "coding_model" in status
         assert "complex_model" in status
         assert "architecture" in status
         assert status["architecture"] == "local-only"
@@ -194,6 +195,7 @@ class TestCodingTier:
         router.coding_model.enabled = False
         decision = router.route("write code for a REST endpoint")
         assert decision.tier == ModelTier.PRIMARY
+        assert decision.model_config.name == "qwen3.5:9b"
 
     def test_coding_tier_in_config_for_tier(self):
         """_get_config_for_tier returns coding model."""
@@ -215,7 +217,7 @@ class TestLocalInference:
         with patch.object(client, '_call_ollama') as mock_ollama:
             mock_ollama.return_value = InferenceResponse(
                 content="4",
-                model="qwen2.5:7b",
+                model="qwen3.5:9b",
                 tokens_in=10,
                 tokens_out=1,
                 duration_ms=100,
@@ -237,7 +239,7 @@ class TestLocalInference:
         with patch.object(client, '_call_ollama') as mock_ollama:
             mock_ollama.return_value = InferenceResponse(
                 content="Hello!",
-                model="qwen2.5:7b",
+                model="qwen3.5:9b",
                 tokens_in=5,
                 tokens_out=2,
                 duration_ms=50,
@@ -258,7 +260,7 @@ class TestNativeToolCalling:
         """InferenceResponse.tool_calls defaults to None."""
         response = InferenceResponse(
             content="Hello",
-            model="qwen2.5:7b",
+            model="qwen3.5:9b",
             tokens_in=5,
             tokens_out=2,
             duration_ms=50,
@@ -270,7 +272,7 @@ class TestNativeToolCalling:
         tool_calls = [{"function": {"name": "get_today_events", "arguments": {}}}]
         response = InferenceResponse(
             content="",
-            model="qwen2.5:7b",
+            model="qwen3.5:9b",
             tokens_in=100,
             tokens_out=10,
             duration_ms=200,
@@ -285,7 +287,7 @@ class TestNativeToolCalling:
         client = InferenceClient()
         response = InferenceResponse(
             content="",
-            model="qwen2.5:7b",
+            model="qwen3.5:9b",
             tokens_in=100,
             tokens_out=10,
             duration_ms=200,
@@ -300,7 +302,7 @@ class TestNativeToolCalling:
         client = InferenceClient()
         response = InferenceResponse(
             content="",
-            model="qwen2.5:7b",
+            model="qwen3.5:9b",
             tokens_in=100,
             tokens_out=10,
             duration_ms=200,
@@ -317,7 +319,7 @@ class TestNativeToolCalling:
         with patch.object(client, '_call_ollama') as mock_ollama:
             mock_ollama.return_value = InferenceResponse(
                 content="I'll help you.",
-                model="qwen2.5:7b",
+                model="qwen3.5:9b",
                 tokens_in=100,
                 tokens_out=10,
                 duration_ms=200,
@@ -343,7 +345,7 @@ class TestNativeToolCalling:
         with patch.object(client, '_call_ollama') as mock_ollama:
             mock_ollama.return_value = InferenceResponse(
                 content="",
-                model="qwen2.5:7b",
+                model="qwen3.5:9b",
                 tokens_in=100,
                 tokens_out=10,
                 duration_ms=200,
@@ -368,7 +370,7 @@ class TestNativeToolCalling:
         with patch.object(client, '_call_ollama') as mock_ollama:
             mock_ollama.return_value = InferenceResponse(
                 content="Hello!",
-                model="qwen2.5:7b",
+                model="qwen3.5:9b",
                 tokens_in=5,
                 tokens_out=2,
                 duration_ms=50,

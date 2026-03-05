@@ -4,7 +4,7 @@ Inference client for Hestia.
 Provides async interface to local models via Ollama and cloud providers.
 
 Features:
-- Local inference: fast local model (Qwen 2.5 7B) or complex local (Mixtral)
+- Local inference: fast local model (Qwen 3.5 9B), code specialist (Qwen 2.5 Coder 7B), or complex local (Mixtral)
 - Cloud inference: Anthropic, OpenAI, Google via CloudInferenceClient
 - Smart routing: local-first with cloud spillover (enabled_smart mode)
 - Token counting and context window management (32K budget)
@@ -33,7 +33,7 @@ from .router import ModelRouter, ModelTier, RoutingDecision, get_router
 
 class ContextSize(Enum):
     """Context window sizes for local models."""
-    STANDARD = 32768    # Qwen 2.5 7B / Mixtral 8x7B local (32K)
+    STANDARD = 32768    # Qwen 3.5 9B / Qwen 2.5 Coder 7B / Mixtral 8x7B local (32K)
 
 
 class InferenceError(Exception):

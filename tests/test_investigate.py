@@ -609,7 +609,7 @@ class TestInvestigateManager:
 
         mock_response = MagicMock()
         mock_response.content = "**Key Points**\n- Point one\n- Point two\n\nAnalysis text."
-        mock_response.model = "qwen2.5:7b"
+        mock_response.model = "qwen3.5:9b"
         mock_response.tokens_in = 500
         mock_response.tokens_out = 200
 

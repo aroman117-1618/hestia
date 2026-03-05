@@ -83,10 +83,14 @@ def _start_server_subprocess() -> bool:
     os.makedirs(log_dir, exist_ok=True)
     log_file = os.path.join(log_dir, "server.log")
 
+    # Resolve project root (one level up from hestia-cli/)
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
     try:
         with open(log_file, "a") as log_f:
             subprocess.Popen(
                 [python_path, "-m", "hestia.api.server"],
+                cwd=project_root,
                 stdout=log_f,
                 stderr=log_f,
                 start_new_session=True,
