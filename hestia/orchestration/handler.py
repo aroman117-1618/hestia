@@ -706,7 +706,12 @@ IMPORTANT RULES:
 
                 if cli_context_parts:
                     dev_context = "\n\n## Development Context\n\n" + "\n\n".join(cli_context_parts)
-                    dev_context += "\n\nYou have file and shell tools available. When the user asks about code, read files for context before suggesting changes."
+                    dev_context += (
+                        "\n\nThe user is a developer working in this project. "
+                        "The project files above (SPRINT.md, CLAUDE.md, etc.) describe the project's current status, roadmap, architecture, and conventions. "
+                        "When the user asks about the project, its roadmap, status, or architecture, answer from this context first. "
+                        "You also have file and shell tools available for reading code and running commands."
+                    )
                     combined_instructions = f"{combined_instructions}\n{dev_context}"
 
             messages, prompt_components = self._prompt_builder.build(
