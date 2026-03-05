@@ -27,10 +27,23 @@
 
 ### Test Results
 - 37 new tests (30 outcomes + 7 orders)
-- 1466 total (1463 passing, 3 skipped)
+- 1611 total (1608 passing, 3 skipped) — includes 66 CLI tests
 - macOS build: clean
 
 ---
+
+## Previous: Hestia CLI (CLI Sprints 1-5 + Bootstrap) — COMPLETE
+
+Terminal-native interface for Hestia. `hestia-cli/` package with WebSocket streaming, prompt_toolkit REPL, Rich rendering, tool trust tiers, repo context injection, zero-friction bootstrap (auto-server-start + auto-register for localhost). 7 commits, 66 tests across 6 test files.
+
+Key commits:
+- `330bfb2` Sprint 1: WebSocket streaming backend
+- `76fdf3a` Sprint 2: REPL + auth + streaming
+- `bc0a9f3` Sprint 3: Tool trust tiers
+- `bc38820` Sprint 4: Repo context + project file injection
+- `1591264` Sprint 5: Polish + error handling
+- `3945682` Bootstrap: auto-start server + auto-register
+- `80a3f59` Fix: context instruction for small model prompting
 
 ## Previous: Explorer Files (Sprint 9A) — COMPLETE
 

@@ -105,7 +105,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 **Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
 **Field Guide UI Restructure: COMPLETE.** 5 thematic tabs, native SwiftUI diagrams, structured roadmap with `/v1/wiki/roadmap` endpoint.
 
-1466 tests (1463 passing, 3 skipped), 31 test files. Full details: `python -m pytest tests/ -v --timeout=30`
+1611 tests (1608 passing, 3 skipped), 41 test files (35 backend + 6 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -217,6 +217,9 @@ hestia/
 │   │   └── routes/                  # auth, health, chat, mode, memory, sessions, tools,
 │   │                                # tasks, cloud, voice, orders, agents, agents_v2, user, user_profile, proactive, health_data, wiki, explorer, newsfeed, investigate, research, files, inbox, outcomes
 │   └── config/                      # inference.yaml, execution.yaml, memory.yaml, wiki.yaml
+├── hestia-cli/                      # Python CLI package — 66 tests, 6 test files
+│   ├── hestia_cli/                  # CLI source (app, repl, client, auth, bootstrap, config, commands, context, renderer, models)
+│   └── tests/                       # CLI tests (bootstrap, client, config, context, renderer)
 ├── hestia-cli-tools/                # Swift CLIs (keychain, calendar, reminders, notes)
 ├── HestiaApp/                       # iOS SwiftUI app
 │   ├── Shared/
@@ -236,7 +239,7 @@ hestia/
 │   │   ├── Services/                # APIClient+Wiki, APIClient+Tools, APIClient+Newsfeed, APIClient+Health, APIClient+Devices, APIClient+Investigate
 │   │   └── DesignSystem/            # MacColors, MacSpacing, MacTypography
 │   └── project.yml                  # xcodegen config (iOS 26.0, macOS 15.0, Swift 6.1)
-├── tests/                           # 1466 tests, 31 files
+├── tests/                           # 1545 tests, 35 files
 ├── scripts/                         # deploy, test-api, auto-test, validate-security, ollama
 ├── .claude/                         # agents/, output-styles/, settings
 ├── docs/                            # api-contract, decision-log, security-architecture
@@ -333,6 +336,16 @@ Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 | Sprint 7: Profile & Settings | COMPLETE | Settings accordion (4 sections), profile editing, agent V2 API, Resources consolidation, Field Guide migration, CacheManager, MarkdownEditor line numbers, amber accent audit, VoiceOver a11y |
 | Sprint 6: Stability & Efficiency | COMPLETE | Readiness gate, complete shutdown (15 managers), Uvicorn recycling (5K req), parallel init, pip-compile lockfile, log compression, Cache-Control |
 
+### Hestia CLI
+| Sprint | Status | Scope |
+|--------|--------|-------|
+| CLI Sprint 1: WebSocket Streaming | COMPLETE | Backend WebSocket endpoint, streaming protocol, auth handshake |
+| CLI Sprint 2: REPL + Auth | COMPLETE | prompt_toolkit REPL, Rich rendering, Keychain auth, invite registration |
+| CLI Sprint 3: Tool Trust Tiers | COMPLETE | Per-device read/write/execute/external tiers, prompt-based approval |
+| CLI Sprint 4: Repo Context | COMPLETE | Git state injection, project file snippets, agentic coding context |
+| CLI Sprint 5: Polish | COMPLETE | Error logging, /memory /config /trust commands, HESTIA_NO_COLOR |
+| CLI Bootstrap | COMPLETE | Zero-friction cold start: auto-server-start (launchd/subprocess), auto-register (localhost), `hestia setup` |
+
 ### Known Issues (Mac Mini)
 - Council needs `qwen2.5:0.5b` pulled on Mac Mini
 - Server must be restarted after code deploys (no hot-reload)
@@ -343,8 +356,10 @@ Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 
 ```bash
 source .venv/bin/activate
-python -m hestia.api.server            # Start server
-python -m pytest tests/ -v             # Run tests
+hestia                                 # CLI — auto-starts server, auto-registers
+python -m hestia.api.server            # Start server manually
+python -m pytest tests/ -v             # Run backend tests
+cd hestia-cli && python -m pytest tests/ -v  # Run CLI tests
 ./scripts/test-api.sh                  # API smoke tests (14)
 ./scripts/deploy-to-mini.sh            # Deploy to Mac Mini
 ./scripts/pre-session.sh               # Headless pre-session health check

@@ -1,67 +1,51 @@
-# Session Handoff — 2026-03-04 (Session 2)
+# Session Handoff — 2026-03-05
 
 ## Mission
-Implement native Ollama tool calling (so Tia can actually use Calendar/Reminders/Notes tools), fix timezone handling across the stack, and fold self-healing loop architecture into the sprint roadmap.
+Implement zero-friction CLI bootstrap so `hestia` can be typed in any terminal and immediately auto-start the server, auto-register, and begin chatting. Fix prompt engineering issue where Tia ignored injected project context for small models.
 
 ## Completed
-- **Native Ollama tool calling** (`hestia/inference/client.py`, `hestia/orchestration/handler.py`) — commit `5858be6`
-  - `tools` parameter threaded through `_call_ollama()` → `_call_local_with_retries()` → `_call_with_routing()` → `chat()`
-  - `InferenceResponse.tool_calls` field populated from Ollama `message.tool_calls`
-  - Native tool detection priority: API tool_calls > council extraction > text regex
-  - Tool instructions simplified to behavioral guidance only (no JSON schemas in prompt)
-- **Hardened native tool calling** — reviewer findings + 15 tests — commit `29f1ee7`
-  - String→dict argument coercion, unknown tool skip, state machine transitions, error recovery
-  - Graceful fallback when all native tool calls fail (no empty response)
-  - Tool definitions fetched once outside retry loop
-  - 8 handler tests + 7 inference tests
-- **Self-healing loop assessment** — `docs/discoveries/self-healing-loop-assessment-2026-03-04.md`
-  - Level 1-3 architecture mapped, integration points identified
-  - Sprint 11: 11.8a (read settings tools), 11.8b (outcome→principle pipeline), 11.8c (correction classification)
-  - Sprint 13: 13.4 (write settings tools with CorrectionConfidence scoring + granular ActionRisk)
-  - Sprint 14: ActionRisk mapping refined from blanket NEVER to per-category tiers
-- **Sprint plan updates** — commit `1f4de45`
-  - `docs/plans/sprint-11-command-center-plan.md` — sections 11.8a/b/c added
-  - `docs/plans/sprint-13-14-learning-cycle-plan.md` — section 13.4 + granular risk tiers
-  - `docs/plans/sprint-7-14-master-roadmap.md` — self-healing threading noted
-- **Timezone fix** across 7 files — commit `5e7581c`
-  - `hestia/user/models.py` — `timezone` field on UserSettings
-  - `hestia/user/config_loader.py` — `get_user_timezone()` utility
-  - `hestia/apple/calendar.py` — timezone-aware `get_today_events()` / `get_upcoming_events()`
-  - `hestia/apple/reminders.py` — timezone-aware `get_due_today()` / `get_overdue()`
-  - `hestia/orders/scheduler.py` — user timezone for APScheduler
-  - `hestia/proactive/briefing.py` — local time greeting
-  - `hestia/proactive/policy.py` — local time quiet hours
-- **Removed** `linkedin-series-final.md` (stored elsewhere)
-- **CLAUDE.md + SPRINT.md counts fixed** — 154 endpoints, 25 route modules, 1466 tests
+- **Zero-friction bootstrap** (`hestia-cli/hestia_cli/bootstrap.py`) — `3945682`
+  - `_is_localhost()` security gate: auto-start/auto-register only for localhost URLs
+  - `ensure_server_running()`: ping → launchd kickstart → subprocess fallback → poll up to 14s
+  - `ensure_authenticated()`: token check → POST `/v1/auth/register` for localhost → Keychain store
+  - Wired into both REPL (`repl.py`) and batch mode (`app.py`)
+  - `hestia setup` subcommand with `install-service` and `status`
+  - `config.py`: `auto_start: True` default
+  - 14 new bootstrap tests (66 CLI tests total)
+- **Error sanitization** in `app.py` — replaced pre-existing `str(e)` with fixed strings in batch JSON output
+- **Context instruction fix** (`hestia/orchestration/handler.py:707-712`) — `80a3f59`
+  - Tells Qwen 7B to reference injected project files for project questions
+  - Without this, "hestia roadmap" triggered calendar tools instead of referencing SPRINT.md
+- **Reviewer fixes applied**: kickstart return code check, `.get()` for token parsing, sync `_start_server_launchd`, poll timeout accuracy, hostname truncation
+- **Doc updates**: CLAUDE.md (test counts 1466→1611, project structure, CLI sprints table), SPRINT.md (CLI sprint history)
 
 ## In Progress
-- Nothing — all work committed and pushed.
+- Nothing — all work committed.
 
 ## Decisions Made
-- **Native tool calling over prompt-based**: Ollama `/api/chat` `tools` parameter more reliable than text parsing for local models
-- **Timezone: stored profile + sync**: `get_user_timezone()` reads from `UserIdentity.timezone` (USER-IDENTITY.md). Per-request override deferred to Sprint 11 settings tools
-- **Self-healing corrections: suggest-only for now**: All corrections require user approval. Auto-apply gated on CorrectionConfidence scoring (Sprint 13-14)
-- **Principle pipeline timing: hybrid threshold**: Distill when 3+ corrections in same domain within 24h, OR daily batch
-- **Granular ActionRisk**: `display_settings` and `behavioral_settings` at SUGGEST tier; `security_settings` and `system_settings` at NEVER tier (Sprint 14)
+- **Auto-register uses legacy `/v1/auth/register`** — no invite required, gated client-side by `_is_localhost()`
+- **Server auto-start: launchd preferred, subprocess fallback** — covers Mac Mini (production) and dev Mac (no launchd)
+- **Context instruction safe for larger models** — keep after Mac Studio upgrade, cheap insurance
 
 ## Test Status
-- 1466 passing, 0 failing, 3 skipped
-- All tests green. No regressions.
+- 1545 backend passing, 3 skipped, 0 failing
+- 66 CLI passing, 0 failing
+- **1611 total** (up from 1466)
 
 ## Uncommitted Changes
-- `CLAUDE.md` — count updates (154 endpoints, 25 routes, 1466 tests)
-- `SPRINT.md` — test count update (1451→1466)
+- `CLAUDE.md`, `SPRINT.md`, `SESSION_HANDOFF.md` — this handoff commit
 
 ## Known Issues / Landmines
-- **Mac Mini calendar is empty**: Only shows US Holidays. Google/iCloud accounts need to be added in System Settings → Internet Accounts on the Mac Mini (physical access required)
-- **Council needs `qwen2.5:0.5b`** pulled on Mac Mini
-- **Native tool calling untested on Mac Mini**: Works in unit tests with mocked Ollama. Need live test with `qwen2.5:7b` — ask Tia "What's on my calendar today?" after deploy
-- **Timezone default is hardcoded**: `get_user_timezone()` defaults to `America/Los_Angeles` if USER-IDENTITY.md has no timezone. Verify the file has `**Timezone:** America/Los_Angeles` on Mac Mini
-- **pytest hangs after completion**: ChromaDB background threads prevent clean exit. Use subprocess timeout pattern
+- **pytest conftest collision**: Running `pytest` from repo root collects both `tests/` and `hestia-cli/tests/`, causing `ImportPathMismatchError`. Always run separately: `pytest tests/` and `cd hestia-cli && pytest tests/`
+- **`count-check.sh` is broken**: Script exists but errors out. Counts verified manually this session.
+- **Context instruction for small models**: `handler.py:707-712` helps Qwen 7B use project context. Larger MoE models may not need it — test after Mac Studio upgrade.
+- **Server running on port 8443** at handoff
+- **2 untracked discovery docs** in `docs/discoveries/` — pre-existing, not from this session
+- **CLI not yet installed on Mac Mini**: Need `pip install -e hestia-cli/` after deploy
 
 ## Next Step
-1. Commit the count fixes: `git add CLAUDE.md SPRINT.md && git commit -m "docs: fix count drift — 1466 tests, 25 route modules, 154 endpoints"`
-2. Push to main: `git push`
-3. Deploy to Mac Mini: `./scripts/deploy-to-mini.sh`
-4. Live test: Ask Tia "What's on my calendar today?" to verify native tool calling end-to-end
-5. Next sprint: Sprint 11 (Command Center + MetaMonitor) — start with Decision Gate 2 review
+1. Commit handoff docs: `git add CLAUDE.md SPRINT.md SESSION_HANDOFF.md`
+2. Push to main: `git push origin main`
+3. Deploy CLI to Mac Mini: `pip install -e hestia-cli/` on the Mini
+4. Test bootstrap on Mac Mini via Tailscale — remote path should require `hestia auth login`
+5. Sprint 11 (Command Center + MetaMonitor) is next per SPRINT.md
