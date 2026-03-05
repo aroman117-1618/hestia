@@ -60,17 +60,37 @@ Apple Mail + Reminders + Calendar aggregation. `hestia/inbox/` module. 7 API end
 
 ---
 
-## Next: Sprint 11 — Command Center + MetaMonitor
+## Current: Sprint 11A — Model Swap + Coding Specialist
+
+**Started:** 2026-03-05
+**Design:** `docs/plans/2026-03-05-model-swap-planning-design.md`
+**Plan:** `docs/plans/2026-03-05-sprint-11a-model-swap.md`
+**ADR:** ADR-040
+
+### Changes
+- Primary model: `qwen2.5:7b` → `qwen3.5:9b` (better instruction following, 262K native context)
+- New coding specialist: `qwen2.5-coder:7b` via `ModelTier.CODING` (88.4% HumanEval)
+- Council SLM unchanged: `qwen2.5:0.5b`
+- Routing: `complex_patterns` keyword matching → coding tier before complex tier
+- CLI context budget: 6K → 16K chars, CLAUDE.md first in priority order
+- Test fixtures: bulk update across 6 test files
+
+### Hardware Upgrade Playbook
+M5 Ultra Mac Studio (H2-2026, expected 256GB+ unified memory) — documented in design doc.
+
+---
+
+## Next: Sprint 11B — Command Center + MetaMonitor
 
 **Plan:** `docs/plans/sprint-11-command-center-plan.md`
 **Effort:** ~15 working days
 
-### Decision Gate 2 (before Sprint 11)
+### Decision Gate 2 (before Sprint 11B)
 - Is OutcomeTracker collecting meaningful signals?
 - Memory + CPU profile acceptable on M1?
 - → Go/No-Go on MetaMonitor
 
-### Sprint 11 Scope
+### Sprint 11B Scope
 1. MetaMonitor: consumes OutcomeTracker data, detects behavioral patterns
 2. Command Center redesign: contextual metrics (Personal ↔ System), calendar week grid
 3. Order creation wizard (multi-step)

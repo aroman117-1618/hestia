@@ -7,7 +7,7 @@
 - Mac Mini M1 accessible via Tailscale (`andrewroman117@hestia-3.local`)
 - Python 3.12 venv at `~/hestia/.venv`
 - Self-signed TLS certs at `~/hestia/certs/`
-- Ollama running with `qwen2.5:7b` and `qwen2.5:0.5b` pulled
+- Ollama running with `qwen3.5:9b`, `qwen2.5-coder:7b`, and `qwen2.5:0.5b` pulled
 
 ### First-Time Setup
 

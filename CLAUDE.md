@@ -86,7 +86,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | Component | Technology |
 |-----------|------------|
 | Hardware | Mac Mini M1 (16GB) |
-| Model | Qwen 2.5 7B (Ollama, local) + cloud providers (Anthropic/OpenAI/Google) |
+| Model | Qwen 3.5 9B primary + Qwen 2.5 Coder 7B specialist (Ollama, local) + cloud (Anthropic/OpenAI/Google) |
 | SLM | qwen2.5:0.5b (council intent classification, ~100ms) |
 | Backend | Python 3.9+, FastAPI, 154 endpoints across 25 route modules |
 | Storage | ChromaDB (vectors) + SQLite (structured) + macOS Keychain (credentials) |
@@ -291,7 +291,7 @@ Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 **Voice Pipeline:** iOS SpeechAnalyzer → transcript → quality check (LLM flags words) → user review → journal analysis (intent extraction + cross-referencing + action plan).
 
 **Key ADRs** (full list: `docs/hestia-decision-log.md`):
-- ADR-001: Qwen 2.5 7B primary model (local)
+- ADR-001/040: Dual local model — Qwen 3.5 9B primary + Qwen 2.5 Coder 7B specialist
 - ADR-003: Single-agent architecture
 - ADR-009: Keychain + Secure Enclave credentials
 - ADR-013: Tag-based memory with temporal decay

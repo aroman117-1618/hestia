@@ -48,7 +48,7 @@ curl http://localhost:11434/api/tags
 
 # Verify models are available
 /opt/homebrew/bin/ollama list
-# Should show: qwen2.5:7b and/or mixtral:8x7b
+# Should show: qwen3.5:9b, qwen2.5-coder:7b, and qwen2.5:0.5b
 ```
 
 ### On Development Machine (MacBook)
@@ -284,10 +284,10 @@ brew services restart ollama
 ### "Model not found"
 
 ```bash
-# Pull required model
-ollama pull qwen2.5:7b
-# Or for complex tasks
-ollama pull mixtral:8x7b-instruct-v0.1-q4_K_M
+# Pull required models
+ollama pull qwen3.5:9b           # Primary (chat, Q&A)
+ollama pull qwen2.5-coder:7b     # Coding specialist
+ollama pull qwen2.5:0.5b         # Council SLM (intent classification)
 ```
 
 ### "Permission denied" for Apple APIs
@@ -308,7 +308,7 @@ pytest tests/ --timeout=600
 
 # Or warm up the model first
 curl http://localhost:11434/api/generate \
-  -d '{"model": "qwen2.5:7b", "prompt": "Hello", "stream": false}'
+  -d '{"model": "qwen3.5:9b", "prompt": "Hello", "stream": false}'
 ```
 
 ---

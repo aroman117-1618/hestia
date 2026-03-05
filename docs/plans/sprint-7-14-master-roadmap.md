@@ -69,7 +69,8 @@ Sprint 9A: Explorer: Files                   ← Data breadth (file behavioral s
 Sprint 9B: Explorer: Inbox                   ← Data breadth (email behavioral signals)
 Sprint 10: Chat Redesign + OutcomeTracker    ← Learning Cycle Phase A (part 2)
        ↳ Phase 0: Timezone fix (pre-11)      ← Bug fix: timezone-aware datetime throughout
-Sprint 11: Command + MetaMonitor             ← Learning Cycle Phase B + Self-Healing Foundation
+Sprint 11A: Model Swap + Coding Specialist   ← Dual model (qwen3.5:9b + qwen2.5-coder:7b), ADR-040
+Sprint 11B: Command + MetaMonitor            ← Learning Cycle Phase B + Self-Healing Foundation
        ↳ +11.8a: Read settings tools          ← Tia can diagnose her own config
        ↳ +11.8b: Outcome→Principle pipeline   ← Corrections become knowledge (hybrid threshold)
        ↳ +11.8c: Correction classification    ← Categorize mistake types

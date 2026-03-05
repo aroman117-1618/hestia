@@ -1472,6 +1472,34 @@ Sprint 8 builds the Research module: a server-side knowledge graph and a Princip
 
 ---
 
+### ADR-040: Dual Local Model Architecture (Primary + Coding Specialist)
+
+**Date:** 2026-03-05
+**Status:** Active (supersedes ADR-001 model selection)
+**Sprint:** 11A
+
+#### Context
+Hestia's primary model (Qwen 2.5 7B) underperformed on coding tasks. The CLI has context injection infrastructure but the model quality was the bottleneck for agentic coding workflows. Mac Mini M1 (16GB) constrains model size but supports Ollama hot-swap on Apple Silicon.
+
+#### Decision
+1. **Swap primary model** from `qwen2.5:7b` to `qwen3.5:9b` (better instruction following, 262K native context)
+2. **Add coding specialist** `qwen2.5-coder:7b` (88.4% HumanEval, FIM support) as new `ModelTier.CODING`
+3. **Council SLM unchanged** at `qwen2.5:0.5b` (intent classification only)
+4. **Routing via keyword patterns** — `complex_patterns` in router matches coding prompts → coding tier; no council/IntentType changes needed
+5. **CLI context budget expanded** — MAX_CHARS_PER_FILE 2000→4000, MAX_TOTAL_CHARS 6000→16000, CLAUDE.md first in priority
+
+#### Alternatives Considered
+- **Council intent routing**: Adding TOOL/REFACTOR/ANALYZE to IntentType enum → rejected (requires SLM prompt retraining, higher complexity)
+- **Single model upgrade only**: Just swap to qwen3.5:9b → rejected (misses coding specialist value)
+- **Cloud-only for coding**: Route all code to cloud → rejected (latency, cost, offline capability)
+
+#### Consequences
+- 4-tier routing: PRIMARY → CODING → COMPLEX → CLOUD (COMPLEX reserved for hardware upgrade)
+- Ollama hot-swaps models — only one in GPU at a time. ~11GB total disk for all 3 models.
+- Hardware upgrade playbook documented in `docs/plans/2026-03-05-model-swap-planning-design.md` for M5 Ultra Mac Studio (H2-2026)
+
+---
+
 ## Adding New Decisions
 
 When making a significant architectural decision:
