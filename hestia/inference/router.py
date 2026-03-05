@@ -7,9 +7,10 @@ Routes requests to the appropriate model tier based on:
 - Cloud provider state (disabled, enabled_full, enabled_smart)
 
 Tiers:
-1. Primary: Fast local model (Qwen 2.5 7B) - default for routine queries
-2. Complex: Large local model (Mixtral 8x7B) - for complex reasoning (when 64GB RAM available)
-3. Cloud: Cloud LLM provider - for full cloud mode or smart spillover after local failure
+1. Primary: Fast local model (Qwen 3.5 9B) - default for routine queries
+2. Coding: Code specialist (Qwen 2.5 Coder 7B) - for programming tasks
+3. Complex: Large local model (Mixtral 8x7B) - for complex reasoning (when 64GB RAM available)
+4. Cloud: Cloud LLM provider - for full cloud mode or smart spillover after local failure
 """
 
 import re
@@ -26,7 +27,8 @@ from hestia.logging import get_logger, LogComponent, EventType
 
 class ModelTier(Enum):
     """Model tiers for routing."""
-    PRIMARY = "primary"      # Fast local (Qwen 2.5 7B)
+    PRIMARY = "primary"      # Fast local (Qwen 3.5 9B)
+    CODING = "coding"        # Code specialist (Qwen 2.5 Coder 7B)
     COMPLEX = "complex"      # Large local (Mixtral 8x7B, when 64GB available)
     CLOUD = "cloud"          # Cloud LLM (Anthropic/OpenAI/Google)
 
@@ -115,6 +117,7 @@ class ModelRouter:
         # Track failure counts for escalation
         self._failure_counts: Dict[ModelTier, int] = {
             ModelTier.PRIMARY: 0,
+            ModelTier.CODING: 0,
             ModelTier.COMPLEX: 0,
             ModelTier.CLOUD: 0,
         }
@@ -122,6 +125,7 @@ class ModelRouter:
         # Track last successful inference per tier
         self._last_success: Dict[ModelTier, Optional[datetime]] = {
             ModelTier.PRIMARY: None,
+            ModelTier.CODING: None,
             ModelTier.COMPLEX: None,
             ModelTier.CLOUD: None,
         }
@@ -153,6 +157,16 @@ class ModelRouter:
             temperature=complex_data.get("temperature", 0.0),
             request_timeout=complex_data.get("request_timeout", 300.0),
             enabled=complex_data.get("enabled", False),
+        )
+
+        coding_data = data.get("coding_model", {})
+        self.coding_model = ModelConfig(
+            name=coding_data.get("name", "qwen2.5-coder:7b"),
+            context_limit=coding_data.get("context_limit", 32768),
+            max_tokens=coding_data.get("max_tokens", 4096),
+            temperature=coding_data.get("temperature", 0.0),
+            request_timeout=coding_data.get("request_timeout", 90.0),
+            enabled=coding_data.get("enabled", False),
         )
 
         # Cloud routing config
@@ -243,6 +257,15 @@ class ModelRouter:
             # Otherwise: local first with cloud fallback
             fallback = ModelTier.CLOUD if self.cloud_routing.spillover_on_local_failure else None
 
+            # Check for coding patterns (coding takes priority over complex)
+            if self.coding_model.enabled and self._is_complex_request(prompt, token_count):
+                return RoutingDecision(
+                    tier=ModelTier.CODING,
+                    model_config=self.coding_model,
+                    reason="coding_request_pattern",
+                    fallback_tier=fallback,
+                )
+
             # Check for complex patterns
             if self.complex_model.enabled and self._is_complex_request(prompt, token_count):
                 return RoutingDecision(
@@ -260,6 +283,14 @@ class ModelRouter:
             )
 
         # disabled (or no cloud configured): local-only routing
+        if self.coding_model.enabled and self._is_complex_request(prompt, token_count):
+            return RoutingDecision(
+                tier=ModelTier.CODING,
+                model_config=self.coding_model,
+                reason="coding_request_pattern",
+                fallback_tier=ModelTier.PRIMARY,
+            )
+
         if self.complex_model.enabled and self._is_complex_request(prompt, token_count):
             return RoutingDecision(
                 tier=ModelTier.COMPLEX,
@@ -293,6 +324,7 @@ class ModelRouter:
         """Get model config for a tier."""
         return {
             ModelTier.PRIMARY: self.primary_model,
+            ModelTier.CODING: self.coding_model,
             ModelTier.COMPLEX: self.complex_model,
             ModelTier.CLOUD: self.cloud_model,
         }.get(tier)
@@ -306,6 +338,8 @@ class ModelRouter:
             if cloud_state == "enabled_smart" and self.cloud_routing.spillover_on_local_failure:
                 return ModelTier.CLOUD
             return None
+        elif tier == ModelTier.CODING:
+            return ModelTier.PRIMARY
         elif tier == ModelTier.COMPLEX:
             # Complex falls back to cloud (smart) or primary
             if cloud_state == "enabled_smart" and self.cloud_routing.spillover_on_local_failure:
@@ -356,6 +390,7 @@ class ModelRouter:
         """Reset all failure counts."""
         self._failure_counts = {
             ModelTier.PRIMARY: 0,
+            ModelTier.CODING: 0,
             ModelTier.COMPLEX: 0,
             ModelTier.CLOUD: 0,
         }
@@ -371,6 +406,12 @@ class ModelRouter:
                 "enabled": self.primary_model.enabled,
                 "failures": self._failure_counts.get(ModelTier.PRIMARY, 0),
                 "last_success": self._last_success.get(ModelTier.PRIMARY),
+            },
+            "coding_model": {
+                "name": self.coding_model.name,
+                "enabled": self.coding_model.enabled,
+                "failures": self._failure_counts.get(ModelTier.CODING, 0),
+                "last_success": self._last_success.get(ModelTier.CODING),
             },
             "complex_model": {
                 "name": self.complex_model.name,

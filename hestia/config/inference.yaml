@@ -5,10 +5,11 @@
 # HESTIA INFERENCE ARCHITECTURE
 # =============================================================================
 # Local models via Ollama:
-#   1. Fast local model (Qwen 2.5 7B) for routine queries
-#   2. Large local model (Mixtral 8x7B) for complex reasoning (when 64GB available)
+#   1. Fast local model (Qwen 3.5 9B) for routine queries
+#   2. Code specialist (Qwen 2.5 Coder 7B) for programming tasks
+#   3. Large local model (Mixtral 8x7B) for complex reasoning (when 64GB available)
 # Cloud LLM providers (Anthropic, OpenAI, Google):
-#   3. Cloud inference when enabled (disabled/enabled_full/enabled_smart)
+#   4. Cloud inference when enabled (disabled/enabled_full/enabled_smart)
 # =============================================================================
 
 # Ollama connection settings
@@ -22,7 +23,7 @@ ollama_host: "http://localhost:11434"
 # - Quick responses (2-5s)
 # - Good for: simple questions, summaries, basic tasks
 primary_model:
-  name: "qwen2.5:7b"
+  name: "qwen3.5:9b"
   context_limit: 32768
   max_tokens: 2048
   temperature: 0.0
@@ -45,16 +46,28 @@ complex_model:
   # Currently disabled due to 16GB RAM constraint
   enabled: false
 
+# CODING: Code specialist for programming tasks
+# - Best-in-class code generation at 7B scale (88.4% HumanEval)
+# - Activated by routing.complex_patterns keyword matching
+# - Falls back to primary_model when disabled
+coding_model:
+  name: "qwen2.5-coder:7b"
+  context_limit: 32768
+  max_tokens: 4096
+  temperature: 0.0
+  request_timeout: 90.0
+  enabled: true
+
 # -----------------------------------------------------------------------------
 # Model Router Configuration
 # -----------------------------------------------------------------------------
 
 # Default model for inference (use primary for speed)
-model_name: "qwen2.5:7b"
+model_name: "qwen3.5:9b"
 
 # Routing rules
 routing:
-  # Use complex model for these patterns (when enabled)
+  # Use coding/complex model for these patterns (when enabled)
   complex_patterns:
     - "analyze"
     - "explain in detail"
@@ -62,7 +75,16 @@ routing:
     - "write code"
     - "debug"
     - "review"
-  # Minimum token count to consider complex routing
+    - "refactor"
+    - "implement"
+    - "fix.*bug"
+    - "test.*for"
+    - "function.*that"
+    - "class.*that"
+    - "write.*script"
+    - "code.*review"
+    - "pull request"
+  # Minimum token count to consider complex/coding routing
   complex_token_threshold: 500
 
 # -----------------------------------------------------------------------------

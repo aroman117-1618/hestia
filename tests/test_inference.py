@@ -133,9 +133,10 @@ class TestModelRouter:
         assert decision.reason == "default_primary"
 
     def test_route_complex_patterns(self):
-        # Create router with complex model enabled
+        # Create router with complex model enabled, coding disabled
         router = ModelRouter()
         router.complex_model.enabled = True
+        router.coding_model.enabled = False
 
         # Test pattern matching
         decision = router.route(prompt="Please analyze this code", token_count=100)
@@ -145,6 +146,7 @@ class TestModelRouter:
     def test_route_token_threshold(self):
         router = ModelRouter()
         router.complex_model.enabled = True
+        router.coding_model.enabled = False
 
         # Below threshold - should use primary
         decision = router.route(prompt="Short query", token_count=100)
@@ -172,6 +174,33 @@ class TestModelRouter:
         assert "complex_model" in status
         assert "architecture" in status
         assert status["architecture"] == "local-only"
+
+
+class TestCodingTier:
+    """Tests for CODING model tier routing."""
+
+    def test_coding_tier_routes_code_patterns(self):
+        """Coding model is selected for code-related prompts when enabled."""
+        router = ModelRouter()
+        assert router.coding_model is not None
+        assert router.coding_model.enabled is True
+        decision = router.route("write code for a REST endpoint")
+        assert decision.tier == ModelTier.CODING
+        assert decision.model_config.name == "qwen2.5-coder:7b"
+
+    def test_coding_tier_fallback_when_disabled(self):
+        """Falls back to primary when coding model is disabled."""
+        router = ModelRouter()
+        router.coding_model.enabled = False
+        decision = router.route("write code for a REST endpoint")
+        assert decision.tier == ModelTier.PRIMARY
+
+    def test_coding_tier_in_config_for_tier(self):
+        """_get_config_for_tier returns coding model."""
+        router = ModelRouter()
+        config = router._get_config_for_tier(ModelTier.CODING)
+        assert config is not None
+        assert config.name == "qwen2.5-coder:7b"
 
 
 class TestLocalInference:
