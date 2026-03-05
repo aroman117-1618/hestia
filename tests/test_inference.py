@@ -409,6 +409,7 @@ class TestNativeToolCalling:
         await client.close()
 
 
+@pytest.mark.integration
 class TestInferenceClientIntegration:
     """
     Integration tests that require Ollama running.
