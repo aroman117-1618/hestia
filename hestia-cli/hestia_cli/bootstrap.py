@@ -154,6 +154,99 @@ async def ensure_server_running(
     return False
 
 
+def _get_required_models() -> list[str]:
+    """Read required model names from inference.yaml."""
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    config_path = os.path.join(project_root, "hestia", "config", "inference.yaml")
+
+    try:
+        import yaml
+        with open(config_path) as f:
+            data = yaml.safe_load(f) or {}
+    except Exception:
+        # Fallback if yaml not available or file missing
+        return ["qwen3.5:9b", "qwen2.5-coder:7b", "qwen2.5:0.5b"]
+
+    models = []
+    for key in ("primary_model", "coding_model"):
+        block = data.get(key, {})
+        if block.get("enabled", True) and block.get("name"):
+            models.append(block["name"])
+    # Council SLM
+    council = data.get("council", {})
+    slm = council.get("local_slm_model")
+    if slm:
+        models.append(slm)
+    return models
+
+
+def _get_installed_models() -> set[str]:
+    """Get set of model names currently installed in Ollama."""
+    try:
+        result = subprocess.run(
+            ["ollama", "list"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode != 0:
+            return set()
+        # Parse output: first column is "name:tag", skip header
+        models = set()
+        for line in result.stdout.strip().split("\n")[1:]:
+            parts = line.split()
+            if parts:
+                models.add(parts[0])
+        return models
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return set()
+
+
+async def ensure_models_available(console: Console) -> bool:
+    """
+    Check that required Ollama models are installed and pull any missing ones.
+
+    Returns True if all models are available (or were successfully pulled).
+    Returns False if Ollama is not installed or a pull fails.
+    """
+    # Check if ollama is installed
+    try:
+        subprocess.run(["ollama", "--version"], capture_output=True, timeout=5)
+    except FileNotFoundError:
+        console.print("[red]Ollama not found.[/red]")
+        console.print("[dim]Install from https://ollama.com and try again.[/dim]")
+        return False
+    except subprocess.TimeoutExpired:
+        return False
+
+    required = _get_required_models()
+    installed = _get_installed_models()
+
+    missing = [m for m in required if m not in installed]
+    if not missing:
+        return True
+
+    console.print(f"  [yellow]Missing models:[/yellow] {', '.join(missing)}")
+
+    for model in missing:
+        with console.status(f"[bold cyan]Pulling {model}...", spinner="dots"):
+            try:
+                result = subprocess.run(
+                    ["ollama", "pull", model],
+                    capture_output=True, text=True, timeout=600,
+                )
+                if result.returncode != 0:
+                    console.print(f"  [red]Failed to pull {model}[/red]")
+                    if result.stderr:
+                        console.print(f"  [dim]{result.stderr.strip()[:200]}[/dim]")
+                    return False
+            except subprocess.TimeoutExpired:
+                console.print(f"  [red]Timeout pulling {model} (10 min limit)[/red]")
+                return False
+
+        console.print(f"  [green]Pulled {model}[/green]")
+
+    return True
+
+
 async def ensure_authenticated(
     server_url: str,
     verify_ssl: bool,

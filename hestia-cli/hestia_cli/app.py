@@ -100,11 +100,14 @@ async def _batch_mode(
         client.mode = mode
 
     # Bootstrap: ensure server is running and we're authenticated
-    from hestia_cli.bootstrap import ensure_server_running, ensure_authenticated
+    from hestia_cli.bootstrap import ensure_server_running, ensure_authenticated, ensure_models_available
     from hestia_cli.config import load_config
     from hestia_cli.context import get_repo_context
     config = load_config()
     auto_start = config.get("server", {}).get("auto_start", True)
+    models_ok = await ensure_models_available(con)
+    if not models_ok:
+        sys.exit(1)
     server_ok = await ensure_server_running(client.server_url, client.verify_ssl, con, auto_start=auto_start)
     if not server_ok:
         sys.exit(1)
@@ -263,12 +266,16 @@ def setup_default(ctx: typer.Context):
 
 async def _setup_full() -> None:
     """Full setup: ensure server running + ensure authenticated."""
-    from hestia_cli.bootstrap import ensure_server_running, ensure_authenticated
+    from hestia_cli.bootstrap import ensure_server_running, ensure_authenticated, ensure_models_available
     from hestia_cli.config import load_config as _load_config, get_server_url, get_verify_ssl
 
     config = _load_config()
     server_url = get_server_url(config)
     verify_ssl = get_verify_ssl(config)
+
+    models_ok = await ensure_models_available(console)
+    if not models_ok:
+        raise typer.Exit(1)
 
     server_ok = await ensure_server_running(server_url, verify_ssl, console, auto_start=True)
     if not server_ok:
