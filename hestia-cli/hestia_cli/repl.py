@@ -42,6 +42,7 @@ async def repl_loop(client: HestiaWSClient, console: Console) -> None:
             server_url=client.server_url,
             mode=client.mode,
             device_id=client.device_id,
+            trust_tiers=client.trust_tiers,
         )
     except AuthenticationError as e:
         console.print(f"[red]Authentication failed: {e}[/red]")
@@ -150,12 +151,19 @@ async def repl_loop(client: HestiaWSClient, console: Console) -> None:
 
 
 async def _prompt_tool_approval(session: PromptSession, console: Console) -> bool:
-    """Prompt user for tool approval. Returns True if approved."""
+    """
+    Prompt user for tool approval. Returns True if approved.
+
+    Options: y(es), n(o), a(lways for this tier — future Sprint 3C).
+    """
     try:
         with patch_stdout():
             response = await session.prompt_async(
-                "Execute? [y/n] > "
+                "Execute? [y/n/a(lways)] > "
             )
-        return response.strip().lower() in ("y", "yes")
+        answer = response.strip().lower()
+        # TODO (Sprint 3C): "a" / "always" should upgrade the tier to auto
+        # and persist via /trust save. For now, treat as "yes for this call".
+        return answer in ("y", "yes", "a", "always")
     except (KeyboardInterrupt, EOFError):
         return False

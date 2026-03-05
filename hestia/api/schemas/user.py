@@ -87,11 +87,20 @@ class UserSettingsResponse(BaseModel):
     auto_lock_timeout_minutes: int = Field(description="Auto-lock timeout")
 
 
+class ToolTrustTiersSchema(BaseModel):
+    """Tool trust tier configuration for per-device tool approval."""
+    read: Optional[str] = Field(None, pattern="^(auto|prompt)$")
+    write: Optional[str] = Field(None, pattern="^(auto|prompt)$")
+    execute: Optional[str] = Field(None, pattern="^(auto|prompt)$")
+    external: Optional[str] = Field(None, pattern="^(auto|prompt)$")
+
+
 class UserSettingsUpdateRequest(BaseModel):
     """Request to update user settings."""
     push_notifications: Optional[PushNotificationSettings] = Field(None)
     default_mode: Optional[ModeEnum] = Field(None)
     auto_lock_timeout_minutes: Optional[int] = Field(None, ge=1, le=60)
+    tool_trust_tiers: Optional[ToolTrustTiersSchema] = Field(None)
 
 
 class UserSettingsUpdateResponse(BaseModel):

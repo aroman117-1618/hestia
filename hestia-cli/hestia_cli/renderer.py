@@ -69,6 +69,7 @@ class HestiaRenderer:
         server_url: str,
         mode: str,
         device_id: Optional[str] = None,
+        trust_tiers: Optional[Dict[str, str]] = None,
     ) -> None:
         """Render the startup banner."""
         self.console.print()
@@ -78,6 +79,12 @@ class HestiaRenderer:
         info_parts = [f"[yellow]@{mode}[/yellow]"]
         if device_id:
             info_parts.append(f"device:{device_id[:8]}")
+        if trust_tiers:
+            tier_summary = " ".join(
+                f"{k}={'[green]auto[/green]' if v == 'auto' else '[yellow]prompt[/yellow]'}"
+                for k, v in trust_tiers.items()
+            )
+            info_parts.append(f"trust: {tier_summary}")
         self.console.print(" | ".join(info_parts))
         self.console.print(
             "[dim]Type a message to chat. /help for commands. Ctrl+C to cancel. Ctrl+D to exit.[/dim]"

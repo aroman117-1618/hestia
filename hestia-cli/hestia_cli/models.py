@@ -50,6 +50,7 @@ class AuthResult(BaseModel):
     success: bool
     device_id: Optional[str] = None
     error: Optional[str] = None
+    trust_tiers: Optional[Dict[str, str]] = None
 
 
 class ToolRequest(BaseModel):

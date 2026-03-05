@@ -557,6 +557,21 @@ IMPORTANT RULES:
             # Step 3: State tracking
             self.state_machine.start_processing(task)
 
+            # Step 3.5: Load trust tiers for tool approval decisions
+            trust_tiers = None
+            try:
+                from hestia.user import get_user_manager
+                from hestia.user.models import ToolTrustTiers
+                user_mgr = await get_user_manager()
+                user_settings = await user_mgr.get_settings()
+                trust_tiers = user_settings.get_tool_trust_tiers()
+            except Exception as e:
+                self.logger.warning(
+                    f"Could not load trust tiers: {type(e).__name__}",
+                    component=LogComponent.ORCHESTRATION,
+                    data={"request_id": request.id},
+                )
+
             # Step 4: Session/conversation with TTL
             conversation = await self._get_or_create_conversation_with_ttl(
                 request.session_id
@@ -769,7 +784,7 @@ IMPORTANT RULES:
                 yield {"type": "status", "stage": "tools", "detail": "Executing tool calls"}
                 tool_result = await self._execute_streaming_tool_calls(
                     inference_response.tool_calls, request, task,
-                    tool_approval_callback,
+                    tool_approval_callback, trust_tiers,
                 )
             # Priority 2: Council Analyzer tool extraction
             elif (
@@ -880,9 +895,13 @@ IMPORTANT RULES:
         request: Request,
         task: Task,
         tool_approval_callback: Optional[Callable] = None,
+        trust_tiers: Optional["ToolTrustTiers"] = None,
     ) -> Optional[str]:
         """
         Execute native tool calls with optional approval callback for streaming.
+
+        Uses trust_tiers to auto-approve tools in trusted categories.
+        Falls back to tool_approval_callback for tools needing explicit approval.
 
         Similar to _execute_native_tool_calls but yields approval requests
         when a callback is provided.
@@ -920,15 +939,31 @@ IMPORTANT RULES:
 
                 tool = registry.get(tool_name)
 
-                # Check approval if callback provided and tool requires it
-                if tool_approval_callback and tool and tool.requires_approval:
-                    call_id = f"tc-{request.id[:8]}-{tool_name}"
-                    approved = await tool_approval_callback(
-                        call_id, tool_name, arguments, tool.category
-                    )
-                    if not approved:
-                        results.append(f"Tool {tool_name} was denied by user.")
-                        continue
+                # Trust tier check: auto-approve if tier allows it
+                if tool and tool.requires_approval:
+                    auto_approved = False
+                    if trust_tiers:
+                        auto_approved = trust_tiers.should_auto_approve(
+                            tool.category, tool.requires_approval
+                        )
+
+                    if auto_approved:
+                        self.logger.info(
+                            f"Streaming: auto-approved tool via trust tier: {tool_name}",
+                            component=LogComponent.ORCHESTRATION,
+                            data={"request_id": request.id, "category": tool.category},
+                        )
+                    elif tool_approval_callback:
+                        call_id = f"tc-{request.id[:8]}-{tool_name}"
+                        tier_name = trust_tiers.get_tier_for_tool(
+                            tool.category, tool.requires_approval
+                        ) if trust_tiers else "unknown"
+                        approved = await tool_approval_callback(
+                            call_id, tool_name, arguments, tier_name
+                        )
+                        if not approved:
+                            results.append(f"Tool {tool_name} was denied by user.")
+                            continue
 
                 self.logger.info(
                     f"Streaming: executing tool: {tool_name}",

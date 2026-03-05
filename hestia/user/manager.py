@@ -212,6 +212,7 @@ class UserManager:
         push_notifications: Optional[PushNotificationSettings] = None,
         default_mode: Optional[str] = None,
         auto_lock_timeout_minutes: Optional[int] = None,
+        tool_trust_tiers: Optional[Dict[str, Any]] = None,
     ) -> UserSettings:
         """
         Update user settings.
@@ -220,6 +221,7 @@ class UserManager:
             push_notifications: New push settings (optional).
             default_mode: New default mode (optional).
             auto_lock_timeout_minutes: New auto-lock timeout (optional).
+            tool_trust_tiers: New trust tier dict (optional).
 
         Returns:
             Updated UserSettings.
@@ -233,6 +235,8 @@ class UserManager:
             settings.default_mode = default_mode
         if auto_lock_timeout_minutes is not None:
             settings.auto_lock_timeout_minutes = auto_lock_timeout_minutes
+        if tool_trust_tiers is not None:
+            settings.tool_trust_tiers = tool_trust_tiers
 
         profile.updated_at = datetime.now(timezone.utc)
 

@@ -169,11 +169,22 @@ async def _authenticate(conn: WSConnection) -> Optional[str]:
         # Check revocation
         await check_device_revocation(device_id)
 
+        # Load trust tiers for the auth response
+        trust_tiers_dict = {}
+        try:
+            from hestia.user import get_user_manager
+            user_mgr = await get_user_manager()
+            user_settings = await user_mgr.get_settings()
+            trust_tiers_dict = user_settings.get_tool_trust_tiers().to_dict()
+        except Exception:
+            pass  # Defaults will be used
+
         # Auth success
         await conn.websocket.send_json({
             "type": "auth_result",
             "success": True,
             "device_id": device_id,
+            "trust_tiers": trust_tiers_dict,
         })
 
         conn.touch()

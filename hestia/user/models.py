@@ -95,6 +95,58 @@ class PushNotificationSettings:
 
 
 @dataclass
+class ToolTrustTiers:
+    """Per-device tool approval tiers. Controls which tools auto-execute vs prompt."""
+    read: str = "auto"       # auto | prompt — list/get operations
+    write: str = "prompt"    # auto | prompt — create/modify operations
+    execute: str = "prompt"  # auto | prompt — shell commands, git operations
+    external: str = "prompt" # auto | prompt — send email, external API calls
+
+    # Maps tool categories to trust tiers
+    CATEGORY_TO_TIER: Dict[str, str] = field(default_factory=lambda: {
+        "calendar": "write",
+        "reminders": "write",
+        "notes": "write",
+        "mail": "external",
+        "file": "write",
+        "shell": "execute",
+        "health": "read",
+        "general": "read",
+    })
+
+    def get_tier_for_tool(self, category: str, requires_approval: bool) -> str:
+        """Determine trust tier for a tool based on category and approval requirement."""
+        if not requires_approval:
+            return "read"  # Non-approval tools are always read tier
+        return self.CATEGORY_TO_TIER.get(category, "write")
+
+    def should_auto_approve(self, category: str, requires_approval: bool) -> bool:
+        """Check if a tool should auto-execute without prompting."""
+        tier = self.get_tier_for_tool(category, requires_approval)
+        tier_setting = getattr(self, tier, "prompt")
+        return tier_setting == "auto"
+
+    def to_dict(self) -> Dict[str, str]:
+        """Convert to dictionary (excludes CATEGORY_TO_TIER — that's static)."""
+        return {
+            "read": self.read,
+            "write": self.write,
+            "execute": self.execute,
+            "external": self.external,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ToolTrustTiers":
+        """Create from dictionary."""
+        return cls(
+            read=data.get("read", "auto"),
+            write=data.get("write", "prompt"),
+            execute=data.get("execute", "prompt"),
+            external=data.get("external", "prompt"),
+        )
+
+
+@dataclass
 class UserSettings:
     """
     User preference settings.
@@ -106,6 +158,7 @@ class UserSettings:
     auto_lock_timeout_minutes: int = 5
     timezone: str = "America/Los_Angeles"  # IANA timezone (from USER-IDENTITY.md)
     file_settings: Optional[Dict[str, Any]] = None  # FileSettings stored as dict to avoid circular import
+    tool_trust_tiers: Optional[Dict[str, Any]] = None  # ToolTrustTiers stored as dict
     experimental_chat_v2: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
@@ -119,6 +172,8 @@ class UserSettings:
         }
         if self.file_settings is not None:
             result["file_settings"] = self.file_settings
+        if self.tool_trust_tiers is not None:
+            result["tool_trust_tiers"] = self.tool_trust_tiers
         return result
 
     @classmethod
@@ -134,6 +189,7 @@ class UserSettings:
             auto_lock_timeout_minutes=data.get("auto_lock_timeout_minutes", 5),
             timezone=data.get("timezone", "America/Los_Angeles"),
             file_settings=data.get("file_settings"),
+            tool_trust_tiers=data.get("tool_trust_tiers"),
             experimental_chat_v2=data.get("experimental_chat_v2", False),
         )
 
@@ -147,6 +203,16 @@ class UserSettings:
     def set_file_settings(self, settings: "FileSettings") -> None:
         """Store FileSettings as dict."""
         self.file_settings = settings.to_dict()
+
+    def get_tool_trust_tiers(self) -> ToolTrustTiers:
+        """Get ToolTrustTiers, constructing from stored dict or defaults."""
+        if self.tool_trust_tiers is not None:
+            return ToolTrustTiers.from_dict(self.tool_trust_tiers)
+        return ToolTrustTiers()
+
+    def set_tool_trust_tiers(self, tiers: ToolTrustTiers) -> None:
+        """Store ToolTrustTiers as dict."""
+        self.tool_trust_tiers = tiers.to_dict()
 
 
 @dataclass

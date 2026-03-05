@@ -306,6 +306,13 @@ async def update_settings(
         kwargs["default_mode"] = request.default_mode.value
     if request.auto_lock_timeout_minutes is not None:
         kwargs["auto_lock_timeout_minutes"] = request.auto_lock_timeout_minutes
+    if request.tool_trust_tiers is not None:
+        # Merge provided fields into existing tiers (partial update)
+        existing = (await manager.get_settings()).get_tool_trust_tiers()
+        tiers_dict = existing.to_dict()
+        update = request.tool_trust_tiers.model_dump(exclude_none=True)
+        tiers_dict.update(update)
+        kwargs["tool_trust_tiers"] = tiers_dict
 
     settings = await manager.update_settings(**kwargs)
 

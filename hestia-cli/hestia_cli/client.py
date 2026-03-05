@@ -46,6 +46,7 @@ class HestiaWSClient:
         self.verify_ssl = verify_ssl if verify_ssl is not None else get_verify_ssl(config)
         self.device_id: Optional[str] = None
         self.mode: str = config.get("preferences", {}).get("default_mode", "tia")
+        self.trust_tiers: Dict[str, str] = {}
         self._ws: Optional[websockets.WebSocketClientProtocol] = None
         self._connected = False
         self._session_id: Optional[str] = None
@@ -122,6 +123,7 @@ class HestiaWSClient:
 
         self._connected = True
         self.device_id = result.device_id or get_stored_device_id()
+        self.trust_tiers = result.trust_tiers or {}
         return result
 
     async def send_message(
