@@ -6,10 +6,11 @@ Request -> Validation -> Memory Retrieval -> Prompt Building -> Inference -> [To
 """
 
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncGenerator, Callable, Dict, List, Optional, Union
 
 from hestia.logging import get_logger, LogComponent
 from hestia.inference import get_inference_client, InferenceClient, Message
+from hestia.inference.client import InferenceResponse
 from hestia.memory import get_memory_manager, MemoryManager
 from hestia.orchestration.models import (
     Request,
@@ -513,6 +514,457 @@ IMPORTANT RULES:
                 "An error occurred processing your request.",
                 start_time
             )
+
+    async def handle_streaming(
+        self,
+        request: Request,
+        tool_approval_callback: Optional[Callable] = None,
+    ) -> AsyncGenerator[dict, None]:
+        """
+        Stream a request through the pipeline, yielding WebSocket protocol events.
+
+        Parallel to handle() — reuses the same internal methods but yields events
+        instead of returning a complete Response. The existing handle() is untouched.
+
+        Args:
+            request: The incoming request.
+            tool_approval_callback: Optional async callable that takes (call_id, tool_name, arguments, tier)
+                and returns True/False for approval. If None, all tools auto-execute.
+
+        Yields:
+            dict: WebSocket protocol events with "type" key.
+        """
+        start_time = time.time()
+        task = self.state_machine.create_task(request)
+
+        try:
+            # Step 1: Validate request
+            yield {"type": "status", "stage": "validating", "detail": "Validating request"}
+            validation_result = self._validation_pipeline.validate_request(request)
+            if not validation_result.valid:
+                yield {
+                    "type": "error",
+                    "code": "validation_error",
+                    "message": validation_result.message or "Invalid request",
+                }
+                return
+
+            # Step 2: Process mode switching
+            mode, cleaned_content = self._mode_manager.process_mode_switch(request.content)
+            request.mode = mode
+            request.content = cleaned_content
+
+            # Step 3: State tracking
+            self.state_machine.start_processing(task)
+
+            # Step 4: Session/conversation with TTL
+            conversation = await self._get_or_create_conversation_with_ttl(
+                request.session_id
+            )
+            conversation.mode = mode
+
+            # Periodic cleanup
+            self._handle_count += 1
+            if self._handle_count % self._CLEANUP_INTERVAL == 0:
+                timeout = await self._get_session_timeout()
+                self._cleanup_expired_sessions(timeout)
+
+            # Step 4.5: Response cache check
+            force_local = request.force_local
+            if not force_local:
+                cache = get_response_cache()
+                cached = await cache.get(request.content, conversation)
+                if cached:
+                    # Stream cached response as tokens
+                    yield {"type": "status", "stage": "cache_hit", "detail": "Serving cached response"}
+                    # Yield cached content in chunks for streaming feel
+                    chunk_size = 50
+                    for i in range(0, len(cached.content), chunk_size):
+                        yield {"type": "token", "content": cached.content[i:i + chunk_size], "request_id": request.id}
+                    self.state_machine.complete(task, Response(
+                        request_id=request.id, content=cached.content,
+                        response_type=ResponseType.TEXT, mode=request.mode,
+                        tokens_in=cached.tokens_in, tokens_out=cached.tokens_out,
+                        duration_ms=(time.time() - start_time) * 1000,
+                    ))
+                    yield {
+                        "type": "done", "request_id": request.id,
+                        "metrics": {"tokens_in": cached.tokens_in, "tokens_out": cached.tokens_out,
+                                    "duration_ms": (time.time() - start_time) * 1000, "cached": True},
+                        "mode": request.mode.value,
+                    }
+                    return
+
+            # Step 5: Privacy routing
+            will_use_cloud = self._will_route_to_cloud(request.content, force_local)
+
+            # Step 5.5: Memory retrieval
+            yield {"type": "status", "stage": "memory", "detail": "Retrieving memory context"}
+            memory = await self._get_memory_manager()
+            memory_context = await memory.build_context(
+                query=request.content,
+                max_tokens=4000,
+                include_recent=True,
+                cloud_safe=will_use_cloud,
+            )
+
+            # Step 6: Build prompt (same as handle())
+            yield {"type": "status", "stage": "building_prompt", "detail": "Building prompt"}
+            tool_instructions = """
+## Tool Usage Rules
+
+You have access to tools for interacting with Apple ecosystem apps. When the user asks about their data, you MUST use the appropriate tool. NEVER make up placeholder information.
+
+IMPORTANT RULES:
+1. When asked about calendar/schedule/events - use list_events or get_today_events
+2. When asked about reminders/tasks/todos - use list_reminders or get_due_reminders
+3. When asked about notes - use list_notes or search_notes
+4. When asked about email - use get_recent_emails or search_emails
+5. NEVER say you don't have access or ask for email addresses - just use the tools
+6. If a tool fails, tell the user what went wrong
+"""
+            # Load user profile context
+            user_profile_context = ""
+            command_system_instructions = ""
+            try:
+                from hestia.user.config_loader import get_user_config_loader
+                from hestia.user.config_models import TOPIC_KEYWORDS, UserConfigFile
+                user_loader = await get_user_config_loader()
+                user_config = await user_loader.load()
+
+                if will_use_cloud:
+                    user_profile_context = user_config.get_cloud_safe_context()
+                else:
+                    user_profile_context = user_config.context_block
+
+                # Keyword-based topic detection
+                msg_lower = request.content.lower()
+                topic_files = []
+                for config_file, keywords in TOPIC_KEYWORDS.items():
+                    if any(kw in msg_lower for kw in keywords):
+                        topic_files.append(config_file)
+                if topic_files:
+                    topic_context = user_config.get_topic_context(topic_files)
+                    if topic_context:
+                        user_profile_context = f"{user_profile_context}\n\n{topic_context}" if user_profile_context else topic_context
+
+                # Command expansion
+                if request.content.strip().startswith("/"):
+                    parts = request.content.strip().split(None, 1)
+                    cmd_name = parts[0].lstrip("/")
+                    cmd_args = parts[1] if len(parts) > 1 else ""
+                    cmd = await user_loader.get_command(cmd_name)
+                    if cmd:
+                        command_system_instructions = cmd.system_instructions
+                        if cmd_args:
+                            request.content = cmd.expand(cmd_args)
+            except Exception as e:
+                self.logger.warning(
+                    f"Failed to load user profile for streaming: {type(e).__name__}",
+                    component=LogComponent.ORCHESTRATION,
+                    data={"request_id": request.id},
+                )
+
+            combined_instructions = tool_instructions
+            if command_system_instructions:
+                combined_instructions = f"{tool_instructions}\n\n## Command Mode\n\n{command_system_instructions}"
+
+            messages, prompt_components = self._prompt_builder.build(
+                request=request,
+                memory_context=memory_context,
+                conversation=conversation,
+                additional_system_instructions=combined_instructions,
+                cloud_safe=will_use_cloud,
+                user_profile_context=user_profile_context,
+            )
+
+            # Token budget check
+            budget_status = self._prompt_builder.check_budget(prompt_components)
+            if budget_status["exceeded"]:
+                self.logger.warning(
+                    f"Token budget exceeded: {budget_status['total_tokens']}/{budget_status['budget']}",
+                    component=LogComponent.ORCHESTRATION,
+                    data={"request_id": request.id}
+                )
+
+            # Step 6.5: Council intent classification
+            yield {"type": "status", "stage": "council", "detail": "Classifying intent"}
+            intent = None
+            try:
+                council = self._get_council_manager()
+                intent = await council.classify_intent(request.content)
+                task.context["intent"] = {
+                    "type": intent.primary_intent.value,
+                    "confidence": intent.confidence,
+                }
+            except Exception as e:
+                self.logger.warning(
+                    f"Council intent classification failed: {type(e).__name__}",
+                    component=LogComponent.ORCHESTRATION,
+                    data={"request_id": request.id},
+                )
+
+            # Step 7: Streaming inference
+            yield {"type": "status", "stage": "inference", "detail": "Generating response"}
+
+            temperature = self._mode_manager.get_temperature(request.mode)
+            max_tokens = self._prompt_builder.estimate_response_budget(prompt_components)
+            registry = get_tool_registry()
+            tool_definitions = registry.get_definitions_as_list()
+
+            # Stream tokens from inference
+            content_buffer = ""
+            inference_response = None
+
+            async for item in self.inference_client.chat_stream(
+                messages=messages,
+                system=None,  # System prompt already in messages from prompt_builder
+                temperature=temperature,
+                max_tokens=max_tokens,
+                tools=tool_definitions if tool_definitions else None,
+            ):
+                if isinstance(item, str):
+                    content_buffer += item
+                    yield {"type": "token", "content": item, "request_id": request.id}
+                elif isinstance(item, InferenceResponse):
+                    inference_response = item
+
+            # Fallback if no InferenceResponse received (shouldn't happen but defensive)
+            if inference_response is None:
+                inference_response = InferenceResponse(
+                    content=content_buffer, model="unknown",
+                    tokens_in=0, tokens_out=0, duration_ms=0,
+                )
+
+            content = inference_response.content
+
+            # Step 7.25: Local persona re-render for cloud responses (non-CHAT only)
+            if (
+                will_use_cloud
+                and intent
+                and intent.primary_intent != IntentType.CHAT
+                and not self._looks_like_tool_call(content)
+                and not inference_response.tool_calls
+            ):
+                content = await self._apply_local_persona(content, request)
+
+            # Step 7.5: Council post-inference
+            council_result = None
+            try:
+                council = self._get_council_manager()
+                council_result = await council.run_council(
+                    user_message=request.content,
+                    inference_response=content,
+                    mode=request.mode.value,
+                    intent=intent,
+                )
+            except Exception:
+                pass
+
+            # Step 7.75: Tool execution (3-tier priority — same as handle())
+            tool_result = None
+
+            # Priority 1: Native tool calls from Ollama API
+            if inference_response.tool_calls:
+                yield {"type": "status", "stage": "tools", "detail": "Executing tool calls"}
+                tool_result = await self._execute_streaming_tool_calls(
+                    inference_response.tool_calls, request, task,
+                    tool_approval_callback,
+                )
+            # Priority 2: Council Analyzer tool extraction
+            elif (
+                council_result
+                and council_result.tool_extraction
+                and council_result.tool_extraction.tool_calls
+                and council_result.tool_extraction.confidence > 0.7
+            ):
+                yield {"type": "status", "stage": "tools", "detail": "Executing tool calls"}
+                tool_result = await self._execute_council_tools(
+                    council_result.tool_extraction.tool_calls, request, task
+                )
+            else:
+                # Priority 3: Text regex fallback
+                tool_result = await self._try_execute_tool_from_response(content, request, task)
+
+            if tool_result is not None:
+                # Yield the tool result
+                yield {"type": "tool_result", "call_id": "aggregate", "status": "success", "output": tool_result}
+
+                # Synthesize response with personality (non-streaming for v1)
+                synthesized = None
+                try:
+                    if council_result and not council_result.fallback_used:
+                        council = self._get_council_manager()
+                        synthesized = await council.synthesize_response(
+                            user_message=request.content,
+                            tool_result=tool_result,
+                            mode=request.mode.value,
+                        )
+                except Exception:
+                    pass
+
+                if not synthesized:
+                    synthesized = await self._format_tool_result_with_personality(
+                        tool_result, request, messages, temperature, max_tokens
+                    )
+
+                # Stream the synthesized response as tokens
+                chunk_size = 50
+                for i in range(0, len(synthesized), chunk_size):
+                    yield {"type": "token", "content": synthesized[i:i + chunk_size], "request_id": request.id}
+
+                final_content = synthesized
+            else:
+                # Handle raw tool call JSON (don't show to user)
+                if inference_response.tool_calls or self._looks_like_tool_call(content):
+                    fallback_msg = "I tried to help with that, but encountered an issue executing the action. Let me try a different approach - could you rephrase your request?"
+                    yield {"type": "token", "content": fallback_msg, "request_id": request.id}
+                    final_content = fallback_msg
+                else:
+                    final_content = content
+
+            # Step 8: Store conversation in memory
+            response = Response(
+                request_id=request.id,
+                content=final_content,
+                response_type=ResponseType.TEXT,
+                mode=request.mode,
+                tokens_in=inference_response.tokens_in,
+                tokens_out=inference_response.tokens_out,
+                duration_ms=(time.time() - start_time) * 1000,
+            )
+            await self._store_conversation(request, response, memory)
+
+            # Step 9: Update conversation history
+            conversation.add_turn(request.content, final_content)
+
+            # Step 9.5: Cache
+            if response.response_type == ResponseType.TEXT and not force_local:
+                cache = get_response_cache()
+                await cache.put(
+                    request.content, conversation, final_content,
+                    inference_response.tokens_in or 0, inference_response.tokens_out or 0,
+                )
+
+            # Step 10: Complete
+            self.state_machine.complete(task, response)
+
+            yield {
+                "type": "done",
+                "request_id": request.id,
+                "metrics": {
+                    "tokens_in": inference_response.tokens_in,
+                    "tokens_out": inference_response.tokens_out,
+                    "duration_ms": response.duration_ms,
+                    "model": inference_response.model,
+                },
+                "mode": request.mode.value,
+            }
+
+        except TaskTimeoutError as e:
+            self.state_machine.fail(task, e)
+            yield {"type": "error", "code": "timeout", "message": "Request timed out. Please try again."}
+
+        except Exception as e:
+            self.state_machine.fail(task, e)
+            self.logger.error(
+                f"Streaming request failed: {type(e).__name__}",
+                component=LogComponent.ORCHESTRATION,
+                data={"request_id": request.id, "error_type": type(e).__name__}
+            )
+            yield {"type": "error", "code": "internal_error", "message": "An error occurred processing your request."}
+
+    async def _execute_streaming_tool_calls(
+        self,
+        tool_calls: List[Dict[str, Any]],
+        request: Request,
+        task: Task,
+        tool_approval_callback: Optional[Callable] = None,
+    ) -> Optional[str]:
+        """
+        Execute native tool calls with optional approval callback for streaming.
+
+        Similar to _execute_native_tool_calls but yields approval requests
+        when a callback is provided.
+        """
+        import json
+
+        executor = await self._get_tool_executor()
+        registry = get_tool_registry()
+        results = []
+
+        for tc in tool_calls:
+            try:
+                func = tc.get("function", {})
+                tool_name = func.get("name", "")
+                arguments = func.get("arguments", {})
+
+                if not tool_name:
+                    continue
+
+                # Parse string arguments
+                if isinstance(arguments, str):
+                    try:
+                        arguments = json.loads(arguments)
+                    except (json.JSONDecodeError, TypeError):
+                        arguments = {}
+
+                # Validate tool exists
+                if not registry.has_tool(tool_name):
+                    self.logger.warning(
+                        f"Streaming: unknown tool: {tool_name}",
+                        component=LogComponent.ORCHESTRATION,
+                        data={"request_id": request.id},
+                    )
+                    continue
+
+                tool = registry.get(tool_name)
+
+                # Check approval if callback provided and tool requires it
+                if tool_approval_callback and tool and tool.requires_approval:
+                    call_id = f"tc-{request.id[:8]}-{tool_name}"
+                    approved = await tool_approval_callback(
+                        call_id, tool_name, arguments, tool.category
+                    )
+                    if not approved:
+                        results.append(f"Tool {tool_name} was denied by user.")
+                        continue
+
+                self.logger.info(
+                    f"Streaming: executing tool: {tool_name}",
+                    component=LogComponent.ORCHESTRATION,
+                    data={"request_id": request.id, "tool_name": tool_name, "arguments": arguments},
+                )
+
+                self.state_machine.await_tool(task, tool_name)
+                call = ToolCall.create(tool_name=tool_name, arguments=arguments)
+                result = await executor.execute(call, request.id)
+                self.state_machine.resume_processing(task)
+
+                if result.success:
+                    result_data = result.output
+                    if isinstance(result_data, dict):
+                        results.append(json.dumps(result_data, indent=2))
+                    else:
+                        results.append(str(result_data))
+                else:
+                    error_msg = result.error or "Unknown error"
+                    results.append(f"Tool {tool_name} failed: {error_msg}")
+
+            except Exception as e:
+                self.logger.warning(
+                    f"Error in streaming tool call: {type(e).__name__}",
+                    component=LogComponent.ORCHESTRATION,
+                    data={"request_id": request.id},
+                )
+                try:
+                    self.state_machine.resume_processing(task)
+                except Exception:
+                    pass
+
+        if results:
+            return "\n\n".join(results)
+        return None
 
     async def _run_inference_with_retry(
         self,

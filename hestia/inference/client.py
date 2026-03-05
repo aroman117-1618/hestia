@@ -845,6 +845,264 @@ class InferenceClient:
             )
             raise
 
+    async def chat_stream(
+        self,
+        messages: List[Message],
+        system: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
+    ) -> AsyncGenerator[Union[str, InferenceResponse], None]:
+        """
+        Stream chat tokens as they are generated.
+
+        Uses the same routing logic as chat() to determine local vs cloud,
+        but streams tokens incrementally instead of waiting for complete response.
+
+        For local (Ollama): streams token-by-token from /api/chat with stream=True.
+        For cloud: falls back to non-streaming (yields complete response as single chunk).
+
+        Yields:
+            str: Individual tokens during generation.
+            InferenceResponse: Final yield with aggregated metrics and any tool_calls.
+        """
+        # Count tokens and check limits
+        token_count = self._count_request_tokens("", system, messages)
+        self._check_token_limit(token_count)
+
+        self.logger.info(
+            f"Chat stream request: {len(messages)} messages, {token_count} tokens",
+            component=LogComponent.INFERENCE,
+            event_type=EventType.INFERENCE_REQUEST,
+            data={
+                "message_count": len(messages),
+                "tokens_in": token_count,
+                "streaming": True,
+            }
+        )
+
+        # Determine routing (same logic as _call_with_routing but we need the decision)
+        routing = self.router.route(
+            prompt=messages[-1].content if messages else "",
+            token_count=token_count,
+        )
+
+        self.logger.info(
+            f"Stream routing: {routing.tier.value} ({routing.reason})",
+            component=LogComponent.INFERENCE,
+            data={"tier": routing.tier.value, "model": routing.model_config.name},
+        )
+
+        # Cloud routing: fall back to non-streaming (yield complete response as one chunk)
+        if routing.tier == ModelTier.CLOUD:
+            try:
+                response = await self._call_cloud(
+                    messages=messages,
+                    system=system,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+                self.router.record_success(ModelTier.CLOUD)
+                # Yield the complete content as a single token
+                if response.content:
+                    yield response.content
+                yield response
+                return
+            except Exception as cloud_error:
+                self.router.record_failure(ModelTier.CLOUD)
+                # Try local fallback if available
+                if routing.fallback_tier in (ModelTier.PRIMARY, ModelTier.COMPLEX):
+                    self.logger.info(
+                        f"Cloud stream failed, falling back to local streaming",
+                        component=LogComponent.INFERENCE,
+                    )
+                    model_name = self.router._get_config_for_tier(routing.fallback_tier).name
+                    timeout = self.router._get_config_for_tier(routing.fallback_tier).request_timeout
+                    async for item in self._stream_ollama_chat(
+                        model_name=model_name,
+                        messages=messages,
+                        system=system,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        timeout=timeout,
+                        tier=routing.fallback_tier,
+                        tools=tools,
+                    ):
+                        yield item
+                    return
+                raise
+
+        # Local routing: stream from Ollama
+        try:
+            async for item in self._stream_ollama_chat(
+                model_name=routing.model_config.name,
+                messages=messages,
+                system=system,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                timeout=routing.model_config.request_timeout,
+                tier=routing.tier,
+                tools=tools,
+            ):
+                yield item
+        except (LocalModelFailed, httpx.ConnectError) as local_error:
+            # Try cloud fallback if available
+            if routing.fallback_tier == ModelTier.CLOUD:
+                self.logger.info(
+                    f"Local stream failed, attempting cloud fallback",
+                    component=LogComponent.INFERENCE,
+                )
+                try:
+                    response = await self._call_cloud(
+                        messages=messages,
+                        system=system,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                    )
+                    response.fallback_used = True
+                    self.router.record_success(ModelTier.CLOUD)
+                    if response.content:
+                        yield response.content
+                    yield response
+                    return
+                except Exception:
+                    raise local_error
+            raise
+
+    async def _stream_ollama_chat(
+        self,
+        model_name: str,
+        messages: List[Message],
+        system: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        timeout: Optional[float] = None,
+        tier: Optional[ModelTier] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
+    ) -> AsyncGenerator[Union[str, InferenceResponse], None]:
+        """
+        Stream tokens from Ollama /api/chat endpoint.
+
+        Handles the Ollama streaming protocol: line-delimited JSON with
+        {"message": {"content": "token"}, "done": false} for each chunk
+        and {"done": true, ...metrics...} for the final event.
+
+        Yields:
+            str: Individual tokens.
+            InferenceResponse: Final yield with metrics and tool_calls.
+        """
+        import json as json_mod
+
+        client = await self._get_client(timeout)
+        start_time = time.perf_counter()
+
+        request_data: Dict[str, Any] = {
+            "model": model_name,
+            "stream": True,
+            "messages": [
+                {"role": msg.role, "content": msg.content}
+                for msg in messages
+            ],
+            "options": {
+                "temperature": temperature if temperature is not None else self.config.temperature,
+                "num_predict": max_tokens or self.config.max_tokens,
+                "top_p": self.config.top_p,
+            }
+        }
+
+        if system:
+            request_data["messages"].insert(0, {"role": "system", "content": system})
+
+        if tools:
+            request_data["tools"] = tools
+
+        content_buffer = ""
+        tool_calls_response = None
+        tokens_in = 0
+        tokens_out = 0
+        finish_reason = "stop"
+
+        try:
+            async with client.stream(
+                "POST",
+                f"{self.config.ollama_host}/api/chat",
+                json=request_data,
+            ) as response:
+                response.raise_for_status()
+
+                async for line in response.aiter_lines():
+                    if not line:
+                        continue
+
+                    try:
+                        data = json_mod.loads(line)
+                    except json_mod.JSONDecodeError:
+                        continue
+
+                    # Extract streaming token from message content
+                    message_data = data.get("message", {})
+                    token = message_data.get("content", "")
+
+                    if token:
+                        content_buffer += token
+                        yield token
+
+                    # Check for tool calls in the message
+                    raw_tool_calls = message_data.get("tool_calls")
+                    if raw_tool_calls:
+                        tool_calls_response = raw_tool_calls
+
+                    # Final event with metrics
+                    if data.get("done"):
+                        tokens_in = data.get("prompt_eval_count", 0)
+                        tokens_out = data.get("eval_count", 0)
+                        finish_reason = data.get("done_reason", "stop")
+                        break
+
+        except httpx.ConnectError:
+            raise
+        except httpx.TimeoutException as e:
+            self.logger.warning(
+                f"Ollama stream timeout after {(time.perf_counter() - start_time)*1000:.0f}ms",
+                component=LogComponent.INFERENCE,
+            )
+            raise LocalModelFailed(f"Stream timeout: {type(e).__name__}") from e
+        except httpx.HTTPStatusError as e:
+            raise InferenceError(f"Ollama stream HTTP error: {e.response.status_code}") from e
+
+        duration_ms = (time.perf_counter() - start_time) * 1000
+
+        # Fallback token estimation if Ollama didn't provide counts
+        if tokens_in == 0:
+            tokens_in = self._count_request_tokens("", system, messages)
+        if tokens_out == 0:
+            tokens_out = self.token_counter.count(content_buffer)
+
+        if tier:
+            self.router.record_success(tier)
+
+        # Log completion
+        self.logger.log_inference(
+            model=model_name,
+            tokens_in=tokens_in,
+            tokens_out=tokens_out,
+            duration_ms=duration_ms,
+            success=True,
+        )
+
+        # Final yield: InferenceResponse with aggregated metrics
+        yield InferenceResponse(
+            content=content_buffer,
+            model=model_name,
+            tokens_in=tokens_in,
+            tokens_out=tokens_out,
+            duration_ms=duration_ms,
+            finish_reason=finish_reason,
+            raw_response={},
+            tier=tier.value if tier else None,
+            tool_calls=tool_calls_response,
+        )
+
     def _validate_response(self, response: InferenceResponse) -> None:
         """
         Validate inference response.

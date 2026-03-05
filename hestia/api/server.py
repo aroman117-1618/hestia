@@ -75,6 +75,7 @@ from hestia.api.routes import (
     files_router,
     inbox_router,
     outcomes_router,
+    ws_chat_router,
 )
 from hestia.api.routes.agents_v2 import router as agents_v2_router
 
@@ -155,6 +156,7 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
 # Paths that bypass the readiness gate (health probes, docs, root)
 _READINESS_BYPASS_PATHS = frozenset({
     "/v1/ping", "/v1/ready", "/docs", "/redoc", "/openapi.json", "/",
+    "/v1/ws/chat",  # WebSocket bypasses HTTP middleware, listed for completeness
 })
 
 
@@ -735,6 +737,7 @@ app.include_router(research_router)
 app.include_router(files_router)
 app.include_router(inbox_router)
 app.include_router(outcomes_router)
+app.include_router(ws_chat_router)
 
 
 # Root endpoint

@@ -24,6 +24,7 @@ from .research import router as research_router
 from .files import router as files_router
 from .inbox import router as inbox_router
 from .outcomes import router as outcomes_router
+from .ws_chat import router as ws_chat_router
 
 __all__ = [
     "health_router",
@@ -50,4 +51,5 @@ __all__ = [
     "files_router",
     "inbox_router",
     "outcomes_router",
+    "ws_chat_router",
 ]
