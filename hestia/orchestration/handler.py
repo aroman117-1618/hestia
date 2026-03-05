@@ -684,6 +684,30 @@ IMPORTANT RULES:
             if command_system_instructions:
                 combined_instructions = f"{tool_instructions}\n\n## Command Mode\n\n{command_system_instructions}"
 
+            # Inject CLI development context when available
+            if request.source == RequestSource.CLI and request.context_hints:
+                cli_context_parts = []
+                cwd = request.context_hints.get("cwd")
+                if cwd:
+                    cli_context_parts.append(f"Working directory: {cwd}")
+                git_branch = request.context_hints.get("git_branch")
+                if git_branch:
+                    cli_context_parts.append(f"Git branch: {git_branch}")
+                git_status = request.context_hints.get("git_status_summary")
+                if git_status:
+                    cli_context_parts.append(f"Git status:\n{git_status}")
+
+                # Project file contents for ambient knowledge
+                project_files = request.context_hints.get("project_files", {})
+                if project_files:
+                    for filename, content in project_files.items():
+                        cli_context_parts.append(f"### {filename}\n{content}")
+
+                if cli_context_parts:
+                    dev_context = "\n\n## Development Context\n\n" + "\n\n".join(cli_context_parts)
+                    dev_context += "\n\nYou have file and shell tools available. When the user asks about code, read files for context before suggesting changes."
+                    combined_instructions = f"{combined_instructions}\n{dev_context}"
+
             messages, prompt_components = self._prompt_builder.build(
                 request=request,
                 memory_context=memory_context,

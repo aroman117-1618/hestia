@@ -111,11 +111,18 @@ async def _batch_mode(
             con.print(f"[red]{e}[/red]", file=sys.stderr)
         sys.exit(1)
 
+    # Send repo context in batch mode too
+    from hestia_cli.config import load_config
+    from hestia_cli.context import get_repo_context
+    config = load_config()
+    auto_context = config.get("preferences", {}).get("auto_context", True)
+    context_hints = get_repo_context() if auto_context else {}
+
     response_content = ""
     metrics = {}
     error_msg = None
 
-    async for event in client.send_message(content=message):
+    async for event in client.send_message(content=message, context_hints=context_hints):
         event_type = event.get("type")
 
         if event_type == ServerEventType.TOKEN:
