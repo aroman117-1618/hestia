@@ -13,7 +13,7 @@ User intents:
 - calendar_create: scheduling meetings, creating events, blocking time
 - reminder_query: checking reminders, viewing tasks, asking about todos
 - reminder_create: setting reminders, creating tasks
-- note_search: searching notes, finding saved information
+- note_search: reading a specific note, searching notes, finding saved information
 - note_create: creating or saving notes
 - mail_query: searching emails, checking inbox, asking about messages
 - weather_query: checking weather, forecasts, temperature
@@ -42,23 +42,45 @@ ANALYZER_PROMPT = """You are the Analyzer role in Hestia's council system.
 
 Your job: Extract tool calls from the assistant's response with precision.
 
-Available tools:
-- list_events(days_ahead): List calendar events
-- create_event(title, start_time, end_time): Create calendar event
-- get_today_events(): Get today's events
-- list_reminders(list_name): List reminders
+Available tools by category:
+
+Notes:
+- read_note(query): Read a note by fuzzy title match — PRIMARY tool for reading notes
+- search_notes(query): Search across all notes for a keyword
+- find_note(query): Find a note by title (metadata only)
+- list_notes(folder): List note titles in a folder
+- list_note_folders(): List available folders
+- create_note(title, body, folder): Create a new note
+
+Calendar:
+- get_today_events(): Today's schedule
+- list_events(days_ahead): Upcoming events for N days
+- find_event(query): Find event by name
+- create_event(title, start_time, end_time): Create event
+- list_calendars(): List calendars
+
+Reminders:
+- get_due_reminders(): Reminders due today
+- get_overdue_reminders(): Past-due reminders
+- list_reminders(list_name): List reminders in a list
 - create_reminder(title, due_date, list_name): Create reminder
-- get_due_reminders(): Get due reminders
 - complete_reminder(id): Complete a reminder
-- list_notes(folder): List notes
-- search_notes(query): Search notes
-- create_note(title, body, folder): Create note
-- get_note_content(title): Get note content
-- get_recent_emails(count): Get recent emails
+
+Mail:
+- get_recent_emails(count): Recent emails
 - search_emails(query, sender, days_back): Search emails
-- get_unread_count(): Get unread email count
-- get_weather(location): Get weather
-- get_stock_price(symbol): Get stock price
+- get_unread_count(): Unread count
+- get_flagged_emails(): Flagged emails
+
+Health:
+- get_health_summary(days): Health overview
+- get_health_trend(metric, days): Metric trend
+- get_sleep_analysis(days): Sleep data
+- get_activity_report(days): Activity data
+- get_vitals(days): Heart rate, BP, etc.
+
+Files:
+- read_file(path), write_file(path, content), list_directory(path), search_files(query, path)
 
 You will receive the LLM's raw response. Extract any tool calls it attempted.
 

@@ -40,6 +40,72 @@ from hestia.council.models import IntentClassification, IntentType
 from hestia.orchestration.cache import get_response_cache
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# TOOL USAGE INSTRUCTIONS
+# Injected into every chat system prompt so the LLM knows its capabilities.
+# Grouped by domain with clear routing guidance for local models.
+# ─────────────────────────────────────────────────────────────────────────────
+TOOL_INSTRUCTIONS = """
+## Your Tools
+
+You have 34 tools across 7 categories. When the user asks about their data, you MUST call the appropriate tool. NEVER say you lack access — use the tool.
+
+### Notes (Apple Notes)
+- **read_note(query)** — READ a specific note by name/topic. Fuzzy-matches the title automatically. USE THIS when the user says "show me", "read", "open", "what does my note say", or names a specific note.
+- **search_notes(query)** — SEARCH across all notes for a keyword or phrase.
+- **find_note(query)** — FIND a note by title when you need metadata (folder, dates) without full content.
+- **list_notes(folder)** — LIST all note titles in a folder (or all folders if omitted).
+- **list_note_folders()** — LIST available note folders.
+- **create_note(title, body, folder)** — CREATE a new note.
+
+### Calendar
+- **get_today_events()** — Get today's schedule. Use for "what's on today?" or "my schedule".
+- **list_events(days_ahead)** — List upcoming events for the next N days.
+- **find_event(query)** — Find a specific event by name or keyword.
+- **create_event(title, start_time, end_time)** — Schedule a new event.
+- **list_calendars()** — List available calendars.
+
+### Reminders
+- **get_due_reminders()** — Get reminders due today. Use for "what do I need to do?"
+- **get_overdue_reminders()** — Get overdue/past-due reminders.
+- **list_reminders(list_name)** — List reminders in a specific list.
+- **list_reminder_lists()** — List available reminder lists.
+- **create_reminder(title, due_date, list_name)** — Create a new reminder.
+- **complete_reminder(id)** — Mark a reminder as complete.
+
+### Mail (Apple Mail)
+- **get_recent_emails(count)** — Get the most recent emails.
+- **search_emails(query, sender, days_back)** — Search emails by keyword, sender, or date range.
+- **get_unread_count()** — Get the count of unread emails.
+- **get_flagged_emails()** — Get flagged/starred emails.
+- **list_mailboxes()** — List available mailboxes.
+
+### Health (Apple HealthKit)
+- **get_health_summary(days)** — Overview of recent health metrics.
+- **get_health_trend(metric, days)** — Trend data for a specific metric over time.
+- **get_sleep_analysis(days)** — Sleep duration and quality analysis.
+- **get_activity_report(days)** — Exercise, steps, and activity data.
+- **get_vitals(days)** — Heart rate, blood pressure, and other vitals.
+
+### Files & Shell
+- **read_file(path)** — Read a file from the filesystem.
+- **write_file(path, content)** — Write content to a file.
+- **list_directory(path)** — List files in a directory.
+- **search_files(query, path)** — Search for files by name.
+- **run_command(command)** — Execute a shell command.
+
+### Web Investigation
+- **investigate_url(url)** — Analyze a web article or YouTube video.
+- **investigate_compare(urls)** — Compare multiple sources.
+
+## Rules
+1. ALWAYS use the right tool — never fabricate data or say you can't access something.
+2. For notes: use **read_note** to read, **search_notes** to search, **list_notes** to browse.
+3. If a tool fails, tell the user what went wrong and suggest an alternative.
+4. You can chain tools: e.g., list_notes to find the name, then read_note to get content.
+"""
+
+
 class RequestHandler:
     """
     Main entry point for all requests.
@@ -374,20 +440,10 @@ class RequestHandler:
             )
 
             # Step 6: Build prompt with tool behavior guidance
-            # Tool schemas are passed via native API (tools parameter), not in the prompt
-            tool_instructions = """
-## Tool Usage Rules
+            # Tool schemas are passed via native API (tools parameter), not in the prompt.
+            # TOOL_INSTRUCTIONS constant provides the LLM with routing guidance.
+            tool_instructions = TOOL_INSTRUCTIONS
 
-You have access to tools for interacting with Apple ecosystem apps. When the user asks about their data, you MUST use the appropriate tool. NEVER make up placeholder information.
-
-IMPORTANT RULES:
-1. When asked about calendar/schedule/events - use list_events or get_today_events
-2. When asked about reminders/tasks/todos - use list_reminders or get_due_reminders
-3. When asked about notes - use list_notes or search_notes
-4. When asked about email - use get_recent_emails or search_emails
-5. NEVER say you don't have access or ask for email addresses - just use the tools
-6. If a tool fails, tell the user what went wrong
-"""
             # Step 6.3: Load user profile context (markdown-based identity)
             user_profile_context = ""
             command_system_instructions = ""
@@ -656,19 +712,7 @@ IMPORTANT RULES:
 
             # Step 6: Build prompt (same as handle())
             yield {"type": "status", "stage": "building_prompt", "detail": "Building prompt"}
-            tool_instructions = """
-## Tool Usage Rules
-
-You have access to tools for interacting with Apple ecosystem apps. When the user asks about their data, you MUST use the appropriate tool. NEVER make up placeholder information.
-
-IMPORTANT RULES:
-1. When asked about calendar/schedule/events - use list_events or get_today_events
-2. When asked about reminders/tasks/todos - use list_reminders or get_due_reminders
-3. When asked about notes - use list_notes or search_notes
-4. When asked about email - use get_recent_emails or search_emails
-5. NEVER say you don't have access or ask for email addresses - just use the tools
-6. If a tool fails, tell the user what went wrong
-"""
+            tool_instructions = TOOL_INSTRUCTIONS
             # Load user profile context
             user_profile_context = ""
             command_system_instructions = ""
@@ -737,10 +781,11 @@ IMPORTANT RULES:
                 if cli_context_parts:
                     dev_context = "\n\n## Development Context\n\n" + "\n\n".join(cli_context_parts)
                     dev_context += (
-                        "\n\nThe user is a developer working in this project. "
+                        "\n\nThe user is a developer working in this project via the CLI. "
                         "The project files above (SPRINT.md, CLAUDE.md, etc.) describe the project's current status, roadmap, architecture, and conventions. "
                         "When the user asks about the project, its roadmap, status, or architecture, answer from this context first. "
-                        "You also have file and shell tools available for reading code and running commands."
+                        "You still have ALL your tools (Notes, Calendar, Reminders, Mail, Health, Files, Shell) — "
+                        "the CLI is just another interface to your full capabilities."
                     )
                     combined_instructions = f"{combined_instructions}\n{dev_context}"
 
