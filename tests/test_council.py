@@ -1562,6 +1562,7 @@ def _make_handler_with_mocks(
         "Hello! How can I help?"
     ))
     mock_inference.health_check = AsyncMock(return_value=True)
+    mock_inference.router.get_suggested_agent = MagicMock(return_value=None)
     handler._inference_client = mock_inference
 
     # Mock memory manager
