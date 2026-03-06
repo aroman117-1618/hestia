@@ -1,58 +1,69 @@
-# Current Sprint: Chat Redesign + OutcomeTracker (Sprint 10) — COMPLETE
+# Current Sprint: Memory Pipeline + CLI Polish (Sprint 11.5) — COMPLETE
 
-**Started:** 2026-03-04
-**Plan:** `docs/plans/sprint-10-chat-redesign-plan.md`
-**Audit:** `docs/plans/sprint-10-plan-audit-2026-03-04.md`
+**Started:** 2026-03-05
+**Discovery:** `docs/discoveries/sprint-12-cli-macos-polish-2026-03-05.md`
+**Execution Plan:** `docs/plans/sprint-12-plan-audit-2026-03-05.md`
 **Master Roadmap:** `docs/plans/sprint-7-14-master-roadmap.md`
 
-## Sprint 10 Summary
+## Sprint 11.5 Summary
 
-### OutcomeTracker (Learning Cycle Phase A part 2)
-- `hestia/outcomes/` module: database, manager, 5 API endpoints
-- Auto-tracks every chat response (duration, type, tool calls)
-- Implicit signal detection: quick_followup (<30s), accepted (30-300s), long_gap (>300s)
-- Wired into POST /v1/chat — fires on every response + detects signals on incoming messages
-- Explicit feedback: thumbs-up/down via POST /v1/outcomes/{id}/feedback
+### Phase A: Memory Pipeline + Research Wiring (8 tasks)
+- A1: MemorySource enum + source param wiring + migration
+- A2: Source dedup table + ingestion tracking + rollback
+- A3: InboxMemoryBridge (preprocessing, encryption, sanitization, batch processing)
+- A4: Daily ingestion background task (3 AM via Orders/APScheduler)
+- A5: DataSource filter wiring + graph content truncation (200 char)
+- A6: Fix graph black block (SceneKit opacity + ambient bg)
+- A7: Principles loading + daily auto-distill + async safety
+- A8: Profile full-window layout + MIND/BODY templates + agent icon
 
-### Chat UI Redesign
-- CLITextView: NSTextView wrapper with SF Mono, dark bg, Cmd+Enter send, Up-arrow history
-- MarkdownMessageView: AttributedString rendering, CodeBlockView with copy, ToolCallCardView
-- FloatingAvatarView: 60pt circle, cross-dissolve swap, pulsing orange glow ring
-- OutcomeFeedbackRow: hover-triggered thumbs-up/down on AI messages
+### Phase B: CLI + Agent Polish (5 tasks)
+- B1: CLI agent-colored prompts (V2 API sync, escape sanitization, SEC-5)
+- B2: Fire emoji thinking animation + per-agent personality verbs
+- B3: Default agent per model tier (Tia->PRIMARY, Olly->CODING, Mira->COMPLEX)
+- B4/B5 Polish: Agent save feedback toast, identity validation, QR camera permission check
 
-### Background Sessions
-- OrderStatus extended: DRAFTED, SCHEDULED, WORKING, COMPLETED
-- POST /v1/orders/from-session: creates Order from active chat
-- BackgroundSessionButton replaces "+" in chat toolbar
+### Security (resolved inline)
+- SEC-1 through SEC-5 all addressed in Phase A/B tasks
+
+### Key Commits
+- `7f8838e` feat: default agent per model tier (B3)
+- `123d553` polish: agent save toast + QR camera permission check (B4/B5)
+- `49f5d5a` fix: lazy-init asyncio.Lock for Python 3.9 compat
+- `81ae8e1` fix: router mock in council test handler setup
+- `4d6b1e8` fix: MacColors tokens in AgentDetailSheet save toast
 
 ### Test Results
-- 37 new tests (30 outcomes + 7 orders)
-- 1611 total (1608 passing, 3 skipped) — includes 66 CLI tests
+- Backend: ~1639 passing (3 skipped)
+- CLI: 95 passing, 0 failures
 - macOS build: clean
 
 ---
 
+## Previous: Sprint 11A — Model Swap + Coding Specialist — COMPLETE
+
+**Started:** 2026-03-05
+**Design:** `docs/plans/2026-03-05-model-swap-planning-design.md`
+**ADR:** ADR-040
+
+- Primary model: `qwen2.5:7b` -> `qwen3.5:9b`
+- New coding specialist: `qwen2.5-coder:7b` via `ModelTier.CODING`
+- Routing: `complex_patterns` keyword matching -> coding tier before complex tier
+- CLI context budget: 6K -> 16K chars
+- Hardware upgrade playbook for M5 Ultra Mac Studio
+
+---
+
+## Previous: Chat Redesign + OutcomeTracker (Sprint 10) — COMPLETE
+
+OutcomeTracker (auto-tracks chat responses, implicit signal detection, explicit feedback). Chat UI redesign (CLITextView, MarkdownMessageView, FloatingAvatarView, OutcomeFeedbackRow). Background sessions (OrderStatus extended, POST /v1/orders/from-session). 37 new tests.
+
 ## Previous: Hestia CLI (CLI Sprints 1-5 + Bootstrap) — COMPLETE
 
-Terminal-native interface for Hestia. `hestia-cli/` package with WebSocket streaming, prompt_toolkit REPL, Rich rendering, tool trust tiers, repo context injection, zero-friction bootstrap (auto-server-start + auto-register for localhost). 7 commits, 66 tests across 6 test files.
-
-Key commits:
-- `330bfb2` Sprint 1: WebSocket streaming backend
-- `76fdf3a` Sprint 2: REPL + auth + streaming
-- `bc0a9f3` Sprint 3: Tool trust tiers
-- `bc38820` Sprint 4: Repo context + project file injection
-- `1591264` Sprint 5: Polish + error handling
-- `3945682` Bootstrap: auto-start server + auto-register
-- `80a3f59` Fix: context instruction for small model prompting
+Terminal-native interface. WebSocket streaming, prompt_toolkit REPL, Rich rendering, tool trust tiers, repo context injection, zero-friction bootstrap. 66 tests.
 
 ## Previous: Explorer Files (Sprint 9A) — COMPLETE
-
-Security-hardened file system CRUD. `hestia/files/` module with PathValidator (allowlist-first, TOCTOU-safe), FileAuditDatabase, FileManager. 9 API endpoints. macOS file browser. 66 tests.
-
 ## Previous: Unified Inbox (Sprint 9B) — COMPLETE
-
-Apple Mail + Reminders + Calendar aggregation. `hestia/inbox/` module. 7 API endpoints. macOS inbox view with source filtering. Gmail OAuth eliminated (Apple Mail syncs all accounts). 36 tests.
-
 ## Previous: Research & Graph (Sprint 8) — COMPLETE
 ## Previous: Profile & Settings (Sprint 7) — COMPLETE
 ## Previous: Stability & Efficiency (Sprint 6) — COMPLETE
@@ -60,88 +71,20 @@ Apple Mail + Reminders + Calendar aggregation. `hestia/inbox/` module. 7 API end
 
 ---
 
-## Current: Sprint 11A — Model Swap + Coding Specialist
-
-**Started:** 2026-03-05
-**Design:** `docs/plans/2026-03-05-model-swap-planning-design.md`
-**Plan:** `docs/plans/2026-03-05-sprint-11a-model-swap.md`
-**ADR:** ADR-040
-
-### Changes
-- Primary model: `qwen2.5:7b` → `qwen3.5:9b` (better instruction following, 262K native context)
-- New coding specialist: `qwen2.5-coder:7b` via `ModelTier.CODING` (88.4% HumanEval)
-- Council SLM unchanged: `qwen2.5:0.5b`
-- Routing: `complex_patterns` keyword matching → coding tier before complex tier
-- CLI context budget: 6K → 16K chars, CLAUDE.md first in priority order
-- Test fixtures: bulk update across 6 test files
-
-### Hardware Upgrade Playbook
-M5 Ultra Mac Studio (H2-2026, expected 256GB+ unified memory) — documented in design doc.
-
----
-
-## Next: Sprint 11.5 — Memory Pipeline + CLI Polish
-
-**Discovery:** `docs/discoveries/sprint-12-cli-macos-polish-2026-03-05.md`
-**Execution Plan:** `docs/plans/sprint-12-plan-audit-2026-03-05.md`
-**Master Roadmap:** `docs/plans/sprint-7-14-master-roadmap.md` (Sprint 12-14 numbering preserved)
-**Effort:** ~36h (6 sessions)
-
-### Why 11.5?
-Inserted between 11A (Model Swap) and the deferred 11B (Command Center). The master roadmap defines Sprint 12 as "Health Dashboard & Whoop" — renumbering avoids collision. This sprint fills the missing link in the Learning Cycle between Sprint 9B (Inbox read-only) and Sprint 8 (Research & Graph): multi-source memory ingestion.
-
-### Critical Gap
-Hestia has Apple integration access (Mail, Calendar, Reminders, Notes) via 20+ tools and InboxManager, but **nothing flows into the memory system**. `ChunkMetadata.source` exists but is never populated. All memory is conversation-only.
-
-### Phase A: Memory Pipeline + Research Wiring (~21h, 82 tests)
-| # | Task | Est |
-|---|------|-----|
-| A1 | MemorySource enum + source param wiring + migration | 2h |
-| A2 | Source dedup table + ingestion tracking + rollback | 2.5h |
-| A3 | InboxMemoryBridge (preprocessing, encryption, sanitization, batch processing) | 5h |
-| A4 | Daily ingestion background task (3 AM via Orders/APScheduler) | 1.5h |
-| A5 | DataSource filter wiring + graph content truncation (200 char) | 2.5h |
-| A6 | Fix graph black block (SceneKit opacity + ambient bg) | 1h |
-| A7 | Principles loading + daily auto-distill + async safety | 2.5h |
-| A8 | Profile full-window layout + MIND/BODY templates + agent icon | 2h |
-| — | Integration + performance test suite | 2h |
-
-### Phase B: CLI + Agent Polish (~15h, 54 tests)
-| # | Task | Est |
-|---|------|-----|
-| B1 | CLI agent-colored prompts (V2 API sync, escape sanitization) | 2.5h |
-| B2 | Fire emoji thinking animation + 128 Jarvis/Friday spinner verbs | 3.5h |
-| B3 | Default agent per model tier (Tia→PRIMARY, Olly→CODING, Mira→COMPLEX) | 2h |
-| B4 | macOS agent customization GUI (name, photo, colors, .md editor) | 3h |
-| B5 | Device setup wizard (QR for iOS + CLI install command) | 2h |
-| — | Integration test suite | 2h |
-
-### Security (resolved inline — no separate pre-work)
-- SEC-1: Email body encryption at rest (Fernet) → Task A3
-- SEC-2: Prompt injection sanitization → Task A3
-- SEC-3: Graph content truncation (200 chars) → Task A5
-- SEC-4: InboxMemoryBridge privilege separation → Task A3
-- SEC-5: CLI escape sequence sanitization → Task B1
-
-### Projected Tests
-1611 existing + 136 new = **1747 total**
-
----
-
-## Deferred: Sprint 11B — Command Center + MetaMonitor
+## Next: Sprint 11B — Command Center + MetaMonitor (Deferred)
 
 **Plan:** `docs/plans/sprint-11-command-center-plan.md`
 **Effort:** ~15 working days
-**Status:** Deferred — Sprint 11.5 (pipeline/polish) takes priority per Andrew's direction. OutcomeTracker benefits from additional data collection time before Gate 2.
+**Status:** Deferred — OutcomeTracker benefits from additional data collection time before Gate 2.
 
 ### Decision Gate 2 (before Sprint 11B)
 - Is OutcomeTracker collecting meaningful signals?
 - Memory + CPU profile acceptable on M1?
 - Does multi-source memory (from 11.5) improve MetaMonitor input quality?
-- → Go/No-Go on MetaMonitor
+- -> Go/No-Go on MetaMonitor
 
 ### Sprint 11B Scope
 1. MetaMonitor: consumes OutcomeTracker data, detects behavioral patterns
-2. Command Center redesign: contextual metrics (Personal ↔ System), calendar week grid
+2. Command Center redesign: contextual metrics (Personal <-> System), calendar week grid
 3. Order creation wizard (multi-step)
 4. ~42 new tests
