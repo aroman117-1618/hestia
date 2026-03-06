@@ -9,6 +9,7 @@ for semantic search. All new principles start as "pending" and require user
 approval before influencing downstream systems.
 """
 
+import asyncio
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -24,15 +25,17 @@ logger = get_logger()
 
 COLLECTION_NAME = "hestia_principles"
 
-# Distillation prompt template
+# Distillation prompt template — source-aware (Sprint 11.5 A7)
 DISTILLATION_PROMPT = """Analyze these conversation excerpts and extract reusable behavioral principles about the user.
 Focus on: communication preferences, workflow patterns, decision-making style, recurring needs.
 Output format: One principle per line, prefixed with [domain].
+When a principle is derived from a specific source (email, calendar, reminder), cite it.
 
 Examples:
 [scheduling] User prefers morning meetings summarized in bullet points
-[coding] User wants tests written before implementation
-[health] User tracks sleep quality and correlates with productivity
+[coding] User wants tests written before implementation (from conversation on 2026-01-15)
+[health] User tracks sleep quality and correlates with productivity (from health data)
+[communication] User responds to emails within 2 hours during work hours (from email patterns)
 
 Conversation excerpts:
 {excerpts}
@@ -46,12 +49,15 @@ class PrincipleStore:
 
     ChromaDB stores embeddings for semantic search.
     SQLite (via ResearchDatabase) stores structured metadata and status lifecycle.
+    Thread-safe via asyncio.Lock on initialization.
     """
 
     def __init__(self, database: ResearchDatabase) -> None:
         self._database = database
         self._client: Optional[chromadb.Client] = None
         self._collection: Optional[chromadb.Collection] = None
+        self._init_lock = asyncio.Lock()
+        self._initialized = False
 
     def initialize(self, persist_directory: Optional[Path] = None) -> None:
         """Initialize ChromaDB client and collection."""
@@ -73,6 +79,7 @@ class PrincipleStore:
             metadata={"hnsw:space": "cosine"},
         )
 
+        self._initialized = True
         logger.info(
             f"PrincipleStore initialized: {persist_directory}",
             component=LogComponent.RESEARCH,
@@ -81,6 +88,15 @@ class PrincipleStore:
                 "count": self._collection.count(),
             },
         )
+
+    async def ensure_initialized(self, persist_directory: Optional[Path] = None) -> None:
+        """Async-safe initialization guard. Concurrent calls will not race."""
+        if self._initialized:
+            return
+        async with self._init_lock:
+            if self._initialized:
+                return
+            self.initialize(persist_directory)
 
     async def store_principle(self, principle: Principle) -> Principle:
         """
@@ -162,7 +178,16 @@ class PrincipleStore:
 
         for result in memory_chunks[:20]:  # Limit to 20 chunks per distillation
             chunk = result.chunk
-            excerpts.append(f"[{chunk.chunk_type.value}] {chunk.content[:300]}")
+            # Include source metadata for source-aware distillation
+            source_label = ""
+            if chunk.metadata and chunk.metadata.source:
+                source_label = f" (source: {chunk.metadata.source})"
+            date_label = ""
+            if chunk.timestamp:
+                date_label = f" [{chunk.timestamp.strftime('%Y-%m-%d')}]"
+            excerpts.append(
+                f"[{chunk.chunk_type.value}]{source_label}{date_label} {chunk.content[:300]}"
+            )
             source_chunk_ids.append(chunk.id)
             if chunk.tags:
                 all_topics.extend(chunk.tags.topics)
@@ -256,6 +281,13 @@ class PrincipleStore:
                 ))
 
         return principles
+
+    async def get_approved_principles(self, limit: int = 50) -> List[Principle]:
+        """Get approved principles for graph integration."""
+        return await self._database.list_principles(
+            status=PrincipleStatus.APPROVED,
+            limit=limit,
+        )
 
     def get_collection_count(self) -> int:
         """Get the number of principles in ChromaDB."""

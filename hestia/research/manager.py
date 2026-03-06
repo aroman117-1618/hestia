@@ -43,9 +43,9 @@ class ResearchManager:
         self._graph_builder = GraphBuilder()
         self._principle_store = PrincipleStore(self._database)
 
-        # Initialize ChromaDB collection for principles
+        # Initialize ChromaDB collection for principles (async-safe)
         try:
-            self._principle_store.initialize()
+            await self._principle_store.ensure_initialized()
         except Exception as e:
             logger.warning(
                 f"PrincipleStore ChromaDB init failed: {type(e).__name__}",

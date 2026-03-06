@@ -31,6 +31,8 @@ from .models import (
     GraphNode,
     GraphResponse,
     NodeType,
+    Principle,
+    PrincipleStatus,
 )
 
 logger = get_logger()
@@ -56,6 +58,7 @@ class GraphBuilder:
 
     def __init__(self) -> None:
         self._memory_manager = None
+        self._research_database = None
 
     async def _get_memory_manager(self) -> Any:
         """Lazy import to avoid circular dependencies."""
@@ -122,15 +125,20 @@ class GraphBuilder:
         topic_nodes = self._build_topic_nodes(results)
         entity_nodes = self._build_entity_nodes(results)
 
+        # Step 2b: Build principle nodes (approved only)
+        principle_nodes = await self._build_principle_nodes()
+
         # Step 3: Filter by node_types if specified
         all_nodes: List[GraphNode] = []
-        include_types = node_types or {"memory", "topic", "entity"}
+        include_types = node_types or {"memory", "topic", "entity", "principle"}
         if "memory" in include_types:
             all_nodes.extend(memory_nodes)
         if "topic" in include_types:
             all_nodes.extend(topic_nodes)
         if "entity" in include_types:
             all_nodes.extend(entity_nodes)
+        if "principle" in include_types:
+            all_nodes.extend(principle_nodes)
 
         # Step 4: Filter by center_topic
         if center_topic:
@@ -261,6 +269,43 @@ class GraphBuilder:
             ))
         return nodes
 
+    async def _build_principle_nodes(self) -> List[GraphNode]:
+        """Build graph nodes from approved principles."""
+        try:
+            from .database import get_research_database
+            db = await get_research_database()
+            principles = await db.list_principles(
+                status=PrincipleStatus.APPROVED, limit=50
+            )
+        except Exception as e:
+            logger.debug(
+                "Could not load principles for graph",
+                component=LogComponent.RESEARCH,
+                data={"error": type(e).__name__},
+            )
+            return []
+
+        nodes = []
+        for p in principles:
+            nodes.append(GraphNode(
+                id=f"principle:{p.id}",
+                content=p.content,
+                node_type=NodeType.PRINCIPLE,
+                category="principle",
+                label=p.content[:50].replace("\n", " "),
+                confidence=p.confidence,
+                weight=min(p.confidence + 0.2, 1.0),
+                topics=p.topics,
+                entities=p.entities,
+                last_active=p.updated_at,
+                metadata={
+                    "domain": p.domain,
+                    "status": p.status.value,
+                    "source_chunk_ids": p.source_chunk_ids[:5],
+                },
+            ))
+        return nodes
+
     def _filter_by_topic(self, nodes: List[GraphNode], topic: str) -> List[GraphNode]:
         """Keep nodes that are related to the given topic."""
         topic_lower = topic.lower()
@@ -343,6 +388,23 @@ class GraphBuilder:
                             to_id=entity_id,
                             edge_type=EdgeType.ENTITY_MEMBERSHIP,
                             weight=0.5,
+                        ))
+
+        # Principle-to-source-chunk edges
+        principle_nodes_list = [n for n in nodes if n.node_type == NodeType.PRINCIPLE]
+        memory_id_set = {n.id for n in memory_nodes}
+        for pnode in principle_nodes_list:
+            source_ids = pnode.metadata.get("source_chunk_ids", [])
+            for src_id in source_ids:
+                if src_id in memory_id_set and src_id in valid_ids:
+                    pair = (min(pnode.id, src_id), max(pnode.id, src_id))
+                    if pair not in seen:
+                        seen.add(pair)
+                        edges.append(GraphEdge(
+                            from_id=pnode.id,
+                            to_id=src_id,
+                            edge_type=EdgeType.PRINCIPLE_SOURCE,
+                            weight=0.7,
                         ))
 
         return edges

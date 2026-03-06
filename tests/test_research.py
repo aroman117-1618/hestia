@@ -796,3 +796,259 @@ class TestGraphSourceFiltering:
         memory_nodes = [n for n in response.nodes if n.node_type == NodeType.MEMORY]
         assert len(memory_nodes) == 1
         assert len(memory_nodes[0].content) <= 200
+
+
+# ── Principle Store Tests (Sprint 11.5 — Task A7) ────────────
+
+
+class TestPrincipleAsyncSafety:
+    """PrincipleStore.ensure_initialized() is async-safe."""
+
+    @pytest.mark.asyncio
+    async def test_ensure_initialized_idempotent(self) -> None:
+        """Multiple calls to ensure_initialized don't race."""
+        from hestia.research.principle_store import PrincipleStore
+
+        db = AsyncMock(spec=ResearchDatabase)
+        store = PrincipleStore(db)
+
+        call_count = 0
+
+        def tracking_init(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            store._initialized = True
+
+        with patch.object(store, "initialize", side_effect=tracking_init):
+            await store.ensure_initialized()
+            assert call_count == 1
+
+            await store.ensure_initialized()
+            assert call_count == 1  # Second call skipped
+
+    @pytest.mark.asyncio
+    async def test_concurrent_ensure_initialized(self) -> None:
+        """Concurrent ensure_initialized calls only initialize once."""
+        from hestia.research.principle_store import PrincipleStore
+
+        db = AsyncMock(spec=ResearchDatabase)
+        store = PrincipleStore(db)
+
+        call_count = 0
+        original_init = store.initialize
+
+        def counting_init(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            store._initialized = True
+
+        with patch.object(store, "initialize", side_effect=counting_init):
+            # Launch concurrent initializations
+            await asyncio.gather(
+                store.ensure_initialized(),
+                store.ensure_initialized(),
+                store.ensure_initialized(),
+            )
+            assert call_count == 1
+
+
+class TestPrincipleDistillation:
+    """Tests for enhanced distillation with source awareness."""
+
+    @pytest.mark.asyncio
+    async def test_distill_empty_chunks_returns_empty(self) -> None:
+        """Empty memory → graceful empty list."""
+        from hestia.research.principle_store import PrincipleStore
+
+        db = AsyncMock(spec=ResearchDatabase)
+        store = PrincipleStore(db)
+
+        result = await store.distill_principles([])
+        assert result == []
+
+    def test_parse_distillation_with_domains(self) -> None:
+        """Parser extracts domain from [domain] prefix."""
+        from hestia.research.principle_store import PrincipleStore
+
+        db = AsyncMock(spec=ResearchDatabase)
+        store = PrincipleStore(db)
+
+        response = """[scheduling] User prefers morning meetings
+[coding] User writes tests before implementation
+[health] User tracks sleep quality"""
+
+        principles = store._parse_distillation_response(
+            response, ["chunk-1"], ["python"], ["FastAPI"]
+        )
+
+        assert len(principles) == 3
+        assert principles[0].domain == "scheduling"
+        assert principles[1].domain == "coding"
+        assert principles[2].domain == "health"
+
+    def test_parse_distillation_no_domain_defaults_general(self) -> None:
+        """Lines without [domain] prefix get domain='general'."""
+        from hestia.research.principle_store import PrincipleStore
+
+        db = AsyncMock(spec=ResearchDatabase)
+        store = PrincipleStore(db)
+
+        response = "User always responds promptly to emails"
+        principles = store._parse_distillation_response(
+            response, ["chunk-1"], [], []
+        )
+
+        assert len(principles) == 1
+        assert principles[0].domain == "general"
+
+    def test_parse_distillation_skips_short_lines(self) -> None:
+        """Lines shorter than 10 chars are skipped."""
+        from hestia.research.principle_store import PrincipleStore
+
+        db = AsyncMock(spec=ResearchDatabase)
+        store = PrincipleStore(db)
+
+        response = "short\n\nUser has a clear preference for detailed explanations"
+        principles = store._parse_distillation_response(
+            response, ["chunk-1"], [], []
+        )
+
+        assert len(principles) == 1
+
+    @pytest.mark.asyncio
+    async def test_distill_chromadb_unavailable_graceful(self) -> None:
+        """ChromaDB unavailable → graceful degradation."""
+        from hestia.research.principle_store import PrincipleStore
+
+        db = AsyncMock(spec=ResearchDatabase)
+        db.create_principle = AsyncMock(side_effect=RuntimeError("DB down"))
+        store = PrincipleStore(db)
+        store._collection = None  # ChromaDB not available
+
+        mock_inference = AsyncMock()
+        mock_inference.generate = AsyncMock(
+            return_value="[general] User prefers concise responses"
+        )
+
+        # Should not raise, just return empty (store fails)
+        results = await store.distill_principles(
+            _make_results(3), inference_client=mock_inference
+        )
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_get_approved_principles(self, db: ResearchDatabase) -> None:
+        """get_approved_principles returns only approved ones."""
+        from hestia.research.principle_store import PrincipleStore
+
+        store = PrincipleStore(db)
+
+        # Create pending and approved principles
+        p1 = Principle.create(content="Pending principle", domain="test")
+        p2 = Principle.create(content="Approved principle", domain="test")
+        await db.create_principle(p1)
+        await db.create_principle(p2)
+        await db.update_principle_status(p2.id, PrincipleStatus.APPROVED)
+
+        approved = await store.get_approved_principles()
+        assert len(approved) == 1
+        assert approved[0].id == p2.id
+
+
+class TestPrincipleGraphIntegration:
+    """Tests for principle nodes appearing in the knowledge graph."""
+
+    @pytest.mark.asyncio
+    async def test_approved_principle_appears_as_graph_node(self, db: ResearchDatabase) -> None:
+        """Approved principles appear as PRINCIPLE node type in graph."""
+        builder = GraphBuilder()
+
+        # Create an approved principle
+        p = Principle.create(
+            content="User prefers bullet-point summaries",
+            domain="communication",
+            topics=["communication"],
+        )
+        await db.create_principle(p)
+        await db.update_principle_status(p.id, PrincipleStatus.APPROVED)
+
+        # Mock memory and patch research database
+        mock_mgr = AsyncMock()
+        mock_mgr.search = AsyncMock(return_value=_make_results(5))
+        builder._memory_manager = mock_mgr
+
+        with patch("hestia.research.database.get_research_database", new=AsyncMock(return_value=db)):
+            nodes = await builder._build_principle_nodes()
+
+        assert len(nodes) == 1
+        assert nodes[0].node_type == NodeType.PRINCIPLE
+        assert nodes[0].id.startswith("principle:")
+        assert nodes[0].category == "principle"
+
+    @pytest.mark.asyncio
+    async def test_rejected_principle_excluded_from_graph(self, db: ResearchDatabase) -> None:
+        """Rejected principles do NOT appear in graph."""
+        builder = GraphBuilder()
+
+        p = Principle.create(content="Wrong principle", domain="test")
+        await db.create_principle(p)
+        await db.update_principle_status(p.id, PrincipleStatus.REJECTED)
+
+        with patch("hestia.research.database.get_research_database", new=AsyncMock(return_value=db)):
+            nodes = await builder._build_principle_nodes()
+
+        assert len(nodes) == 0
+
+    @pytest.mark.asyncio
+    async def test_pending_principle_excluded_from_graph(self, db: ResearchDatabase) -> None:
+        """Pending principles do NOT appear in graph (only approved)."""
+        builder = GraphBuilder()
+
+        p = Principle.create(content="Pending principle", domain="test")
+        await db.create_principle(p)
+
+        with patch("hestia.research.database.get_research_database", new=AsyncMock(return_value=db)):
+            nodes = await builder._build_principle_nodes()
+
+        assert len(nodes) == 0
+
+    @pytest.mark.asyncio
+    async def test_principle_source_edges(self) -> None:
+        """Principle nodes connect to source memory chunks via edges."""
+        builder = GraphBuilder()
+        results = _make_results(5)
+        memory_nodes = builder._build_memory_nodes(results)
+
+        # Simulate a principle node with source_chunk_ids
+        principle_node = GraphNode(
+            id="principle:p1",
+            content="Test principle",
+            node_type=NodeType.PRINCIPLE,
+            category="principle",
+            label="Test",
+            confidence=0.8,
+            weight=0.9,
+            topics=["python"],
+            metadata={"source_chunk_ids": ["chunk-0", "chunk-1"]},
+        )
+
+        all_nodes = memory_nodes + [principle_node]
+        valid_ids = {n.id for n in all_nodes}
+        edges = builder._build_edges(all_nodes, results, valid_ids)
+
+        source_edges = [e for e in edges if e.edge_type == EdgeType.PRINCIPLE_SOURCE]
+        assert len(source_edges) == 2
+        assert all(e.from_id == "principle:p1" for e in source_edges)
+
+    @pytest.mark.asyncio
+    async def test_principle_db_unavailable_graceful(self) -> None:
+        """If research DB is unavailable, principle nodes are empty (no crash)."""
+        builder = GraphBuilder()
+
+        with patch(
+            "hestia.research.database.get_research_database",
+            new=AsyncMock(side_effect=RuntimeError("DB unavailable")),
+        ):
+            nodes = await builder._build_principle_nodes()
+
+        assert nodes == []

@@ -27,6 +27,7 @@ class EdgeType(str, Enum):
     TOPIC_MEMBERSHIP = "topic_membership"
     ENTITY_MEMBERSHIP = "entity_membership"
     SEMANTIC = "semantic"
+    PRINCIPLE_SOURCE = "principle_source"
 
 
 class PrincipleStatus(str, Enum):
