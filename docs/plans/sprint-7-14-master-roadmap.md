@@ -50,11 +50,15 @@ Transform Hestia from a functional backend with partial UI wiring into a fully l
 | **9A** | Explorer: Files | ~1 module (routes/files.py), ~8 endpoints | ~6 | ~43 | ~8 |
 | **9B** | Explorer: Inbox | ~1 module (email), ~9 endpoints | ~5 | ~35 | ~11 |
 | **10** | Chat Redesign + OutcomeTracker | ~3 endpoint changes | ~5 | ~35 | ~11 |
-| **11** | Command Center + MetaMonitor + Self-Healing Foundation | ~3 endpoints + bg manager + settings tools + pipeline | ~6 | ~54 | ~16 |
+| **11A** | Model Swap + Coding Specialist | config + routing changes | ~0 | ~18 | ~2 |
+| **11.5** | Memory Pipeline + CLI Polish | ~1 module (bridge), ~3 endpoint changes | ~8 | ~136 | ~6 |
+| **11B** | Command Center + MetaMonitor + Self-Healing Foundation | ~3 endpoints + bg manager + settings tools + pipeline | ~6 | ~54 | ~16 |
 | **12** | Health Dashboard & Whoop | ~2 modules, ~10 endpoints | ~9 | ~65 | ~17 |
 | **13** | Active Inference Foundation + Write Settings | ~1 module, ~4 endpoints + settings write tools | ~2 | ~45 | ~13 |
 | **14** | Anticipatory Execution | ~3 endpoints | ~3 | ~30 | ~10 |
-| **Total** | | **~8 modules, ~45 endpoints** | **~52** | **~379** | **~111.5** |
+| **Total** | | **~9 modules, ~48 endpoints** | **~60** | **~533** | **~119.5** |
+
+> **Revision (2026-03-05):** Sprint 11 split into 11A (Model Swap, COMPLETE) + 11.5 (Memory Pipeline + CLI Polish, INSERTED) + 11B (Command Center, deferred). Sprint 11.5 fills the missing Inbox→Memory pipeline and adds 136 tests. Total: +8 days, +154 tests over previous revision.
 
 > **Audit revision (2026-03-03):** Sprint 9 split into 9A (Files) + 9B (Inbox). Effort estimates revised upward across all sprints based on codebase verification. Test counts increased per audit recommendations. Total: +8 days over original, +118 tests.
 
@@ -63,23 +67,28 @@ Transform Hestia from a functional backend with partial UI wiring into a fully l
 The Learning Cycle isn't a separate workstream — it's woven into the sprint fabric:
 
 ```
-Sprint 7:  Profile & Settings               ← Foundation (settings for all future config)
-Sprint 8:  Research & Graph + PrincipleStore ← Learning Cycle Phase A (part 1)
-Sprint 9A: Explorer: Files                   ← Data breadth (file behavioral signals)
-Sprint 9B: Explorer: Inbox                   ← Data breadth (email behavioral signals)
-Sprint 10: Chat Redesign + OutcomeTracker    ← Learning Cycle Phase A (part 2)
-       ↳ Phase 0: Timezone fix (pre-11)      ← Bug fix: timezone-aware datetime throughout
-Sprint 11A: Model Swap + Coding Specialist   ← Dual model (qwen3.5:9b + qwen2.5-coder:7b), ADR-040
-Sprint 11B: Command + MetaMonitor            ← Learning Cycle Phase B + Self-Healing Foundation
-       ↳ +11.8a: Read settings tools          ← Tia can diagnose her own config
-       ↳ +11.8b: Outcome→Principle pipeline   ← Corrections become knowledge (hybrid threshold)
-       ↳ +11.8c: Correction classification    ← Categorize mistake types
-Sprint 12: Health & Whoop                    ← Personal state data for world model
-Sprint 13: Active Inference Foundation       ← Learning Cycle Phase C (part 1)
-       ↳ +13.4: Write settings tools          ← Tia can apply corrections (SUGGEST gate)
-       ↳ +13.4: CorrectionConfidence scoring  ← Future auto-apply framework
-Sprint 14: Anticipatory Execution            ← Learning Cycle Phase C (part 2)
-       ↳ Granular ActionRisk tiering          ← Replace blanket NEVER with per-category risk
+Sprint 7:   Profile & Settings               ← Foundation (settings for all future config)
+Sprint 8:   Research & Graph + PrincipleStore ← Learning Cycle Phase A (part 1)
+Sprint 9A:  Explorer: Files                   ← Data breadth (file behavioral signals)
+Sprint 9B:  Explorer: Inbox                   ← Data breadth (email behavioral signals)
+Sprint 10:  Chat Redesign + OutcomeTracker    ← Learning Cycle Phase A (part 2)
+        ↳ Phase 0: Timezone fix (pre-11)      ← Bug fix: timezone-aware datetime throughout
+Sprint 11A: Model Swap + Coding Specialist    ← Dual model (qwen3.5:9b + qwen2.5-coder:7b), ADR-040
+Sprint 11.5A: Memory Pipeline + Research Wire ← INSERTED: Inbox→Memory ingestion (fills 9B→8 gap)
+        ↳ InboxMemoryBridge (encrypted, deduped, sanitized)
+        ↳ DataSource filters wired to real source data
+        ↳ Principles auto-distill + daily background task
+Sprint 11.5B: CLI + Agent Polish              ← INSERTED: Agent theming, fire animation, device wizard
+Sprint 11B: Command + MetaMonitor             ← Learning Cycle Phase B + Self-Healing Foundation
+        ↳ +11.8a: Read settings tools          ← Tia can diagnose her own config
+        ↳ +11.8b: Outcome→Principle pipeline   ← Corrections become knowledge (hybrid threshold)
+        ↳ +11.8c: Correction classification    ← Categorize mistake types
+Sprint 12:  Health & Whoop                    ← Personal state data for world model
+Sprint 13:  Active Inference Foundation       ← Learning Cycle Phase C (part 1)
+        ↳ +13.4: Write settings tools          ← Tia can apply corrections (SUGGEST gate)
+        ↳ +13.4: CorrectionConfidence scoring  ← Future auto-apply framework
+Sprint 14:  Anticipatory Execution            ← Learning Cycle Phase C (part 2)
+        ↳ Granular ActionRisk tiering          ← Replace blanket NEVER with per-category risk
 ```
 
 ## Timeline
@@ -169,17 +178,19 @@ Extend existing Figma-derived amber palette in `MacColors.swift` (`amberAccent` 
 ```
 Sprint 7 (CacheManager, MarkdownEditor, Design Tokens)
     ├── Sprint 8 (PrincipleStore, GraphBuilder) ← uses ChromaDB, reuses MarkdownEditor
-    │   └── Sprint 13 (WorldModel) ← consumes PrincipleStore data
+    │   └── Sprint 11.5A (Memory Pipeline) ← enriches graph with multi-source data
+    │       └── Sprint 13 (WorldModel) ← consumes PrincipleStore + multi-source memory
     ├── Sprint 9A (Explorer: Files) ← uses CacheManager, routes/files.py
     │   └── Sprint 9B (Explorer: Inbox) ← uses CacheManager, OAuthManager base class
+    │       ├── Sprint 11.5A (InboxMemoryBridge) ← bridges inbox → memory pipeline
     │       └── Sprint 12 (Whoop, Clinical) ← reuses OAuthManager from 9B
     ├── Sprint 10 (Chat, OutcomeTracker) ← reuses MarkdownEditor, CacheManager
-    │   └── Sprint 11 (MetaMonitor) ← consumes OutcomeTracker data
+    │   └── Sprint 11B (MetaMonitor) ← consumes OutcomeTracker data + multi-source memory
     │       └── Sprint 13-14 (Active Inference) ← consumes MetaMonitor + OutcomeTracker + PrincipleStore
     └── Sprint 12 (Health) ← uses CacheManager, extends health module
 ```
 
-**Critical path:** 7 → 10 → 11 → 13 → 14. Any delay in OutcomeTracker or MetaMonitor cascades to Active Inference.
+**Critical path:** 7 → 10 → 11.5A → 11B → 13 → 14. Sprint 11.5A enriches the data landscape for all downstream Learning Cycle phases. Any delay in OutcomeTracker or MetaMonitor cascades to Active Inference.
 
 ## Known Risks (Top 5)
 
@@ -199,7 +210,9 @@ Each sprint has its own detailed plan document:
 | 8 | [sprint-8-research-graph-plan.md](sprint-8-research-graph-plan.md) |
 | 9A + 9B | [sprint-9-explorer-files-inbox-plan.md](sprint-9-explorer-files-inbox-plan.md) |
 | 10 | [sprint-10-chat-redesign-plan.md](sprint-10-chat-redesign-plan.md) |
-| 11 | [sprint-11-command-center-plan.md](sprint-11-command-center-plan.md) |
+| 11A | [2026-03-05-sprint-11a-model-swap.md](2026-03-05-sprint-11a-model-swap.md) |
+| 11.5 | [sprint-12-plan-audit-2026-03-05.md](sprint-12-plan-audit-2026-03-05.md) |
+| 11B | [sprint-11-command-center-plan.md](sprint-11-command-center-plan.md) |
 | 12 | [sprint-12-health-whoop-plan.md](sprint-12-health-whoop-plan.md) |
 | 13–14 | [sprint-13-14-learning-cycle-plan.md](sprint-13-14-learning-cycle-plan.md) |
 

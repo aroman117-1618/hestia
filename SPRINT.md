@@ -80,29 +80,51 @@ M5 Ultra Mac Studio (H2-2026, expected 256GB+ unified memory) — documented in 
 
 ---
 
-## Next: Sprint 12A — Data Pipeline + Research Wiring
+## Next: Sprint 11.5 — Memory Pipeline + CLI Polish
 
 **Discovery:** `docs/discoveries/sprint-12-cli-macos-polish-2026-03-05.md`
-**Audit:** `docs/plans/sprint-12-plan-audit-2026-03-05.md`
-**Effort:** ~12-14h (+ 8-10h pre-sprint blockers)
+**Execution Plan:** `docs/plans/sprint-12-plan-audit-2026-03-05.md`
+**Master Roadmap:** `docs/plans/sprint-7-14-master-roadmap.md` (Sprint 12-14 numbering preserved)
+**Effort:** ~36h (6 sessions)
 
-### Critical: Multi-Source Memory Ingestion
-Hestia has Apple integration access (Mail, Calendar, Reminders, Notes) but nothing flows into the memory system. `ChunkMetadata.source` field exists but is never populated. All memory is conversation-only.
+### Why 11.5?
+Inserted between 11A (Model Swap) and the deferred 11B (Command Center). The master roadmap defines Sprint 12 as "Health Dashboard & Whoop" — renumbering avoids collision. This sprint fills the missing link in the Learning Cycle between Sprint 9B (Inbox read-only) and Sprint 8 (Research & Graph): multi-source memory ingestion.
 
-### Sprint 12A Scope
-1. Multi-source memory ingestion — source tagging, MemoryQuery filter, InboxManager.export_to_memory(), full email bodies
-2. Wire DataSource filters to `sources` API param on graph endpoint
-3. Fix graph black block (SceneKit opacity + ambient bg z-order)
-4. Fix principles loading (daily auto-distill via Orders, error state, review workflow)
-5. Profile sections full-window adaptive layout
-6. Profile file templates (MIND/BODY scaffolds) + agent section icon change
+### Critical Gap
+Hestia has Apple integration access (Mail, Calendar, Reminders, Notes) via 20+ tools and InboxManager, but **nothing flows into the memory system**. `ChunkMetadata.source` exists but is never populated. All memory is conversation-only.
 
-### Sprint 12B Scope (CLI + Agent Polish, ~10-12h)
-7. CLI agent-colored prompts (synced from macOS agent prefs via V2 API)
-8. CLI fire emoji thinking animation + Jarvis/Friday spinner verbs (100+ words)
-9. Default agent per model tier (configurable in macOS, just `@olly` in prompt)
-10. macOS agent customization GUI (full editing: name, photo, colors, .md files)
-11. Device setup wizard (QR for iOS + copy-paste CLI install command)
+### Phase A: Memory Pipeline + Research Wiring (~21h, 82 tests)
+| # | Task | Est |
+|---|------|-----|
+| A1 | MemorySource enum + source param wiring + migration | 2h |
+| A2 | Source dedup table + ingestion tracking + rollback | 2.5h |
+| A3 | InboxMemoryBridge (preprocessing, encryption, sanitization, batch processing) | 5h |
+| A4 | Daily ingestion background task (3 AM via Orders/APScheduler) | 1.5h |
+| A5 | DataSource filter wiring + graph content truncation (200 char) | 2.5h |
+| A6 | Fix graph black block (SceneKit opacity + ambient bg) | 1h |
+| A7 | Principles loading + daily auto-distill + async safety | 2.5h |
+| A8 | Profile full-window layout + MIND/BODY templates + agent icon | 2h |
+| — | Integration + performance test suite | 2h |
+
+### Phase B: CLI + Agent Polish (~15h, 54 tests)
+| # | Task | Est |
+|---|------|-----|
+| B1 | CLI agent-colored prompts (V2 API sync, escape sanitization) | 2.5h |
+| B2 | Fire emoji thinking animation + 128 Jarvis/Friday spinner verbs | 3.5h |
+| B3 | Default agent per model tier (Tia→PRIMARY, Olly→CODING, Mira→COMPLEX) | 2h |
+| B4 | macOS agent customization GUI (name, photo, colors, .md editor) | 3h |
+| B5 | Device setup wizard (QR for iOS + CLI install command) | 2h |
+| — | Integration test suite | 2h |
+
+### Security (resolved inline — no separate pre-work)
+- SEC-1: Email body encryption at rest (Fernet) → Task A3
+- SEC-2: Prompt injection sanitization → Task A3
+- SEC-3: Graph content truncation (200 chars) → Task A5
+- SEC-4: InboxMemoryBridge privilege separation → Task A3
+- SEC-5: CLI escape sequence sanitization → Task B1
+
+### Projected Tests
+1611 existing + 136 new = **1747 total**
 
 ---
 
@@ -110,11 +132,12 @@ Hestia has Apple integration access (Mail, Calendar, Reminders, Notes) but nothi
 
 **Plan:** `docs/plans/sprint-11-command-center-plan.md`
 **Effort:** ~15 working days
-**Status:** Deferred — Sprint 12 (polish/wiring) takes priority per Andrew's direction.
+**Status:** Deferred — Sprint 11.5 (pipeline/polish) takes priority per Andrew's direction. OutcomeTracker benefits from additional data collection time before Gate 2.
 
 ### Decision Gate 2 (before Sprint 11B)
 - Is OutcomeTracker collecting meaningful signals?
 - Memory + CPU profile acceptable on M1?
+- Does multi-source memory (from 11.5) improve MetaMonitor input quality?
 - → Go/No-Go on MetaMonitor
 
 ### Sprint 11B Scope

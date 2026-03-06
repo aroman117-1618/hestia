@@ -23,6 +23,7 @@ from hestia.memory.models import (
     ChunkMetadata,
     ChunkType,
     MemoryScope,
+    MemorySource,
     MemoryStatus,
     MemoryQuery,
     MemorySearchResult,
@@ -239,6 +240,10 @@ class MemoryManager:
             tags = tags or quick_tags
             metadata = metadata or quick_metadata
 
+        # Default source to conversation if not set
+        if metadata.source is None:
+            metadata.source = MemorySource.CONVERSATION.value
+
         # Create chunk
         chunk = ConversationChunk.create(
             content=content,
@@ -301,6 +306,7 @@ class MemoryManager:
         user_message: str,
         assistant_response: str,
         mode: Optional[str] = None,
+        source: Optional[str] = None,
     ) -> tuple[ConversationChunk, ConversationChunk]:
         """
         Store a user-assistant exchange.
@@ -311,22 +317,26 @@ class MemoryManager:
             user_message: The user's message.
             assistant_response: The assistant's response.
             mode: Current persona mode.
+            source: MemorySource value string (default: "conversation").
 
         Returns:
             Tuple of (user_chunk, assistant_chunk).
         """
         tags = ChunkTags(mode=mode) if mode else ChunkTags()
+        metadata = ChunkMetadata(source=source or MemorySource.CONVERSATION.value)
 
         user_chunk = await self.store(
             content=f"User: {user_message}",
             chunk_type=ChunkType.CONVERSATION,
             tags=tags,
+            metadata=metadata,
         )
 
         assistant_chunk = await self.store(
             content=f"Assistant: {assistant_response}",
             chunk_type=ChunkType.CONVERSATION,
             tags=tags,
+            metadata=metadata,
             auto_tag=True,  # Tag the response
         )
 

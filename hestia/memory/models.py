@@ -38,6 +38,17 @@ class ChunkType(Enum):
     ACTION_ITEM = "action_item"     # Task to be done
     RESEARCH = "research"           # Research findings
     SYSTEM = "system"               # System-generated notes
+    INSIGHT = "insight"             # Distilled insight (from notes, principles)
+
+
+class MemorySource(str, Enum):
+    """Source of a memory chunk — where the data originated."""
+    CONVERSATION = "conversation"
+    MAIL = "mail"
+    CALENDAR = "calendar"
+    REMINDERS = "reminders"
+    NOTES = "notes"
+    HEALTH = "health"
 
 
 @dataclass
@@ -93,7 +104,7 @@ class ChunkMetadata:
     sentiment: Optional[str] = None     # "positive", "neutral", "negative"
     confidence: float = 1.0             # 0.0 - 1.0
     token_count: int = 0
-    source: Optional[str] = None        # "conversation", "import", "background_task"
+    source: Optional[str] = None        # MemorySource value string
     is_sensitive: bool = False           # PII, health, financial data
     sensitive_reason: Optional[str] = None  # "pii_detected", "user_flagged", "health_data"
 
@@ -259,6 +270,7 @@ class MemoryQuery:
     has_code: Optional[bool] = None
     has_decision: Optional[bool] = None
     has_action_item: Optional[bool] = None
+    source: Optional[MemorySource] = None  # Filter by data source
 
     # Temporal filters
     start_date: Optional[datetime] = None

@@ -23,6 +23,7 @@ from hestia.memory.models import (
     ChunkMetadata,
     ChunkType,
     MemoryScope,
+    MemorySource,
     MemoryStatus,
     MemoryQuery,
     MemorySearchResult,
@@ -683,3 +684,203 @@ class TestMemoryManager:
 
         assert len(decisions) >= 1
         assert any(d.id == chunk.id for d in decisions)
+
+
+# -----------------------------------------------------------------------
+# MemorySource Tests (Sprint 11.5 — Task A1)
+# -----------------------------------------------------------------------
+
+
+class TestMemorySource:
+    """Tests for MemorySource enum and source filtering."""
+
+    def test_memory_source_enum_values(self):
+        """All expected source values exist."""
+        assert MemorySource.CONVERSATION.value == "conversation"
+        assert MemorySource.MAIL.value == "mail"
+        assert MemorySource.CALENDAR.value == "calendar"
+        assert MemorySource.REMINDERS.value == "reminders"
+        assert MemorySource.NOTES.value == "notes"
+        assert MemorySource.HEALTH.value == "health"
+
+    def test_memory_source_is_str_enum(self):
+        """MemorySource is a string enum for JSON serialization."""
+        assert isinstance(MemorySource.CONVERSATION, str)
+        assert MemorySource.MAIL == "mail"
+
+    def test_invalid_source_raises(self):
+        """Invalid source value raises ValueError."""
+        with pytest.raises(ValueError):
+            MemorySource("invalid_source")
+
+    def test_chunk_metadata_source_serialization(self):
+        """Source field round-trips through to_dict/from_dict."""
+        meta = ChunkMetadata(source=MemorySource.MAIL.value)
+        d = meta.to_dict()
+        assert d["source"] == "mail"
+
+        restored = ChunkMetadata.from_dict(d)
+        assert restored.source == "mail"
+
+    def test_chunk_metadata_source_default_none(self):
+        """Source defaults to None when not specified."""
+        meta = ChunkMetadata()
+        assert meta.source is None
+
+    @pytest.mark.asyncio
+    async def test_store_with_source(self, memory_manager: MemoryManager):
+        """Store chunk with explicit source persists correctly."""
+        chunk = await memory_manager.store(
+            content="Email from John about meeting",
+            chunk_type=ChunkType.FACT,
+            metadata=ChunkMetadata(source=MemorySource.MAIL.value),
+        )
+        assert chunk.metadata.source == MemorySource.MAIL.value
+
+    @pytest.mark.asyncio
+    async def test_store_default_source_conversation(self, memory_manager: MemoryManager):
+        """Store without explicit source defaults to 'conversation'."""
+        chunk = await memory_manager.store(
+            content="What is the weather today?",
+        )
+        assert chunk.metadata.source == MemorySource.CONVERSATION.value
+
+    @pytest.mark.asyncio
+    async def test_query_filter_by_source(self, memory_manager: MemoryManager):
+        """Query with source filter returns only matching chunks."""
+        # Store chunks with different sources
+        await memory_manager.store(
+            content="Calendar event: team standup",
+            chunk_type=ChunkType.FACT,
+            metadata=ChunkMetadata(source=MemorySource.CALENDAR.value),
+        )
+        await memory_manager.store(
+            content="Email: project update",
+            chunk_type=ChunkType.FACT,
+            metadata=ChunkMetadata(source=MemorySource.MAIL.value),
+        )
+        await memory_manager.store(
+            content="Regular conversation",
+            metadata=ChunkMetadata(source=MemorySource.CONVERSATION.value),
+        )
+
+        # Query for mail only
+        query = MemoryQuery(source=MemorySource.MAIL)
+        results = await memory_manager.database.query_chunks(query)
+        assert len(results) >= 1
+        assert all(r.metadata.source == "mail" for r in results)
+
+    @pytest.mark.asyncio
+    async def test_query_no_source_filter_returns_all(self, memory_manager: MemoryManager):
+        """Query without source filter returns all sources (backward compat)."""
+        await memory_manager.store(
+            content="Source test: mail item",
+            metadata=ChunkMetadata(source=MemorySource.MAIL.value),
+        )
+        await memory_manager.store(
+            content="Source test: conversation",
+            metadata=ChunkMetadata(source=MemorySource.CONVERSATION.value),
+        )
+
+        query = MemoryQuery()  # No source filter
+        results = await memory_manager.database.query_chunks(query)
+        sources = {r.metadata.source for r in results}
+        assert len(sources) >= 2  # Multiple source types returned
+
+
+# -----------------------------------------------------------------------
+# Source Dedup + Ingestion Tracking Tests (Sprint 11.5 — Task A2)
+# -----------------------------------------------------------------------
+
+
+class TestSourceDedup:
+    """Tests for source deduplication and ingestion batch tracking."""
+
+    @pytest.mark.asyncio
+    async def test_check_duplicate_not_found(self, memory_manager: MemoryManager):
+        """Non-ingested item returns False."""
+        db = memory_manager.database
+        assert await db.check_duplicate("mail", "msg-123") is False
+
+    @pytest.mark.asyncio
+    async def test_record_and_check_duplicate(self, memory_manager: MemoryManager):
+        """Ingested item is detected as duplicate."""
+        db = memory_manager.database
+        await db.record_dedup("mail", "msg-123", "chunk-abc")
+        assert await db.check_duplicate("mail", "msg-123") is True
+
+    @pytest.mark.asyncio
+    async def test_duplicate_different_source_ok(self, memory_manager: MemoryManager):
+        """Same source_id from different source is not a duplicate."""
+        db = memory_manager.database
+        await db.record_dedup("mail", "item-1", "chunk-1")
+        assert await db.check_duplicate("calendar", "item-1") is False
+
+    @pytest.mark.asyncio
+    async def test_record_dedup_idempotent(self, memory_manager: MemoryManager):
+        """Recording same dedup entry twice doesn't raise."""
+        db = memory_manager.database
+        await db.record_dedup("mail", "msg-123", "chunk-abc")
+        await db.record_dedup("mail", "msg-123", "chunk-abc")  # Should not raise
+
+    @pytest.mark.asyncio
+    async def test_ingestion_batch_lifecycle(self, memory_manager: MemoryManager):
+        """Full batch lifecycle: start → complete."""
+        db = memory_manager.database
+        await db.start_ingestion_batch("batch-001", "mail")
+        await db.complete_ingestion_batch("batch-001", 100, 80, 20)
+
+        log = await db.get_ingestion_log("mail")
+        assert len(log) == 1
+        assert log[0]["batch_id"] == "batch-001"
+        assert log[0]["status"] == "completed"
+        assert log[0]["items_stored"] == 80
+        assert log[0]["items_skipped"] == 20
+
+    @pytest.mark.asyncio
+    async def test_ingestion_batch_failure(self, memory_manager: MemoryManager):
+        """Failed batch records status correctly."""
+        db = memory_manager.database
+        await db.start_ingestion_batch("batch-fail", "calendar")
+        await db.fail_ingestion_batch("batch-fail", 50)
+
+        log = await db.get_ingestion_log("calendar")
+        assert log[0]["status"] == "failed"
+
+    @pytest.mark.asyncio
+    async def test_rollback_batch(self, memory_manager: MemoryManager):
+        """Rollback deletes all chunks from a batch."""
+        db = memory_manager.database
+        batch_id = "batch-rollback"
+
+        # Store chunks via the normal path, then record dedup
+        chunk1 = await memory_manager.store(
+            content="Email 1 content",
+            metadata=ChunkMetadata(source=MemorySource.MAIL.value),
+        )
+        chunk2 = await memory_manager.store(
+            content="Email 2 content",
+            metadata=ChunkMetadata(source=MemorySource.MAIL.value),
+        )
+
+        await db.record_dedup("mail", "email-1", chunk1.id, batch_id)
+        await db.record_dedup("mail", "email-2", chunk2.id, batch_id)
+        await db.start_ingestion_batch(batch_id, "mail")
+
+        # Rollback
+        deleted = await db.rollback_batch(batch_id)
+        assert deleted == 2
+
+        # Chunks should be gone
+        assert await db.get_chunk(chunk1.id) is None
+        assert await db.get_chunk(chunk2.id) is None
+
+        # Dedup entries should be gone (can re-ingest)
+        assert await db.check_duplicate("mail", "email-1") is False
+
+    @pytest.mark.asyncio
+    async def test_rollback_nonexistent_batch(self, memory_manager: MemoryManager):
+        """Rollback of unknown batch returns 0."""
+        db = memory_manager.database
+        deleted = await db.rollback_batch("nonexistent")
+        assert deleted == 0

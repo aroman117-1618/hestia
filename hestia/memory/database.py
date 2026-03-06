@@ -90,6 +90,30 @@ CREATE TABLE IF NOT EXISTS staged_memory (
 );
 
 CREATE INDEX IF NOT EXISTS idx_staged_status ON staged_memory(review_status);
+
+-- Source deduplication (Sprint 11.5 — prevents duplicate ingestion)
+CREATE TABLE IF NOT EXISTS source_dedup (
+    source TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    chunk_id TEXT NOT NULL,
+    ingested_at TEXT NOT NULL DEFAULT (datetime('now')),
+    batch_id TEXT,
+    UNIQUE(source, source_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_dedup_batch ON source_dedup(batch_id);
+
+-- Ingestion log (Sprint 11.5 — batch tracking for rollback)
+CREATE TABLE IF NOT EXISTS source_ingestion_log (
+    batch_id TEXT PRIMARY KEY,
+    source TEXT NOT NULL,
+    started_at TEXT NOT NULL,
+    completed_at TEXT,
+    items_processed INTEGER DEFAULT 0,
+    items_stored INTEGER DEFAULT 0,
+    items_skipped INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'running'
+);
 """
 
 
@@ -305,6 +329,9 @@ class MemoryDatabase(BaseDatabase):
         if query.has_action_item is not None:
             conditions.append("json_extract(metadata, '$.has_action_item') = ?")
             params.append(1 if query.has_action_item else 0)
+        if query.source is not None:
+            conditions.append("json_extract(metadata, '$.source') = ?")
+            params.append(query.source.value)
 
         # Build WHERE clause
         where_clause = " AND ".join(conditions) if conditions else "1=1"
@@ -464,6 +491,115 @@ class MemoryDatabase(BaseDatabase):
             (summary, chunk_count, session_id)
         )
         await self._connection.commit()
+
+    # -- Source Deduplication (Sprint 11.5) --------------------------------
+
+    async def check_duplicate(self, source: str, source_id: str) -> bool:
+        """Check if a source item has already been ingested."""
+        async with self._connection.execute(
+            "SELECT 1 FROM source_dedup WHERE source = ? AND source_id = ?",
+            (source, source_id),
+        ) as cursor:
+            return await cursor.fetchone() is not None
+
+    async def record_dedup(
+        self, source: str, source_id: str, chunk_id: str, batch_id: Optional[str] = None
+    ) -> None:
+        """Record that a source item has been ingested."""
+        await self._connection.execute(
+            """INSERT OR IGNORE INTO source_dedup (source, source_id, chunk_id, batch_id)
+               VALUES (?, ?, ?, ?)""",
+            (source, source_id, chunk_id, batch_id),
+        )
+        await self._connection.commit()
+
+    async def rollback_batch(self, batch_id: str) -> int:
+        """Delete all chunks from a specific ingestion batch. Returns count deleted."""
+        # Get chunk IDs for this batch
+        chunk_ids = []
+        async with self._connection.execute(
+            "SELECT chunk_id FROM source_dedup WHERE batch_id = ?", (batch_id,)
+        ) as cursor:
+            async for row in cursor:
+                chunk_ids.append(row[0])
+
+        if not chunk_ids:
+            return 0
+
+        # Delete chunks
+        placeholders = ",".join("?" * len(chunk_ids))
+        await self._connection.execute(
+            f"DELETE FROM memory_chunks WHERE id IN ({placeholders})", chunk_ids
+        )
+        # Delete dedup entries
+        await self._connection.execute(
+            "DELETE FROM source_dedup WHERE batch_id = ?", (batch_id,)
+        )
+        # Update ingestion log
+        await self._connection.execute(
+            "UPDATE source_ingestion_log SET status = 'rolled_back' WHERE batch_id = ?",
+            (batch_id,),
+        )
+        await self._connection.commit()
+        return len(chunk_ids)
+
+    # -- Ingestion Log (Sprint 11.5) --------------------------------------
+
+    async def start_ingestion_batch(self, batch_id: str, source: str) -> None:
+        """Record the start of an ingestion batch."""
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc).isoformat()
+        await self._connection.execute(
+            """INSERT INTO source_ingestion_log
+               (batch_id, source, started_at, status)
+               VALUES (?, ?, ?, 'running')""",
+            (batch_id, source, now),
+        )
+        await self._connection.commit()
+
+    async def complete_ingestion_batch(
+        self, batch_id: str, items_processed: int, items_stored: int, items_skipped: int
+    ) -> None:
+        """Record completion of an ingestion batch."""
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc).isoformat()
+        await self._connection.execute(
+            """UPDATE source_ingestion_log SET
+                completed_at = ?, items_processed = ?, items_stored = ?,
+                items_skipped = ?, status = 'completed'
+               WHERE batch_id = ?""",
+            (now, items_processed, items_stored, items_skipped, batch_id),
+        )
+        await self._connection.commit()
+
+    async def fail_ingestion_batch(self, batch_id: str, items_processed: int) -> None:
+        """Record failure of an ingestion batch."""
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc).isoformat()
+        await self._connection.execute(
+            """UPDATE source_ingestion_log SET
+                completed_at = ?, items_processed = ?, status = 'failed'
+               WHERE batch_id = ?""",
+            (now, items_processed, batch_id),
+        )
+        await self._connection.commit()
+
+    async def get_ingestion_log(
+        self, source: Optional[str] = None, limit: int = 20
+    ) -> list:
+        """Get recent ingestion log entries."""
+        if source:
+            sql = "SELECT * FROM source_ingestion_log WHERE source = ? ORDER BY started_at DESC LIMIT ?"
+            params: list = [source, limit]
+        else:
+            sql = "SELECT * FROM source_ingestion_log ORDER BY started_at DESC LIMIT ?"
+            params = [limit]
+
+        rows = []
+        async with self._connection.execute(sql, params) as cursor:
+            async for row in cursor:
+                rows.append(dict(row))
+        return rows
 
 
 # Module-level singleton
