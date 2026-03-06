@@ -18,6 +18,9 @@ struct MacSceneKitGraphView: NSViewRepresentable {
     func makeNSView(context: Context) -> HoverableSCNView {
         let sceneView = HoverableSCNView()
         sceneView.backgroundColor = .clear
+        sceneView.wantsLayer = true
+        sceneView.layer?.isOpaque = false
+        sceneView.layer?.backgroundColor = NSColor.clear.cgColor
         sceneView.autoenablesDefaultLighting = false
         sceneView.allowsCameraControl = true
         sceneView.antialiasingMode = .multisampling4X

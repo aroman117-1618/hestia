@@ -64,6 +64,7 @@ struct ResearchView: View {
                 // Left: Graph view with overlays
                 ZStack {
                     ambientBackground
+                        .allowsHitTesting(false)
 
                     MacSceneKitGraphView(
                         nodes: graphViewModel.nodes,
