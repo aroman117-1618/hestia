@@ -10,12 +10,13 @@ import json
 import ssl
 from typing import Any, AsyncGenerator, Dict, Optional
 
+import httpx
 import websockets
 import websockets.exceptions
 
 from hestia_cli.auth import get_stored_token, get_stored_device_id
 from hestia_cli.config import get_server_url, get_verify_ssl, load_config
-from hestia_cli.models import AuthResult, ServerEventType
+from hestia_cli.models import AgentTheme, AuthResult, ServerEventType
 
 
 class ConnectionError(Exception):
@@ -203,6 +204,28 @@ class HestiaWSClient:
             return data.get("type") == "pong"
         except Exception:
             return False
+
+    async def fetch_agent_theme(self) -> AgentTheme:
+        """Fetch the active agent's theme from the V2 API. Falls back to defaults."""
+        try:
+            token = get_stored_token()
+            async with httpx.AsyncClient(verify=self.verify_ssl) as http:
+                resp = await http.get(
+                    f"{self.server_url}/v2/agents/{self.mode}",
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=5.0,
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    identity = data.get("identity", {})
+                    return AgentTheme(
+                        name=identity.get("name", self.mode),
+                        color_hex=identity.get("gradientColor1", "#FF9500"),
+                        gradient_secondary=identity.get("gradientColor2"),
+                    )
+        except Exception:
+            pass
+        return AgentTheme.for_agent(self.mode)
 
     async def disconnect(self) -> None:
         """Cleanly close the WebSocket connection."""

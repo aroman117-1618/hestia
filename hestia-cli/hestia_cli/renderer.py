@@ -13,7 +13,9 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.text import Text
 
-from hestia_cli.models import DoneMetrics, PipelineStage, STAGE_LABELS, ToolRequest
+from rich.markup import escape
+
+from hestia_cli.models import AgentTheme, DoneMetrics, PipelineStage, STAGE_LABELS, ToolRequest
 
 
 def _clear_line() -> None:
@@ -32,6 +34,31 @@ class HestiaRenderer:
         self._status_text = ""
         self._in_streaming = False
         self._status_visible = False
+        self._agent_theme: Optional[AgentTheme] = None
+
+    def set_agent_theme(self, theme: AgentTheme) -> None:
+        """Set the active agent theme for colored prompts."""
+        self._agent_theme = theme
+
+    @property
+    def agent_color(self) -> str:
+        """Rich color string for the active agent."""
+        if self._agent_theme:
+            return self._agent_theme.color_hex
+        return "yellow"
+
+    @property
+    def agent_name(self) -> str:
+        """Display name of the active agent."""
+        if self._agent_theme:
+            return self._agent_theme.name.capitalize()
+        return "Hestia"
+
+    def get_prompt_text(self) -> str:
+        """Get the Rich-formatted prompt string."""
+        name = self._agent_theme.name if self._agent_theme else "hestia"
+        color = self.agent_color
+        return f"[{color}][@{name}][/{color}] > "
 
     def render_event(self, event: Dict[str, Any]) -> None:
         """Dispatch an event to the appropriate renderer."""
@@ -76,7 +103,8 @@ class HestiaRenderer:
         self.console.print(
             f"[bold]Hestia CLI[/bold] v0.1 — connected to [cyan]{server_url}[/cyan]"
         )
-        info_parts = [f"[yellow]@{mode}[/yellow]"]
+        color = self.agent_color
+        info_parts = [f"[{color}]@{mode}[/{color}]"]
         if device_id:
             info_parts.append(f"device:{device_id[:8]}")
         if trust_tiers:
@@ -122,7 +150,10 @@ class HestiaRenderer:
                 self._status_visible = False
             if not self._in_streaming:
                 self._in_streaming = True
-                self.console.print()  # Blank line before response
+                # Agent name header before first token
+                color = self.agent_color
+                name = self.agent_name
+                self.console.print(f"\n[{color}]{name}:[/{color}]")
 
             self._streaming_buffer += content
             # Print raw token for immediate feedback
@@ -135,7 +166,7 @@ class HestiaRenderer:
 
         args_display = ""
         if req.arguments:
-            args_lines = [f"  {k}: {v}" for k, v in req.arguments.items()]
+            args_lines = [f"  {escape(str(k))}: {escape(str(v))}" for k, v in req.arguments.items()]
             args_display = "\n".join(args_lines)
 
         panel_content = f"[bold]{req.tool_name}[/bold]\n{args_display}\n[dim]tier: {req.tier}[/dim]"
@@ -149,7 +180,7 @@ class HestiaRenderer:
     def _render_tool_result(self, event: Dict[str, Any]) -> None:
         """Render tool execution result."""
         status = event.get("status", "")
-        output = event.get("output", "")
+        output = escape(str(event.get("output", "")))  # SEC-5: escape Rich markup
 
         if status == "denied":
             self.console.print("[yellow]Tool execution denied.[/yellow]")
@@ -175,6 +206,8 @@ class HestiaRenderer:
             cached = metrics.get("cached", False)
 
             parts = []
+            if self._agent_theme:
+                parts.append(self._agent_theme.name)
             if tokens_out:
                 parts.append(f"{tokens_out} tokens")
             if duration:

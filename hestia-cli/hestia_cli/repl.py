@@ -64,6 +64,11 @@ async def repl_loop(client: HestiaWSClient, console: Console) -> None:
     # Connect
     try:
         result = await client.connect()
+
+        # Fetch agent theme for colored prompts
+        theme = await client.fetch_agent_theme()
+        renderer.set_agent_theme(theme)
+
         renderer.render_startup_banner(
             server_url=client.server_url,
             mode=client.mode,

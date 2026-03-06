@@ -69,3 +69,20 @@ class DoneMetrics(BaseModel):
     model: Optional[str] = None
     cached: bool = False
     cancelled: bool = False
+
+
+class AgentTheme(BaseModel):
+    """Agent visual identity for CLI rendering."""
+    name: str = "tia"
+    color_hex: str = "#FF9500"  # Default amber
+    gradient_secondary: Optional[str] = None
+
+    @classmethod
+    def for_agent(cls, name: str) -> "AgentTheme":
+        """Get default theme for a known agent."""
+        themes = {
+            "tia": cls(name="tia", color_hex="#FF9500", gradient_secondary="#FF6B00"),
+            "olly": cls(name="olly", color_hex="#2D8B73", gradient_secondary="#1E6B56"),
+            "mira": cls(name="mira", color_hex="#1C3A5F", gradient_secondary="#2A5A8F"),
+        }
+        return themes.get(name.lower(), cls(name=name))
