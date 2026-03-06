@@ -59,6 +59,7 @@ class LogComponent(Enum):
     FILE = "file"
     INBOX = "inbox"
     OUTCOMES = "outcomes"
+    APPLE_CACHE = "apple_cache"
 
 
 class EventType(Enum):

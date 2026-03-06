@@ -1,51 +1,36 @@
 # Session Handoff — 2026-03-05
 
 ## Mission
-Implement zero-friction CLI bootstrap so `hestia` can be typed in any terminal and immediately auto-start the server, auto-register, and begin chatting. Fix prompt engineering issue where Tia ignored injected project context for small models.
+Fix CLI notes functionality (errors + timeouts), diagnose catastrophic model performance on MacBook Air M3, and design Apple metadata cache architecture for reliable tool calling with small local models.
 
 ## Completed
-- **Zero-friction bootstrap** (`hestia-cli/hestia_cli/bootstrap.py`) — `3945682`
-  - `_is_localhost()` security gate: auto-start/auto-register only for localhost URLs
-  - `ensure_server_running()`: ping → launchd kickstart → subprocess fallback → poll up to 14s
-  - `ensure_authenticated()`: token check → POST `/v1/auth/register` for localhost → Keychain store
-  - Wired into both REPL (`repl.py`) and batch mode (`app.py`)
-  - `hestia setup` subcommand with `install-service` and `status`
-  - `config.py`: `auto_start: True` default
-  - 14 new bootstrap tests (66 CLI tests total)
-- **Error sanitization** in `app.py` — replaced pre-existing `str(e)` with fixed strings in batch JSON output
-- **Context instruction fix** (`hestia/orchestration/handler.py:707-712`) — `80a3f59`
-  - Tells Qwen 7B to reference injected project files for project questions
-  - Without this, "hestia roadmap" triggered calendar tools instead of referencing SPRINT.md
-- **Reviewer fixes applied**: kickstart return code check, `.get()` for token parsing, sync `_start_server_launchd`, poll timeout accuracy, hostname truncation
-- **Doc updates**: CLAUDE.md (test counts 1466→1611, project structure, CLI sprints table), SPRINT.md (CLI sprint history)
+- **Notes CLI fix** (`4b986e7`): Two bugs — stale binary + iCloud account scoping. AppleScript now iterates `accounts -> folders` dynamically. Binary recompiled.
+- **Hardware-adaptive model routing** (`1e742e4`): Speed-based detection after first inference. Auto-swaps qwen3.5:9b -> qwen2.5:7b if <8 tok/s. Auto-enables cloud smart mode. 10 new tests.
+- **Apple metadata cache discovery** (`13fd101`): Full architecture designed in `docs/discoveries/apple-metadata-cache-smart-resolution-2026-03-05.md`. Option C: FTS5 cache + fuzzy resolver + smart tool resolution.
+- **Documentation committed** (`13fd101`): CLAUDE.md updated (test count 1629, hw adaptation), SPRINT.md updated (Sprint 12A/12B scope), 8 discovery artifacts.
 
 ## In Progress
 - Nothing — all work committed.
 
 ## Decisions Made
-- **Auto-register uses legacy `/v1/auth/register`** — no invite required, gated client-side by `_is_localhost()`
-- **Server auto-start: launchd preferred, subprocess fallback** — covers Mac Mini (production) and dev Mac (no launchd)
-- **Context instruction safe for larger models** — keep after Mac Studio upgrade, cheap insurance
+- **Speed-based hw detection over VRAM**: Apple Silicon reports 100% VRAM even under memory pressure. Tok/s is the reliable signal.
+- **Option C: Apple metadata cache**: Daily sync of Apple data (Notes, Reminders, Calendar) into FTS5 SQLite + fuzzy resolver. Eliminates multi-step tool chains that 7B models can't handle. ADR pending during implementation.
+- **rapidfuzz for fuzzy matching**: MIT license, C++ backend, best accuracy. New dependency.
 
 ## Test Status
-- 1545 backend passing, 3 skipped, 0 failing
-- 66 CLI passing, 0 failing
-- **1611 total** (up from 1466)
+- 1629 passing (1519 backend + 110 CLI), 0 failing, 3 skipped
 
 ## Uncommitted Changes
-- `CLAUDE.md`, `SPRINT.md`, `SESSION_HANDOFF.md` — this handoff commit
+None — all committed.
 
 ## Known Issues / Landmines
-- **pytest conftest collision**: Running `pytest` from repo root collects both `tests/` and `hestia-cli/tests/`, causing `ImportPathMismatchError`. Always run separately: `pytest tests/` and `cd hestia-cli && pytest tests/`
-- **`count-check.sh` is broken**: Script exists but errors out. Counts verified manually this session.
-- **Context instruction for small models**: `handler.py:707-712` helps Qwen 7B use project context. Larger MoE models may not need it — test after Mac Studio upgrade.
-- **Server running on port 8443** at handoff
-- **2 untracked discovery docs** in `docs/discoveries/` — pre-existing, not from this session
-- **CLI not yet installed on Mac Mini**: Need `pip install -e hestia-cli/` after deploy
+- **qwen3.5:9b is unusable on MacBook Air M3** (4.5 tok/s). Hardware adaptation handles this automatically, but first request will be slow.
+- **Council needs qwen2.5:0.5b on Mac Mini** — not yet pulled.
+- **Notes CLI binary must be recompiled manually** after source changes: `cd hestia-cli-tools/hestia-notes-cli && swift build -c release && cp .build/release/hestia-notes-cli ~/.hestia/bin/`
 
 ## Next Step
-1. Commit handoff docs: `git add CLAUDE.md SPRINT.md SESSION_HANDOFF.md`
-2. Push to main: `git push origin main`
-3. Deploy CLI to Mac Mini: `pip install -e hestia-cli/` on the Mini
-4. Test bootstrap on Mac Mini via Tailscale — remote path should require `hestia auth login`
-5. Sprint 11 (Command Center + MetaMonitor) is next per SPRINT.md
+Begin **Sprint 12: Apple Metadata Cache** implementation:
+1. `pip install rapidfuzz` and add to requirements
+2. Create `hestia/apple_cache/` module: `database.py` (FTS5 schema), `manager.py` (sync orchestration), `resolver.py` (fuzzy matching)
+3. Start with Notes sync — reference `docs/discoveries/apple-metadata-cache-smart-resolution-2026-03-05.md`
+4. Wire resolver into tool execution pipeline so models get pre-resolved entity IDs

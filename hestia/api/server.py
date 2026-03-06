@@ -48,6 +48,7 @@ from hestia.research.manager import get_research_manager, close_research_manager
 from hestia.files import get_file_manager, close_file_manager
 from hestia.inbox import get_inbox_manager, close_inbox_manager
 from hestia.outcomes import get_outcome_manager, close_outcome_manager
+from hestia.apple_cache import get_apple_cache_manager, close_apple_cache_manager
 
 # Import routers
 from hestia.api.routes import (
@@ -235,7 +236,7 @@ async def lifespan(app: FastAPI):
             "cloud_manager", "health_manager", "wiki_manager", "config_loader",
             "invite_store", "explorer_manager", "newsfeed_manager",
             "investigate_manager", "research_manager", "file_manager",
-            "inbox_manager", "outcome_manager",
+            "inbox_manager", "outcome_manager", "apple_cache_manager",
         ]
         phase2_coroutines = [
             get_task_manager(), get_order_manager(), get_agent_manager(),
@@ -244,7 +245,7 @@ async def lifespan(app: FastAPI):
             get_explorer_manager(), get_newsfeed_manager(),
             get_investigate_manager(), get_research_manager(),
             get_file_manager(), get_inbox_manager(),
-            get_outcome_manager(),
+            get_outcome_manager(), get_apple_cache_manager(),
         ]
 
         try:
@@ -282,6 +283,7 @@ async def lifespan(app: FastAPI):
                     "file_manager": get_file_manager,
                     "inbox_manager": get_inbox_manager,
                     "outcome_manager": get_outcome_manager,
+                    "apple_cache_manager": get_apple_cache_manager,
                 }
                 for name, _ in failures:
                     await retry_map[name]()
@@ -318,6 +320,7 @@ async def lifespan(app: FastAPI):
             await get_file_manager()
             await get_inbox_manager()
             await get_outcome_manager()
+            await get_apple_cache_manager()
 
         # ── Phase 3: Sequential dependents ───────────────────────────
         # Schedulers depend on their managers from Phase 2
@@ -386,6 +389,16 @@ async def lifespan(app: FastAPI):
             shutdown_errors += 1
             logger.warning(
                 f"Outcome manager cleanup error: {type(e).__name__}",
+                component=LogComponent.API,
+            )
+
+        # 20. apple_cache_manager
+        try:
+            await close_apple_cache_manager()
+        except Exception as e:
+            shutdown_errors += 1
+            logger.warning(
+                f"Apple cache manager cleanup error: {type(e).__name__}",
                 component=LogComponent.API,
             )
 
