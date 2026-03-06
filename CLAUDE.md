@@ -105,7 +105,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 **Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
 **Field Guide UI Restructure: COMPLETE.** 5 thematic tabs, native SwiftUI diagrams, structured roadmap with `/v1/wiki/roadmap` endpoint.
 
-1629 tests (1626 passing, 3 skipped), 41 test files (35 backend + 6 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
+1683 tests (1680 passing, 3 skipped), 42 test files (36 backend + 6 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -113,7 +113,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 - **Type hints**: Always. Every function signature.
 - **Async/await**: For all I/O (database, inference, network).
-- **Logging**: `logger = get_logger()` — no arguments. Never `HestiaLogger(component=...)` or `get_logger(component=...)`. Import: `from hestia.logging import get_logger`. LogComponent enum: ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED, INVESTIGATE, RESEARCH, FILE, INBOX, OUTCOMES.
+- **Logging**: `logger = get_logger()` — no arguments. Never `HestiaLogger(component=...)` or `get_logger(component=...)`. Import: `from hestia.logging import get_logger`. LogComponent enum: ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED, INVESTIGATE, RESEARCH, FILE, INBOX, OUTCOMES, APPLE_CACHE.
 - **Config**: YAML files, never hardcode.
 - **Error handling in routes**: `sanitize_for_log(e)` from `hestia.api.errors` in logs (never raw `{e}`). Generic messages in HTTP responses (never `detail=str(e)`).
 - **File naming**: `snake_case.py` (Python), UpperCamelCase.swift (iOS).
@@ -204,6 +204,10 @@ hestia/
 │   │   ├── security.py             # PathValidator (allowlist, TOCTOU-safe, null-byte protection)
 │   │   ├── database.py             # FileAuditDatabase (user-scoped audit log)
 │   │   └── manager.py              # FileManager (list, read, create, update, delete, move)
+│   ├── apple_cache/                 # FTS5 metadata cache for Apple ecosystem fuzzy resolution
+│   │   ├── database.py             # AppleCacheDatabase (FTS5 virtual table, sync tracking)
+│   │   ├── resolver.py             # SmartResolver (FTS5 candidates + rapidfuzz scoring)
+│   │   └── manager.py              # AppleCacheManager (TTL sync, write-through, singleton)
 │   ├── research/                    # Knowledge graph + PrincipleStore (Learning Cycle Phase A)
 │   │   ├── graph_builder.py        # Memory chunks → nodes, edges, force-directed layout
 │   │   └── principle_store.py      # ChromaDB `hestia_principles` + LLM distillation
@@ -217,7 +221,7 @@ hestia/
 │   │   └── routes/                  # auth, health, chat, mode, memory, sessions, tools,
 │   │                                # tasks, cloud, voice, orders, agents, agents_v2, user, user_profile, proactive, health_data, wiki, explorer, newsfeed, investigate, research, files, inbox, outcomes
 │   └── config/                      # inference.yaml, execution.yaml, memory.yaml, wiki.yaml
-├── hestia-cli/                      # Python CLI package — 66 tests, 6 test files
+├── hestia-cli/                      # Python CLI package — 72 tests, 6 test files
 │   ├── hestia_cli/                  # CLI source (app, repl, client, auth, bootstrap, config, commands, context, renderer, models)
 │   └── tests/                       # CLI tests (bootstrap, client, config, context, renderer)
 ├── hestia-cli-tools/                # Swift CLIs (keychain, calendar, reminders, notes)
@@ -239,7 +243,7 @@ hestia/
 │   │   ├── Services/                # APIClient+Wiki, APIClient+Tools, APIClient+Newsfeed, APIClient+Health, APIClient+Devices, APIClient+Investigate
 │   │   └── DesignSystem/            # MacColors, MacSpacing, MacTypography
 │   └── project.yml                  # xcodegen config (iOS 26.0, macOS 15.0, Swift 6.1)
-├── tests/                           # 1545 tests, 35 files
+├── tests/                           # 1611 tests, 36 files
 ├── scripts/                         # deploy, test-api, auto-test, validate-security, ollama
 ├── .claude/                         # agents/, output-styles/, settings
 ├── docs/                            # api-contract, decision-log, security-architecture
@@ -291,6 +295,8 @@ Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 **Voice Pipeline:** iOS SpeechAnalyzer → transcript → quality check (LLM flags words) → user review → journal analysis (intent extraction + cross-referencing + action plan).
 
 **Hardware Adaptation:** After first inference, measures tok/s. If below 8 tok/s, swaps primary model to `qwen2.5:7b` and enables cloud smart mode. Override: `HESTIA_PRIMARY_MODEL=qwen2.5:7b`. Config: `inference.yaml → hardware_adaptation`.
+
+**Apple Metadata Cache:** FTS5 SQLite cache of Notes/Calendar/Reminders titles with rapidfuzz fuzzy resolution. TTL-based sync (6h notes, 2h calendar, 4h reminders). Write-through on create/update/delete. Eliminates multi-step tool chains — `read_note("sprint plan")` resolves + fetches in one call. 20 Apple tools (was 17).
 
 **Key ADRs** (full list: `docs/hestia-decision-log.md`):
 - ADR-001/040: Dual local model — Qwen 3.5 9B primary + Qwen 2.5 Coder 7B specialist
