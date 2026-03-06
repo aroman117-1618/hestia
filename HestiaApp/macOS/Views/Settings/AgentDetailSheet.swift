@@ -324,7 +324,7 @@ struct AgentDetailSheet: View {
 
         return HStack(spacing: MacSpacing.sm) {
             Image(systemName: isSuccess ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                .foregroundStyle(isSuccess ? MacColors.statusSuccess : MacColors.statusError)
+                .foregroundStyle(isSuccess ? MacColors.statusGreen : MacColors.statusCritical)
             Text(message)
                 .font(MacTypography.labelMedium)
                 .foregroundStyle(MacColors.textPrimary)
