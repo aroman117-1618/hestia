@@ -276,10 +276,16 @@ class ThinkingAnimation:
     def __init__(self, console: Console) -> None:
         self._console = console
         self._task: Optional[asyncio.Task] = None
-        self._lock = asyncio.Lock()
+        self._lock: Optional[asyncio.Lock] = None
         self._active = False
         self._use_emoji = os.environ.get("HESTIA_NO_EMOJI") is None
         self._use_color = os.environ.get("HESTIA_NO_COLOR") is None
+
+    def _get_lock(self) -> asyncio.Lock:
+        """Lazy-init asyncio.Lock (requires running event loop, not available at __init__ on Python 3.9)."""
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
 
     @property
     def is_active(self) -> bool:
@@ -287,7 +293,7 @@ class ThinkingAnimation:
 
     async def start(self, agent_name: str = "hestia") -> None:
         """Start the animation loop."""
-        async with self._lock:
+        async with self._get_lock():
             if self._active:
                 return
             self._active = True
@@ -296,7 +302,7 @@ class ThinkingAnimation:
 
     async def stop(self) -> None:
         """Stop animation and clear the line."""
-        async with self._lock:
+        async with self._get_lock():
             if not self._active:
                 return
             self._active = False
