@@ -449,3 +449,61 @@ async def set_memory_sensitivity(
                 "message": "Failed to update memory sensitivity.",
             }
         )
+
+
+# =============================================================================
+# Ingestion Endpoint (Sprint 11.5)
+# =============================================================================
+
+
+@router.post("/ingest")
+async def trigger_ingestion(
+    source: Optional[str] = Query(default=None, description="Filter: mail, calendar, reminders"),
+    device_token: str = Depends(get_device_token),
+):
+    """
+    Trigger memory ingestion from Apple inbox sources.
+
+    Ingests mail, calendar, and/or reminder items into the memory system
+    with deduplication, preprocessing, and source tagging.
+    """
+    try:
+        from hestia.inbox import get_inbox_manager
+        from hestia.inbox.bridge import InboxMemoryBridge
+
+        memory_mgr = await get_memory_manager()
+        inbox_mgr = await get_inbox_manager()
+
+        bridge = InboxMemoryBridge(
+            inbox_manager=inbox_mgr,
+            memory_manager=memory_mgr,
+        )
+
+        # Use device_token as user_id (single-user for now)
+        result = await bridge.ingest(
+            user_id=device_token,
+            source_filter=source,
+        )
+
+        return {
+            "batch_id": result.batch_id,
+            "source": result.source,
+            "items_processed": result.items_processed,
+            "items_stored": result.items_stored,
+            "items_skipped": result.items_skipped,
+            "items_failed": result.items_failed,
+            "errors": result.errors[:10],  # Cap error list
+        }
+
+    except Exception as e:
+        logger.error(
+            f"Ingestion failed: {sanitize_for_log(e)}",
+            component=LogComponent.MEMORY,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "ingestion_failed",
+                "message": "Memory ingestion failed.",
+            }
+        )
