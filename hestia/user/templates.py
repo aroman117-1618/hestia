@@ -18,8 +18,19 @@ USER_TEMPLATES = {
 - (to be configured during onboarding)
 """,
 
-    UserConfigFile.MIND: """## Standards & Values
+    UserConfigFile.MIND: """# Standards & Values
 
+## Communication Preferences
+- (How do you like to receive information? Bullet points? Detailed prose? Visual?)
+- (Preferred response length: concise / detailed / adaptive?)
+- (Any topics you want Hestia to always flag or avoid?)
+
+## Decision-Making Style
+- (Data-driven? Intuition-first? Consensus-seeking?)
+- (How do you handle ambiguity?)
+- (Speed vs. thoroughness tradeoff preference?)
+
+## Core Values
 ### Rigorous Investigation
 Question everything. Verify claims. Follow the evidence, not assumptions.
 When something doesn't add up, dig deeper before accepting it.
@@ -35,6 +46,10 @@ of unnecessary complexity. Three lines of clear code beat one clever line.
 ### Discipline, Rhythm, Education, Action
 Build habits, not heroics. Consistent small steps compound. Learn by doing.
 Plan, execute, review, repeat. The cycle is the system.
+
+## Non-Negotiables
+- (What are your absolute requirements that should never be compromised?)
+- (Any red lines for Hestia's behavior?)
 """,
 
     UserConfigFile.TOOLS: """## Environment
@@ -57,18 +72,32 @@ about the user are curated here for continuity across sessions.*
 (No entries yet. Memory will accumulate through conversation.)
 """,
 
-    UserConfigFile.BODY: """## Health & Body
+    UserConfigFile.BODY: """# Health & Wellness
 
-### Medications
-- (to be configured)
+## Medications
+- (List current medications, dosages, and schedules)
 
-### Supplements
-- (to be configured)
+## Supplements
+- (List supplements and timing)
 
-### Workout Routine
-- (to be configured)
+## Exercise Routine
+- (Current workout schedule and goals)
+- (Preferred activities, gym schedule, etc.)
 
-### Health Notes
+## Sleep Schedule
+- **Target bedtime:** (e.g., 10:30 PM)
+- **Target wake time:** (e.g., 6:30 AM)
+- **Sleep quality notes:** (any patterns or issues)
+
+## Dietary Notes
+- (Any dietary restrictions, preferences, or goals)
+- (Meal timing preferences)
+
+## Health Goals
+- (Short-term goals: next 30 days)
+- (Long-term goals: next 6-12 months)
+
+## Notes
 - Apple HealthKit syncs daily (28 metric types)
 - (Agent will append observations here)
 """,

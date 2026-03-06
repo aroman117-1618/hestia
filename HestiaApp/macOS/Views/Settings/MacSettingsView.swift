@@ -23,7 +23,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .profile: return "person.circle"
-        case .agents: return "theatermasks"
+        case .agents: return "person.3.fill"
         case .resources: return "wrench.and.screwdriver"
         case .fieldGuide: return "map"
         }
@@ -73,7 +73,6 @@ struct MacSettingsView: View {
                 }
             }
             .padding(MacSpacing.xxl)
-            .frame(maxWidth: MacSize.settingsMaxWidth)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(MacColors.windowBackground)

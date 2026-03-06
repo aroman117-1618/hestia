@@ -158,10 +158,7 @@ struct MacProfileView: View {
                 .foregroundStyle(MacColors.textSecondary)
 
             LazyVGrid(columns: [
-                GridItem(.flexible(), spacing: MacSpacing.sm),
-                GridItem(.flexible(), spacing: MacSpacing.sm),
-                GridItem(.flexible(), spacing: MacSpacing.sm),
-                GridItem(.flexible(), spacing: MacSpacing.sm),
+                GridItem(.adaptive(minimum: 150), spacing: MacSpacing.sm),
             ], spacing: MacSpacing.sm) {
                 ForEach(MacSettingsProfileViewModel.profileFiles, id: \.key) { file in
                     ProfileFileChip(
@@ -211,6 +208,20 @@ struct ProfileFileChip: View {
     var isSelected: Bool = false
     var onTap: (() -> Void)?
 
+    private var tooltip: String {
+        switch label {
+        case "IDENTITY": return "Name, timezone, contacts — your basic info"
+        case "MIND": return "Values, communication style, decision-making preferences"
+        case "TOOLS": return "Hardware, software, dev environment details"
+        case "MEMORY": return "Agent-maintained long-term memory about you"
+        case "BODY": return "Health, medications, exercise, sleep schedule"
+        case "SPIRIT": return "Philosophy, beliefs, guiding principles"
+        case "VITALS": return "Periodic health and activity checklist"
+        case "SETUP": return "Onboarding interview questions"
+        default: return "Profile configuration file"
+        }
+    }
+
     var body: some View {
         Button {
             onTap?()
@@ -245,6 +256,7 @@ struct ProfileFileChip: View {
             )
         }
         .buttonStyle(.plain)
+        .help(tooltip)
         .accessibilityLabel("\(label): \(exists ? "configured" : "not configured")")
     }
 }

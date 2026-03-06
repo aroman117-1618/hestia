@@ -42,9 +42,7 @@ struct MacAgentsView: View {
 
     private var agentGrid: some View {
         LazyVGrid(columns: [
-            GridItem(.flexible(), spacing: MacSpacing.md),
-            GridItem(.flexible(), spacing: MacSpacing.md),
-            GridItem(.flexible(), spacing: MacSpacing.md),
+            GridItem(.adaptive(minimum: 200), spacing: MacSpacing.md),
         ], spacing: MacSpacing.md) {
             ForEach(vm.agents) { agent in
                 AgentCardView(agent: agent, isDefault: agent.directoryName == vm.defaultAgent) {
@@ -59,7 +57,7 @@ struct MacAgentsView: View {
 
     private var emptyState: some View {
         VStack(spacing: MacSpacing.md) {
-            Image(systemName: "theatermasks")
+            Image(systemName: "person.3.fill")
                 .font(.system(size: 32))
                 .foregroundStyle(MacColors.textFaint)
             Text("No agents configured")
