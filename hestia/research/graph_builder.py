@@ -69,6 +69,7 @@ class GraphBuilder:
         limit: int = MAX_NODES,
         node_types: Optional[Set[str]] = None,
         center_topic: Optional[str] = None,
+        sources: Optional[List[str]] = None,
     ) -> GraphResponse:
         """
         Build the full knowledge graph.
@@ -77,6 +78,7 @@ class GraphBuilder:
             limit: Max memory chunks to query.
             node_types: Filter to specific node types (memory, topic, entity).
             center_topic: Focus on nodes related to this topic.
+            sources: Filter by MemorySource values (e.g., ["conversation", "mail"]).
 
         Returns:
             GraphResponse with nodes, edges, clusters, and metadata.
@@ -90,6 +92,12 @@ class GraphBuilder:
                 limit=min(limit, MAX_NODES),
                 semantic_threshold=0.0,
             )
+            # Filter by source if specified
+            if sources is not None:
+                results = [
+                    r for r in results
+                    if r.chunk.metadata.source in sources
+                ]
         except Exception as e:
             logger.warning(
                 "Graph builder: memory search failed, returning empty graph",

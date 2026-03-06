@@ -37,6 +37,7 @@ async def get_graph(
     limit: int = Query(default=200, ge=1, le=500),
     node_types: Optional[str] = Query(default=None, description="Comma-separated: memory,topic,entity"),
     center_topic: Optional[str] = Query(default=None, description="Focus graph on this topic"),
+    sources: Optional[str] = Query(default=None, description="Comma-separated MemorySource values: conversation,mail,calendar,reminders,notes,health"),
     device_token: str = Depends(get_device_token),
 ) -> Dict[str, Any]:
     """Get the knowledge graph with nodes, edges, and clusters."""
@@ -47,10 +48,15 @@ async def get_graph(
         if node_types:
             types_set = set(t.strip() for t in node_types.split(","))
 
+        sources_list: Optional[list] = None
+        if sources:
+            sources_list = [s.strip() for s in sources.split(",") if s.strip()]
+
         response = await manager.get_graph(
             limit=limit,
             node_types=types_set,
             center_topic=center_topic,
+            sources=sources_list,
         )
         return response.to_dict()
 

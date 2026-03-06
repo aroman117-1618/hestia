@@ -411,6 +411,7 @@ class MockChunkTags:
 @dataclass
 class MockChunkMetadata:
     confidence: float = 0.7
+    source: Optional[str] = None
 
 
 @dataclass
@@ -684,3 +685,114 @@ class TestGraphBuilderIntegration:
         assert json_str
         parsed = json.loads(json_str)
         assert parsed["nodeCount"] == len(response.nodes)
+
+
+# ── Source Filter Tests (Sprint 11.5 — Task A5) ─────────────
+
+
+def _make_sourced_results(sources: List[str]) -> List[MockSearchResult]:
+    """Generate results with specific source metadata."""
+    results = []
+    for i, source in enumerate(sources):
+        chunk = MockConversationChunk(
+            id=f"chunk-{i}",
+            content=f"Content from {source} source {i}",
+            chunk_type=MockChunkType("conversation"),
+            tags=MockChunkTags(topics=["test"]),
+            metadata=MockChunkMetadata(source=source),
+        )
+        results.append(MockSearchResult(chunk=chunk, relevance_score=0.9))
+    return results
+
+
+class TestGraphSourceFiltering:
+    """Tests for graph source filtering (Task A5)."""
+
+    @pytest.mark.asyncio
+    async def test_graph_accepts_sources_param(self) -> None:
+        """build_graph accepts sources parameter."""
+        builder = GraphBuilder()
+        mock_mgr = AsyncMock()
+        mock_mgr.search = AsyncMock(return_value=_make_results(5))
+        builder._memory_manager = mock_mgr
+
+        response = await builder.build_graph(sources=["conversation"])
+        assert isinstance(response, GraphResponse)
+
+    @pytest.mark.asyncio
+    async def test_graph_filters_by_source(self) -> None:
+        """Only chunks matching source filter are included."""
+        builder = GraphBuilder()
+        results = _make_sourced_results(["conversation", "mail", "conversation", "calendar", "mail"])
+
+        mock_mgr = AsyncMock()
+        mock_mgr.search = AsyncMock(return_value=results)
+        builder._memory_manager = mock_mgr
+
+        response = await builder.build_graph(sources=["mail"])
+        # Should only have memory nodes from mail sources
+        memory_nodes = [n for n in response.nodes if n.node_type == NodeType.MEMORY]
+        assert len(memory_nodes) == 2
+
+    @pytest.mark.asyncio
+    async def test_graph_no_source_filter_returns_all(self) -> None:
+        """No sources param returns all chunks (backward compat)."""
+        builder = GraphBuilder()
+        results = _make_sourced_results(["conversation", "mail", "calendar"])
+
+        mock_mgr = AsyncMock()
+        mock_mgr.search = AsyncMock(return_value=results)
+        builder._memory_manager = mock_mgr
+
+        response = await builder.build_graph()
+        memory_nodes = [n for n in response.nodes if n.node_type == NodeType.MEMORY]
+        assert len(memory_nodes) == 3
+
+    @pytest.mark.asyncio
+    async def test_graph_empty_sources_returns_empty(self) -> None:
+        """Empty sources list filters everything out."""
+        builder = GraphBuilder()
+        results = _make_sourced_results(["conversation", "mail"])
+
+        mock_mgr = AsyncMock()
+        mock_mgr.search = AsyncMock(return_value=results)
+        builder._memory_manager = mock_mgr
+
+        response = await builder.build_graph(sources=[])
+        assert len(response.nodes) == 0
+
+    @pytest.mark.asyncio
+    async def test_graph_multiple_sources(self) -> None:
+        """Multiple sources returns union of matching chunks."""
+        builder = GraphBuilder()
+        results = _make_sourced_results(["conversation", "mail", "calendar", "notes"])
+
+        mock_mgr = AsyncMock()
+        mock_mgr.search = AsyncMock(return_value=results)
+        builder._memory_manager = mock_mgr
+
+        response = await builder.build_graph(sources=["mail", "calendar"])
+        memory_nodes = [n for n in response.nodes if n.node_type == NodeType.MEMORY]
+        assert len(memory_nodes) == 2
+
+    @pytest.mark.asyncio
+    async def test_graph_content_truncated_to_200(self) -> None:
+        """Memory node content is truncated to 200 chars (existing behavior)."""
+        builder = GraphBuilder()
+        long_content = "X" * 500
+        chunk = MockConversationChunk(
+            id="chunk-long",
+            content=long_content,
+            tags=MockChunkTags(topics=["test"]),
+            metadata=MockChunkMetadata(source="conversation"),
+        )
+        results = [MockSearchResult(chunk=chunk, relevance_score=0.9)]
+
+        mock_mgr = AsyncMock()
+        mock_mgr.search = AsyncMock(return_value=results)
+        builder._memory_manager = mock_mgr
+
+        response = await builder.build_graph()
+        memory_nodes = [n for n in response.nodes if n.node_type == NodeType.MEMORY]
+        assert len(memory_nodes) == 1
+        assert len(memory_nodes[0].content) <= 200

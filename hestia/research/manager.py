@@ -70,6 +70,7 @@ class ResearchManager:
         limit: int = 200,
         node_types: Optional[Set[str]] = None,
         center_topic: Optional[str] = None,
+        sources: Optional[list] = None,
     ) -> GraphResponse:
         """
         Get the knowledge graph, using cache if available.
@@ -78,6 +79,7 @@ class ResearchManager:
             limit: Max memory chunks to query.
             node_types: Filter to specific node types.
             center_topic: Focus on nodes related to this topic.
+            sources: Filter by MemorySource values (e.g., ["conversation", "mail"]).
 
         Returns:
             GraphResponse with nodes, edges, clusters.
@@ -87,7 +89,8 @@ class ResearchManager:
 
         # Build cache key from parameters
         type_key = ",".join(sorted(node_types)) if node_types else "all"
-        cache_key = f"graph:{limit}:{type_key}:{center_topic or 'none'}"
+        source_key = ",".join(sorted(sources)) if sources else "all"
+        cache_key = f"graph:{limit}:{type_key}:{center_topic or 'none'}:{source_key}"
 
         # Check cache
         cached = await self._database.get_cached_graph(cache_key)
@@ -104,6 +107,7 @@ class ResearchManager:
             limit=limit,
             node_types=node_types,
             center_topic=center_topic,
+            sources=sources,
         )
 
         # Cache the result
