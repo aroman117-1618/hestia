@@ -9,17 +9,21 @@ from typing import Any, Dict, List, Optional
 
 from ..execution.models import Tool, ToolParam, ToolParamType
 from ..execution.registry import ToolRegistry
+from ..logging import get_logger, LogComponent
 from .calendar import CalendarClient
 from .reminders import RemindersClient
 from .notes import NotesClient
 from .mail import MailClient
 
 
+logger = get_logger()
+
 # Singleton clients (initialized lazily)
 _calendar_client: Optional[CalendarClient] = None
 _reminders_client: Optional[RemindersClient] = None
 _notes_client: Optional[NotesClient] = None
 _mail_client: Optional[MailClient] = None
+_cache_manager = None  # AppleCacheManager, lazy-imported to avoid circular
 
 
 def _get_calendar_client() -> CalendarClient:
@@ -48,6 +52,15 @@ def _get_mail_client() -> MailClient:
     if _mail_client is None:
         _mail_client = MailClient()
     return _mail_client
+
+
+async def _get_cache_manager():
+    """Lazy-initialize AppleCacheManager (async singleton)."""
+    global _cache_manager
+    if _cache_manager is None:
+        from ..apple_cache.manager import get_apple_cache_manager
+        _cache_manager = await get_apple_cache_manager()
+    return _cache_manager
 
 
 # ============================================================================
@@ -133,6 +146,19 @@ async def create_event(
         all_day=all_day,
     )
 
+    # Write-through to cache
+    try:
+        from ..apple_cache.models import EntitySource
+        cache = await _get_cache_manager()
+        await cache.on_entity_created(
+            source=EntitySource.CALENDAR,
+            native_id=event.id,
+            title=event.title,
+            container=event.calendar,
+        )
+    except Exception:
+        pass  # Cache is best-effort
+
     return {
         "created": True,
         "event": {
@@ -164,6 +190,34 @@ async def get_today_events() -> Dict[str, Any]:
     }
 
 
+async def find_event(query: str, days: int = 30) -> Dict[str, Any]:
+    """Find calendar events by fuzzy title match using the metadata cache."""
+    from ..apple_cache.models import EntitySource
+
+    cache = await _get_cache_manager()
+    matches = await cache.resolve(query, source=EntitySource.CALENDAR, limit=5)
+
+    if not matches:
+        return {"events": [], "count": 0, "query": query}
+
+    return {
+        "events": [
+            {
+                "id": m.entity.native_id,
+                "title": m.entity.title,
+                "calendar": m.entity.container,
+                "score": round(m.score, 1),
+                "start": m.entity.metadata.get("start"),
+                "end": m.entity.metadata.get("end"),
+                "location": m.entity.metadata.get("location"),
+            }
+            for m in matches
+        ],
+        "count": len(matches),
+        "query": query,
+    }
+
+
 # ============================================================================
 # Reminders Tool Handlers
 # ============================================================================
@@ -190,8 +244,21 @@ async def list_reminders(
 ) -> Dict[str, Any]:
     """List reminders."""
     client = _get_reminders_client()
+
+    # Fuzzy-resolve list name via cache if provided
+    resolved_list = list_name
+    if list_name:
+        try:
+            from ..apple_cache.models import EntitySource
+            cache = await _get_cache_manager()
+            exact = await cache.resolve_container(list_name, EntitySource.REMINDERS)
+            if exact:
+                resolved_list = exact
+        except Exception:
+            pass  # Fall through to original list_name
+
     reminders = await client.list_reminders(
-        list_name=list_name,
+        list_name=resolved_list,
         completed=completed,
         incomplete=incomplete,
     )
@@ -235,6 +302,19 @@ async def create_reminder(
         priority=priority,
         notes=notes,
     )
+
+    # Write-through to cache
+    try:
+        from ..apple_cache.models import EntitySource
+        cache = await _get_cache_manager()
+        await cache.on_entity_created(
+            source=EntitySource.REMINDERS,
+            native_id=reminder.id,
+            title=reminder.title,
+            container=reminder.list_name,
+        )
+    except Exception:
+        pass
 
     return {
         "created": True,
@@ -333,8 +413,21 @@ async def list_notes(folder: Optional[str] = None) -> Dict[str, Any]:
 
 
 async def get_note(note_id: str) -> Dict[str, Any]:
-    """Get note content."""
+    """Get note content by ID or title (auto-resolves fuzzy titles via cache)."""
     client = _get_notes_client()
+
+    # Heuristic: Apple Note IDs look like "x-coredata://..." or long hex strings.
+    # If the input doesn't look like an ID, try fuzzy resolution first.
+    if not _looks_like_note_id(note_id):
+        try:
+            from ..apple_cache.models import EntitySource
+            cache = await _get_cache_manager()
+            match = await cache.resolve_best(note_id, source=EntitySource.NOTES)
+            if match and match.score >= 70.0:
+                note_id = match.entity.native_id
+        except Exception:
+            pass  # Fall through to original note_id
+
     note = await client.get_note(note_id)
 
     return {
@@ -349,6 +442,15 @@ async def get_note(note_id: str) -> Dict[str, Any]:
     }
 
 
+def _looks_like_note_id(value: str) -> bool:
+    """Heuristic: Apple Note IDs contain 'x-coredata' or are very long hex-like strings."""
+    if "x-coredata" in value:
+        return True
+    if len(value) > 30 and "/" in value:
+        return True
+    return False
+
+
 async def create_note(
     title: str,
     body: Optional[str] = None,
@@ -357,6 +459,19 @@ async def create_note(
     """Create a note."""
     client = _get_notes_client()
     note = await client.create_note(title=title, body=body, folder=folder)
+
+    # Write-through to cache
+    try:
+        from ..apple_cache.models import EntitySource
+        cache = await _get_cache_manager()
+        await cache.on_entity_created(
+            source=EntitySource.NOTES,
+            native_id=note.id,
+            title=note.title,
+            container=note.folder,
+        )
+    except Exception:
+        pass
 
     return {
         "created": True,
@@ -369,7 +484,29 @@ async def create_note(
 
 
 async def search_notes(query: str) -> Dict[str, Any]:
-    """Search notes by title."""
+    """Search notes by title using the metadata cache (fast fuzzy search)."""
+    # Try cache-based search first (instant, fuzzy)
+    try:
+        from ..apple_cache.models import EntitySource
+        cache = await _get_cache_manager()
+        matches = await cache.resolve(query, source=EntitySource.NOTES, limit=10)
+        if matches:
+            return {
+                "notes": [
+                    {
+                        "id": m.entity.native_id,
+                        "title": m.entity.title,
+                        "folder": m.entity.container,
+                        "score": round(m.score, 1),
+                    }
+                    for m in matches
+                ],
+                "count": len(matches),
+            }
+    except Exception:
+        pass
+
+    # Fallback to direct AppleScript search
     client = _get_notes_client()
     notes = await client.search_notes(query)
 
@@ -379,6 +516,67 @@ async def search_notes(query: str) -> Dict[str, Any]:
             for n in notes
         ],
         "count": len(notes),
+    }
+
+
+async def find_note(query: str) -> Dict[str, Any]:
+    """Find notes by fuzzy title match. Returns ranked matches from the metadata cache."""
+    from ..apple_cache.models import EntitySource
+
+    cache = await _get_cache_manager()
+    matches = await cache.resolve(query, source=EntitySource.NOTES, limit=5)
+
+    if not matches:
+        return {"notes": [], "count": 0, "query": query}
+
+    return {
+        "notes": [
+            {
+                "id": m.entity.native_id,
+                "title": m.entity.title,
+                "folder": m.entity.container,
+                "score": round(m.score, 1),
+            }
+            for m in matches
+        ],
+        "count": len(matches),
+        "query": query,
+    }
+
+
+async def read_note(query: str) -> Dict[str, Any]:
+    """
+    Find a note by fuzzy title and return its full content in one step.
+
+    This is the primary tool for reading notes — it resolves a natural-language
+    reference to the best-matching note and fetches its content, all in a single
+    tool call. No need to list notes first, then get by ID.
+    """
+    from ..apple_cache.models import EntitySource
+
+    cache = await _get_cache_manager()
+    match = await cache.resolve_best(query, source=EntitySource.NOTES, min_score=60.0)
+
+    if not match:
+        return {
+            "error": f"No note found matching '{query}'",
+            "suggestion": "Try a different search term or use list_notes to browse all notes.",
+        }
+
+    # Fetch full content using the resolved ID
+    client = _get_notes_client()
+    note = await client.get_note(match.entity.native_id)
+
+    return {
+        "note": {
+            "id": note.id,
+            "title": note.title,
+            "folder": note.folder,
+            "body": note.body,
+            "createdAt": note.created_at,
+            "modifiedAt": note.modified_at,
+        },
+        "match_score": round(match.score, 1),
     }
 
 
@@ -526,6 +724,24 @@ def get_calendar_tools() -> List[Tool]:
                 ),
             },
             handler=list_events,
+            category="calendar",
+        ),
+        Tool(
+            name="find_event",
+            description="Find calendar events by fuzzy title match. Use when user asks about a specific event by name (e.g., 'when is my dentist appointment'). Returns ranked matches.",
+            parameters={
+                "query": ToolParam(
+                    type=ToolParamType.STRING,
+                    description="Event title to search for (fuzzy matching)",
+                    required=True,
+                ),
+                "days": ToolParam(
+                    type=ToolParamType.INTEGER,
+                    description="Number of days to search (default: 30)",
+                    default=30,
+                ),
+            },
+            handler=find_event,
             category="calendar",
         ),
         Tool(
@@ -701,15 +917,41 @@ def get_notes_tools() -> List[Tool]:
         ),
         Tool(
             name="get_note",
-            description="Get the content of a specific note",
+            description="Get the content of a note by ID or title. If a title is given instead of an ID, it will be fuzzy-resolved to the best match.",
             parameters={
                 "note_id": ToolParam(
                     type=ToolParamType.STRING,
-                    description="ID of the note to retrieve",
+                    description="ID or title of the note to retrieve",
                     required=True,
                 ),
             },
             handler=get_note,
+            category="notes",
+        ),
+        Tool(
+            name="read_note",
+            description="Read a note by name — finds the best-matching note and returns its full content in one step. Use this when the user asks to read, show, or open a specific note by name.",
+            parameters={
+                "query": ToolParam(
+                    type=ToolParamType.STRING,
+                    description="Note title or topic to search for (fuzzy matching)",
+                    required=True,
+                ),
+            },
+            handler=read_note,
+            category="notes",
+        ),
+        Tool(
+            name="find_note",
+            description="Find notes by fuzzy title match. Returns ranked matches without content. Use when user wants to find or list notes matching a topic.",
+            parameters={
+                "query": ToolParam(
+                    type=ToolParamType.STRING,
+                    description="Note title to search for (fuzzy matching)",
+                    required=True,
+                ),
+            },
+            handler=find_note,
             category="notes",
         ),
         Tool(
@@ -736,7 +978,7 @@ def get_notes_tools() -> List[Tool]:
         ),
         Tool(
             name="search_notes",
-            description="Search notes by title",
+            description="Search notes by title using fuzzy matching. Alias for find_note.",
             parameters={
                 "query": ToolParam(
                     type=ToolParamType.STRING,

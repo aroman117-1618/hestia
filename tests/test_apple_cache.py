@@ -683,6 +683,165 @@ class TestAppleCacheManager:
 # Model Tests
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Tool Integration Tests
+# ---------------------------------------------------------------------------
+
+class TestToolIntegration:
+    """Tests for cache-backed tool handlers."""
+
+    def test_looks_like_note_id(self):
+        """Note ID heuristic correctly distinguishes IDs from titles."""
+        from hestia.apple.tools import _looks_like_note_id
+
+        # Real Apple Note IDs
+        assert _looks_like_note_id("x-coredata://12345/Note/p67") is True
+        assert _looks_like_note_id("x-coredata://ABC-DEF/ICNote/p89") is True
+
+        # Long path-like IDs
+        assert _looks_like_note_id("12345678-abcd-efgh-ijkl/Notes/SomeId") is True
+
+        # Titles (should NOT be IDs)
+        assert _looks_like_note_id("Grocery List") is False
+        assert _looks_like_note_id("Meeting Notes") is False
+        assert _looks_like_note_id("my ideas") is False
+        assert _looks_like_note_id("Sprint 12 Plan") is False
+
+    @pytest.mark.asyncio
+    async def test_find_note_handler(self, db: AppleCacheDatabase):
+        """find_note tool handler returns ranked results from cache."""
+        await db.upsert_entities(
+            [
+                _make_entity(native_id="n1", title="Grocery List", container="Shopping"),
+                _make_entity(native_id="n2", title="Meeting Agenda", container="Work"),
+            ],
+            EntitySource.NOTES,
+        )
+
+        # Patch the cache manager to use our test DB
+        from hestia.apple_cache.manager import AppleCacheManager
+        from hestia.apple_cache.resolver import SmartResolver
+
+        test_mgr = AppleCacheManager(database=db)
+        test_mgr._resolver = SmartResolver(db)
+        # Mark notes as fresh so it doesn't try to sync
+        import time
+        test_mgr._last_sync[EntitySource.NOTES] = time.time()
+
+        with patch("hestia.apple.tools._get_cache_manager", return_value=test_mgr):
+            from hestia.apple.tools import find_note
+            result = await find_note("grocery")
+
+            assert result["count"] >= 1
+            assert result["notes"][0]["title"] == "Grocery List"
+            assert "score" in result["notes"][0]
+
+    @pytest.mark.asyncio
+    async def test_read_note_handler(self, db: AppleCacheDatabase):
+        """read_note tool handler resolves and fetches content."""
+        await db.upsert_entities(
+            [_make_entity(native_id="n1", title="Sprint Plan", container="Work")],
+            EntitySource.NOTES,
+        )
+
+        from hestia.apple_cache.manager import AppleCacheManager
+        from hestia.apple_cache.resolver import SmartResolver
+        from hestia.apple.models import Note
+
+        test_mgr = AppleCacheManager(database=db)
+        test_mgr._resolver = SmartResolver(db)
+        import time
+        test_mgr._last_sync[EntitySource.NOTES] = time.time()
+
+        mock_note = Note(
+            id="n1", title="Sprint Plan", folder="Work",
+            body="# Sprint 12\n\n- Build cache\n- Wire tools",
+        )
+        mock_client = MagicMock()
+        mock_client.get_note = AsyncMock(return_value=mock_note)
+
+        with patch("hestia.apple.tools._get_cache_manager", return_value=test_mgr), \
+             patch("hestia.apple.tools._get_notes_client", return_value=mock_client):
+            from hestia.apple.tools import read_note
+            result = await read_note("sprint plan")
+
+            assert "note" in result
+            assert result["note"]["title"] == "Sprint Plan"
+            assert "Sprint 12" in result["note"]["body"]
+            assert result["match_score"] >= 80.0
+
+    @pytest.mark.asyncio
+    async def test_read_note_no_match(self, db: AppleCacheDatabase):
+        """read_note returns error when no match found."""
+        from hestia.apple_cache.manager import AppleCacheManager
+        from hestia.apple_cache.resolver import SmartResolver
+
+        test_mgr = AppleCacheManager(database=db)
+        test_mgr._resolver = SmartResolver(db)
+        import time
+        test_mgr._last_sync[EntitySource.NOTES] = time.time()
+
+        with patch("hestia.apple.tools._get_cache_manager", return_value=test_mgr):
+            from hestia.apple.tools import read_note
+            result = await read_note("nonexistent gibberish xyz")
+
+            assert "error" in result
+            assert "suggestion" in result
+
+    @pytest.mark.asyncio
+    async def test_find_event_handler(self, db: AppleCacheDatabase):
+        """find_event tool handler returns ranked calendar matches."""
+        await db.upsert_entities(
+            [_make_entity(
+                source=EntitySource.CALENDAR, native_id="c1",
+                title="Dentist Appointment", container="Personal",
+            )],
+            EntitySource.CALENDAR,
+        )
+
+        from hestia.apple_cache.manager import AppleCacheManager
+        from hestia.apple_cache.resolver import SmartResolver
+
+        test_mgr = AppleCacheManager(database=db)
+        test_mgr._resolver = SmartResolver(db)
+        import time
+        test_mgr._last_sync[EntitySource.CALENDAR] = time.time()
+
+        with patch("hestia.apple.tools._get_cache_manager", return_value=test_mgr):
+            from hestia.apple.tools import find_event
+            result = await find_event("dentist")
+
+            assert result["count"] >= 1
+            assert result["events"][0]["title"] == "Dentist Appointment"
+
+    @pytest.mark.asyncio
+    async def test_search_notes_uses_cache(self, db: AppleCacheDatabase):
+        """search_notes uses cache instead of slow AppleScript."""
+        await db.upsert_entities(
+            [_make_entity(native_id="n1", title="Grocery List", container="Shopping")],
+            EntitySource.NOTES,
+        )
+
+        from hestia.apple_cache.manager import AppleCacheManager
+        from hestia.apple_cache.resolver import SmartResolver
+
+        test_mgr = AppleCacheManager(database=db)
+        test_mgr._resolver = SmartResolver(db)
+        import time
+        test_mgr._last_sync[EntitySource.NOTES] = time.time()
+
+        with patch("hestia.apple.tools._get_cache_manager", return_value=test_mgr):
+            from hestia.apple.tools import search_notes
+            result = await search_notes("grocery")
+
+            assert result["count"] >= 1
+            assert "score" in result["notes"][0]  # Cache adds score field
+
+
+# ---------------------------------------------------------------------------
+# Model Tests
+# ---------------------------------------------------------------------------
+
 class TestModels:
     """Tests for data model serialization."""
 

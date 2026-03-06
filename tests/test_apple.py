@@ -483,10 +483,11 @@ class TestToolRegistration:
         """Test getting calendar tools."""
         tools = get_calendar_tools()
 
-        assert len(tools) >= 4
+        assert len(tools) >= 5
         tool_names = [t.name for t in tools]
         assert "list_calendars" in tool_names
         assert "list_events" in tool_names
+        assert "find_event" in tool_names
         assert "create_event" in tool_names
         assert "get_today_events" in tool_names
 
@@ -504,11 +505,15 @@ class TestToolRegistration:
         """Test getting notes tools."""
         tools = get_notes_tools()
 
-        assert len(tools) >= 4
+        assert len(tools) >= 7
         tool_names = [t.name for t in tools]
         assert "list_note_folders" in tool_names
         assert "list_notes" in tool_names
+        assert "get_note" in tool_names
+        assert "read_note" in tool_names
+        assert "find_note" in tool_names
         assert "create_note" in tool_names
+        assert "search_notes" in tool_names
 
     def test_get_mail_tools(self):
         """Test getting mail tools."""
@@ -524,8 +529,8 @@ class TestToolRegistration:
         """Test getting all Apple tools."""
         tools = get_all_apple_tools()
 
-        # Should have 20+ tools total
-        assert len(tools) >= 17
+        # Should have 20+ tools total (base 17 + find_event + read_note + find_note = 20)
+        assert len(tools) >= 20
 
         # Check categories
         categories = set(t.category for t in tools)
@@ -539,7 +544,7 @@ class TestToolRegistration:
         registry = ToolRegistry()
         count = register_apple_tools(registry)
 
-        assert count >= 17
+        assert count >= 20
         assert len(registry) == count
 
         # Verify specific tools are registered
@@ -568,14 +573,14 @@ class TestToolRegistration:
         tools = get_all_apple_tools()
 
         for tool in tools:
-            if "calendar" in tool.name or tool.name in ["list_events", "create_event", "get_today_events"]:
-                assert tool.category == "calendar"
+            if "calendar" in tool.name or tool.name in ["list_events", "create_event", "get_today_events", "find_event"]:
+                assert tool.category == "calendar", f"{tool.name} should be calendar"
             elif "reminder" in tool.name or tool.name in ["list_reminders", "get_due_reminders", "get_overdue_reminders"]:
-                assert tool.category == "reminders"
-            elif "note" in tool.name:
-                assert tool.category == "notes"
+                assert tool.category == "reminders", f"{tool.name} should be reminders"
+            elif "note" in tool.name or tool.name in ["read_note", "find_note"]:
+                assert tool.category == "notes", f"{tool.name} should be notes"
             elif "email" in tool.name or "mail" in tool.name or tool.name in ["get_unread_count", "get_flagged_emails"]:
-                assert tool.category == "mail"
+                assert tool.category == "mail", f"{tool.name} should be mail"
 
 
 # ============================================================================
