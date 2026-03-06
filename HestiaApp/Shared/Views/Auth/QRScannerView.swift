@@ -53,6 +53,26 @@ class QRScannerViewController: UIViewController, @preconcurrency AVCaptureMetada
     }
 
     private func setupCamera() {
+        // Check camera permission first
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .denied, .restricted:
+            showCameraPermissionError()
+            return
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                if granted {
+                    DispatchQueue.main.async { self?.setupCamera() }
+                } else {
+                    DispatchQueue.main.async { self?.showCameraPermissionError() }
+                }
+            }
+            return
+        case .authorized:
+            break
+        @unknown default:
+            break
+        }
+
         let session = AVCaptureSession()
 
         guard let videoCaptureDevice = AVCaptureDevice.default(for: .video),
@@ -84,6 +104,23 @@ class QRScannerViewController: UIViewController, @preconcurrency AVCaptureMetada
         DispatchQueue.global(qos: .userInitiated).async {
             session.startRunning()
         }
+    }
+
+    private func showCameraPermissionError() {
+        let label = UILabel()
+        label.text = "Camera access required.\nGo to Settings → Hestia → Camera to enable."
+        label.textColor = .white
+        label.textAlignment = .center
+        label.numberOfLines = 0
+        label.font = .systemFont(ofSize: 15)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            label.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 32),
+            label.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -32),
+        ])
     }
 
     func metadataOutput(

@@ -17,6 +17,14 @@ class MacAgentsViewModel: ObservableObject {
     // Agent photo state
     @Published var agentPhotoData: Data?
 
+    // Save feedback
+    @Published var saveResult: SaveResult?
+
+    enum SaveResult: Equatable {
+        case success(String)
+        case failure(String)
+    }
+
     func loadAgents() async {
         isLoading = true
         defer { isLoading = false }
@@ -60,6 +68,9 @@ class MacAgentsViewModel: ObservableObject {
     }
 
     func savePersonality(for agent: AgentConfigInfo) async {
+        isSaving = true
+        defer { isSaving = false }
+
         do {
             _ = try await APIClient.shared.updateAgentConfigFile(
                 agent.directoryName,
@@ -67,7 +78,9 @@ class MacAgentsViewModel: ObservableObject {
                 content: personalityContent
             )
             CacheManager.shared.invalidate(forKey: CacheKey.agentsList)
+            saveResult = .success("Personality saved")
         } catch {
+            saveResult = .failure("Failed to save personality")
             #if DEBUG
             print("[MacAgentsVM] Failed to save ANIMA.md for \(agent.name): \(error)")
             #endif
@@ -99,9 +112,11 @@ class MacAgentsViewModel: ObservableObject {
                 content: content
             )
             CacheManager.shared.invalidate(forKey: CacheKey.agentsList)
+            saveResult = .success("Identity saved")
             // Reload agents to pick up the changes
             await loadAgents()
         } catch {
+            saveResult = .failure("Failed to save identity")
             #if DEBUG
             print("[MacAgentsVM] Failed to save IDENTITY.md for \(agent.name): \(error)")
             #endif

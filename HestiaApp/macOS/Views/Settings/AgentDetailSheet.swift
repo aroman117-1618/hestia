@@ -37,6 +37,21 @@ struct AgentDetailSheet: View {
         }
         .frame(width: 520, height: 600)
         .background(MacColors.windowBackground)
+        .overlay(alignment: .bottom) {
+            if let result = vm.saveResult {
+                saveToast(result: result)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .onAppear {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                            withAnimation { vm.saveResult = nil }
+                        }
+                    }
+            }
+        }
+        .animation(MacAnimation.fastSpring, value: vm.saveResult)
+        .onDisappear {
+            vm.saveResult = nil
+        }
         .onAppear {
             // Initialize editable fields from agent data
             editName = agent.name
@@ -221,11 +236,17 @@ struct AgentDetailSheet: View {
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
                 .buttonStyle(.plain)
+                .disabled(!isIdentityValid)
+                .opacity(isIdentityValid ? 1 : 0.5)
                 .accessibilityLabel("Save identity changes")
                 Spacer()
             }
         }
         .padding(MacSpacing.xl)
+    }
+
+    private var isIdentityValid: Bool {
+        !editName.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     private func editableField(_ label: String, text: Binding<String>, icon: String) -> some View {
@@ -285,5 +306,36 @@ struct AgentDetailSheet: View {
             }
         }
         .padding(MacSpacing.xl)
+    }
+
+    // MARK: - Save Toast
+
+    private func saveToast(result: MacAgentsViewModel.SaveResult) -> some View {
+        let isSuccess: Bool
+        let message: String
+        switch result {
+        case .success(let msg):
+            isSuccess = true
+            message = msg
+        case .failure(let msg):
+            isSuccess = false
+            message = msg
+        }
+
+        return HStack(spacing: MacSpacing.sm) {
+            Image(systemName: isSuccess ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                .foregroundStyle(isSuccess ? MacColors.statusSuccess : MacColors.statusError)
+            Text(message)
+                .font(MacTypography.labelMedium)
+                .foregroundStyle(MacColors.textPrimary)
+        }
+        .padding(.horizontal, MacSpacing.xl)
+        .padding(.vertical, MacSpacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(MacColors.panelBackground)
+                .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
+        )
+        .padding(.bottom, MacSpacing.xl)
     }
 }
