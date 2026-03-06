@@ -492,6 +492,66 @@ class TestNativeToolCalling:
 
 
 @pytest.mark.integration
+class TestDefaultAgentPerTier:
+    """Tests for default_agent on ModelConfig (Sprint 11.5 Task B3)."""
+
+    def test_primary_default_agent_from_config(self):
+        """Primary model loads default_agent from inference.yaml."""
+        router = ModelRouter()
+        assert router.primary_model.default_agent == "tia"
+
+    def test_coding_default_agent_from_config(self):
+        """Coding model loads default_agent from inference.yaml."""
+        router = ModelRouter()
+        assert router.coding_model.default_agent == "olly"
+
+    def test_complex_default_agent_from_config(self):
+        """Complex model loads default_agent from inference.yaml."""
+        router = ModelRouter()
+        assert router.complex_model.default_agent == "mira"
+
+    def test_cloud_no_default_agent(self):
+        """Cloud model has no default_agent (None)."""
+        router = ModelRouter()
+        assert router.cloud_model.default_agent is None
+
+    def test_get_suggested_agent_primary(self):
+        """Simple prompt suggests tia (primary tier)."""
+        router = ModelRouter()
+        agent = router.get_suggested_agent("hello how are you")
+        assert agent == "tia"
+
+    def test_get_suggested_agent_coding(self):
+        """Coding prompt suggests olly (coding tier)."""
+        router = ModelRouter()
+        agent = router.get_suggested_agent("write code for a REST API")
+        assert agent == "olly"
+
+    def test_get_suggested_agent_cloud_full(self):
+        """Cloud full mode returns None (no default agent on cloud)."""
+        router = ModelRouter(cloud_state="enabled_full")
+        agent = router.get_suggested_agent("hello")
+        assert agent is None
+
+    def test_routing_decision_carries_default_agent(self):
+        """RoutingDecision.model_config has default_agent from tier config."""
+        router = ModelRouter()
+        decision = router.route("write code for a parser")
+        assert decision.tier == ModelTier.CODING
+        assert decision.model_config.default_agent == "olly"
+
+    def test_default_agent_none_when_not_configured(self):
+        """ModelConfig default_agent is None when not set."""
+        config = ModelConfig(name="test-model")
+        assert config.default_agent is None
+
+    def test_default_agent_overridable(self):
+        """default_agent can be set to custom value."""
+        router = ModelRouter()
+        router.primary_model.default_agent = "custom"
+        assert router.get_suggested_agent("hello") == "custom"
+
+
 class TestInferenceClientIntegration:
     """
     Integration tests that require Ollama running.

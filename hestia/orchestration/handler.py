@@ -299,9 +299,24 @@ class RequestHandler:
                 )
 
             # Step 2: Process mode switching
+            original_content = request.content
             mode, cleaned_content = self._mode_manager.process_mode_switch(request.content)
             request.mode = mode
             request.content = cleaned_content
+
+            # Step 2.5: Apply default agent from model tier (if no explicit @agent)
+            explicit_agent = self._mode_manager.detect_mode_from_input(original_content)
+            if explicit_agent is None:
+                suggested = self.inference_client.router.get_suggested_agent(
+                    prompt=cleaned_content,
+                )
+                if suggested:
+                    try:
+                        tier_mode = Mode(suggested.lower())
+                        request.mode = tier_mode
+                        mode = tier_mode
+                    except ValueError:
+                        pass  # Unknown agent name in config — ignore
 
             # Step 3: Move to processing
             self.state_machine.start_processing(task)
@@ -551,9 +566,24 @@ IMPORTANT RULES:
                 return
 
             # Step 2: Process mode switching
+            original_content = request.content
             mode, cleaned_content = self._mode_manager.process_mode_switch(request.content)
             request.mode = mode
             request.content = cleaned_content
+
+            # Step 2.5: Apply default agent from model tier (if no explicit @agent)
+            explicit_agent = self._mode_manager.detect_mode_from_input(original_content)
+            if explicit_agent is None:
+                suggested = self.inference_client.router.get_suggested_agent(
+                    prompt=cleaned_content,
+                )
+                if suggested:
+                    try:
+                        tier_mode = Mode(suggested.lower())
+                        request.mode = tier_mode
+                        mode = tier_mode
+                    except ValueError:
+                        pass
 
             # Step 3: State tracking
             self.state_machine.start_processing(task)

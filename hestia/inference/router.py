@@ -44,6 +44,7 @@ class ModelConfig:
     request_timeout: float = 60.0
     enabled: bool = True
     api_key_credential: Optional[str] = None  # For cloud models
+    default_agent: Optional[str] = None  # Suggested agent persona for this tier
 
 
 @dataclass
@@ -170,6 +171,7 @@ class ModelRouter:
             temperature=primary_data.get("temperature", 0.0),
             request_timeout=primary_data.get("request_timeout", 60.0),
             enabled=primary_data.get("enabled", True),
+            default_agent=primary_data.get("default_agent"),
         )
 
         complex_data = data.get("complex_model", {})
@@ -180,6 +182,7 @@ class ModelRouter:
             temperature=complex_data.get("temperature", 0.0),
             request_timeout=complex_data.get("request_timeout", 300.0),
             enabled=complex_data.get("enabled", False),
+            default_agent=complex_data.get("default_agent"),
         )
 
         coding_data = data.get("coding_model", {})
@@ -190,6 +193,7 @@ class ModelRouter:
             temperature=coding_data.get("temperature", 0.0),
             request_timeout=coding_data.get("request_timeout", 90.0),
             enabled=coding_data.get("enabled", False),
+            default_agent=coding_data.get("default_agent"),
         )
 
         # Cloud routing config
@@ -512,6 +516,19 @@ class ModelRouter:
                 "Hardware adaptation: auto-enabled cloud smart mode",
                 component=LogComponent.INFERENCE,
             )
+
+    def get_suggested_agent(
+        self,
+        prompt: str,
+        token_count: int = 0,
+    ) -> Optional[str]:
+        """
+        Get the default agent for the tier this request would route to.
+
+        Returns None if the tier has no default agent configured.
+        """
+        decision = self.route(prompt=prompt, token_count=token_count)
+        return decision.model_config.default_agent
 
     def get_status(self) -> Dict[str, Any]:
         """Get current router status."""
