@@ -93,8 +93,8 @@ async def repl_loop(client: HestiaWSClient, console: Console) -> None:
 
     while True:
         try:
-            # Build prompt string
-            prompt_str = f"[@{client.mode}] > "
+            # Build prompt string (agent-colored)
+            prompt_str = f"[@{client.mode}] > "  # Plain text for prompt_toolkit
 
             with patch_stdout():
                 user_input = await session.prompt_async(prompt_str)
@@ -135,18 +135,28 @@ async def repl_loop(client: HestiaWSClient, console: Console) -> None:
             ):
                 event_type = event.get("type")
 
+                # Start animation on inference stage
+                if event_type == "status" and event.get("stage") == "inference":
+                    await renderer.start_thinking()
+
+                # Stop animation before first token
+                if event_type == "token":
+                    await renderer.stop_thinking()
+
                 if event_type == ServerEventType.TOOL_REQUEST:
-                    # Pause streaming for tool approval
+                    await renderer.stop_thinking()
                     tool_request_pending = event
                     renderer.render_event(event)
 
-                    # Prompt for approval
                     approval = await _prompt_tool_approval(session, console)
                     await client.send_tool_approval(
                         event.get("call_id", ""),
                         approved=approval,
                     )
                     tool_request_pending = None
+                elif event_type == "done":
+                    await renderer.stop_thinking()  # Safety net
+                    renderer.render_event(event)
                 else:
                     renderer.render_event(event)
 
@@ -154,6 +164,7 @@ async def repl_loop(client: HestiaWSClient, console: Console) -> None:
 
         except KeyboardInterrupt:
             # Ctrl+C: cancel current generation
+            await renderer.stop_thinking()
             if client.connected:
                 await client.send_cancel()
             console.print("\n[dim]Cancelled.[/dim]")

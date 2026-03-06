@@ -1,10 +1,14 @@
 """Tests for Rich renderer."""
 
+import asyncio
+import os
 from io import StringIO
+from unittest.mock import patch
 
+import pytest
 from rich.console import Console
 
-from hestia_cli.renderer import HestiaRenderer
+from hestia_cli.renderer import HestiaRenderer, ThinkingAnimation, _get_agent_verbs
 
 
 def make_renderer() -> tuple:
@@ -205,3 +209,90 @@ class TestAgentColoredRenderer:
         })
         text = output.getvalue()
         assert "malicious" in text
+
+
+# ── Thinking Animation Tests (Sprint 11.5 — Task B2) ────────────
+
+
+from hestia_cli.models import (
+    COMMON_VERBS, TIA_VERBS, OLLY_VERBS, MIRA_VERBS,
+    FIRE_FRAMES, ASCII_FRAMES,
+)
+
+
+class TestThinkingVerbs:
+    def test_common_verbs_nonempty(self):
+        assert len(COMMON_VERBS) >= 10
+
+    def test_tia_verbs(self):
+        verbs = _get_agent_verbs("tia")
+        assert all(v in verbs for v in TIA_VERBS)
+        assert all(v in verbs for v in COMMON_VERBS)
+
+    def test_olly_verbs(self):
+        verbs = _get_agent_verbs("olly")
+        assert all(v in verbs for v in OLLY_VERBS)
+
+    def test_mira_verbs(self):
+        verbs = _get_agent_verbs("mira")
+        assert all(v in verbs for v in MIRA_VERBS)
+
+    def test_unknown_agent_gets_common_only(self):
+        verbs = _get_agent_verbs("unknown")
+        assert verbs == COMMON_VERBS
+
+    def test_fire_frames_count(self):
+        assert len(FIRE_FRAMES) == 4
+
+    def test_ascii_frames_count(self):
+        assert len(ASCII_FRAMES) >= 4
+
+
+class TestThinkingAnimation:
+    @pytest.mark.asyncio
+    async def test_start_creates_task(self):
+        output = StringIO()
+        console = Console(file=output, no_color=True, width=80)
+        anim = ThinkingAnimation(console)
+        await anim.start("tia")
+        assert anim.is_active
+        await anim.stop()
+        assert not anim.is_active
+
+    @pytest.mark.asyncio
+    async def test_stop_clears_line(self):
+        output = StringIO()
+        console = Console(file=output, no_color=True, width=80)
+        anim = ThinkingAnimation(console)
+        await anim.start("tia")
+        await asyncio.sleep(0.3)  # Let a few frames render
+        await anim.stop()
+        assert not anim.is_active
+
+    @pytest.mark.asyncio
+    async def test_stop_without_start(self):
+        """Stopping without starting is a no-op."""
+        output = StringIO()
+        console = Console(file=output, no_color=True, width=80)
+        anim = ThinkingAnimation(console)
+        await anim.stop()  # Should not raise
+
+    @pytest.mark.asyncio
+    async def test_double_start_idempotent(self):
+        """Multiple starts don't create multiple tasks."""
+        output = StringIO()
+        console = Console(file=output, no_color=True, width=80)
+        anim = ThinkingAnimation(console)
+        await anim.start("tia")
+        await anim.start("tia")
+        assert anim.is_active
+        await anim.stop()
+
+    @pytest.mark.asyncio
+    async def test_no_emoji_uses_ascii(self):
+        """HESTIA_NO_EMOJI env var triggers ASCII fallback."""
+        output = StringIO()
+        console = Console(file=output, no_color=True, width=80)
+        with patch.dict(os.environ, {"HESTIA_NO_EMOJI": "1"}):
+            anim = ThinkingAnimation(console)
+            assert not anim._use_emoji

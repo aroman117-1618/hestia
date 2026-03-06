@@ -86,3 +86,47 @@ class AgentTheme(BaseModel):
             "mira": cls(name="mira", color_hex="#1C3A5F", gradient_secondary="#2A5A8F"),
         }
         return themes.get(name.lower(), cls(name=name))
+
+
+# ── Thinking Animation Verbs (Sprint 11.5 B2) ────────────
+
+COMMON_VERBS = [
+    "Thinking", "Processing", "Considering", "Analyzing",
+    "Contemplating", "Evaluating", "Computing", "Reasoning",
+    "Deliberating", "Formulating", "Synthesizing", "Pondering",
+    "Reflecting", "Working on it", "Chewing on this", "Piecing it together",
+]
+
+TIA_VERBS = [
+    "Warming up", "Stoking the fire", "Brewing something", "Tending the hearth",
+    "Stirring the pot", "Cooking up a response", "On it, boss",
+    "Let me think about that", "One moment", "Almost there",
+    "Reading the room", "Pulling threads", "Connecting dots", "Crunching this",
+    "Filing through memories", "Working my magic",
+]
+
+OLLY_VERBS = [
+    "Compiling thoughts", "Running diagnostics", "Parsing input",
+    "Building response", "Optimizing", "Debugging the question",
+    "Scanning codebase", "Tracing execution path", "Profiling options",
+    "Linting the problem", "Refactoring my answer", "Stack unwinding",
+    "GC pause", "Hot-loading context", "Resolving dependencies", "Deploying neurons",
+]
+
+MIRA_VERBS = [
+    "Considering all angles", "Exploring possibilities", "Seeking clarity",
+    "Meditating on this", "Questioning assumptions", "Examining the premise",
+    "Finding the thread", "Unraveling layers", "Looking deeper",
+    "Weighing perspectives", "Tracing the logic", "Mapping the terrain",
+    "Searching for insight", "Opening a new door", "Sitting with the question",
+    "Drawing connections",
+]
+
+FIRE_FRAMES = [
+    "[red]🔥[/red]",
+    "[bright_red]🔥[/bright_red]",
+    "[yellow]🔥[/yellow]",
+    "[bright_yellow]🔥[/bright_yellow]",
+]
+
+ASCII_FRAMES = ["◠", "◡", "○", "◉", "●", "◎"]

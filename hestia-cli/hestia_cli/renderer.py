@@ -5,17 +5,23 @@ Handles all visual output: streaming tokens, status spinners,
 markdown rendering, error panels, and metrics display.
 """
 
+import asyncio
+import os
+import random
 import sys
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.text import Text
-
 from rich.markup import escape
 
-from hestia_cli.models import AgentTheme, DoneMetrics, PipelineStage, STAGE_LABELS, ToolRequest
+from hestia_cli.models import (
+    AgentTheme, ASCII_FRAMES, COMMON_VERBS, DoneMetrics, FIRE_FRAMES,
+    MIRA_VERBS, OLLY_VERBS, PipelineStage, STAGE_LABELS,
+    TIA_VERBS, ToolRequest,
+)
 
 
 def _clear_line() -> None:
@@ -35,6 +41,7 @@ class HestiaRenderer:
         self._in_streaming = False
         self._status_visible = False
         self._agent_theme: Optional[AgentTheme] = None
+        self._animation = ThinkingAnimation(self.console)
 
     def set_agent_theme(self, theme: AgentTheme) -> None:
         """Set the active agent theme for colored prompts."""
@@ -53,6 +60,16 @@ class HestiaRenderer:
         if self._agent_theme:
             return self._agent_theme.name.capitalize()
         return "Hestia"
+
+    async def start_thinking(self) -> None:
+        """Start the thinking animation."""
+        agent = self._agent_theme.name if self._agent_theme else "hestia"
+        await self._animation.start(agent)
+
+    async def stop_thinking(self) -> None:
+        """Stop the thinking animation (call before first token)."""
+        if self._animation.is_active:
+            await self._animation.stop()
 
     def get_prompt_text(self) -> str:
         """Get the Rich-formatted prompt string."""
@@ -231,3 +248,92 @@ class HestiaRenderer:
         code = event.get("code", "error")
         message = event.get("message", "Unknown error")
         self.console.print(f"\n[red]Error ({code}): {message}[/red]\n")
+
+
+# ── Thinking Animation (Sprint 11.5 B2) ────────────────────
+
+
+def _get_agent_verbs(agent_name: str) -> List[str]:
+    """Get verb pool for an agent (common + agent-specific)."""
+    agent_verbs = {
+        "tia": TIA_VERBS,
+        "olly": OLLY_VERBS,
+        "mira": MIRA_VERBS,
+    }
+    specific = agent_verbs.get(agent_name.lower(), [])
+    return COMMON_VERBS + specific
+
+
+class ThinkingAnimation:
+    """
+    Animated thinking indicator with fire emoji and rotating verbs.
+
+    Display: 🔥 Chewing on this...
+    Fire emoji color-cycles at 200ms, verb rotates every 2s.
+    Race-condition safe: asyncio.Lock ensures clean stop→token transition.
+    """
+
+    def __init__(self, console: Console) -> None:
+        self._console = console
+        self._task: Optional[asyncio.Task] = None
+        self._lock = asyncio.Lock()
+        self._active = False
+        self._use_emoji = os.environ.get("HESTIA_NO_EMOJI") is None
+        self._use_color = os.environ.get("HESTIA_NO_COLOR") is None
+
+    @property
+    def is_active(self) -> bool:
+        return self._active
+
+    async def start(self, agent_name: str = "hestia") -> None:
+        """Start the animation loop."""
+        async with self._lock:
+            if self._active:
+                return
+            self._active = True
+            verbs = _get_agent_verbs(agent_name)
+            self._task = asyncio.create_task(self._animate(verbs))
+
+    async def stop(self) -> None:
+        """Stop animation and clear the line."""
+        async with self._lock:
+            if not self._active:
+                return
+            self._active = False
+            if self._task and not self._task.done():
+                self._task.cancel()
+                try:
+                    await self._task
+                except asyncio.CancelledError:
+                    pass
+            self._task = None
+            _clear_line()
+
+    async def _animate(self, verbs: List[str]) -> None:
+        """Animation loop: cycle frames at 200ms, verbs at 2s."""
+        frames = FIRE_FRAMES if (self._use_emoji and self._use_color) else ASCII_FRAMES
+        frame_idx = 0
+        verb_idx = random.randint(0, len(verbs) - 1)
+        ticks = 0  # Each tick = 200ms, verb changes every 10 ticks (2s)
+
+        try:
+            while self._active:
+                frame = frames[frame_idx % len(frames)]
+                verb = verbs[verb_idx % len(verbs)]
+
+                if not self._use_color:
+                    frame = frames[frame_idx % len(frames)] if self._use_emoji else ASCII_FRAMES[frame_idx % len(ASCII_FRAMES)]
+                    line = f"  {frame} {verb}..."
+                else:
+                    line = f"  {frame} [dim]{verb}...[/dim]"
+
+                _clear_line()
+                self._console.print(line, end="", highlight=False)
+
+                await asyncio.sleep(0.2)
+                frame_idx += 1
+                ticks += 1
+                if ticks % 10 == 0:
+                    verb_idx = random.randint(0, len(verbs) - 1)
+        except asyncio.CancelledError:
+            pass
