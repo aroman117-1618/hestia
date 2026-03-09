@@ -229,7 +229,7 @@ class Conversation:
 
 # Valid state transitions
 VALID_TRANSITIONS = {
-    TaskState.RECEIVED: {TaskState.PROCESSING, TaskState.CANCELLED},
+    TaskState.RECEIVED: {TaskState.PROCESSING, TaskState.CANCELLED, TaskState.FAILED},
     TaskState.PROCESSING: {TaskState.COMPLETED, TaskState.AWAITING_TOOL, TaskState.FAILED, TaskState.CANCELLED},
     TaskState.AWAITING_TOOL: {TaskState.PROCESSING, TaskState.FAILED, TaskState.CANCELLED},
     TaskState.COMPLETED: set(),  # Terminal state

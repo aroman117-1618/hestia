@@ -982,16 +982,21 @@ class RequestHandler:
             }
 
         except TaskTimeoutError as e:
+            self.logger.error(
+                f"Streaming request timed out",
+                component=LogComponent.ORCHESTRATION,
+                data={"request_id": request.id, "task_state": task.state.value}
+            )
             self.state_machine.fail(task, e)
             yield {"type": "error", "code": "timeout", "message": "Request timed out. Please try again."}
 
         except Exception as e:
-            self.state_machine.fail(task, e)
             self.logger.error(
                 f"Streaming request failed: {type(e).__name__}",
                 component=LogComponent.ORCHESTRATION,
-                data={"request_id": request.id, "error_type": type(e).__name__}
+                data={"request_id": request.id, "error_type": type(e).__name__, "task_state": task.state.value}
             )
+            self.state_machine.fail(task, e)
             yield {"type": "error", "code": "internal_error", "message": "An error occurred processing your request."}
 
     async def _execute_streaming_tool_calls(

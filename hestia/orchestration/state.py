@@ -151,6 +151,15 @@ class TaskStateMachine:
 
     def fail(self, task: Task, error: Exception) -> None:
         """Mark task as failed with error."""
+        # Guard: if already in a terminal state, just log and return
+        if task.state in {TaskState.COMPLETED, TaskState.FAILED, TaskState.CANCELLED}:
+            self.logger.warning(
+                f"Task already in terminal state {task.state.value}, ignoring fail({type(error).__name__})",
+                component=LogComponent.ORCHESTRATION,
+                data={"request_id": task.request.id, "state": task.state.value},
+            )
+            return
+
         task.error = error
         task.response = Response(
             request_id=task.request.id,

@@ -227,6 +227,36 @@ class TestStateMachine:
         assert task.error is not None
         assert task.response.response_type == ResponseType.ERROR
 
+    def test_fail_task_from_received(self):
+        """Test failing a task directly from RECEIVED state (pre-processing error)."""
+        sm = TaskStateMachine()
+        request = Request.create(content="Test")
+        task = sm.create_task(request)
+
+        assert task.state == TaskState.RECEIVED
+        sm.fail(task, RuntimeError("Early pipeline error"))
+
+        assert task.state == TaskState.FAILED
+        assert task.error is not None
+        assert task.response.response_type == ResponseType.ERROR
+
+    def test_fail_task_already_completed(self):
+        """Test that fail() is a no-op on tasks already in terminal state."""
+        sm = TaskStateMachine()
+        request = Request.create(content="Test")
+        task = sm.create_task(request)
+
+        sm.start_processing(task)
+        sm.complete(task, Response(
+            request_id=request.id, content="Done",
+            response_type=ResponseType.TEXT, mode=request.mode,
+        ))
+        assert task.state == TaskState.COMPLETED
+
+        # fail() should not raise and should not change state
+        sm.fail(task, RuntimeError("Late error after completion"))
+        assert task.state == TaskState.COMPLETED
+
     def test_await_tool(self):
         """Test tool waiting state."""
         sm = TaskStateMachine()
