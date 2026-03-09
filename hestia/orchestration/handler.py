@@ -911,7 +911,7 @@ class RequestHandler:
                 # Yield the tool result
                 yield {"type": "tool_result", "call_id": "aggregate", "status": "success", "output": tool_result}
 
-                # Synthesize response with personality (non-streaming for v1)
+                # Synthesize response with personality
                 synthesized = None
                 try:
                     if council_result and not council_result.fallback_used:
@@ -924,17 +924,20 @@ class RequestHandler:
                 except Exception:
                     pass
 
-                if not synthesized:
-                    synthesized = await self._format_tool_result_with_personality(
+                if synthesized:
+                    # Council gave us a complete response — chunk it
+                    chunk_size = 50
+                    for i in range(0, len(synthesized), chunk_size):
+                        yield {"type": "token", "content": synthesized[i:i + chunk_size], "request_id": request.id}
+                    final_content = synthesized
+                else:
+                    # Stream synthesis through LLM (avoids wall-clock timeout on slow hardware)
+                    final_content = ""
+                    async for token in self._stream_tool_result_with_personality(
                         tool_result, request, messages, temperature, max_tokens
-                    )
-
-                # Stream the synthesized response as tokens
-                chunk_size = 50
-                for i in range(0, len(synthesized), chunk_size):
-                    yield {"type": "token", "content": synthesized[i:i + chunk_size], "request_id": request.id}
-
-                final_content = synthesized
+                    ):
+                        yield {"type": "token", "content": token, "request_id": request.id}
+                        final_content += token
             else:
                 # Handle raw tool call JSON (don't show to user)
                 if inference_response.tool_calls or self._looks_like_tool_call(content):
@@ -1764,6 +1767,61 @@ class RequestHandler:
                 component=LogComponent.ORCHESTRATION,
             )
             return tool_result
+
+    async def _stream_tool_result_with_personality(
+        self,
+        tool_result: str,
+        request: Request,
+        original_messages: list,
+        temperature: float,
+        max_tokens: int,
+    ) -> AsyncGenerator[str, None]:
+        """
+        Stream synthesis tokens for tool results through the LLM.
+
+        Same prompt construction as _format_tool_result_with_personality, but
+        uses chat_stream() to yield tokens incrementally. This avoids the
+        wall-clock timeout that blocks non-streaming chat() on slow hardware.
+
+        Yields:
+            str: Individual tokens as they're generated.
+        """
+        # Truncate oversized tool results
+        display_result = tool_result
+        if len(tool_result) > self.MAX_SYNTHESIS_CHARS:
+            display_result = (
+                tool_result[:self.MAX_SYNTHESIS_CHARS]
+                + f"\n\n[... {len(tool_result) - self.MAX_SYNTHESIS_CHARS} chars truncated]"
+            )
+
+        # Build follow-up messages (same as non-streaming variant)
+        follow_up_messages = original_messages.copy()
+        follow_up_messages.append(Message(
+            role="assistant",
+            content=f"[Tool output:\n{display_result}]"
+        ))
+        follow_up_messages.append(Message(
+            role="user",
+            content="Now respond to my original request based on that data."
+        ))
+
+        try:
+            async for item in self.inference_client.chat_stream(
+                messages=follow_up_messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+            ):
+                # chat_stream yields str tokens, then InferenceResponse at the end
+                if isinstance(item, str):
+                    yield item
+                # InferenceResponse is the final item — we don't need it here
+        except Exception as e:
+            # Fall back to raw result if streaming synthesis fails
+            self.logger.warning(
+                f"Failed to stream tool result synthesis: {type(e).__name__}",
+                component=LogComponent.ORCHESTRATION,
+            )
+            yield tool_result
 
     async def _execute_tool_calls(
         self,

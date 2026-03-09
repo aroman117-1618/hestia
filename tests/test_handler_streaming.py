@@ -806,3 +806,106 @@ class TestTextPatternToolDetection:
 
         with patch("hestia.orchestration.handler.get_tool_registry", return_value=mock_registry):
             assert handler._looks_like_tool_call(content) is False
+
+
+class TestStreamingSynthesis:
+    """Test _stream_tool_result_with_personality for streaming synthesis.
+
+    Verifies that synthesis uses chat_stream() instead of blocking chat(),
+    preventing wall-clock timeouts on slow hardware.
+    """
+
+    @pytest.fixture
+    def handler(self):
+        """Create a minimal handler for testing streaming synthesis."""
+        h = RequestHandler.__new__(RequestHandler)
+        h.logger = MagicMock()
+        h._inference_client = MagicMock()
+        h.state_machine = MagicMock()
+        h.MAX_SYNTHESIS_CHARS = 4000
+        return h
+
+    @pytest.mark.asyncio
+    async def test_streams_synthesis_tokens(self, handler):
+        """Verify tokens are yielded incrementally from chat_stream."""
+        synthesis_tokens = ["Here's ", "what I ", "found in ", "your note."]
+
+        async def mock_stream(*args, **kwargs):
+            for token in synthesis_tokens:
+                yield token
+            yield InferenceResponse(
+                content="".join(synthesis_tokens),
+                model="qwen2.5:7b",
+                tokens_in=100,
+                tokens_out=len(synthesis_tokens),
+                duration_ms=5000.0,
+            )
+
+        handler._inference_client.chat_stream = mock_stream
+
+        request = make_request("read my hestia note")
+        messages = [Message(role="user", content="read my hestia note")]
+
+        collected = []
+        async for token in handler._stream_tool_result_with_personality(
+            "Note contents here", request, messages, 0.7, 1024
+        ):
+            collected.append(token)
+
+        assert collected == synthesis_tokens
+
+    @pytest.mark.asyncio
+    async def test_streaming_synthesis_truncates_large_results(self, handler):
+        """Verify tool results > MAX_SYNTHESIS_CHARS are truncated."""
+        large_result = "x" * 5000
+
+        captured_messages = []
+
+        async def mock_stream(messages=None, **kwargs):
+            captured_messages.extend(messages or [])
+            yield "Summary"
+            yield InferenceResponse(
+                content="Summary",
+                model="qwen2.5:7b",
+                tokens_in=100,
+                tokens_out=1,
+                duration_ms=1000.0,
+            )
+
+        handler._inference_client.chat_stream = mock_stream
+
+        request = make_request("read my note")
+        messages = [Message(role="user", content="read my note")]
+
+        collected = []
+        async for token in handler._stream_tool_result_with_personality(
+            large_result, request, messages, 0.7, 1024
+        ):
+            collected.append(token)
+
+        assert collected == ["Summary"]
+        # The assistant message should contain truncated content
+        assistant_msg = [m for m in captured_messages if m.role == "assistant"][0]
+        assert "[..." in assistant_msg.content
+        assert "1000 chars truncated" in assistant_msg.content
+
+    @pytest.mark.asyncio
+    async def test_streaming_synthesis_falls_back_on_error(self, handler):
+        """Verify raw tool result is yielded if streaming inference fails."""
+        async def mock_stream_fail(*args, **kwargs):
+            raise RuntimeError("Connection refused")
+            # Make it an async generator
+            yield  # pragma: no cover
+
+        handler._inference_client.chat_stream = mock_stream_fail
+
+        request = make_request("read my note")
+        messages = [Message(role="user", content="read my note")]
+
+        collected = []
+        async for token in handler._stream_tool_result_with_personality(
+            "Raw tool output", request, messages, 0.7, 1024
+        ):
+            collected.append(token)
+
+        assert collected == ["Raw tool output"]
