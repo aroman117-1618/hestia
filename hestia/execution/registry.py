@@ -20,6 +20,45 @@ class ToolAlreadyRegisteredError(Exception):
     pass
 
 
+def _normalize_param_name(name: str) -> str:
+    """Normalize a parameter name for fuzzy comparison.
+
+    Strips common suffixes/prefixes and underscores so that
+    'due_date' and 'due', or 'list_name' and 'list', can match.
+    """
+    return name.lower().replace("_", "")
+
+
+def _fuzzy_match_params(
+    unknown: set,
+    valid: set,
+    provided: set,
+) -> Dict[str, str]:
+    """Try to map unknown parameter names to valid ones.
+
+    Uses substring matching: if one name contains the other after
+    normalization, they're considered a match. Only maps when exactly
+    one valid param matches and it isn't already provided.
+
+    Returns:
+        Dict mapping wrong_name → right_name, or empty dict if no match.
+    """
+    corrections: Dict[str, str] = {}
+    for wrong in unknown:
+        norm_wrong = _normalize_param_name(wrong)
+        candidates = []
+        for vp in valid:
+            if vp in provided and vp not in [c for c in corrections.values()]:
+                continue  # Already provided by the caller
+            norm_vp = _normalize_param_name(vp)
+            # Match if one contains the other (due_date↔due, list_name↔list)
+            if norm_wrong in norm_vp or norm_vp in norm_wrong:
+                candidates.append(vp)
+        if len(candidates) == 1:
+            corrections[wrong] = candidates[0]
+    return corrections
+
+
 class ToolRegistry:
     """
     Registry for tool management.
@@ -166,16 +205,31 @@ class ToolRegistry:
                     f"Required parameter '{param_name}' not provided for tool '{call.tool_name}'"
                 )
 
-        # Check for unknown parameters
+        # Check for unknown parameters — with fuzzy name correction
         valid_params = set(tool.parameters.keys())
         provided_params = set(call.arguments.keys())
         unknown_params = provided_params - valid_params
 
         if unknown_params:
-            return ToolValidationResult.failure(
-                "UNKNOWN_PARAM",
-                f"Unknown parameters for tool '{call.tool_name}': {unknown_params}"
-            )
+            # Try to map unknown param names to valid ones before rejecting.
+            # LLMs commonly use synonyms (due_date→due, note→notes, list→list_name).
+            corrected = _fuzzy_match_params(unknown_params, valid_params, provided_params)
+            if corrected:
+                # Apply corrections to the arguments dict
+                for wrong_name, right_name in corrected.items():
+                    call.arguments[right_name] = call.arguments.pop(wrong_name)
+                # Recheck after corrections
+                remaining_unknown = set(call.arguments.keys()) - valid_params
+                if remaining_unknown:
+                    return ToolValidationResult.failure(
+                        "UNKNOWN_PARAM",
+                        f"Unknown parameters for tool '{call.tool_name}': {remaining_unknown}"
+                    )
+            else:
+                return ToolValidationResult.failure(
+                    "UNKNOWN_PARAM",
+                    f"Unknown parameters for tool '{call.tool_name}': {unknown_params}"
+                )
 
         # Type validation would go here in a more complete implementation
         # For now, we trust the model's output

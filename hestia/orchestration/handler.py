@@ -49,7 +49,7 @@ from hestia.orchestration.cache import get_response_cache
 TOOL_INSTRUCTIONS = """
 ## Your Tools
 
-You have 34 tools across 7 categories. When the user asks about their data, you MUST call the appropriate tool. NEVER say you lack access — use the tool.
+You have 35 tools across 7 categories. When the user asks about their data, you MUST call the appropriate tool. NEVER fabricate results or say you lack access — always call the tool.
 
 ### Notes (Apple Notes)
 - **read_note(query)** — READ a specific note by name/topic. Fuzzy-matches the title automatically. USE THIS when the user says "show me", "read", "open", "what does my note say", or names a specific note.
@@ -61,9 +61,9 @@ You have 34 tools across 7 categories. When the user asks about their data, you 
 
 ### Calendar
 - **get_today_events()** — Get today's schedule. Use for "what's on today?" or "my schedule".
-- **list_events(days_ahead)** — List upcoming events for the next N days.
+- **list_events(days, calendar, after, before)** — List upcoming events for the next N days.
 - **find_event(query)** — Find a specific event by name or keyword.
-- **create_event(title, start_time, end_time)** — Schedule a new event.
+- **create_event(title, start, end, calendar, location, notes, all_day)** — Schedule a new event.
 - **list_calendars()** — List available calendars.
 
 ### Reminders
@@ -71,28 +71,28 @@ You have 34 tools across 7 categories. When the user asks about their data, you 
 - **get_overdue_reminders()** — Get overdue/past-due reminders.
 - **list_reminders(list_name)** — List reminders in a specific list.
 - **list_reminder_lists()** — List available reminder lists.
-- **create_reminder(title, due_date, list_name)** — Create a new reminder.
+- **create_reminder(title, due, list_name, priority, notes)** — Create a new reminder.
 - **complete_reminder(id)** — Mark a reminder as complete.
 
 ### Mail (Apple Mail)
-- **get_recent_emails(count)** — Get the most recent emails.
-- **search_emails(query, sender, days_back)** — Search emails by keyword, sender, or date range.
+- **get_recent_emails(hours, limit, unread_only)** — Get the most recent emails.
+- **search_emails(query, limit, mailbox)** — Search emails by keyword.
 - **get_unread_count()** — Get the count of unread emails.
 - **get_flagged_emails()** — Get flagged/starred emails.
 - **list_mailboxes()** — List available mailboxes.
 
 ### Health (Apple HealthKit)
-- **get_health_summary(days)** — Overview of recent health metrics.
+- **get_health_summary(date)** — Overview of health metrics for a date (YYYY-MM-DD, default: today).
 - **get_health_trend(metric, days)** — Trend data for a specific metric over time.
 - **get_sleep_analysis(days)** — Sleep duration and quality analysis.
 - **get_activity_report(days)** — Exercise, steps, and activity data.
-- **get_vitals(days)** — Heart rate, blood pressure, and other vitals.
+- **get_vitals()** — Get latest vital signs (heart rate, blood pressure, SpO2).
 
 ### Files & Shell
 - **read_file(path)** — Read a file from the filesystem.
 - **write_file(path, content)** — Write content to a file.
 - **list_directory(path)** — List files in a directory.
-- **search_files(query, path)** — Search for files by name.
+- **search_files(pattern, directory)** — Search for files by name pattern.
 - **run_command(command)** — Execute a shell command.
 
 ### Web Investigation

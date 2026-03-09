@@ -319,6 +319,55 @@ class TestToolRegistry:
         assert result.valid is False
         assert result.error_type == "UNKNOWN_PARAM"
 
+    def test_validate_call_fuzzy_param_correction(self, registry: ToolRegistry):
+        """Test validation corrects near-miss parameter names (due_date→due)."""
+        async def handler(title: str, due: str = "") -> str:
+            return title
+
+        tool = Tool(
+            name="create_reminder",
+            description="Create a reminder",
+            parameters={
+                "title": ToolParam(type=ToolParamType.STRING, description="Title", required=True),
+                "due": ToolParam(type=ToolParamType.STRING, description="Due date", required=False),
+                "notes": ToolParam(type=ToolParamType.STRING, description="Notes", required=False),
+            },
+            handler=handler,
+        )
+        registry.register(tool)
+
+        # Model says due_date but tool expects due
+        call = ToolCall.create("create_reminder", {"title": "Clean toilet", "due_date": "tomorrow"})
+        result = registry.validate_call(call)
+
+        assert result.valid is True
+        # Arguments should be corrected in-place
+        assert "due" in call.arguments
+        assert "due_date" not in call.arguments
+        assert call.arguments["due"] == "tomorrow"
+        assert call.arguments["title"] == "Clean toilet"
+
+    def test_validate_call_fuzzy_no_match_for_unrelated(self, registry: ToolRegistry):
+        """Test fuzzy matching doesn't map completely unrelated names."""
+        async def handler(title: str) -> str:
+            return title
+
+        tool = Tool(
+            name="test_tool",
+            description="Test",
+            parameters={
+                "title": ToolParam(type=ToolParamType.STRING, description="Title", required=True),
+            },
+            handler=handler,
+        )
+        registry.register(tool)
+
+        # "priority" doesn't fuzzy-match "title"
+        call = ToolCall.create("test_tool", {"title": "Hi", "priority": "high"})
+        result = registry.validate_call(call)
+        assert result.valid is False
+        assert result.error_type == "UNKNOWN_PARAM"
+
     def test_validate_call_tool_not_found(self, registry: ToolRegistry):
         """Test validation fails for non-existent tool."""
         call = ToolCall.create("nonexistent", {})
