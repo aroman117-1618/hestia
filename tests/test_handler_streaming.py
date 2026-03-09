@@ -807,6 +807,26 @@ class TestTextPatternToolDetection:
         with patch("hestia.orchestration.handler.get_tool_registry", return_value=mock_registry):
             assert handler._looks_like_tool_call(content) is False
 
+    def test_looks_like_tool_call_detects_name_json_format(self, handler):
+        """_looks_like_tool_call catches {"name": "...", "arguments": {...}} format."""
+        content = '{"name": "create_note", "arguments": {"title": "test", "content": "hello"}}'
+
+        mock_registry = MagicMock()
+        mock_registry.has_tool.return_value = False
+
+        with patch("hestia.orchestration.handler.get_tool_registry", return_value=mock_registry):
+            assert handler._looks_like_tool_call(content) is True
+
+    def test_looks_like_tool_call_detects_name_json_embedded(self, handler):
+        """_looks_like_tool_call catches {"name": ...} embedded in surrounding text."""
+        content = 'Sure, I\'ll create that note.\n{"name": "create_note", "arguments": {"title": "test"}}'
+
+        mock_registry = MagicMock()
+        mock_registry.has_tool.return_value = False
+
+        with patch("hestia.orchestration.handler.get_tool_registry", return_value=mock_registry):
+            assert handler._looks_like_tool_call(content) is True
+
 
 class TestStreamingSynthesis:
     """Test _stream_tool_result_with_personality for streaming synthesis.

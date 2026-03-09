@@ -1688,20 +1688,30 @@ class RequestHandler:
         """
         Check if content looks like a raw tool_call JSON that shouldn't be shown to user.
 
-        Also detects function-call syntax (e.g., ``read_note("hestia")``) when the
-        function name matches a registered tool.
+        Detects three formats:
+        1. {"tool_call": ...} or {"tool": ...} — legacy JSON
+        2. {"name": "...", "arguments": {...}} — function-call JSON
+        3. tool_name("arg") — function-call syntax with known tool names
+
+        Returns True if any format is detected.
         """
         import json
         import re
 
         # Quick substring check for JSON-style tool calls
-        if '"tool_call"' in content or '"tool":' in content:
+        if '"tool_call"' in content or '"tool":' in content or '"name":' in content:
             try:
                 data = json.loads(content.strip())
                 if "tool_call" in data or "tool" in data:
                     return True
+                # Detect {"name": "...", "arguments": {...}} format
+                if "name" in data and "arguments" in data:
+                    return True
             except json.JSONDecodeError:
                 if '{"tool_call"' in content or '{"tool":' in content:
+                    return True
+                # Catch embedded {"name": "...", "arguments": ...} patterns
+                if '{"name":' in content and '"arguments"' in content:
                     return True
 
         # Check for function-call syntax with known tool names
