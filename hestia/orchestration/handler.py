@@ -13,6 +13,7 @@ from hestia.inference import get_inference_client, InferenceClient, Message
 from hestia.inference.client import InferenceResponse
 from hestia.memory import get_memory_manager, MemoryManager
 from hestia.orchestration.models import (
+    Mode,
     Request,
     RequestSource,
     Response,
