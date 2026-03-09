@@ -1652,6 +1652,10 @@ class RequestHandler:
             # Substring match for the opening of a tool call JSON structure
             return '{"tool_call"' in content or '{"tool":' in content
 
+    # Maximum chars of tool output to include in synthesis prompt.
+    # Prevents context overflow on large results (notes, file contents).
+    MAX_SYNTHESIS_CHARS = 4000
+
     async def _format_tool_result_with_personality(
         self,
         tool_result: str,
@@ -1664,18 +1668,28 @@ class RequestHandler:
         Send tool results back through the LLM to get a personality-appropriate response.
 
         Instead of returning raw "Found 3 reminders..." text, this lets Hestia
-        present the information in her characteristic voice.
+        present the information in her characteristic voice. The user's original
+        question is already in original_messages — the re-prompt is generic so the
+        model infers the appropriate response format from conversation context.
         """
-        # Build a follow-up message with the tool result
-        # original_messages is List[Message], so we need to append Message objects
+        # Truncate oversized tool results to prevent context overflow
+        display_result = tool_result
+        if len(tool_result) > self.MAX_SYNTHESIS_CHARS:
+            display_result = (
+                tool_result[:self.MAX_SYNTHESIS_CHARS]
+                + f"\n\n[... {len(tool_result) - self.MAX_SYNTHESIS_CHARS} chars truncated]"
+            )
+
+        # Build follow-up messages — original_messages already contains the user's
+        # question, so the re-prompt just points the model back to it.
         follow_up_messages = original_messages.copy()
         follow_up_messages.append(Message(
             role="assistant",
-            content=f"[I retrieved this information: {tool_result}]"
+            content=f"[Tool output:\n{display_result}]"
         ))
         follow_up_messages.append(Message(
             role="user",
-            content="Now present this information to me naturally, in your own voice. Be concise but personable - don't just list the raw data."
+            content="Now respond to my original request based on that data."
         ))
 
         try:

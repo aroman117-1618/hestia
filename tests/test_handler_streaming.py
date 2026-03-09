@@ -542,3 +542,146 @@ class TestExecuteStreamingToolCalls:
 
         # Should handle gracefully, not crash
         mock_executor.execute.assert_not_called()
+
+
+# ============== Synthesis Prompt Tests ==============
+
+
+class TestSynthesisPrompt:
+    """Tests for _format_tool_result_with_personality prompt construction."""
+
+    @pytest.fixture
+    def handler(self):
+        """Create handler with mocked dependencies."""
+        with patch('hestia.orchestration.handler.get_memory_manager', new_callable=AsyncMock):
+            with patch('hestia.orchestration.handler.InferenceClient') as mock_inf_cls:
+                mock_client = AsyncMock()
+                mock_inf_cls.return_value = mock_client
+                h = RequestHandler.__new__(RequestHandler)
+                h._inference_client = mock_client  # Private attr — property is read-only
+                h.logger = MagicMock()
+                return h
+
+    @pytest.mark.asyncio
+    async def test_synthesis_truncates_large_results(self, handler):
+        """Tool results exceeding MAX_SYNTHESIS_CHARS are truncated."""
+        large_result = "x" * 6000
+        request = make_request("What's in this file?")
+        original_messages = [Message(role="user", content=request.content)]
+
+        # Mock inference to return the synthesized content
+        handler.inference_client.chat = AsyncMock(
+            return_value=InferenceResponse(
+                content="Here's a summary of the file.",
+                model="test", tokens_in=10, tokens_out=20, duration_ms=100,
+            )
+        )
+
+        await handler._format_tool_result_with_personality(
+            large_result, request, original_messages, 0.7, 2048
+        )
+
+        # Verify the messages sent to inference
+        call_args = handler.inference_client.chat.call_args
+        messages = call_args.kwargs.get("messages") or call_args[0][0]
+
+        # Assistant message should contain truncated result
+        assistant_msg = [m for m in messages if m.role == "assistant"][-1]
+        assert len(assistant_msg.content) < len(large_result)
+        assert "chars truncated" in assistant_msg.content
+
+    @pytest.mark.asyncio
+    async def test_synthesis_uses_generic_reprompt(self, handler):
+        """Synthesis prompt is generic — doesn't dictate response format."""
+        request = make_request("Analyze the CLI section of my notes")
+        original_messages = [Message(role="user", content=request.content)]
+
+        handler.inference_client.chat = AsyncMock(
+            return_value=InferenceResponse(
+                content="The CLI section shows...",
+                model="test", tokens_in=10, tokens_out=20, duration_ms=100,
+            )
+        )
+
+        await handler._format_tool_result_with_personality(
+            "Some tool output data", request, original_messages, 0.7, 2048
+        )
+
+        call_args = handler.inference_client.chat.call_args
+        messages = call_args.kwargs.get("messages") or call_args[0][0]
+
+        # Last user message should be generic re-prompt
+        user_msgs = [m for m in messages if m.role == "user"]
+        last_user = user_msgs[-1]
+        assert last_user.content == "Now respond to my original request based on that data."
+
+        # Should NOT contain format-specific instructions
+        assert "present" not in last_user.content.lower()
+        assert "personable" not in last_user.content.lower()
+        assert "list" not in last_user.content.lower()
+
+    @pytest.mark.asyncio
+    async def test_synthesis_preserves_original_messages(self, handler):
+        """Original messages (with user's question) are preserved in synthesis."""
+        request = make_request("Tell me about the CLI improvements")
+        original_messages = [
+            Message(role="system", content="You are Tia."),
+            Message(role="user", content=request.content),
+        ]
+
+        handler.inference_client.chat = AsyncMock(
+            return_value=InferenceResponse(
+                content="The CLI improvements include...",
+                model="test", tokens_in=10, tokens_out=20, duration_ms=100,
+            )
+        )
+
+        await handler._format_tool_result_with_personality(
+            "CLI data here", request, original_messages, 0.7, 2048
+        )
+
+        call_args = handler.inference_client.chat.call_args
+        messages = call_args.kwargs.get("messages") or call_args[0][0]
+
+        # Original messages should be at the start
+        assert messages[0].role == "system"
+        assert messages[0].content == "You are Tia."
+        assert messages[1].role == "user"
+        assert messages[1].content == "Tell me about the CLI improvements"
+
+    @pytest.mark.asyncio
+    async def test_synthesis_small_results_not_truncated(self, handler):
+        """Small tool results pass through without truncation."""
+        small_result = "Found 3 notes: A, B, C"
+        request = make_request("List my notes")
+        original_messages = [Message(role="user", content=request.content)]
+
+        handler.inference_client.chat = AsyncMock(
+            return_value=InferenceResponse(
+                content="You have 3 notes: A, B, and C.",
+                model="test", tokens_in=10, tokens_out=20, duration_ms=100,
+            )
+        )
+
+        await handler._format_tool_result_with_personality(
+            small_result, request, original_messages, 0.7, 2048
+        )
+
+        call_args = handler.inference_client.chat.call_args
+        messages = call_args.kwargs.get("messages") or call_args[0][0]
+
+        assistant_msg = [m for m in messages if m.role == "assistant"][-1]
+        assert "truncated" not in assistant_msg.content
+        assert small_result in assistant_msg.content
+
+    @pytest.mark.asyncio
+    async def test_synthesis_fallback_on_inference_error(self, handler):
+        """Falls back to raw tool result if synthesis inference fails."""
+        handler.inference_client.chat = AsyncMock(side_effect=RuntimeError("Model unavailable"))
+
+        result = await handler._format_tool_result_with_personality(
+            "raw tool data", make_request(), [Message(role="user", content="test")], 0.7, 2048
+        )
+
+        assert result == "raw tool data"
+        handler.logger.warning.assert_called_once()
