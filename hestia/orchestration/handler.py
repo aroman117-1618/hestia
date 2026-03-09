@@ -1371,6 +1371,54 @@ class RequestHandler:
                         except json.JSONDecodeError:
                             continue
                 if not json_match:
+                    # Priority 3b: Function-call syntax — tool_name("arg") or tool_name(key="value")
+                    # Models often output tool calls as code rather than structured JSON.
+                    # Only match against registered tool names for safety.
+                    registry = get_tool_registry()
+                    func_pattern = r'(\w+)\(([^)]*)\)'
+                    for func_match in re.finditer(func_pattern, content):
+                        func_name = func_match.group(1)
+                        args_str = func_match.group(2).strip()
+                        if not registry.has_tool(func_name):
+                            continue
+                        # Found a known tool — parse arguments
+                        tool_name = func_name
+                        arguments = {}
+                        if args_str:
+                            # Try keyword arguments: key="value"
+                            kw_matches = re.findall(r'(\w+)\s*=\s*["\']([^"\']*)["\']', args_str)
+                            if kw_matches:
+                                for k, v in kw_matches:
+                                    arguments[k] = v
+                            else:
+                                # Positional argument — map to first parameter
+                                arg_val = args_str.strip('"').strip("'")
+                                tool_def = registry.get(func_name)
+                                if tool_def and tool_def.parameters:
+                                    first_param = next(iter(tool_def.parameters))
+                                    arguments[first_param] = arg_val
+                                else:
+                                    arguments["query"] = arg_val
+
+                        self.logger.info(
+                            f"Detected text-pattern tool call: {tool_name}",
+                            component=LogComponent.ORCHESTRATION,
+                            data={"request_id": request.id, "tool_name": tool_name,
+                                  "arguments": arguments, "detection": "function_syntax"}
+                        )
+
+                        # Execute the tool (jump to the execution section below)
+                        executor = await self._get_tool_executor()
+                        call = ToolCall.create(tool_name=tool_name, arguments=arguments)
+                        result = await executor.execute(call, request.id)
+
+                        if result.success:
+                            result_data = result.output
+                            if isinstance(result_data, dict):
+                                return json.dumps(result_data, indent=2)
+                            return str(result_data)
+                        else:
+                            return f"Tool {tool_name} failed: {result.error or 'Unknown error'}"
                     return None
 
                 data = json.loads(json_match.group())
@@ -1636,21 +1684,30 @@ class RequestHandler:
     def _looks_like_tool_call(self, content: str) -> bool:
         """
         Check if content looks like a raw tool_call JSON that shouldn't be shown to user.
+
+        Also detects function-call syntax (e.g., ``read_note("hestia")``) when the
+        function name matches a registered tool.
         """
         import json
+        import re
 
-        # Quick substring check first (fast)
-        if '"tool_call"' not in content and '"tool":' not in content:
-            return False
+        # Quick substring check for JSON-style tool calls
+        if '"tool_call"' in content or '"tool":' in content:
+            try:
+                data = json.loads(content.strip())
+                if "tool_call" in data or "tool" in data:
+                    return True
+            except json.JSONDecodeError:
+                if '{"tool_call"' in content or '{"tool":' in content:
+                    return True
 
-        # Try to parse as JSON (pure JSON response)
-        try:
-            data = json.loads(content.strip())
-            return "tool_call" in data or "tool" in data
-        except json.JSONDecodeError:
-            # Mixed content: text + embedded JSON (e.g. "I'll check...\n{"tool_call": ...}")
-            # Substring match for the opening of a tool call JSON structure
-            return '{"tool_call"' in content or '{"tool":' in content
+        # Check for function-call syntax with known tool names
+        registry = get_tool_registry()
+        for func_match in re.finditer(r'(\w+)\([^)]*\)', content):
+            if registry.has_tool(func_match.group(1)):
+                return True
+
+        return False
 
     # Maximum chars of tool output to include in synthesis prompt.
     # Prevents context overflow on large results (notes, file contents).

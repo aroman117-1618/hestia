@@ -685,3 +685,124 @@ class TestSynthesisPrompt:
 
         assert result == "raw tool data"
         handler.logger.warning.assert_called_once()
+
+
+# ── Text-Pattern Tool Call Detection Tests ────────────────────
+
+
+class TestTextPatternToolDetection:
+    """Test Priority 3b: function-call syntax detection in model text output.
+
+    When models output tool calls as text (e.g., ``read_note("hestia")``)
+    rather than structured JSON, the regex fallback must detect and execute them.
+    """
+
+    @pytest.fixture
+    def handler(self):
+        """Create a minimal handler for testing tool detection."""
+        h = RequestHandler.__new__(RequestHandler)
+        h.logger = MagicMock()
+        h._inference_client = MagicMock()
+        h.state_machine = MagicMock()
+        h._tool_executor = None
+        h._request_counter = 0
+        return h
+
+    @pytest.mark.asyncio
+    async def test_detects_function_call_syntax(self, handler):
+        """Detects read_note("hestia") pattern and executes the tool."""
+        content = 'I\'ll read your "hestia" note for you.\n\n```\nread_note("hestia")\n```'
+
+        mock_tool = MagicMock()
+        mock_tool.parameters = {"title": MagicMock()}
+        mock_tool.requires_approval = False
+
+        mock_registry = MagicMock()
+        mock_registry.has_tool.side_effect = lambda name: name == "read_note"
+        mock_registry.get.return_value = mock_tool
+
+        mock_result = MagicMock()
+        mock_result.success = True
+        mock_result.output = "# Hestia\nThis is the CLI section..."
+
+        mock_executor = AsyncMock()
+        mock_executor.execute = AsyncMock(return_value=mock_result)
+
+        with patch("hestia.orchestration.handler.get_tool_registry", return_value=mock_registry), \
+             patch.object(handler, "_get_tool_executor", return_value=mock_executor):
+            request = make_request("read my hestia note")
+            task = MagicMock()
+            result = await handler._try_execute_tool_from_response(content, request, task)
+
+        assert result is not None
+        assert "Hestia" in result
+        mock_executor.execute.assert_called_once()
+        # Verify the correct tool name and argument were extracted
+        call_obj = mock_executor.execute.call_args[0][0]
+        assert call_obj.tool_name == "read_note"
+        assert call_obj.arguments.get("title") == "hestia"
+
+    @pytest.mark.asyncio
+    async def test_detects_keyword_arguments(self, handler):
+        """Detects tool_name(key="value") syntax with keyword args."""
+        content = 'Let me search for that.\nsearch_notes(query="project plan")'
+
+        mock_tool = MagicMock()
+        mock_tool.parameters = {"query": MagicMock()}
+        mock_tool.requires_approval = False
+
+        mock_registry = MagicMock()
+        mock_registry.has_tool.side_effect = lambda name: name == "search_notes"
+        mock_registry.get.return_value = mock_tool
+
+        mock_result = MagicMock()
+        mock_result.success = True
+        mock_result.output = "Found 3 matching notes."
+
+        mock_executor = AsyncMock()
+        mock_executor.execute = AsyncMock(return_value=mock_result)
+
+        with patch("hestia.orchestration.handler.get_tool_registry", return_value=mock_registry), \
+             patch.object(handler, "_get_tool_executor", return_value=mock_executor):
+            result = await handler._try_execute_tool_from_response(
+                content, make_request(), MagicMock()
+            )
+
+        assert result == "Found 3 matching notes."
+        call_obj = mock_executor.execute.call_args[0][0]
+        assert call_obj.arguments.get("query") == "project plan"
+
+    @pytest.mark.asyncio
+    async def test_ignores_unknown_functions(self, handler):
+        """Non-tool function names in text are ignored."""
+        content = 'Here is an example: print("hello world")\nSee also: len("test")'
+
+        mock_registry = MagicMock()
+        mock_registry.has_tool.return_value = False
+
+        with patch("hestia.orchestration.handler.get_tool_registry", return_value=mock_registry):
+            result = await handler._try_execute_tool_from_response(
+                content, make_request(), MagicMock()
+            )
+
+        assert result is None
+
+    def test_looks_like_tool_call_detects_function_syntax(self, handler):
+        """_looks_like_tool_call catches function-call patterns with known tools."""
+        content = 'I\'ll read your note.\n```\nread_note("hestia")\n```'
+
+        mock_registry = MagicMock()
+        mock_registry.has_tool.side_effect = lambda name: name == "read_note"
+
+        with patch("hestia.orchestration.handler.get_tool_registry", return_value=mock_registry):
+            assert handler._looks_like_tool_call(content) is True
+
+    def test_looks_like_tool_call_ignores_regular_text(self, handler):
+        """_looks_like_tool_call doesn't false-positive on normal text."""
+        content = "The weather today is sunny with a high of 72°F."
+
+        mock_registry = MagicMock()
+        mock_registry.has_tool.return_value = False
+
+        with patch("hestia.orchestration.handler.get_tool_registry", return_value=mock_registry):
+            assert handler._looks_like_tool_call(content) is False
