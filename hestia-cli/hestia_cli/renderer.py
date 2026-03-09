@@ -389,18 +389,55 @@ class HestiaRenderer:
         ))
 
     def _render_tool_result(self, event: Dict[str, Any]) -> None:
-        """Render tool execution result."""
+        """Render tool execution result with visual separator.
+
+        For success: flushes any pending streaming text, then shows a
+        separator line with tool name, arguments, and output size.
+        For denied/error: shows a status message.
+        """
         status = event.get("status", "")
         output = escape(str(event.get("output", "")))  # SEC-5: escape Rich markup
+        tool_name = event.get("tool_name", "")
+        tool_args = event.get("tool_args", {})
 
         if status == "denied":
-            self.console.print("[yellow]Tool execution denied.[/yellow]")
+            self.console.print("[yellow]  ✗ Tool execution denied.[/yellow]")
         elif status == "error":
-            self.console.print(f"[red]Tool error: {output}[/red]")
-        # Success output will be rendered as part of the streamed response
+            self.console.print(f"[red]  ✗ Tool error: {output}[/red]")
+        elif status == "success":
+            # Flush any pending streaming content before the separator
+            if self._in_streaming:
+                self._stop_live()
+                if self._streaming_buffer.strip():
+                    if self._use_markdown:
+                        try:
+                            self.console.print(Markdown(self._streaming_buffer))
+                        except Exception:
+                            self.console.print(self._streaming_buffer, highlight=False)
+                    self._committed_text += self._streaming_buffer
+                self._streaming_buffer = ""
+
+            # Build tool execution summary
+            args_summary = ""
+            if tool_args and tool_name:
+                arg_parts = []
+                for k, v in tool_args.items():
+                    arg_parts.append(f'{k}="{v}"' if isinstance(v, str) else f'{k}={v}')
+                args_summary = f"({', '.join(arg_parts)})"
+            elif tool_name:
+                args_summary = "()"
+
+            output_len = len(event.get("output", ""))
+            size_hint = f" · {output_len:,} chars" if output_len > 0 else ""
+            display_name = f"{tool_name}{args_summary}" if tool_name else "Tool executed"
+            separator_label = f" ⚙️  {display_name}{size_hint} "
+            pad_len = max(3, 50 - len(separator_label))
+            self.console.print(
+                f"\n[dim]{'─' * 3}{separator_label}{'─' * pad_len}[/dim]"
+            )
 
     def _render_done(self, event: Dict[str, Any]) -> None:
-        """Render completion with optional metrics."""
+        """Render completion with optional metrics and routing indicator."""
         # Clear any lingering status line
         if self._status_visible:
             _clear_line()
@@ -415,6 +452,7 @@ class HestiaRenderer:
             duration = metrics.get("duration_ms", 0)
             model = metrics.get("model", "")
             cached = metrics.get("cached", False)
+            routing_tier = metrics.get("routing_tier", "")
 
             parts = []
             if self._agent_theme:
@@ -424,7 +462,13 @@ class HestiaRenderer:
             if duration:
                 parts.append(f"{duration/1000:.1f}s")
             if model:
-                parts.append(model)
+                # Append routing indicator (cloud/local)
+                if routing_tier == "cloud":
+                    parts.append(f"{model} (cloud) ☁️")
+                elif routing_tier in ("local", "primary", "coding"):
+                    parts.append(f"{model} (local) 💻")
+                else:
+                    parts.append(model)
             if cached:
                 parts.append("cached")
 

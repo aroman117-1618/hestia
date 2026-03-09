@@ -884,10 +884,17 @@ class RequestHandler:
 
             # Step 7.75: Tool execution (3-tier priority — same as handle())
             tool_result = None
+            tool_name = ""
+            tool_args: dict = {}
 
             # Priority 1: Native tool calls from Ollama API
             if inference_response.tool_calls:
                 yield {"type": "status", "stage": "tools", "detail": "Executing tool calls"}
+                if inference_response.tool_calls:
+                    first_call = inference_response.tool_calls[0]
+                    func_info = first_call.get("function", {})
+                    tool_name = func_info.get("name", "")
+                    tool_args = func_info.get("arguments", {})
                 tool_result = await self._execute_streaming_tool_calls(
                     inference_response.tool_calls, request, task,
                     tool_approval_callback, trust_tiers,
@@ -900,16 +907,43 @@ class RequestHandler:
                 and council_result.tool_extraction.confidence > 0.7
             ):
                 yield {"type": "status", "stage": "tools", "detail": "Executing tool calls"}
+                first_tc = council_result.tool_extraction.tool_calls[0]
+                tool_name = first_tc.tool_name
+                tool_args = first_tc.arguments if hasattr(first_tc, 'arguments') else {}
                 tool_result = await self._execute_council_tools(
                     council_result.tool_extraction.tool_calls, request, task
                 )
             else:
                 # Priority 3: Text regex fallback
                 tool_result = await self._try_execute_tool_from_response(content, request, task)
+                if tool_result is not None:
+                    # Extract tool name and args from content for display
+                    import re
+                    registry = get_tool_registry()
+                    for func_match in re.finditer(r'(\w+)\(([^)]*)\)', content):
+                        if registry.has_tool(func_match.group(1)):
+                            tool_name = func_match.group(1)
+                            args_str = func_match.group(2)
+                            # Parse keyword args: key="value"
+                            for kv_match in re.finditer(r'(\w+)\s*=\s*"([^"]*)"', args_str):
+                                tool_args[kv_match.group(1)] = kv_match.group(2)
+                            # If no kwargs found, try positional: "value"
+                            if not tool_args:
+                                for pos_match in re.finditer(r'"([^"]*)"', args_str):
+                                    tool_args["arg"] = pos_match.group(1)
+                                    break
+                            break
 
             if tool_result is not None:
-                # Yield the tool result
-                yield {"type": "tool_result", "call_id": "aggregate", "status": "success", "output": tool_result}
+                # Yield the tool result with metadata for CLI display
+                yield {
+                    "type": "tool_result",
+                    "call_id": "aggregate",
+                    "status": "success",
+                    "output": tool_result,
+                    "tool_name": tool_name,
+                    "tool_args": tool_args,
+                }
 
                 # Synthesize response with personality
                 synthesized = None
@@ -981,6 +1015,7 @@ class RequestHandler:
                     "tokens_out": inference_response.tokens_out,
                     "duration_ms": response.duration_ms,
                     "model": inference_response.model,
+                    "routing_tier": getattr(inference_response, 'tier', ''),
                 },
                 "mode": request.mode.value,
             }

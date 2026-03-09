@@ -188,6 +188,69 @@ class TestAgentColoredRenderer:
         renderer, _ = make_renderer()
         assert renderer.agent_color == "yellow"
 
+    def test_render_tool_result_success_shows_status(self):
+        """Successful tool result shows execution confirmation with separator."""
+        renderer, output = make_renderer()
+        renderer._in_streaming = True
+        renderer._streaming_buffer = ""
+        renderer.render_event({
+            "type": "tool_result",
+            "call_id": "call-1",
+            "status": "success",
+            "tool_name": "read_note",
+            "output": "Note contents here...",
+        })
+        text = output.getvalue()
+        assert "read_note" in text
+        assert "⚙" in text or "─" in text
+
+    def test_render_tool_result_success_no_output_leak(self):
+        """Tool result success status does NOT leak the full tool output."""
+        renderer, output = make_renderer()
+        renderer.render_event({
+            "type": "tool_result",
+            "call_id": "call-1",
+            "status": "success",
+            "tool_name": "read_note",
+            "output": "SECRET_NOTE_CONTENT_SHOULD_NOT_APPEAR",
+        })
+        text = output.getvalue()
+        assert "SECRET_NOTE_CONTENT_SHOULD_NOT_APPEAR" not in text
+
+    def test_render_done_shows_cloud_indicator(self):
+        """Done metrics show cloud routing indicator."""
+        renderer, output = make_renderer()
+        renderer.render_event({
+            "type": "done",
+            "request_id": "req-1",
+            "metrics": {
+                "tokens_out": 42,
+                "duration_ms": 1500.0,
+                "model": "claude-3-haiku",
+                "routing_tier": "cloud",
+            },
+            "mode": "tia",
+        })
+        text = output.getvalue()
+        assert "cloud" in text.lower() or "☁" in text
+
+    def test_render_done_shows_local_indicator(self):
+        """Done metrics show local routing indicator."""
+        renderer, output = make_renderer()
+        renderer.render_event({
+            "type": "done",
+            "request_id": "req-1",
+            "metrics": {
+                "tokens_out": 132,
+                "duration_ms": 241300.0,
+                "model": "qwen2.5:7b",
+                "routing_tier": "local",
+            },
+            "mode": "tia",
+        })
+        text = output.getvalue()
+        assert "local" in text.lower() or "💻" in text
+
     def test_tool_output_escaped(self):
         """Tool result output is escaped to prevent Rich markup injection (SEC-5)."""
         renderer, output = make_renderer()
