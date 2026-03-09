@@ -12,6 +12,8 @@ from typing import Optional
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
+from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.document import Document
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.patch_stdout import patch_stdout
 from rich.console import Console
@@ -23,6 +25,48 @@ from hestia_cli.config import get_config_dir, load_config
 from hestia_cli.context import get_repo_context
 from hestia_cli.models import ServerEventType
 from hestia_cli.renderer import HestiaRenderer
+
+
+SLASH_COMMANDS = {
+    "/help": "Show available commands",
+    "/status": "Server health and connection info",
+    "/mode": "Switch persona (tia, mira, olly)",
+    "/trust": "View or modify tool trust tiers",
+    "/memory": "Search Hestia memory",
+    "/tools": "List available tools from the server",
+    "/config": "Open config in $EDITOR",
+    "/session": "Session management",
+    "/clear": "Clear the screen",
+    "/exit": "Quit",
+    "/quit": "Quit",
+}
+
+
+class SlashCommandCompleter(Completer):
+    """Tab-complete slash commands and @mode prefixes."""
+
+    def get_completions(self, document: Document, complete_event):
+        text = document.text_before_cursor
+        # Only complete at the start of input
+        if " " in text:
+            return
+
+        if text.startswith("/"):
+            for cmd, desc in SLASH_COMMANDS.items():
+                if cmd.startswith(text):
+                    yield Completion(
+                        cmd,
+                        start_position=-len(text),
+                        display_meta=desc,
+                    )
+        elif text.startswith("@"):
+            for mode in ("@tia", "@mira", "@olly"):
+                if mode.startswith(text):
+                    yield Completion(
+                        mode + " ",
+                        start_position=-len(text),
+                        display_meta=f"Send as {mode[1:].capitalize()}",
+                    )
 
 
 def _log_error(error: Exception) -> None:
@@ -88,6 +132,7 @@ async def repl_loop(client: HestiaWSClient, console: Console) -> None:
     session: PromptSession = PromptSession(
         history=FileHistory(str(history_path)),
         auto_suggest=AutoSuggestFromHistory(),
+        completer=SlashCommandCompleter(),
         vi_mode=vi_mode,
     )
 
