@@ -860,6 +860,7 @@ class InferenceClient:
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
+        force_tier: Optional[str] = None,
     ) -> AsyncGenerator[Union[str, InferenceResponse], None]:
         """
         Stream chat tokens as they are generated.
@@ -869,6 +870,11 @@ class InferenceClient:
 
         For local (Ollama): streams token-by-token from /api/chat with stream=True.
         For cloud: falls back to non-streaming (yields complete response as single chunk).
+
+        Args:
+            force_tier: Optional tier override. If "cloud" and cloud routing is not
+                disabled, forces cloud routing regardless of normal routing logic.
+                Used for synthesis when hardware is adapted (slow local inference).
 
         Yields:
             str: Individual tokens during generation.
@@ -888,6 +894,31 @@ class InferenceClient:
                 "streaming": True,
             }
         )
+
+        # Force-tier override (e.g., for synthesis when hardware is adapted)
+        if force_tier == "cloud" and self.router.cloud_routing.state != "disabled":
+            self.logger.info(
+                "Stream force_tier=cloud: routing to cloud provider",
+                component=LogComponent.INFERENCE,
+            )
+            try:
+                response = await self._call_cloud(
+                    messages=messages,
+                    system=system,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+                self.router.record_success(ModelTier.CLOUD)
+                if response.content:
+                    yield response.content
+                yield response
+                return
+            except Exception:
+                self.logger.warning(
+                    "Force-tier cloud failed, falling back to normal routing",
+                    component=LogComponent.INFERENCE,
+                )
+                # Fall through to normal routing
 
         # Determine routing (same logic as _call_with_routing but we need the decision)
         routing = self.router.route(

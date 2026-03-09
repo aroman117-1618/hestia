@@ -929,3 +929,65 @@ class TestStreamingSynthesis:
             collected.append(token)
 
         assert collected == ["Raw tool output"]
+
+    @pytest.mark.asyncio
+    async def test_streaming_synthesis_uses_force_cloud_when_adapted(self, handler):
+        """When hardware_adapted, synthesis passes force_tier='cloud' to chat_stream."""
+        mock_router = MagicMock()
+        mock_router._adaptation_applied = True
+        handler._inference_client.router = mock_router
+
+        captured_kwargs = {}
+
+        async def mock_stream(**kwargs):
+            captured_kwargs.update(kwargs)
+            yield "Cloud response"
+            yield InferenceResponse(
+                content="Cloud response", model="claude-3-haiku",
+                tokens_in=10, tokens_out=5, duration_ms=500,
+            )
+
+        handler._inference_client.chat_stream = mock_stream
+
+        request = make_request("read my note")
+        messages = [Message(role="user", content="read my note")]
+
+        tokens = []
+        async for token in handler._stream_tool_result_with_personality(
+            "Note content here", request, messages, 0.7, 1024
+        ):
+            tokens.append(token)
+
+        assert "Cloud response" in tokens
+        assert captured_kwargs.get("force_tier") == "cloud"
+
+    @pytest.mark.asyncio
+    async def test_streaming_synthesis_no_force_when_not_adapted(self, handler):
+        """When hardware NOT adapted, no force_tier is passed."""
+        mock_router = MagicMock()
+        mock_router._adaptation_applied = False
+        handler._inference_client.router = mock_router
+
+        captured_kwargs = {}
+
+        async def mock_stream(**kwargs):
+            captured_kwargs.update(kwargs)
+            yield "Local response"
+            yield InferenceResponse(
+                content="Local response", model="qwen2.5:7b",
+                tokens_in=10, tokens_out=5, duration_ms=500,
+            )
+
+        handler._inference_client.chat_stream = mock_stream
+
+        request = make_request("read my note")
+        messages = [Message(role="user", content="read my note")]
+
+        tokens = []
+        async for token in handler._stream_tool_result_with_personality(
+            "Note content here", request, messages, 0.7, 1024
+        ):
+            tokens.append(token)
+
+        assert "Local response" in tokens
+        assert captured_kwargs.get("force_tier") is None

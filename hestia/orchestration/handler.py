@@ -1793,6 +1793,9 @@ class RequestHandler:
         uses chat_stream() to yield tokens incrementally. This avoids the
         wall-clock timeout that blocks non-streaming chat() on slow hardware.
 
+        When hardware adaptation has been applied (model was swapped due to slow
+        tok/s), routes synthesis to cloud via force_tier for faster response.
+
         Yields:
             str: Individual tokens as they're generated.
         """
@@ -1815,11 +1818,20 @@ class RequestHandler:
             content="Now respond to my original request based on that data."
         ))
 
+        # Route synthesis to cloud when hardware is adapted (slow local inference)
+        force_tier = None
+        try:
+            if self.inference_client.router._adaptation_applied:
+                force_tier = "cloud"
+        except AttributeError:
+            pass  # Router not available (e.g., in tests without full setup)
+
         try:
             async for item in self.inference_client.chat_stream(
                 messages=follow_up_messages,
                 temperature=temperature,
                 max_tokens=max_tokens,
+                force_tier=force_tier,
             ):
                 # chat_stream yields str tokens, then InferenceResponse at the end
                 if isinstance(item, str):
