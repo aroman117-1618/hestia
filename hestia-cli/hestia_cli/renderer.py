@@ -3,6 +3,11 @@ Rich terminal renderer for Hestia CLI.
 
 Handles all visual output: streaming tokens, status spinners,
 markdown rendering, error panels, and metrics display.
+
+Progressive markdown rendering: tokens stream into a buffer.
+Complete blocks (paragraphs separated by \\n\\n, or closed code fences)
+are flushed as Rich Markdown. Incomplete blocks show as raw text
+in a transient Live display for immediate feedback.
 """
 
 import asyncio
@@ -12,6 +17,7 @@ import sys
 from typing import Any, Dict, List, Optional
 
 from rich.console import Console
+from rich.live import Live
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.text import Text
@@ -31,17 +37,40 @@ def _clear_line() -> None:
 
 
 class HestiaRenderer:
-    """Renders Hestia events to the terminal using Rich."""
+    """Renders Hestia events to the terminal using Rich.
 
-    def __init__(self, console: Optional[Console] = None, show_metrics: bool = True):
+    Supports two rendering modes:
+    - **Markdown mode** (default): Buffers tokens and renders complete
+      blocks (paragraphs, code blocks) as Rich Markdown. Incomplete
+      text shows as raw preview in a transient Live display.
+    - **Raw mode** (HESTIA_NO_COLOR): Prints tokens immediately as
+      plain text, no markdown processing.
+    """
+
+    def __init__(
+        self,
+        console: Optional[Console] = None,
+        show_metrics: bool = True,
+        use_markdown: Optional[bool] = None,
+    ):
         self.console = console or Console()
         self.show_metrics = show_metrics
         self._streaming_buffer = ""
+        self._committed_text = ""  # Already-rendered text (for metrics tracking)
         self._status_text = ""
         self._in_streaming = False
         self._status_visible = False
         self._agent_theme: Optional[AgentTheme] = None
         self._animation = ThinkingAnimation(self.console)
+
+        # Markdown streaming state
+        self._live: Optional[Live] = None
+        self._in_code_block = False
+        # use_markdown can be explicitly set (for tests), otherwise check env var
+        if use_markdown is not None:
+            self._use_markdown = use_markdown
+        else:
+            self._use_markdown = os.environ.get("HESTIA_NO_COLOR") is None
 
     def set_agent_theme(self, theme: AgentTheme) -> None:
         """Set the active agent theme for colored prompts."""
@@ -99,14 +128,31 @@ class HestiaRenderer:
     def start_streaming(self) -> None:
         """Begin a new streaming response."""
         self._streaming_buffer = ""
+        self._committed_text = ""
         self._status_text = ""
         self._in_streaming = False
         self._status_visible = False
+        self._in_code_block = False
+        self._stop_live()
 
     def finish_streaming(self) -> None:
-        """Finalize streaming output — no re-render, tokens already printed."""
+        """Finalize streaming output — render any remaining buffer as markdown."""
+        self._stop_live()
+
+        # Render any remaining buffered text
+        if self._streaming_buffer.strip():
+            if self._use_markdown:
+                try:
+                    self.console.print(Markdown(self._streaming_buffer))
+                except Exception:
+                    self.console.print(self._streaming_buffer)
+            else:
+                self.console.print(self._streaming_buffer, end="", highlight=False)
+
         self._streaming_buffer = ""
+        self._committed_text = ""
         self._in_streaming = False
+        self._in_code_block = False
 
     def render_startup_banner(
         self,
@@ -158,23 +204,171 @@ class HestiaRenderer:
         self._status_visible = True
 
     def _render_token(self, event: Dict[str, Any]) -> None:
-        """Append streaming token to output."""
-        content = event.get("content", "")
-        if content:
-            # Clear status line before first token
-            if self._status_visible:
-                _clear_line()
-                self._status_visible = False
-            if not self._in_streaming:
-                self._in_streaming = True
-                # Agent name header before first token
-                color = self.agent_color
-                name = self.agent_name
-                self.console.print(f"\n[{color}]{name}:[/{color}]")
+        """Buffer streaming token and flush completed markdown blocks.
 
+        In markdown mode: accumulates tokens, flushes complete paragraphs
+        (\\n\\n boundary) and code blocks (closing ```) as Rich Markdown.
+        Incomplete text shows as raw preview in a transient Live display.
+
+        In raw mode (HESTIA_NO_COLOR): prints tokens immediately.
+        """
+        content = event.get("content", "")
+        if not content:
+            return
+
+        # Clear status line before first token
+        if self._status_visible:
+            _clear_line()
+            self._status_visible = False
+
+        if not self._in_streaming:
+            self._in_streaming = True
+            color = self.agent_color
+            name = self.agent_name
+            self.console.print(f"\n[{color}]{name}:[/{color}]")
+
+        if not self._use_markdown:
+            # Raw mode — print immediately (original behavior)
             self._streaming_buffer += content
-            # Print raw token for immediate feedback
             self.console.print(content, end="", highlight=False)
+            return
+
+        # Markdown mode — buffer and flush complete blocks
+        self._streaming_buffer += content
+        self._flush_completed_blocks()
+
+        # Update Live preview with current incomplete buffer
+        if self._streaming_buffer:
+            if self._live is None:
+                self._start_live(self._streaming_buffer)
+            else:
+                self._update_live(self._streaming_buffer)
+
+    def _flush_completed_blocks(self) -> None:
+        """Render completed markdown blocks, keep incomplete remainder.
+
+        Block boundaries:
+        - Paragraph: \\n\\n (outside code fences)
+        - Code block: closing ``` (inside code fences)
+
+        When a boundary is found, everything before it is rendered as
+        Rich Markdown. The remainder stays in the buffer for the next flush.
+        """
+        flush_point = self._find_flush_point()
+        if flush_point is None:
+            return
+
+        # Split at flush point
+        complete = self._streaming_buffer[:flush_point]
+        remainder = self._streaming_buffer[flush_point:]
+
+        # Stop transient Live (clears raw preview)
+        self._stop_live()
+
+        # Render completed blocks as formatted markdown
+        if complete.strip():
+            try:
+                self.console.print(Markdown(complete))
+            except Exception:
+                self.console.print(complete, highlight=False)
+            self._committed_text += complete
+
+        # Reset buffer to remainder
+        self._streaming_buffer = remainder
+
+        # Start new Live for remainder if there's content
+        if remainder:
+            self._start_live(remainder)
+
+    def _find_flush_point(self) -> Optional[int]:
+        """Find the next point where buffer can be split into complete blocks.
+
+        Returns the index to split at, or None if no complete block found.
+        """
+        buf = self._streaming_buffer
+
+        if self._in_code_block:
+            # Inside a code block — look for closing ```
+            # Search from after the opening fence
+            search_start = 0
+            close_idx = buf.find("```", search_start)
+            if close_idx == -1:
+                return None  # Still in code block
+
+            # Find end of the closing fence line
+            newline_after = buf.find("\n", close_idx + 3)
+            if newline_after == -1:
+                # Closing fence at very end, no trailing newline yet
+                flush_point = close_idx + 3
+            else:
+                flush_point = newline_after + 1
+
+            self._in_code_block = False
+            return flush_point
+
+        # Not in a code block — check for code block opening and paragraph boundary
+        fence_idx = buf.find("```")
+        para_idx = buf.rfind("\n\n")
+
+        if fence_idx != -1 and (para_idx == -1 or fence_idx < para_idx):
+            # Code fence opens before any paragraph break
+            # Flush everything before the fence as a paragraph, enter code block mode
+            if fence_idx > 0 and buf[:fence_idx].strip():
+                # There's content before the fence — flush it
+                return fence_idx
+            else:
+                # Fence is at the start — enter code block mode, look for close
+                self._in_code_block = True
+                close_idx = buf.find("```", fence_idx + 3)
+                if close_idx == -1:
+                    return None  # Code block still open
+                # Found closing fence
+                newline_after = buf.find("\n", close_idx + 3)
+                flush_point = (newline_after + 1) if newline_after != -1 else close_idx + 3
+                self._in_code_block = False
+                return flush_point
+
+        if para_idx != -1:
+            # Paragraph boundary found — flush up to and including \n\n
+            return para_idx + 2
+
+        return None
+
+    # --- Live display management ---
+
+    def _start_live(self, initial_text: str = "") -> None:
+        """Start a transient Live display for raw token preview."""
+        if self._live is not None:
+            return
+        try:
+            self._live = Live(
+                Text(initial_text, style=""),
+                console=self.console,
+                transient=True,
+                auto_refresh=False,
+            )
+            self._live.start()
+        except Exception:
+            # Fallback: if Live fails, print raw
+            self._live = None
+
+    def _stop_live(self) -> None:
+        """Stop the Live display (transient=True clears it)."""
+        if self._live is not None:
+            try:
+                self._live.stop()
+            except Exception:
+                pass
+            self._live = None
+
+    def _update_live(self, text: str) -> None:
+        """Update the Live display with current raw text."""
+        if self._live is not None:
+            try:
+                self._live.update(Text(text, style=""))
+                self._live.refresh()
+            except Exception:
+                pass
 
     def _render_tool_request(self, event: Dict[str, Any]) -> None:
         """Render tool approval request."""

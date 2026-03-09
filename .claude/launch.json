@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "hestia-backend",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "hestia.api.server"],
+      "port": 8443
+    }
+  ]
+}

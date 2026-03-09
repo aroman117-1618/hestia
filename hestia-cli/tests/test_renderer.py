@@ -11,11 +11,16 @@ from rich.console import Console
 from hestia_cli.renderer import HestiaRenderer, ThinkingAnimation, _get_agent_verbs
 
 
-def make_renderer() -> tuple:
-    """Create a renderer with captured output."""
+def make_renderer(use_markdown: bool = False) -> tuple:
+    """Create a renderer with captured output.
+
+    Args:
+        use_markdown: If True, enable markdown rendering. Default False
+            for backward-compatible raw-mode tests.
+    """
     output = StringIO()
     console = Console(file=output, no_color=True, width=80)
-    renderer = HestiaRenderer(console=console)
+    renderer = HestiaRenderer(console=console, use_markdown=use_markdown)
     return renderer, output
 
 
@@ -209,6 +214,180 @@ class TestAgentColoredRenderer:
         })
         text = output.getvalue()
         assert "malicious" in text
+
+
+# ── Progressive Markdown Rendering Tests ────────────────────
+
+
+class TestMarkdownFlushPoint:
+    """Test _find_flush_point() — pure logic, no IO."""
+
+    def _make_md_renderer(self) -> HestiaRenderer:
+        """Create a renderer with markdown enabled (no console output needed)."""
+        output = StringIO()
+        console = Console(file=output, no_color=True, width=80)
+        return HestiaRenderer(console=console, use_markdown=True)
+
+    def test_no_flush_for_single_paragraph(self):
+        """No flush point when buffer has no paragraph break."""
+        r = self._make_md_renderer()
+        r._streaming_buffer = "Hello world, this is a test."
+        assert r._find_flush_point() is None
+
+    def test_flush_on_double_newline(self):
+        """Paragraph boundary (\\n\\n) triggers flush."""
+        r = self._make_md_renderer()
+        r._streaming_buffer = "First paragraph.\n\nSecond paragraph."
+        point = r._find_flush_point()
+        assert point is not None
+        assert r._streaming_buffer[:point] == "First paragraph.\n\n"
+
+    def test_flush_multiple_paragraphs_takes_last_break(self):
+        """With multiple \\n\\n, flush point is at the LAST break."""
+        r = self._make_md_renderer()
+        r._streaming_buffer = "Para 1.\n\nPara 2.\n\nPara 3 still typing"
+        point = r._find_flush_point()
+        assert point is not None
+        complete = r._streaming_buffer[:point]
+        assert "Para 1." in complete
+        assert "Para 2." in complete
+        assert "Para 3" not in complete
+
+    def test_code_block_detection(self):
+        """Opening ``` enters code block mode."""
+        r = self._make_md_renderer()
+        r._streaming_buffer = "```python\nprint('hello')\n```\nMore text"
+        point = r._find_flush_point()
+        assert point is not None
+        complete = r._streaming_buffer[:point]
+        assert "```python" in complete
+        assert "print('hello')" in complete
+        assert "```" in complete
+
+    def test_code_block_not_flushed_until_close(self):
+        """Unclosed code block is NOT flushed."""
+        r = self._make_md_renderer()
+        r._streaming_buffer = "```python\nprint('hello')\nstill typing"
+        r._in_code_block = False
+        point = r._find_flush_point()
+        # The fence opens but doesn't close — enters code block mode
+        if point is not None:
+            # Should not flush the incomplete code block
+            assert "still typing" not in r._streaming_buffer[:point]
+
+    def test_code_block_mode_waits_for_close(self):
+        """In code block mode, waits for closing ```."""
+        r = self._make_md_renderer()
+        r._in_code_block = True
+        r._streaming_buffer = "print('hello')\nmore code"
+        assert r._find_flush_point() is None
+
+    def test_code_block_mode_flushes_on_close(self):
+        """In code block mode, closing ``` triggers flush."""
+        r = self._make_md_renderer()
+        r._in_code_block = True
+        r._streaming_buffer = "print('hello')\n```\nAfter code"
+        point = r._find_flush_point()
+        assert point is not None
+        assert not r._in_code_block  # Should exit code block mode
+
+    def test_text_before_code_fence_flushed(self):
+        """Text before a code fence opening is flushed as a paragraph."""
+        r = self._make_md_renderer()
+        r._streaming_buffer = "Here's some code:\n```python\ncode"
+        point = r._find_flush_point()
+        assert point is not None
+        complete = r._streaming_buffer[:point]
+        assert "Here's some code:" in complete
+        assert "```python" not in complete
+
+
+class TestMarkdownRendering:
+    """Test markdown rendering output."""
+
+    def test_finish_streaming_renders_markdown(self):
+        """finish_streaming() renders remaining buffer as markdown."""
+        output = StringIO()
+        console = Console(file=output, no_color=True, width=80)
+        renderer = HestiaRenderer(console=console, use_markdown=True)
+
+        renderer._in_streaming = True
+        renderer._streaming_buffer = "## Hello World\n\nThis is **bold** text."
+        renderer.finish_streaming()
+
+        text = output.getvalue()
+        # Rich Markdown should render the heading and bold
+        assert "Hello World" in text
+        assert "bold" in text
+
+    def test_finish_streaming_raw_mode(self):
+        """In raw mode, finish_streaming prints raw text."""
+        output = StringIO()
+        console = Console(file=output, no_color=True, width=80)
+        renderer = HestiaRenderer(console=console, use_markdown=False)
+
+        renderer._in_streaming = True
+        renderer._streaming_buffer = "## Hello World"
+        renderer.finish_streaming()
+
+        text = output.getvalue()
+        # Should contain the raw markdown syntax
+        assert "## Hello World" in text
+
+    def test_start_streaming_resets_state(self):
+        """start_streaming() resets all markdown state."""
+        output = StringIO()
+        console = Console(file=output, no_color=True, width=80)
+        renderer = HestiaRenderer(console=console, use_markdown=True)
+
+        renderer._streaming_buffer = "leftover"
+        renderer._committed_text = "old"
+        renderer._in_streaming = True
+        renderer._in_code_block = True
+
+        renderer.start_streaming()
+
+        assert renderer._streaming_buffer == ""
+        assert renderer._committed_text == ""
+        assert not renderer._in_streaming
+        assert not renderer._in_code_block
+
+    def test_empty_buffer_not_rendered(self):
+        """Empty/whitespace buffer doesn't produce output on finish."""
+        output = StringIO()
+        console = Console(file=output, no_color=True, width=80)
+        renderer = HestiaRenderer(console=console, use_markdown=True)
+
+        renderer._in_streaming = True
+        renderer._streaming_buffer = "   "
+        renderer.finish_streaming()
+
+        # Should not render whitespace-only content
+        text = output.getvalue().strip()
+        assert text == ""
+
+    def test_use_markdown_defaults_to_env(self):
+        """use_markdown defaults based on HESTIA_NO_COLOR env var."""
+        output = StringIO()
+        console = Console(file=output, no_color=True, width=80)
+
+        # Without env var — markdown enabled
+        renderer = HestiaRenderer(console=console)
+        assert renderer._use_markdown is True
+
+        # With env var — markdown disabled
+        with patch.dict(os.environ, {"HESTIA_NO_COLOR": "1"}):
+            renderer2 = HestiaRenderer(console=console)
+            assert renderer2._use_markdown is False
+
+    def test_use_markdown_explicit_override(self):
+        """Explicit use_markdown param overrides env var."""
+        output = StringIO()
+        console = Console(file=output, no_color=True, width=80)
+
+        with patch.dict(os.environ, {"HESTIA_NO_COLOR": "1"}):
+            renderer = HestiaRenderer(console=console, use_markdown=True)
+            assert renderer._use_markdown is True
 
 
 # ── Thinking Animation Tests (Sprint 11.5 — Task B2) ────────────
