@@ -927,27 +927,53 @@ class RequestHandler:
                 if tool_result is not None:
                     # Extract tool name and args from content for display
                     import re
-                    registry = get_tool_registry()
-                    for func_match in re.finditer(r'(\w+)\(([^)]*)\)', content):
-                        if registry.has_tool(func_match.group(1)):
-                            tool_name = func_match.group(1)
-                            args_str = func_match.group(2)
-                            # Parse keyword args: key="value"
-                            for kv_match in re.finditer(r'(\w+)\s*=\s*"([^"]*)"', args_str):
-                                tool_args[kv_match.group(1)] = kv_match.group(2)
-                            # If no kwargs found, try positional: "value"
-                            if not tool_args:
-                                for pos_match in re.finditer(r'"([^"]*)"', args_str):
-                                    tool_args["arg"] = pos_match.group(1)
+                    import json as _json
+                    # Try JSON format first: {"name": "...", "arguments": {...}}
+                    try:
+                        data = _json.loads(content.strip())
+                        if "tool_call" in data:
+                            tc = data["tool_call"]
+                            tool_name = tc.get("name", "")
+                            tool_args = tc.get("arguments", {})
+                        elif "name" in data and "arguments" in data:
+                            tool_name = data.get("name", "")
+                            tool_args = data.get("arguments", {})
+                        elif "tool" in data:
+                            tool_name = data.get("tool", "")
+                            tool_args = data.get("arguments", {})
+                    except (ValueError, _json.JSONDecodeError):
+                        pass
+                    # Fall back to function-call syntax: tool_name("arg")
+                    if not tool_name:
+                        registry = get_tool_registry()
+                        for func_match in re.finditer(r'(\w+)\(([^)]*)\)', content):
+                            if registry.has_tool(func_match.group(1)):
+                                tool_name = func_match.group(1)
+                                args_str = func_match.group(2)
+                                # Extract keyword args
+                                for kv_match in re.finditer(r'(\w+)\s*=\s*"([^"]*)"', args_str):
+                                    tool_args[kv_match.group(1)] = kv_match.group(2)
+                                # Also extract positional args for display
+                                remaining = re.sub(r'\w+\s*=\s*"[^"]*"', '', args_str)
+                                for pos_match in re.finditer(r'"([^"]*)"', remaining):
+                                    tool_args.setdefault("arg", pos_match.group(1))
                                     break
-                            break
+                                break
 
             if tool_result is not None:
+                # Signal CLI to discard previously-streamed raw tokens (tool JSON was visible)
+                yield {"type": "clear_stream"}
+
+                # Detect whether the tool actually succeeded or returned an error
+                tool_succeeded = not (
+                    tool_result.startswith("Tool ") and " failed: " in tool_result
+                )
+
                 # Yield the tool result with metadata for CLI display
                 yield {
                     "type": "tool_result",
                     "call_id": "aggregate",
-                    "status": "success",
+                    "status": "success" if tool_succeeded else "error",
                     "output": tool_result,
                     "tool_name": tool_name,
                     "tool_args": tool_args,
@@ -1401,6 +1427,10 @@ class RequestHandler:
                     # Alternative format
                     tool_name = data.get("tool", "")
                     arguments = data.get("arguments", {})
+                elif "name" in data and "arguments" in data:
+                    # Direct function-call JSON: {"name": "tool_name", "arguments": {...}}
+                    tool_name = data.get("name", "")
+                    arguments = data.get("arguments", {})
                 else:
                     return None
             except json.JSONDecodeError:
@@ -1414,11 +1444,14 @@ class RequestHandler:
                     # Try simpler tool format
                     json_match = re.search(r'\{"tool":\s*"[^"]+",\s*"arguments":\s*\{[^}]*\}\}', content)
                 if not json_match:
-                    # Last resort: find any JSON object with tool_call or tool key
+                    # Last resort: find any JSON object with tool_call, tool, or name+arguments
                     for match in re.finditer(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', content):
                         try:
                             potential = json.loads(match.group())
                             if "tool_call" in potential or "tool" in potential:
+                                json_match = match
+                                break
+                            if "name" in potential and "arguments" in potential:
                                 json_match = match
                                 break
                         except json.JSONDecodeError:
@@ -1438,20 +1471,29 @@ class RequestHandler:
                         tool_name = func_name
                         arguments = {}
                         if args_str:
-                            # Try keyword arguments: key="value"
+                            tool_def = registry.get(func_name)
+                            param_names = list(tool_def.parameters.keys()) if tool_def and tool_def.parameters else []
+
+                            # Extract keyword arguments: key="value"
                             kw_matches = re.findall(r'(\w+)\s*=\s*["\']([^"\']*)["\']', args_str)
-                            if kw_matches:
-                                for k, v in kw_matches:
-                                    arguments[k] = v
-                            else:
-                                # Positional argument — map to first parameter
-                                arg_val = args_str.strip('"').strip("'")
-                                tool_def = registry.get(func_name)
-                                if tool_def and tool_def.parameters:
-                                    first_param = next(iter(tool_def.parameters))
-                                    arguments[first_param] = arg_val
-                                else:
-                                    arguments["query"] = arg_val
+                            for k, v in kw_matches:
+                                arguments[k] = v
+
+                            # Extract positional arguments (quoted strings NOT part of keyword pairs)
+                            # Remove keyword arg spans from args_str to find positional-only values
+                            remaining = re.sub(r'\w+\s*=\s*["\'][^"\']*["\']', '', args_str)
+                            positional_vals = re.findall(r'["\']([^"\']*)["\']', remaining)
+                            if positional_vals and param_names:
+                                # Map positional args to parameter names in order,
+                                # skipping params already filled by keyword args
+                                pos_idx = 0
+                                for pname in param_names:
+                                    if pname in arguments:
+                                        continue
+                                    if pos_idx >= len(positional_vals):
+                                        break
+                                    arguments[pname] = positional_vals[pos_idx]
+                                    pos_idx += 1
 
                         self.logger.info(
                             f"Detected text-pattern tool call: {tool_name}",
@@ -1479,6 +1521,9 @@ class RequestHandler:
                     tool_call = data["tool_call"]
                     tool_name = tool_call.get("name", "")
                     arguments = tool_call.get("arguments", {})
+                elif "name" in data and "arguments" in data:
+                    tool_name = data.get("name", "")
+                    arguments = data.get("arguments", {})
                 else:
                     tool_name = data.get("tool", "")
                     arguments = data.get("arguments", {})

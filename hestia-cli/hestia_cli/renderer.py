@@ -125,6 +125,8 @@ class HestiaRenderer:
             self._render_error(event)
         elif event_type == "insight":
             self._render_insight(event)
+        elif event_type == "clear_stream":
+            self._clear_streamed_content()
         elif event_type == "pong":
             pass  # Silent
 
@@ -139,23 +141,37 @@ class HestiaRenderer:
         self._stop_live()
 
     def finish_streaming(self) -> None:
-        """Finalize streaming output — render any remaining buffer as markdown."""
-        self._stop_live()
+        """Finalize streaming output — commit transient content permanently."""
+        self._stop_live()  # Clears transient Live display
 
-        # Render any remaining buffered text
-        if self._streaming_buffer.strip():
+        # Permanently render the full accumulated buffer
+        full_text = (self._committed_text + self._streaming_buffer).strip()
+        if full_text:
             if self._use_markdown:
                 try:
-                    self.console.print(Markdown(self._streaming_buffer))
+                    self.console.print(Markdown(full_text))
                 except Exception:
-                    self.console.print(self._streaming_buffer)
+                    self.console.print(full_text)
             else:
-                self.console.print(self._streaming_buffer, end="", highlight=False)
+                self.console.print(full_text, end="", highlight=False)
 
         self._streaming_buffer = ""
         self._committed_text = ""
         self._in_streaming = False
         self._in_code_block = False
+
+    def _clear_streamed_content(self) -> None:
+        """Discard previously-streamed raw tokens (e.g., tool-call JSON).
+
+        Called when the backend detects a tool call was executed from text
+        that was already streamed as tokens. Stops the Live preview and
+        clears the buffer so the synthesized response starts clean.
+        """
+        self._stop_live()
+        self._streaming_buffer = ""
+        self._committed_text = ""
+        self._in_code_block = False
+        # Don't reset _in_streaming — the synthesized response tokens will follow
 
     def render_startup_banner(
         self,
@@ -207,11 +223,11 @@ class HestiaRenderer:
         self._status_visible = True
 
     def _render_token(self, event: Dict[str, Any]) -> None:
-        """Buffer streaming token and flush completed markdown blocks.
+        """Buffer streaming token and render in a transient Live display.
 
-        In markdown mode: accumulates tokens, flushes complete paragraphs
-        (\\n\\n boundary) and code blocks (closing ```) as Rich Markdown.
-        Incomplete text shows as raw preview in a transient Live display.
+        All streamed content stays in a transient Live display until
+        finish_streaming() commits it permanently. This allows clear_stream
+        to atomically discard all streamed content (e.g., raw tool-call JSON).
 
         In raw mode (HESTIA_NO_COLOR): prints tokens immediately.
         """
@@ -236,16 +252,14 @@ class HestiaRenderer:
             self.console.print(content, end="", highlight=False)
             return
 
-        # Markdown mode — buffer and flush complete blocks
+        # Markdown mode — buffer all content in transient Live display
         self._streaming_buffer += content
-        self._flush_completed_blocks()
 
-        # Update Live preview with current incomplete buffer
-        if self._streaming_buffer:
-            if self._live is None:
-                self._start_live(self._streaming_buffer)
-            else:
-                self._update_live(self._streaming_buffer)
+        # Render full accumulated buffer as Markdown in the Live display
+        if self._live is None:
+            self._start_live_markdown(self._streaming_buffer)
+        else:
+            self._update_live_markdown(self._streaming_buffer)
 
     def _flush_completed_blocks(self) -> None:
         """Render completed markdown blocks, keep incomplete remainder.
@@ -369,6 +383,31 @@ class HestiaRenderer:
         if self._live is not None:
             try:
                 self._live.update(Text(text, style=""))
+                self._live.refresh()
+            except Exception:
+                pass
+
+    def _start_live_markdown(self, text: str) -> None:
+        """Start a transient Live display rendering Markdown."""
+        if self._live is not None:
+            return
+        try:
+            renderable = Markdown(text) if text.strip() else Text("")
+            self._live = Live(
+                renderable,
+                console=self.console,
+                transient=True,
+                auto_refresh=False,
+            )
+            self._live.start()
+        except Exception:
+            self._live = None
+
+    def _update_live_markdown(self, text: str) -> None:
+        """Update the Live display with Markdown-rendered content."""
+        if self._live is not None:
+            try:
+                self._live.update(Markdown(text) if text.strip() else Text(""))
                 self._live.refresh()
             except Exception:
                 pass

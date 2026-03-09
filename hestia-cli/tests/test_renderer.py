@@ -612,3 +612,32 @@ class TestInsightRendering:
         text = output.getvalue()
         assert "One-off message" in text
         assert "Another one-off" in text
+
+
+class TestClearStream:
+    """Tests for clear_stream event that discards raw tool-call JSON."""
+
+    def test_clear_stream_resets_buffer(self):
+        """clear_stream event clears the streaming buffer."""
+        renderer, output = make_renderer()
+        renderer.start_streaming()
+        # Simulate streaming some raw JSON tokens
+        renderer.render_event({"type": "token", "content": '{"name": "create_note"'})
+        renderer.render_event({"type": "token", "content": ', "arguments": {"title": "test"}}'})
+        assert renderer._streaming_buffer != ""
+
+        # clear_stream should wipe the buffer
+        renderer.render_event({"type": "clear_stream"})
+        assert renderer._streaming_buffer == ""
+        assert renderer._committed_text == ""
+
+    def test_clear_stream_preserves_streaming_state(self):
+        """clear_stream keeps _in_streaming True so synthesized tokens render."""
+        renderer, output = make_renderer()
+        renderer.start_streaming()
+        renderer.render_event({"type": "token", "content": '{"name": "read_note"}'})
+        assert renderer._in_streaming is True
+
+        renderer.render_event({"type": "clear_stream"})
+        # Still in streaming mode — synthesized response will follow
+        assert renderer._in_streaming is True

@@ -773,6 +773,39 @@ class TestTextPatternToolDetection:
         assert call_obj.arguments.get("query") == "project plan"
 
     @pytest.mark.asyncio
+    async def test_mixed_positional_and_keyword_arguments(self, handler):
+        """Positional + keyword args both extracted: create_reminder("title", due_date="tomorrow")."""
+        content = 'I\'ll set that reminder.\ncreate_reminder("clean the toilet", due_date="tomorrow")'
+
+        mock_tool = MagicMock()
+        mock_tool.parameters = {"title": MagicMock(), "due": MagicMock(), "notes": MagicMock()}
+        mock_tool.requires_approval = False
+
+        mock_registry = MagicMock()
+        mock_registry.has_tool.side_effect = lambda name: name == "create_reminder"
+        mock_registry.get.return_value = mock_tool
+
+        mock_result = MagicMock()
+        mock_result.success = True
+        mock_result.output = {"created": True, "reminder": {"title": "clean the toilet"}}
+
+        mock_executor = AsyncMock()
+        mock_executor.execute = AsyncMock(return_value=mock_result)
+
+        with patch("hestia.orchestration.handler.get_tool_registry", return_value=mock_registry), \
+             patch.object(handler, "_get_tool_executor", return_value=mock_executor):
+            result = await handler._try_execute_tool_from_response(
+                content, make_request("set a reminder to clean the toilet"), MagicMock()
+            )
+
+        assert result is not None
+        call_obj = mock_executor.execute.call_args[0][0]
+        # Positional "clean the toilet" maps to first param "title"
+        assert call_obj.arguments.get("title") == "clean the toilet"
+        # Keyword "due_date" also captured
+        assert call_obj.arguments.get("due_date") == "tomorrow"
+
+    @pytest.mark.asyncio
     async def test_ignores_unknown_functions(self, handler):
         """Non-tool function names in text are ignored."""
         content = 'Here is an example: print("hello world")\nSee also: len("test")'
@@ -826,6 +859,60 @@ class TestTextPatternToolDetection:
 
         with patch("hestia.orchestration.handler.get_tool_registry", return_value=mock_registry):
             assert handler._looks_like_tool_call(content) is True
+
+    @pytest.mark.asyncio
+    async def test_executes_name_arguments_json_format(self, handler):
+        """{"name": "...", "arguments": {...}} format is parsed and executed."""
+        content = '{"name": "create_note", "arguments": {"title": "Dev Plan", "body": "Step 1: setup"}}'
+
+        mock_registry = MagicMock()
+        mock_registry.has_tool.return_value = True
+
+        mock_result = MagicMock()
+        mock_result.success = True
+        mock_result.output = {"status": "created", "id": "note-123"}
+
+        mock_executor = AsyncMock()
+        mock_executor.execute = AsyncMock(return_value=mock_result)
+
+        with patch("hestia.orchestration.handler.get_tool_registry", return_value=mock_registry), \
+             patch.object(handler, "_get_tool_executor", return_value=mock_executor):
+            result = await handler._try_execute_tool_from_response(
+                content, make_request("create a dev plan note"), MagicMock()
+            )
+
+        assert result is not None
+        assert "note-123" in result
+        call_obj = mock_executor.execute.call_args[0][0]
+        assert call_obj.tool_name == "create_note"
+        assert call_obj.arguments.get("title") == "Dev Plan"
+        assert call_obj.arguments.get("body") == "Step 1: setup"
+
+    @pytest.mark.asyncio
+    async def test_executes_name_json_embedded_in_text(self, handler):
+        """{"name": ...} JSON embedded in surrounding text is extracted and executed."""
+        content = 'Sure, let me create that.\n{"name": "read_note", "arguments": {"title": "hestia"}}\nDone!'
+
+        mock_registry = MagicMock()
+        mock_registry.has_tool.side_effect = lambda name: name == "read_note"
+
+        mock_result = MagicMock()
+        mock_result.success = True
+        mock_result.output = "# Hestia Notes\nCLI section content"
+
+        mock_executor = AsyncMock()
+        mock_executor.execute = AsyncMock(return_value=mock_result)
+
+        with patch("hestia.orchestration.handler.get_tool_registry", return_value=mock_registry), \
+             patch.object(handler, "_get_tool_executor", return_value=mock_executor):
+            result = await handler._try_execute_tool_from_response(
+                content, make_request("read my hestia note"), MagicMock()
+            )
+
+        assert result is not None
+        assert "Hestia Notes" in result
+        call_obj = mock_executor.execute.call_args[0][0]
+        assert call_obj.tool_name == "read_note"
 
 
 class TestStreamingSynthesis:
