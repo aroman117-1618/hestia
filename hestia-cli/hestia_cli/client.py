@@ -157,7 +157,7 @@ class HestiaWSClient:
         # Receive streaming events until done or error
         while True:
             try:
-                raw = await asyncio.wait_for(self._ws.recv(), timeout=120.0)
+                raw = await asyncio.wait_for(self._ws.recv(), timeout=300.0)
                 event = json.loads(raw)
             except asyncio.TimeoutError:
                 yield {"type": "error", "code": "timeout", "message": "Response timed out"}

@@ -154,8 +154,8 @@ async def repl_loop(client: HestiaWSClient, console: Console) -> None:
                         approved=approval,
                     )
                     tool_request_pending = None
-                elif event_type == "done":
-                    await renderer.stop_thinking()  # Safety net
+                elif event_type in ("done", "error"):
+                    await renderer.stop_thinking()
                     renderer.render_event(event)
                 else:
                     renderer.render_event(event)
