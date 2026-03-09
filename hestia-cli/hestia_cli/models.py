@@ -21,6 +21,7 @@ class ServerEventType(str, Enum):
     DONE = "done"
     ERROR = "error"
     PONG = "pong"
+    INSIGHT = "insight"
 
 
 class PipelineStage(str, Enum):

@@ -859,6 +859,14 @@ class RequestHandler:
 
             content = inference_response.content
 
+            # Insight: cloud routing notification
+            if will_use_cloud:
+                yield {
+                    "type": "insight",
+                    "content": "Routed to cloud model for higher quality response.",
+                    "insight_key": "cloud_routing",
+                }
+
             # Step 7.25: Local persona re-render for cloud responses (non-CHAT only)
             if (
                 will_use_cloud
@@ -943,6 +951,13 @@ class RequestHandler:
                     "output": tool_result,
                     "tool_name": tool_name,
                     "tool_args": tool_args,
+                }
+
+                # Insight: tool synthesis notification
+                yield {
+                    "type": "insight",
+                    "content": f"Tool '{tool_name or 'unknown'}' returned {len(tool_result):,} chars. Synthesizing response...",
+                    "insight_key": "tool_synthesis",
                 }
 
                 # Synthesize response with personality

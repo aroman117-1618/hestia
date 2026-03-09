@@ -66,6 +66,7 @@ class HestiaRenderer:
         # Markdown streaming state
         self._live: Optional[Live] = None
         self._in_code_block = False
+        self._seen_insight_keys: set = set()
         # use_markdown can be explicitly set (for tests), otherwise check env var
         if use_markdown is not None:
             self._use_markdown = use_markdown
@@ -122,6 +123,8 @@ class HestiaRenderer:
             self._render_done(event)
         elif event_type == "error":
             self._render_error(event)
+        elif event_type == "insight":
+            self._render_insight(event)
         elif event_type == "pong":
             pass  # Silent
 
@@ -475,6 +478,34 @@ class HestiaRenderer:
             if parts:
                 self.console.print(f"[dim]  {' · '.join(parts)}[/dim]")
         self.console.print()
+
+    def _render_insight(self, event: Dict[str, Any]) -> None:
+        """Render an insight callout (auto-gated by insight_key).
+
+        Each unique insight_key is displayed at most once per CLI session.
+        Events without an insight_key are always shown.
+        """
+        content = event.get("content", "")
+        insight_key = event.get("insight_key", "")
+
+        # Auto-gate: skip if this insight_key was already shown
+        if insight_key and insight_key in self._seen_insight_keys:
+            return
+        if insight_key:
+            self._seen_insight_keys.add(insight_key)
+
+        # Clear lingering status line if needed
+        if self._status_visible:
+            _clear_line()
+            self._status_visible = False
+
+        self.console.print(Panel(
+            f"[dim]{content}[/dim]",
+            title="💡 Insight",
+            border_style="dim",
+            width=60,
+            padding=(0, 1),
+        ))
 
     def _render_error(self, event: Dict[str, Any]) -> None:
         """Render error message."""

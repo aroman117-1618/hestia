@@ -538,3 +538,77 @@ class TestThinkingAnimation:
         with patch.dict(os.environ, {"HESTIA_NO_EMOJI": "1"}):
             anim = ThinkingAnimation(console)
             assert not anim._use_emoji
+
+
+class TestInsightRendering:
+    """Tests for insight callout rendering and auto-gating."""
+
+    def test_render_insight_event(self):
+        """Insight event renders as a Panel with content."""
+        renderer, output = make_renderer()
+        renderer.render_event({
+            "type": "insight",
+            "content": "Routed to cloud model for higher quality response.",
+            "insight_key": "cloud_routing",
+        })
+        text = output.getvalue()
+        assert "Insight" in text
+        assert "cloud" in text.lower()
+
+    def test_insight_auto_gating_suppresses_repeat(self):
+        """Same insight_key only displays once per session."""
+        renderer, output = make_renderer()
+
+        # First time — should render
+        renderer.render_event({
+            "type": "insight",
+            "content": "Cloud routing active.",
+            "insight_key": "cloud_routing",
+        })
+        first_output = output.getvalue()
+        assert "Cloud routing" in first_output
+
+        # Second time — should be suppressed
+        output.truncate(0)
+        output.seek(0)
+        renderer.render_event({
+            "type": "insight",
+            "content": "Cloud routing active.",
+            "insight_key": "cloud_routing",
+        })
+        second_output = output.getvalue()
+        assert second_output.strip() == ""
+
+    def test_insight_different_keys_both_shown(self):
+        """Different insight_keys are each shown once."""
+        renderer, output = make_renderer()
+
+        renderer.render_event({
+            "type": "insight",
+            "content": "Cloud routing active.",
+            "insight_key": "cloud_routing",
+        })
+        renderer.render_event({
+            "type": "insight",
+            "content": "Tool returned 5,000 chars.",
+            "insight_key": "tool_synthesis",
+        })
+        text = output.getvalue()
+        assert "Cloud routing" in text
+        assert "Tool returned" in text
+
+    def test_insight_no_key_always_shown(self):
+        """Insight events without insight_key are always displayed."""
+        renderer, output = make_renderer()
+
+        renderer.render_event({
+            "type": "insight",
+            "content": "One-off message.",
+        })
+        renderer.render_event({
+            "type": "insight",
+            "content": "Another one-off.",
+        })
+        text = output.getvalue()
+        assert "One-off message" in text
+        assert "Another one-off" in text
