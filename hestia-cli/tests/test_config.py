@@ -14,6 +14,7 @@ from hestia_cli.config import (
     save_config,
     get_server_url,
     get_verify_ssl,
+    validate_config,
 )
 
 
@@ -82,3 +83,47 @@ class TestConfig:
     def test_get_verify_ssl(self):
         assert get_verify_ssl({"server": {"verify_ssl": True}}) is True
         assert get_verify_ssl({"server": {"verify_ssl": False}}) is False
+
+
+class TestValidateConfig:
+    """Tests for YAML config validation."""
+
+    def test_valid_default_config_has_no_warnings(self):
+        warnings = validate_config(DEFAULT_CONFIG)
+        assert warnings == []
+
+    def test_bad_server_url(self):
+        config = {"server": {"url": "not-a-url"}}
+        warnings = validate_config(config)
+        assert any("http" in w for w in warnings)
+
+    def test_invalid_default_mode(self):
+        config = {"preferences": {"default_mode": "jarvis"}}
+        warnings = validate_config(config)
+        assert any("default_mode" in w for w in warnings)
+
+    def test_valid_modes_pass(self):
+        for mode in ("tia", "mira", "olly"):
+            config = {"preferences": {"default_mode": mode}}
+            warnings = validate_config(config)
+            assert not any("default_mode" in w for w in warnings)
+
+    def test_non_boolean_preference(self):
+        config = {"preferences": {"show_metrics": "yes"}}
+        warnings = validate_config(config)
+        assert any("show_metrics" in w for w in warnings)
+
+    def test_unknown_trust_tier(self):
+        config = {"trust": {"admin": "auto"}}
+        warnings = validate_config(config)
+        assert any("admin" in w for w in warnings)
+
+    def test_invalid_trust_level(self):
+        config = {"trust": {"read": "always"}}
+        warnings = validate_config(config)
+        assert any("always" in w for w in warnings)
+
+    def test_unknown_top_level_section(self):
+        config = {"plugins": {"foo": "bar"}}
+        warnings = validate_config(config)
+        assert any("plugins" in w for w in warnings)

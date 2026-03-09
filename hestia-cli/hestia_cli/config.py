@@ -5,7 +5,7 @@ Manages ~/.hestia/config.yaml with server URL, preferences, and trust settings.
 """
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import yaml
 
@@ -75,6 +75,64 @@ def get_verify_ssl(config: Optional[Dict[str, Any]] = None) -> bool:
     if config is None:
         config = load_config()
     return config.get("server", {}).get("verify_ssl", False)
+
+
+VALID_MODES = {"tia", "mira", "olly"}
+VALID_TRUST_LEVELS = {"auto", "prompt"}
+VALID_TRUST_TIERS = {"read", "write", "execute", "external"}
+
+
+def validate_config(config: Dict[str, Any]) -> List[str]:
+    """Validate config values, returning a list of warning messages.
+
+    Checks:
+    - server.url starts with http(s)://
+    - preferences.default_mode is a valid agent name
+    - preferences.show_metrics is a boolean
+    - preferences.vi_mode is a boolean
+    - trust tier keys are valid
+    - trust tier levels are auto or prompt
+    - No unknown top-level sections
+    """
+    warnings: List[str] = []
+
+    # Check top-level sections
+    known_sections = {"server", "preferences", "trust"}
+    for key in config:
+        if key not in known_sections:
+            warnings.append(f"Unknown config section: '{key}'")
+
+    # Validate server section
+    server = config.get("server", {})
+    if isinstance(server, dict):
+        url = server.get("url", "")
+        if url and not url.startswith(("http://", "https://")):
+            warnings.append(f"server.url should start with http:// or https://, got: '{url}'")
+    elif server is not None:
+        warnings.append("server should be a mapping, not a scalar")
+
+    # Validate preferences
+    prefs = config.get("preferences", {})
+    if isinstance(prefs, dict):
+        mode = prefs.get("default_mode")
+        if mode is not None and mode not in VALID_MODES:
+            warnings.append(f"preferences.default_mode '{mode}' is not valid. Choose from: {', '.join(sorted(VALID_MODES))}")
+
+        for bool_key in ("show_metrics", "vi_mode", "auto_context"):
+            val = prefs.get(bool_key)
+            if val is not None and not isinstance(val, bool):
+                warnings.append(f"preferences.{bool_key} should be true/false, got: '{val}'")
+
+    # Validate trust tiers
+    trust = config.get("trust", {})
+    if isinstance(trust, dict):
+        for tier, level in trust.items():
+            if tier not in VALID_TRUST_TIERS:
+                warnings.append(f"Unknown trust tier: '{tier}'. Valid: {', '.join(sorted(VALID_TRUST_TIERS))}")
+            elif level not in VALID_TRUST_LEVELS:
+                warnings.append(f"trust.{tier} level '{level}' is not valid. Choose: {', '.join(sorted(VALID_TRUST_LEVELS))}")
+
+    return warnings
 
 
 def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:

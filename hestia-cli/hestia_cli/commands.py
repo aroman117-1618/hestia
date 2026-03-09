@@ -6,7 +6,7 @@ Minimal command set — natural language first, commands for control flow.
 
 import os
 import subprocess
-from typing import Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import httpx
 from rich.console import Console
@@ -33,6 +33,7 @@ async def handle_slash_command(
         "/mode": _cmd_mode,
         "/trust": _cmd_trust,
         "/memory": _cmd_memory,
+        "/tools": _cmd_tools,
         "/config": _cmd_config,
         "/session": _cmd_session,
         "/clear": _cmd_clear,
@@ -61,6 +62,7 @@ async def _cmd_help(args: str, client: HestiaWSClient, console: Console) -> None
   /trust save               Persist tiers to backend
   /trust reset              Reset to defaults
   /memory search [query]    Search Hestia memory
+  /tools                    List available tools from the server
   /config                   Open config in $EDITOR
   /session new              Start a fresh session
   /clear                    Clear the screen
@@ -208,6 +210,47 @@ async def _cmd_memory(args: str, client: HestiaWSClient, console: Console) -> No
                 console.print(f"[red]Memory search failed: {response.status_code}[/red]")
     except Exception as e:
         console.print(f"[red]Memory search failed: {type(e).__name__}[/red]")
+
+
+async def _cmd_tools(args: str, client: HestiaWSClient, console: Console) -> None:
+    """List available tools from the server."""
+    token = get_stored_token()
+    if not token:
+        console.print("[red]Not authenticated.[/red]")
+        return
+
+    try:
+        async with httpx.AsyncClient(verify=False, timeout=10.0) as http:
+            response = await http.get(
+                f"{client.server_url}/v1/tools",
+                headers={"X-Hestia-Device-Token": token},
+            )
+            if response.status_code == 200:
+                data = response.json()
+                tools = data.get("tools", [])
+                if not tools:
+                    console.print("[dim]  No tools registered.[/dim]")
+                    return
+
+                # Group by category
+                by_category: Dict[str, list] = {}
+                for tool in tools:
+                    cat = tool.get("category", "general")
+                    by_category.setdefault(cat, []).append(tool)
+
+                console.print(f"\n[bold]Available Tools[/bold] ({len(tools)} total)\n")
+                for cat in sorted(by_category.keys()):
+                    console.print(f"  [bold]{cat}[/bold]")
+                    for tool in sorted(by_category[cat], key=lambda t: t["name"]):
+                        name = tool["name"]
+                        desc = tool.get("description", "")[:60]
+                        approval = " [yellow]⚠ approval[/yellow]" if tool.get("requires_approval") else ""
+                        console.print(f"    {name:30s} {desc}{approval}")
+                    console.print()
+            else:
+                console.print(f"[red]Failed to fetch tools: {response.status_code}[/red]")
+    except Exception as e:
+        console.print(f"[red]Failed to fetch tools: {type(e).__name__}[/red]")
 
 
 async def _cmd_config(args: str, client: HestiaWSClient, console: Console) -> None:
