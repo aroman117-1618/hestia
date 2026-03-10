@@ -89,11 +89,17 @@ if [[ -n "$HARDCODED_MATCHES" ]]; then
     LEAK_FOUND=1
 fi
 
-# Check for .env files that shouldn't exist
-if [[ -f ".env" ]] || [[ -f "hestia/.env" ]]; then
-    echo "Found .env file - ensure it's in .gitignore"
-    LEAK_FOUND=1
-fi
+# Check for .env files — only fail if NOT gitignored
+for envfile in ".env" "hestia/.env"; do
+    if [[ -f "$envfile" ]]; then
+        if git check-ignore -q "$envfile" 2>/dev/null; then
+            echo "Found $envfile — gitignored (safe)"
+        else
+            echo "Found $envfile — NOT gitignored!"
+            LEAK_FOUND=1
+        fi
+    fi
+done
 
 if [[ "$LEAK_FOUND" -eq 1 ]]; then
     check_fail "Possible credential leak detected"
