@@ -28,8 +28,8 @@ struct MacMessageInputBar: View {
                 history: $history,
                 historyIndex: $historyIndex
             )
-            .frame(minHeight: 30, maxHeight: 200)
-            .fixedSize(horizontal: false, vertical: true)
+            .frame(minHeight: 36, maxHeight: 200)
+            .frame(maxWidth: .infinity)
             .clipShape(RoundedRectangle(cornerRadius: 8))
 
             // Send button with pulse micro-interaction

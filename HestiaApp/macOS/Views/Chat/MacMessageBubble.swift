@@ -59,32 +59,30 @@ struct MacMessageBubble: View {
 
     private var aiBubble: some View {
         VStack(alignment: .leading, spacing: MacSpacing.sm) {
-            VStack(alignment: .leading, spacing: MacSpacing.xs) {
-                // Sender label (no avatar)
+            // Message bubble with markdown rendering
+            MarkdownMessageView(content: message.content)
+                .padding(.horizontal, MacSpacing.lg)
+                .padding(.vertical, MacSpacing.md)
+                .background(MacColors.aiBubbleBackground)
+                .clipShape(UnevenRoundedRectangle(
+                    topLeadingRadius: MacCornerRadius.chatBubble,
+                    bottomLeadingRadius: 0,
+                    bottomTrailingRadius: MacCornerRadius.chatBubble,
+                    topTrailingRadius: MacCornerRadius.chatBubble
+                ))
+
+            // Sender label + reactions on same row
+            HStack(spacing: MacSpacing.sm) {
                 Text(message.mode?.displayName ?? "Tia")
                     .font(MacTypography.senderLabel)
                     .foregroundStyle(MacColors.textSender)
-                    .padding(.horizontal, MacSpacing.sm)
 
-                // Message bubble with markdown rendering
-                MarkdownMessageView(content: message.content)
-                    .padding(.horizontal, MacSpacing.lg)
-                    .padding(.vertical, MacSpacing.md)
-                    .background(MacColors.aiBubbleBackground)
-                    .clipShape(UnevenRoundedRectangle(
-                        topLeadingRadius: MacCornerRadius.chatBubble,
-                        bottomLeadingRadius: 0,
-                        bottomTrailingRadius: MacCornerRadius.chatBubble,
-                        topTrailingRadius: MacCornerRadius.chatBubble
-                    ))
+                MacReactionsRow(
+                    messageId: message.id,
+                    activeReactions: reactions,
+                    onReaction: onReaction
+                )
             }
-
-            // Reactions row (reduced leading padding since no avatar)
-            MacReactionsRow(
-                messageId: message.id,
-                activeReactions: reactions,
-                onReaction: onReaction
-            )
             .padding(.leading, MacSpacing.sm)
 
             // Outcome feedback (visible on hover or when feedback already submitted)

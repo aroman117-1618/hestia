@@ -37,7 +37,7 @@ struct WorkspaceRootView: View {
                         // Global error banner overlay
                         GlobalErrorBanner()
                     }
-                    .overlay(alignment: .bottomTrailing) {
+                    .overlay(alignment: .topTrailing) {
                         ChatPanelToggleOverlay()
                     }
                     .environment(\.layoutMode, layoutMode)
