@@ -16,6 +16,9 @@ struct CLITextView: NSViewRepresentable {
     @Binding var history: [String]
     @Binding var historyIndex: Int?
 
+    /// Reported content height for parent layout
+    @Binding var contentHeight: CGFloat
+
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
     }
@@ -32,12 +35,12 @@ struct CLITextView: NSViewRepresentable {
         textView.delegate = context.coordinator
         textView.coordinator = context.coordinator
 
-        // Appearance
-        textView.backgroundColor = NSColor(red: 0x1E / 255, green: 0x1E / 255, blue: 0x1E / 255, alpha: 1)
+        // Appearance — transparent so parent bar background shows through
+        textView.backgroundColor = .clear
         textView.textColor = NSColor(red: 0xE0 / 255, green: 0xE0 / 255, blue: 0xE0 / 255, alpha: 1)
         textView.insertionPointColor = NSColor(red: 0xE0 / 255, green: 0xA0 / 255, blue: 0x50 / 255, alpha: 1)
-        textView.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
-        textView.drawsBackground = true
+        textView.font = .systemFont(ofSize: 14)
+        textView.drawsBackground = false
 
         // Layout
         textView.isVerticallyResizable = true
@@ -60,8 +63,9 @@ struct CLITextView: NSViewRepresentable {
         scrollView.documentView = textView
         context.coordinator.textView = textView
 
-        // Set initial placeholder
+        // Set initial placeholder + report initial height
         context.coordinator.updatePlaceholder()
+        context.coordinator.reportContentHeight()
 
         return scrollView
     }
@@ -101,6 +105,22 @@ struct CLITextView: NSViewRepresentable {
             parent.text = textView.string
             isUpdating = false
             updatePlaceholder()
+            reportContentHeight()
+        }
+
+        /// Calculate actual text content height and report to SwiftUI
+        func reportContentHeight() {
+            guard let textView = textView,
+                  let layoutManager = textView.layoutManager,
+                  let textContainer = textView.textContainer else { return }
+
+            layoutManager.ensureLayout(for: textContainer)
+            let usedRect = layoutManager.usedRect(for: textContainer)
+            let insets = textView.textContainerInset
+            let height = usedRect.height + insets.height * 2
+            DispatchQueue.main.async { [weak self] in
+                self?.parent.contentHeight = max(height, 36)
+            }
         }
 
         func updatePlaceholder() {
@@ -109,7 +129,7 @@ struct CLITextView: NSViewRepresentable {
             if textView.string.isEmpty {
                 if placeholderField == nil {
                     let field = NSTextField(labelWithString: "")
-                    field.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
+                    field.font = .systemFont(ofSize: 14)
                     field.textColor = NSColor(red: 0xE0 / 255, green: 0xE0 / 255, blue: 0xE0 / 255, alpha: 0.35)
                     field.isBezeled = false
                     field.drawsBackground = false
@@ -255,6 +275,7 @@ struct CLITextView: NSViewRepresentable {
             textView.setSelectedRange(NSRange(location: value.count, length: 0))
             isUpdating = false
             updatePlaceholder()
+            reportContentHeight()
         }
     }
 }
