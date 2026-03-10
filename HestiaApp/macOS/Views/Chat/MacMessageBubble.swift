@@ -55,67 +55,37 @@ struct MacMessageBubble: View {
         .padding(.vertical, MacSpacing.lg)
     }
 
-    // MARK: - Agent Avatar
-
-    private func agentAvatar(for mode: HestiaMode, size: CGFloat) -> some View {
-        Group {
-            if let image = mode.avatarImage {
-                image
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                Circle()
-                    .fill(MacColors.aiAvatarBackground)
-                    .overlay {
-                        Text(mode.displayName.prefix(1))
-                            .font(.system(size: size * 0.45, weight: .bold))
-                            .foregroundStyle(MacColors.amberAccent)
-                    }
-            }
-        }
-        .frame(width: size, height: size)
-        .clipShape(Circle())
-        .overlay {
-            Circle().strokeBorder(MacColors.aiAvatarBorder, lineWidth: 1)
-        }
-    }
-
     // MARK: - AI Bubble (left-aligned, translucent)
 
     private var aiBubble: some View {
         VStack(alignment: .leading, spacing: MacSpacing.sm) {
-            HStack(alignment: .bottom, spacing: MacSpacing.lg) {
-                // AI avatar
-                agentAvatar(for: message.mode ?? .tia, size: MacSize.chatAvatarSize)
+            VStack(alignment: .leading, spacing: MacSpacing.xs) {
+                // Sender label (no avatar)
+                Text(message.mode?.displayName ?? "Tia")
+                    .font(MacTypography.senderLabel)
+                    .foregroundStyle(MacColors.textSender)
+                    .padding(.horizontal, MacSpacing.sm)
 
-                VStack(alignment: .leading, spacing: MacSpacing.xs) {
-                    // Sender label
-                    Text(message.mode?.displayName ?? "Tia")
-                        .font(MacTypography.senderLabel)
-                        .foregroundStyle(MacColors.textSender)
-                        .padding(.horizontal, MacSpacing.sm)
-
-                    // Message bubble with markdown rendering
-                    MarkdownMessageView(content: message.content)
-                        .padding(.horizontal, MacSpacing.lg)
-                        .padding(.vertical, MacSpacing.md)
-                        .background(MacColors.aiBubbleBackground)
-                        .clipShape(UnevenRoundedRectangle(
-                            topLeadingRadius: MacCornerRadius.chatBubble,
-                            bottomLeadingRadius: 0,
-                            bottomTrailingRadius: MacCornerRadius.chatBubble,
-                            topTrailingRadius: MacCornerRadius.chatBubble
-                        ))
-                }
+                // Message bubble with markdown rendering
+                MarkdownMessageView(content: message.content)
+                    .padding(.horizontal, MacSpacing.lg)
+                    .padding(.vertical, MacSpacing.md)
+                    .background(MacColors.aiBubbleBackground)
+                    .clipShape(UnevenRoundedRectangle(
+                        topLeadingRadius: MacCornerRadius.chatBubble,
+                        bottomLeadingRadius: 0,
+                        bottomTrailingRadius: MacCornerRadius.chatBubble,
+                        topTrailingRadius: MacCornerRadius.chatBubble
+                    ))
             }
 
-            // Reactions row
+            // Reactions row (reduced leading padding since no avatar)
             MacReactionsRow(
                 messageId: message.id,
                 activeReactions: reactions,
                 onReaction: onReaction
             )
-            .padding(.leading, 48)
+            .padding(.leading, MacSpacing.sm)
 
             // Outcome feedback (visible on hover or when feedback already submitted)
             if isHovered || feedbackState != nil {
@@ -126,7 +96,7 @@ struct MacMessageBubble: View {
                         onFeedback(message.id, feedback, note)
                     }
                 )
-                .padding(.leading, 48)
+                .padding(.leading, MacSpacing.sm)
                 .transition(.opacity)
             }
         }
