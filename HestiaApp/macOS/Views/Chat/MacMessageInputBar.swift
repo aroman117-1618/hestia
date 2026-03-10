@@ -4,7 +4,6 @@ import HestiaShared
 struct MacMessageInputBar: View {
     @Binding var messageText: String
     @EnvironmentObject var appState: AppState
-    @State private var showCommandPicker = false
     @State private var sendTrigger = false
     @State private var sendPulseScale: CGFloat = 1.0
     /// History state for CLI recall (up/down arrow)
@@ -17,45 +16,13 @@ struct MacMessageInputBar: View {
         messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    /// Per-agent prompt character decoration
-    private var promptChar: String {
-        switch appState.currentMode {
-        case .tia: return "~"
-        case .mira: return "?"
-        case .olly: return "$"
-        }
-    }
-
     var body: some View {
         HStack(alignment: .bottom, spacing: MacSpacing.sm) {
-            // Commands
-            Button { showCommandPicker.toggle() } label: {
-                Image(systemName: "terminal")
-                    .font(.system(size: 15))
-                    .foregroundStyle(showCommandPicker ? MacColors.amberAccent : MacColors.textSecondary)
-                    .frame(width: 24, height: 24)
-            }
-            .buttonStyle(.hestiaIcon)
-            .popover(isPresented: $showCommandPicker, arrowEdge: .top) {
-                CommandPickerView { command in
-                    messageText = command
-                    showCommandPicker = false
-                }
-            }
-            .accessibilityLabel("Commands")
-            .padding(.bottom, 6)
-
-            // Prompt character decoration
-            Text(promptChar)
-                .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                .foregroundStyle(MacColors.amberAccent)
-                .padding(.bottom, 8)
-
-            // CLI text view
+            // CLI text view (preserves history recall, multi-line, amber cursor)
             CLITextView(
                 text: $messageText,
-                placeholder: "Message \(appState.currentMode.displayName)...",
-                promptChar: promptChar,
+                placeholder: "Message Hestia...",
+                promptChar: "",
                 onSend: handleSend,
                 onEscape: { /* clear handled inside CLITextView */ },
                 history: $history,
@@ -64,17 +31,6 @@ struct MacMessageInputBar: View {
             .frame(minHeight: 30, maxHeight: 200)
             .fixedSize(horizontal: false, vertical: true)
             .clipShape(RoundedRectangle(cornerRadius: 8))
-
-            // Mic
-            Button {} label: {
-                Image(systemName: "mic")
-                    .font(.system(size: 15))
-                    .foregroundStyle(MacColors.textSecondary)
-                    .frame(width: 24, height: 24)
-            }
-            .buttonStyle(.hestiaIcon)
-            .accessibilityLabel("Voice input")
-            .padding(.bottom, 6)
 
             // Send button with pulse micro-interaction
             Button(action: handleSend) {
