@@ -37,6 +37,9 @@ struct WorkspaceRootView: View {
                         // Global error banner overlay
                         GlobalErrorBanner()
                     }
+                    .overlay(alignment: .bottomTrailing) {
+                        ChatPanelToggleOverlay()
+                    }
                     .environment(\.layoutMode, layoutMode)
                     .animation(.hestiaNavSwitch, value: workspace.currentView)
                 }

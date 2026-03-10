@@ -26,10 +26,6 @@ struct IconSidebar: View {
 
             // Settings (bottom, sticky — profile avatar)
             settingsButton
-                .padding(.bottom, MacSpacing.lg)
-
-            // Chat panel toggle (always visible at sidebar bottom)
-            SidebarChatToggle()
                 .padding(.bottom, MacSpacing.xxl)
         }
         .frame(width: MacSize.iconSidebarWidth)
