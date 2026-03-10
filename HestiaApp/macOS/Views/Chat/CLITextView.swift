@@ -118,9 +118,7 @@ struct CLITextView: NSViewRepresentable {
             let usedRect = layoutManager.usedRect(for: textContainer)
             let insets = textView.textContainerInset
             let height = usedRect.height + insets.height * 2
-            DispatchQueue.main.async { [weak self] in
-                self?.parent.contentHeight = max(height, 36)
-            }
+            parent.contentHeight = max(height, 36)
         }
 
         func updatePlaceholder() {
