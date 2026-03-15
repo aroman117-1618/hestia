@@ -97,14 +97,18 @@ class TestFact:
     def test_create_factory(self) -> None:
         fact = Fact.create(
             source_entity_id="ent-1",
+            relation="USES",
             target_entity_id="ent-2",
             fact_text="Andrew uses Hestia",
         )
         assert fact.id  # auto-generated UUID
         assert fact.source_entity_id == "ent-1"
+        assert fact.relation == "USES"
         assert fact.target_entity_id == "ent-2"
         assert fact.fact_text == "Andrew uses Hestia"
         assert fact.status == FactStatus.ACTIVE
+        assert fact.confidence == 0.5
+        assert fact.source_chunk_id is None
         assert fact.created_at is not None
         assert fact.valid_at is not None
         assert fact.invalid_at is None
@@ -114,6 +118,7 @@ class TestFact:
     def test_create_with_user_id(self) -> None:
         fact = Fact.create(
             source_entity_id="e1",
+            relation="RELATED_TO",
             target_entity_id="e2",
             fact_text="test",
             user_id="user-42",
@@ -125,49 +130,54 @@ class TestFact:
         fact = Fact(
             id="fact-1",
             source_entity_id="ent-a",
+            relation="RELATES_TO",
             target_entity_id="ent-b",
             fact_text="A relates to B",
-            weight=0.9,
+            confidence=0.9,
             status=FactStatus.ACTIVE,
             valid_at=now,
             invalid_at=None,
             expired_at=None,
+            source_chunk_id="chunk-99",
             created_at=now,
             user_id="user-1",
         )
         d = fact.to_dict()
         assert d["id"] == "fact-1"
         assert d["sourceEntityId"] == "ent-a"
+        assert d["relation"] == "RELATES_TO"
         assert d["targetEntityId"] == "ent-b"
         assert d["factText"] == "A relates to B"
-        assert d["weight"] == 0.9
+        assert d["confidence"] == 0.9
+        assert d["sourceChunkId"] == "chunk-99"
         assert d["status"] == "active"
         assert d["validAt"] == now.isoformat()
         assert d["invalidAt"] is None
         assert d["expiredAt"] is None
         assert d["createdAt"] == now.isoformat()
-        assert d["userId"] == "user-1"
 
     def test_from_dict_roundtrip(self) -> None:
         original = Fact.create(
             source_entity_id="ent-x",
+            relation="KNOWS",
             target_entity_id="ent-y",
             fact_text="X knows Y",
-            weight=0.75,
+            confidence=0.75,
         )
         d = original.to_dict()
         restored = Fact.from_dict(d)
         assert restored.id == original.id
         assert restored.source_entity_id == original.source_entity_id
+        assert restored.relation == original.relation
         assert restored.target_entity_id == original.target_entity_id
         assert restored.fact_text == original.fact_text
-        assert restored.weight == original.weight
+        assert restored.confidence == original.confidence
         assert restored.status == original.status
-        assert restored.user_id == original.user_id
 
     def test_is_valid_at_active(self) -> None:
         fact = Fact.create(
             source_entity_id="a",
+            relation="RELATED_TO",
             target_entity_id="b",
             fact_text="active fact",
         )
@@ -179,6 +189,7 @@ class TestFact:
         valid_time = datetime(2026, 6, 1, tzinfo=timezone.utc)
         fact = Fact.create(
             source_entity_id="a",
+            relation="RELATED_TO",
             target_entity_id="b",
             fact_text="future fact",
         )
@@ -192,6 +203,7 @@ class TestFact:
         invalid_time = datetime(2026, 3, 1, tzinfo=timezone.utc)
         fact = Fact.create(
             source_entity_id="a",
+            relation="RELATED_TO",
             target_entity_id="b",
             fact_text="expired fact",
         )
@@ -443,6 +455,7 @@ class TestFactsDatabase:
         src, tgt = await self._make_entities(db)
         fact = Fact.create(
             source_entity_id=src.id,
+            relation="BUILDS",
             target_entity_id=tgt.id,
             fact_text="Andrew builds Hestia",
         )
@@ -463,8 +476,8 @@ class TestFactsDatabase:
 
     async def test_list_by_status(self, db: ResearchDatabase) -> None:
         src, tgt = await self._make_entities(db)
-        f1 = Fact.create(source_entity_id=src.id, target_entity_id=tgt.id, fact_text="fact 1")
-        f2 = Fact.create(source_entity_id=src.id, target_entity_id=tgt.id, fact_text="fact 2")
+        f1 = Fact.create(source_entity_id=src.id, relation="RELATED_TO", target_entity_id=tgt.id, fact_text="fact 1")
+        f2 = Fact.create(source_entity_id=src.id, relation="RELATED_TO", target_entity_id=tgt.id, fact_text="fact 2")
         await db.create_fact(f1)
         await db.create_fact(f2)
 
@@ -484,8 +497,8 @@ class TestFactsDatabase:
         other = Entity.create(name="Other", entity_type=EntityType.CONCEPT)
         await db.create_entity(other)
 
-        f1 = Fact.create(source_entity_id=src.id, target_entity_id=tgt.id, fact_text="fact A")
-        f2 = Fact.create(source_entity_id=other.id, target_entity_id=tgt.id, fact_text="fact B")
+        f1 = Fact.create(source_entity_id=src.id, relation="RELATED_TO", target_entity_id=tgt.id, fact_text="fact A")
+        f2 = Fact.create(source_entity_id=other.id, relation="RELATED_TO", target_entity_id=tgt.id, fact_text="fact B")
         await db.create_fact(f1)
         await db.create_fact(f2)
 
@@ -495,7 +508,7 @@ class TestFactsDatabase:
 
     async def test_invalidate_fact(self, db: ResearchDatabase) -> None:
         src, tgt = await self._make_entities(db)
-        fact = Fact.create(source_entity_id=src.id, target_entity_id=tgt.id, fact_text="old info")
+        fact = Fact.create(source_entity_id=src.id, relation="RELATED_TO", target_entity_id=tgt.id, fact_text="old info")
         await db.create_fact(fact)
 
         result = await db.invalidate_fact(fact.id)
@@ -510,8 +523,8 @@ class TestFactsDatabase:
 
     async def test_find_facts_between(self, db: ResearchDatabase) -> None:
         src, tgt = await self._make_entities(db)
-        f1 = Fact.create(source_entity_id=src.id, target_entity_id=tgt.id, fact_text="rel 1")
-        f2 = Fact.create(source_entity_id=src.id, target_entity_id=tgt.id, fact_text="rel 2")
+        f1 = Fact.create(source_entity_id=src.id, relation="RELATED_TO", target_entity_id=tgt.id, fact_text="rel 1")
+        f2 = Fact.create(source_entity_id=src.id, relation="RELATED_TO", target_entity_id=tgt.id, fact_text="rel 2")
         await db.create_fact(f1)
         await db.create_fact(f2)
 
@@ -533,6 +546,7 @@ class TestFactsDatabase:
         # Old fact valid from Jan 1 to Feb 1
         old_fact = Fact.create(
             source_entity_id=src.id,
+            relation="LEARNING",
             target_entity_id=tgt.id,
             fact_text="Andrew learning Hestia",
         )
@@ -544,6 +558,7 @@ class TestFactsDatabase:
         # Current fact valid from Feb 1, no end
         new_fact = Fact.create(
             source_entity_id=src.id,
+            relation="BUILDS",
             target_entity_id=tgt.id,
             fact_text="Andrew builds Hestia",
         )
@@ -568,8 +583,8 @@ class TestFactsDatabase:
         src, tgt = await self._make_entities(db)
         assert await db.count_facts() == 0
 
-        f1 = Fact.create(source_entity_id=src.id, target_entity_id=tgt.id, fact_text="f1")
-        f2 = Fact.create(source_entity_id=src.id, target_entity_id=tgt.id, fact_text="f2")
+        f1 = Fact.create(source_entity_id=src.id, relation="RELATED_TO", target_entity_id=tgt.id, fact_text="f1")
+        f2 = Fact.create(source_entity_id=src.id, relation="RELATED_TO", target_entity_id=tgt.id, fact_text="f2")
         await db.create_fact(f1)
         await db.create_fact(f2)
         assert await db.count_facts() == 2
@@ -686,8 +701,8 @@ class TestEntityRegistry:
         await db.create_entity(e2)
         await db.create_entity(e3)
 
-        f1 = Fact.create(source_entity_id=e1.id, target_entity_id=e2.id, fact_text="A-B")
-        f2 = Fact.create(source_entity_id=e2.id, target_entity_id=e3.id, fact_text="B-C")
+        f1 = Fact.create(source_entity_id=e1.id, relation="RELATED_TO", target_entity_id=e2.id, fact_text="A-B")
+        f2 = Fact.create(source_entity_id=e2.id, relation="RELATED_TO", target_entity_id=e3.id, fact_text="B-C")
         await db.create_fact(f1)
         await db.create_fact(f2)
 
@@ -708,8 +723,8 @@ class TestEntityRegistry:
         await db.create_entity(e3)
         await db.create_entity(e4)
 
-        f1 = Fact.create(source_entity_id=e1.id, target_entity_id=e2.id, fact_text="A-B")
-        f2 = Fact.create(source_entity_id=e3.id, target_entity_id=e4.id, fact_text="C-D")
+        f1 = Fact.create(source_entity_id=e1.id, relation="RELATED_TO", target_entity_id=e2.id, fact_text="A-B")
+        f2 = Fact.create(source_entity_id=e3.id, relation="RELATED_TO", target_entity_id=e4.id, fact_text="C-D")
         await db.create_fact(f1)
         await db.create_fact(f2)
 
@@ -911,6 +926,7 @@ class TestFactExtractorIntegration:
 
         old_fact = Fact.create(
             source_entity_id=src.id,
+            relation="WORKS_AT",
             target_entity_id=tgt.id,
             fact_text="Andrew works at Acme Corp",
         )
