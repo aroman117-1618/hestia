@@ -58,7 +58,7 @@ When resuming work from a previous session, FIRST read `SESSION_HANDOFF.md` (if 
 This is a multi-session project (Hestia). Key references:
 - Project plans and workstreams are in `docs/`
 - Previous session context may be compacted — check docs and CLAUDE.md FIRST before searching transcripts
-- Current workstreams: Sprint 8 (Research & Graph + PrincipleStore). Sprints 1-7 COMPLETE. See `SPRINT.md`.
+- Current workstreams: Sprint 9 (Knowledge Graph Evolution — bi-temporal facts, entity registry, communities). Sprints 1-8 COMPLETE. See `SPRINT.md`.
 - **2026-03-01:** Sprint 4 — audit remediation (proactive auth fix, auth dep standardization), macOS Wiki/Explorer Resources/Resources tab. 66 macOS files total.
 - **2026-02-28:** macOS app renamed to "Hestia" — UX polished: keyboard shortcuts (⌘1-6/\), sidebar, responsive layout, app icon. Both Xcode schemes build clean.
 - **2026-02-28:** Claude Code config refresh — new skills, CI/CD pipeline, sprint tracker. Direct API billing active.
@@ -88,7 +88,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | Hardware | Mac Mini M1 (16GB) |
 | Model | Qwen 3.5 9B primary + Qwen 2.5 Coder 7B specialist (Ollama, local) + cloud (Anthropic/OpenAI/Google) |
 | SLM | qwen2.5:0.5b (council intent classification, ~100ms) |
-| Backend | Python 3.9+, FastAPI, 154 endpoints across 25 route modules |
+| Backend | Python 3.9+, FastAPI, 160 endpoints across 25 route modules |
 | Storage | ChromaDB (vectors) + SQLite (structured) + macOS Keychain (credentials) |
 | App | Native Swift/SwiftUI (iOS 26.0+) |
 | API | REST on port 8443 with JWT auth, HTTPS with self-signed cert |
@@ -208,12 +208,17 @@ hestia/
 │   │   ├── database.py             # AppleCacheDatabase (FTS5 virtual table, sync tracking)
 │   │   ├── resolver.py             # SmartResolver (FTS5 candidates + rapidfuzz scoring)
 │   │   └── manager.py              # AppleCacheManager (TTL sync, write-through, singleton)
-│   ├── research/                    # Knowledge graph + PrincipleStore (Learning Cycle Phase A)
-│   │   ├── graph_builder.py        # Memory chunks → nodes, edges, force-directed layout
-│   │   └── principle_store.py      # ChromaDB `hestia_principles` + LLM distillation
+│   ├── research/                    # Knowledge graph + PrincipleStore + Temporal Facts (ADR-041)
+│   │   ├── models.py              # Fact, Entity, Community, Principle dataclasses + graph types
+│   │   ├── database.py            # SQLite: facts, entities, communities, principles, graph_cache
+│   │   ├── graph_builder.py       # Co-occurrence graph (legacy) + fact-based graph (mode=facts)
+│   │   ├── entity_registry.py     # Entity resolution (canonical dedup) + label propagation communities
+│   │   ├── fact_extractor.py      # LLM triplet extraction + bi-temporal contradiction detection
+│   │   ├── principle_store.py     # ChromaDB `hestia_principles` + LLM distillation
+│   │   └── manager.py            # ResearchManager singleton (graph, facts, entities, principles)
 │   ├── investigate/                 # URL content analysis (web articles, YouTube), LLM analysis pipeline
 │   │   └── extractors/             # BaseExtractor ABC, WebArticleExtractor, YouTubeExtractor
-│   ├── api/                         # FastAPI — 154 endpoints, 25 route modules
+│   ├── api/                         # FastAPI — 160 endpoints, 25 route modules
 │   │   ├── errors.py                # sanitize_for_log(), safe_error_detail()
 │   │   ├── schemas/                  # Pydantic request/response models (15 domain modules)
 │   │   ├── server.py                # App lifecycle, manager initialization
@@ -252,7 +257,7 @@ hestia/
 
 ---
 
-## API Summary (154 endpoints, 25 route modules)
+## API Summary (160 endpoints, 25 route modules)
 
 | Module | Endpoints | Key Routes |
 |--------|-----------|------------|
@@ -275,7 +280,7 @@ hestia/
 | Explorer | 6 | `/v1/explorer/resources` list/detail/content, drafts CRUD |
 | Newsfeed | 5 | `/v1/newsfeed/timeline`, `unread-count`, `items/{id}/read`, `items/{id}/dismiss`, `refresh` |
 | Investigate | 5 | `/v1/investigate/url`, `history`, `compare`, `{id}` (GET), `{id}` (DELETE) |
-| Research | 6 | `/v1/research/graph`, `principles/distill`, `principles` (list), `principles/{id}/approve`, `principles/{id}/reject`, `principles/{id}` (PUT) |
+| Research | 12 | `/v1/research/graph` (legacy+facts mode), `facts/extract`, `facts` (list), `facts/timeline`, `entities` (list), `entities/communities`, `communities` (list), `principles/distill`, `principles` (list), `principles/{id}/approve`, `principles/{id}/reject`, `principles/{id}` (PUT) |
 | Files | 9 | `/v1/files` (list, create), `/v1/files/content`, `/v1/files/metadata`, `/v1/files` (PUT, DELETE), `/v1/files/move`, `/v1/files/delete` (POST alias), `/v1/files/audit-log` |
 | Inbox | 7 | `/v1/inbox` (list), `/v1/inbox/unread-count`, `/v1/inbox/{id}`, `/v1/inbox/{id}/read`, `/v1/inbox/mark-all-read`, `/v1/inbox/{id}/archive`, `/v1/inbox/refresh` |
 | Outcomes | 5 | `/v1/outcomes` (list), `/v1/outcomes/stats`, `/v1/outcomes/{id}`, `/v1/outcomes/{id}/feedback`, `/v1/outcomes/track` |
@@ -298,8 +303,11 @@ Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 
 **Apple Metadata Cache:** FTS5 SQLite cache of Notes/Calendar/Reminders titles with rapidfuzz fuzzy resolution. TTL-based sync (6h notes, 2h calendar, 4h reminders). Write-through on create/update/delete. Eliminates multi-step tool chains — `read_note("sprint plan")` resolves + fetches in one call. 20 Apple tools (was 17).
 
+**Knowledge Graph (Sprint 9 — Graphiti-inspired):** Bi-temporal facts (`valid_at`, `invalid_at`, `expired_at`) on SQLite edges between entities. Entity resolution via canonical name dedup. Community detection via label propagation (no graph DB). LLM-powered triplet extraction + contradiction detection. Two graph modes: `mode=legacy` (co-occurrence) and `mode=facts` (entity-relationship). On-demand extraction (not per-chat) to avoid inference overhead.
+
 **Key ADRs** (full list: `docs/hestia-decision-log.md`):
 - ADR-001/040: Dual local model — Qwen 3.5 9B primary + Qwen 2.5 Coder 7B specialist
+- ADR-041: Knowledge Graph Evolution — bi-temporal facts on SQLite, Graphiti-inspired without graph DB
 - ADR-003: Single-agent architecture
 - ADR-009: Keychain + Secure Enclave credentials
 - ADR-013: Tag-based memory with temporal decay

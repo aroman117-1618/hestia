@@ -1,10 +1,12 @@
 """
 Research API routes.
 
-Endpoints for the knowledge graph and principle distillation.
+Endpoints for the knowledge graph, fact extraction, entity management,
+community detection, and principle distillation.
 Part of the Learning Cycle (Phase A).
 """
 
+from datetime import datetime
 from typing import Any, Dict, Optional, Set
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -12,12 +14,18 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from hestia.api.errors import sanitize_for_log
 from hestia.api.middleware.auth import get_device_token
 from hestia.api.schemas.research import (
+    CommunityListResponse,
     DistillRequest,
     DistillResponse,
+    EntityListResponse,
+    ExtractFactsRequest,
+    ExtractFactsResponse,
+    FactListResponse,
     GraphResponse,
     PrincipleListResponse,
     PrincipleResponse,
     PrincipleUpdateRequest,
+    TimelineResponse,
 )
 from hestia.logging import LogComponent, get_logger
 from hestia.research.manager import get_research_manager
@@ -38,11 +46,17 @@ async def get_graph(
     node_types: Optional[str] = Query(default=None, description="Comma-separated: memory,topic,entity"),
     center_topic: Optional[str] = Query(default=None, description="Focus graph on this topic"),
     sources: Optional[str] = Query(default=None, description="Comma-separated MemorySource values: conversation,mail,calendar,reminders,notes,health"),
+    mode: str = Query(default="legacy", description="Graph mode: 'legacy' (co-occurrence) or 'facts' (entity-fact)"),
+    center_entity: Optional[str] = Query(default=None, description="Center entity for mode=facts"),
     device_token: str = Depends(get_device_token),
 ) -> Dict[str, Any]:
     """Get the knowledge graph with nodes, edges, and clusters."""
     try:
         manager = await get_research_manager()
+
+        if mode == "facts":
+            response = await manager.get_fact_graph(center_entity=center_entity)
+            return response.to_dict()
 
         types_set: Optional[Set[str]] = None
         if node_types:
@@ -69,6 +83,188 @@ async def get_graph(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to build graph",
+        )
+
+
+# =============================================================================
+# Fact Endpoints
+# =============================================================================
+
+
+@router.post("/facts/extract", response_model=ExtractFactsResponse)
+async def extract_facts(
+    request: ExtractFactsRequest = ExtractFactsRequest(),
+    device_token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """Trigger fact extraction from recent memory."""
+    try:
+        manager = await get_research_manager()
+        result = await manager.extract_facts(
+            time_range_days=request.time_range_days,
+        )
+        return result
+
+    except Exception as e:
+        logger.error(
+            "Fact extraction endpoint error",
+            component=LogComponent.RESEARCH,
+            data={"error": sanitize_for_log(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Fact extraction failed",
+        )
+
+
+@router.get("/facts", response_model=FactListResponse)
+async def list_facts(
+    status_filter: Optional[str] = Query(default=None, alias="status", description="active, expired, or contradicted"),
+    entity_id: Optional[str] = Query(default=None, description="Filter by source entity ID"),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    device_token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """List knowledge graph facts."""
+    try:
+        manager = await get_research_manager()
+        result = await manager.get_facts(
+            status=status_filter,
+            entity_id=entity_id,
+            limit=limit,
+            offset=offset,
+        )
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "List facts error",
+            component=LogComponent.RESEARCH,
+            data={"error": sanitize_for_log(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to list facts",
+        )
+
+
+@router.get("/facts/timeline", response_model=TimelineResponse)
+async def get_timeline(
+    point_in_time: Optional[str] = Query(default=None, description="ISO 8601 datetime"),
+    device_token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """Get facts valid at a specific point in time."""
+    try:
+        manager = await get_research_manager()
+
+        pit = datetime.fromisoformat(point_in_time) if point_in_time else None
+
+        result = await manager.get_timeline(point_in_time=pit)
+        return result
+
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid datetime format. Use ISO 8601.",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Timeline endpoint error",
+            component=LogComponent.RESEARCH,
+            data={"error": sanitize_for_log(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get timeline",
+        )
+
+
+# =============================================================================
+# Entity Endpoints
+# =============================================================================
+
+
+@router.get("/entities", response_model=EntityListResponse)
+async def list_entities(
+    entity_type: Optional[str] = Query(default=None, description="Filter by entity type"),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    device_token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """List knowledge graph entities."""
+    try:
+        manager = await get_research_manager()
+        result = await manager.get_entities(
+            entity_type=entity_type,
+            limit=limit,
+            offset=offset,
+        )
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "List entities error",
+            component=LogComponent.RESEARCH,
+            data={"error": sanitize_for_log(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to list entities",
+        )
+
+
+# =============================================================================
+# Community Endpoints
+# =============================================================================
+
+
+@router.post("/entities/communities")
+async def detect_communities(
+    device_token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """Run community detection on entity-fact graph."""
+    try:
+        manager = await get_research_manager()
+        result = await manager.detect_communities()
+        return result
+
+    except Exception as e:
+        logger.error(
+            "Community detection error",
+            component=LogComponent.RESEARCH,
+            data={"error": sanitize_for_log(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Community detection failed",
+        )
+
+
+@router.get("/communities", response_model=CommunityListResponse)
+async def list_communities(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    device_token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """List entity communities."""
+    try:
+        manager = await get_research_manager()
+        return await manager.list_communities(limit=limit, offset=offset)
+
+    except Exception as e:
+        logger.error(
+            "List communities error",
+            component=LogComponent.RESEARCH,
+            data={"error": sanitize_for_log(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to list communities",
         )
 
 

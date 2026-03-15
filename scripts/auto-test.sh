@@ -130,7 +130,7 @@ get_test_file() {
         *hestia/investigate/*)
             echo "tests/test_investigate.py" ;;
         *hestia/research/*)
-            echo "tests/test_research.py" ;;
+            echo "tests/test_research.py tests/test_research_facts.py tests/test_research_graph_facts.py" ;;
         *hestia/files/*)
             echo "tests/test_files.py" ;;
         *hestia/api/routes/files*)
