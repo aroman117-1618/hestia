@@ -100,3 +100,82 @@ class DistillResponse(BaseModel):
 class PrincipleUpdateRequest(BaseModel):
     """Request to update a principle's content."""
     content: str = Field(..., min_length=1, max_length=2000)
+
+
+# =============================================================================
+# Fact / Entity / Community Schemas
+# =============================================================================
+
+
+class FactResponse(BaseModel):
+    """A single knowledge graph fact."""
+    id: str
+    sourceEntityId: str
+    relation: str
+    targetEntityId: str
+    factText: str
+    status: str
+    validAt: Optional[str] = None
+    invalidAt: Optional[str] = None
+    expiredAt: Optional[str] = None
+    sourceChunkId: Optional[str] = None
+    confidence: float = 0.5
+    createdAt: Optional[str] = None
+
+
+class FactListResponse(BaseModel):
+    """List of facts with total count."""
+    facts: List[FactResponse]
+    total: int
+
+
+class EntityResponse(BaseModel):
+    """A single knowledge graph entity."""
+    id: str
+    name: str
+    entityType: str
+    canonicalName: str
+    summary: Optional[str] = None
+    communityId: Optional[str] = None
+    createdAt: Optional[str] = None
+    updatedAt: Optional[str] = None
+
+
+class EntityListResponse(BaseModel):
+    """List of entities with total count."""
+    entities: List[EntityResponse]
+    total: int
+
+
+class CommunityResponse(BaseModel):
+    """A community of related entities."""
+    id: str
+    name: str
+    memberEntityIds: List[str] = Field(default_factory=list)
+    summary: Optional[str] = None
+    createdAt: Optional[str] = None
+
+
+class CommunityListResponse(BaseModel):
+    """List of communities with total count."""
+    communities: List[CommunityResponse]
+    total: int
+
+
+class ExtractFactsRequest(BaseModel):
+    """Request to trigger fact extraction."""
+    time_range_days: int = Field(default=7, ge=1, le=90)
+
+
+class ExtractFactsResponse(BaseModel):
+    """Result of fact extraction."""
+    facts_created: int
+    chunks_processed: int
+    entities_created: int
+
+
+class TimelineResponse(BaseModel):
+    """Timeline snapshot: facts and entities valid at a point in time."""
+    facts: List[FactResponse]
+    entities: List[EntityResponse]
+    point_in_time: Optional[str] = None
