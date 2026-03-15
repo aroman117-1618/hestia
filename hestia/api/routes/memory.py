@@ -507,3 +507,63 @@ async def trigger_ingestion(
                 "message": "Memory ingestion failed.",
             }
         )
+
+
+# =============================================================================
+# Claude History Import (Sprint 13)
+# =============================================================================
+
+
+@router.post("/import/claude")
+async def import_claude_history(
+    conversations_path: str = Query(..., description="Path to conversations.json"),
+    memories_path: Optional[str] = Query(default=None, description="Path to memories.json"),
+    projects_path: Optional[str] = Query(default=None, description="Path to projects.json"),
+    device_token: str = Depends(get_device_token),
+):
+    """
+    Import Claude.ai conversation history into Hestia memory.
+
+    Parses exported conversations (including thinking blocks, summaries,
+    and tool patterns), deduplicates against previous imports, and stores
+    through the full memory pipeline (SQLite + ChromaDB).
+
+    Credentials found in imported text are automatically redacted.
+    """
+    import os
+    from hestia.memory.importers.pipeline import ImportPipeline
+
+    # Validate paths exist
+    if not os.path.isfile(conversations_path):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "file_not_found", "message": f"Conversations file not found."},
+        )
+
+    try:
+        memory_mgr = await get_memory_manager()
+        pipeline = ImportPipeline(
+            memory_manager=memory_mgr,
+            memory_database=memory_mgr.database,
+        )
+
+        result = await pipeline.import_claude_history(
+            conversations_path=conversations_path,
+            memories_path=memories_path,
+            projects_path=projects_path,
+        )
+
+        return result.to_dict()
+
+    except Exception as e:
+        logger.error(
+            f"Claude import failed: {sanitize_for_log(e)}",
+            component=LogComponent.MEMORY,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "import_failed",
+                "message": "Claude history import failed.",
+            }
+        )
