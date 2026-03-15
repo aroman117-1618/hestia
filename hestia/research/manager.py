@@ -329,6 +329,21 @@ class ResearchManager:
 
         return await self._graph_builder.build_fact_graph(center_entity=center_entity)
 
+    async def list_communities(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """List entity communities."""
+        if not self._database:
+            return {"communities": [], "total": 0}
+
+        communities = await self._database.list_communities(limit=limit, offset=offset)
+        return {
+            "communities": [c.to_dict() for c in communities],
+            "total": len(communities),
+        }
+
     async def detect_communities(self) -> Dict[str, Any]:
         """Run community detection on the entity-fact graph."""
         if not self._entity_registry:

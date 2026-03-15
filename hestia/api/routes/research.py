@@ -254,14 +254,7 @@ async def list_communities(
     """List entity communities."""
     try:
         manager = await get_research_manager()
-        if not manager._database:
-            return {"communities": [], "total": 0}
-
-        communities = await manager._database.list_communities(limit=limit, offset=offset)
-        return {
-            "communities": [c.to_dict() for c in communities],
-            "total": len(communities),
-        }
+        return await manager.list_communities(limit=limit, offset=offset)
 
     except Exception as e:
         logger.error(
