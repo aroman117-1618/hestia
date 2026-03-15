@@ -22,6 +22,7 @@ sandbox:
   allowed_directories:
     - ~/hestia/data
     - ~/hestia/logs
+    - ~/hestia          # Agentic development: source code access (Sprint 13 WS4)
     - /tmp/hestia
     - ~/Documents
     - ~/Desktop

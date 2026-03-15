@@ -12,6 +12,8 @@ from .file_tools import (
     get_file_tools,
 )
 from .shell_tools import run_command_tool, get_shell_tools
+from .code_tools import edit_file_tool, glob_files_tool, grep_files_tool, get_code_tools
+from .git_tools import git_status_tool, git_diff_tool, git_add_tool, git_commit_tool, git_log_tool, get_git_tools
 
 __all__ = [
     "read_file_tool",
@@ -21,6 +23,16 @@ __all__ = [
     "run_command_tool",
     "get_file_tools",
     "get_shell_tools",
+    "edit_file_tool",
+    "glob_files_tool",
+    "grep_files_tool",
+    "get_code_tools",
+    "git_status_tool",
+    "git_diff_tool",
+    "git_add_tool",
+    "git_commit_tool",
+    "git_log_tool",
+    "get_git_tools",
 ]
 
 
@@ -36,6 +48,14 @@ def register_builtin_tools(registry) -> None:
         registry.register(tool)
 
     for tool in get_shell_tools():
+        registry.register(tool)
+
+    # Code editing tools (edit_file, glob, grep)
+    for tool in get_code_tools():
+        registry.register(tool)
+
+    # Git tools (status, diff, add, commit, log)
+    for tool in get_git_tools():
         registry.register(tool)
 
     # Apple ecosystem tools (Calendar, Reminders, Notes, Mail)

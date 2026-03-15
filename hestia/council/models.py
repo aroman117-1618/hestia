@@ -23,6 +23,7 @@ class IntentType(Enum):
     STOCKS_QUERY = "stocks_query"
     MEMORY_SEARCH = "memory_search"
     CHAT = "chat"
+    CODING = "coding"  # Agentic coding tasks — forces cloud routing (Sprint 13 WS4)
     MULTI_INTENT = "multi_intent"
     UNCLEAR = "unclear"
 
