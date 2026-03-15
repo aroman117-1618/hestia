@@ -482,15 +482,15 @@ class ResearchDatabase(BaseDatabase):
             (
                 fact.id,
                 fact.source_entity_id,
-                fact.fact_text,  # relation column — use fact_text as the relation label
+                fact.relation,
                 fact.target_entity_id,
                 fact.fact_text,
                 fact.status.value,
                 fact.valid_at.isoformat() if fact.valid_at else None,
                 fact.invalid_at.isoformat() if fact.invalid_at else None,
                 fact.expired_at.isoformat() if fact.expired_at else None,
-                None,  # source_chunk_id
-                fact.weight,
+                fact.source_chunk_id,
+                fact.confidence,
                 fact.user_id,
                 fact.created_at.isoformat() if fact.created_at else datetime.now(timezone.utc).isoformat(),
             ),
@@ -619,15 +619,15 @@ class ResearchDatabase(BaseDatabase):
         return Fact(
             id=row[0],
             source_entity_id=row[1],
-            # row[2] is relation — skip, use fact_text from row[4]
+            relation=row[2] or "RELATED_TO",
             target_entity_id=row[3],
             fact_text=row[4],
             status=FactStatus(row[5]),
             valid_at=_parse_dt(6),
             invalid_at=_parse_dt(7),
             expired_at=_parse_dt(8),
-            # row[9] is source_chunk_id — not in Fact dataclass
-            weight=row[10] if row[10] is not None else 1.0,
+            source_chunk_id=row[9],
+            confidence=row[10] if row[10] is not None else 0.5,
             user_id=row[11],
             created_at=_parse_dt(12),
         )

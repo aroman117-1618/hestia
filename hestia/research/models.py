@@ -260,15 +260,17 @@ class Fact:
     """
     id: str
     source_entity_id: str
+    relation: str
     target_entity_id: str
     fact_text: str
-    weight: float = 1.0
     status: FactStatus = FactStatus.ACTIVE
     valid_at: Optional[datetime] = None
     invalid_at: Optional[datetime] = None
     expired_at: Optional[datetime] = None
-    created_at: Optional[datetime] = None
+    source_chunk_id: Optional[str] = None
+    confidence: float = 0.5
     user_id: str = "default"
+    created_at: Optional[datetime] = None
 
     def is_valid_at(self, point_in_time: datetime) -> bool:
         """Check whether this fact was valid at a given point in time."""
@@ -283,15 +285,16 @@ class Fact:
         return {
             "id": self.id,
             "sourceEntityId": self.source_entity_id,
+            "relation": self.relation,
             "targetEntityId": self.target_entity_id,
             "factText": self.fact_text,
-            "weight": self.weight,
             "status": self.status.value,
             "validAt": self.valid_at.isoformat() if self.valid_at else None,
             "invalidAt": self.invalid_at.isoformat() if self.invalid_at else None,
             "expiredAt": self.expired_at.isoformat() if self.expired_at else None,
+            "sourceChunkId": self.source_chunk_id,
+            "confidence": self.confidence,
             "createdAt": self.created_at.isoformat() if self.created_at else None,
-            "userId": self.user_id,
         }
 
     @classmethod
@@ -309,24 +312,28 @@ class Fact:
         return cls(
             id=data["id"],
             source_entity_id=data["sourceEntityId"],
+            relation=data.get("relation", "RELATED_TO"),
             target_entity_id=data["targetEntityId"],
             fact_text=data["factText"],
-            weight=data.get("weight", 1.0),
             status=FactStatus(data.get("status", "active")),
             valid_at=_parse_dt("validAt"),
             invalid_at=_parse_dt("invalidAt"),
             expired_at=_parse_dt("expiredAt"),
+            source_chunk_id=data.get("sourceChunkId"),
+            confidence=data.get("confidence", 0.5),
             created_at=_parse_dt("createdAt"),
-            user_id=data.get("userId", "default"),
         )
 
     @classmethod
     def create(
         cls,
         source_entity_id: str,
+        relation: str,
         target_entity_id: str,
         fact_text: str,
-        weight: float = 1.0,
+        source_chunk_id: Optional[str] = None,
+        confidence: float = 0.5,
+        valid_at: Optional[datetime] = None,
         user_id: str = "default",
     ) -> "Fact":
         """Factory method with auto-generated UUID and timestamps."""
@@ -334,12 +341,14 @@ class Fact:
         return cls(
             id=str(uuid.uuid4()),
             source_entity_id=source_entity_id,
+            relation=relation,
             target_entity_id=target_entity_id,
             fact_text=fact_text,
-            weight=weight,
-            valid_at=now,
-            created_at=now,
+            source_chunk_id=source_chunk_id,
+            confidence=confidence,
+            valid_at=valid_at or now,
             user_id=user_id,
+            created_at=now,
         )
 
 

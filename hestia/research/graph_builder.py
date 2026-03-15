@@ -167,7 +167,7 @@ class GraphBuilder:
                     from_id=from_id,
                     to_id=to_id,
                     edge_type=EdgeType.RELATIONSHIP,
-                    weight=fact.weight if fact.weight else 0.5,
+                    weight=fact.confidence if fact.confidence else 0.5,
                     count=1,
                 ))
 

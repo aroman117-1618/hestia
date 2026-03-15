@@ -114,9 +114,11 @@ class FactExtractor:
 
                 fact = Fact.create(
                     source_entity_id=source_entity.id,
+                    relation=triplet["relation"],
                     target_entity_id=target_entity.id,
                     fact_text=triplet.get("fact", f"{triplet['source']} {triplet['relation']} {triplet['target']}"),
-                    weight=confidence,
+                    source_chunk_id=source_chunk_id,
+                    confidence=confidence,
                     user_id=user_id,
                 )
 
