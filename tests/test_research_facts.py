@@ -724,3 +724,257 @@ class TestEntityRegistry:
 
         communities = await registry.detect_communities(min_community_size=2)
         assert communities == []
+
+
+# ── Fact Extractor Tests ─────────────────────────────────
+
+import json
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from hestia.research.fact_extractor import FactExtractor
+
+
+class TestFactExtractorParsing:
+    """Unit tests for FactExtractor response parsing (sync, no DB)."""
+
+    def _make_extractor(self) -> FactExtractor:
+        """Create an extractor with dummy deps for parsing tests."""
+        return FactExtractor(
+            database=MagicMock(),
+            registry=MagicMock(),
+        )
+
+    def test_parse_extraction_response_valid(self) -> None:
+        """Valid JSON with 2 triplets returns 2 dicts."""
+        extractor = self._make_extractor()
+        content = json.dumps({
+            "triplets": [
+                {
+                    "source": "Andrew",
+                    "source_type": "person",
+                    "relation": "USES",
+                    "target": "Hestia",
+                    "target_type": "project",
+                    "fact": "Andrew uses Hestia",
+                    "confidence": 0.9,
+                },
+                {
+                    "source": "Hestia",
+                    "source_type": "project",
+                    "relation": "BUILT_WITH",
+                    "target": "FastAPI",
+                    "target_type": "tool",
+                    "fact": "Hestia is built with FastAPI",
+                    "confidence": 0.85,
+                },
+            ]
+        })
+        result = extractor._parse_extraction_response(content)
+        assert len(result) == 2
+        assert result[0]["source"] == "Andrew"
+        assert result[1]["relation"] == "BUILT_WITH"
+
+    def test_parse_extraction_response_malformed_not_json(self) -> None:
+        """Non-JSON string returns empty list."""
+        extractor = self._make_extractor()
+        assert extractor._parse_extraction_response("not json") == []
+
+    def test_parse_extraction_response_malformed_no_triplets(self) -> None:
+        """JSON without 'triplets' key returns empty list."""
+        extractor = self._make_extractor()
+        assert extractor._parse_extraction_response("{}") == []
+
+    def test_parse_extraction_response_malformed_invalid_triplets(self) -> None:
+        """'triplets' not a list returns empty list."""
+        extractor = self._make_extractor()
+        assert extractor._parse_extraction_response('{"triplets": "invalid"}') == []
+
+    def test_parse_extraction_response_filters_incomplete(self) -> None:
+        """Triplets missing required fields are filtered out."""
+        extractor = self._make_extractor()
+        content = json.dumps({
+            "triplets": [
+                {"source": "A", "relation": "USES", "target": "B", "fact": "A uses B", "confidence": 0.9},
+                {"source": "C"},  # missing relation and target
+            ]
+        })
+        result = extractor._parse_extraction_response(content)
+        assert len(result) == 1
+
+    def test_parse_contradiction_response_true(self) -> None:
+        """Contradicts=true with supersedes_id parsed correctly."""
+        extractor = self._make_extractor()
+        content = json.dumps({
+            "contradicts": True,
+            "supersedes_id": "fact-old-123",
+            "reason": "New role replaces old role",
+        })
+        result = extractor._parse_contradiction_response(content)
+        assert result["contradicts"] is True
+        assert result["supersedes_id"] == "fact-old-123"
+        assert result["reason"] == "New role replaces old role"
+
+    def test_parse_contradiction_response_no_conflict(self) -> None:
+        """Contradicts=false parsed correctly."""
+        extractor = self._make_extractor()
+        content = json.dumps({
+            "contradicts": False,
+            "reason": "Facts are additive",
+        })
+        result = extractor._parse_contradiction_response(content)
+        assert result["contradicts"] is False
+
+    def test_parse_contradiction_response_malformed(self) -> None:
+        """Malformed response returns no-contradiction default."""
+        extractor = self._make_extractor()
+        result = extractor._parse_contradiction_response("not json")
+        assert result["contradicts"] is False
+
+
+@pytest.mark.asyncio
+class TestFactExtractorIntegration:
+    """Integration tests for FactExtractor with real DB and mocked LLM."""
+
+    async def test_extract_from_chunk_integration(self, db: ResearchDatabase) -> None:
+        """Mock LLM returns structured triplets; verify facts created and entities resolved."""
+        registry = EntityRegistry(db)
+        extractor = FactExtractor(database=db, registry=registry)
+
+        llm_response = json.dumps({
+            "triplets": [
+                {
+                    "source": "Andrew",
+                    "source_type": "person",
+                    "relation": "BUILDS",
+                    "target": "Hestia",
+                    "target_type": "project",
+                    "fact": "Andrew builds Hestia",
+                    "confidence": 0.95,
+                },
+                {
+                    "source": "Hestia",
+                    "source_type": "project",
+                    "relation": "USES",
+                    "target": "FastAPI",
+                    "target_type": "tool",
+                    "fact": "Hestia uses FastAPI",
+                    "confidence": 0.88,
+                },
+            ]
+        })
+
+        mock_inference = AsyncMock()
+        mock_inference.generate = AsyncMock(
+            return_value=MagicMock(content=llm_response)
+        )
+
+        with patch(
+            "hestia.research.fact_extractor._get_inference_client",
+            new=AsyncMock(return_value=mock_inference),
+        ):
+            facts = await extractor.extract_from_text(
+                "Andrew builds Hestia using FastAPI for the backend.",
+                source_chunk_id="chunk-1",
+            )
+
+        assert len(facts) == 2
+        assert facts[0].fact_text == "Andrew builds Hestia"
+        assert facts[1].fact_text == "Hestia uses FastAPI"
+
+        # Verify entities were created in the DB
+        andrew = await db.find_entity_by_name("andrew")
+        assert andrew is not None
+        assert andrew.entity_type == EntityType.PERSON
+
+        hestia = await db.find_entity_by_name("hestia")
+        assert hestia is not None
+        assert hestia.entity_type == EntityType.PROJECT
+
+        fastapi = await db.find_entity_by_name("fastapi")
+        assert fastapi is not None
+        assert fastapi.entity_type == EntityType.TOOL
+
+        # Verify facts stored in DB
+        db_facts = await db.list_facts(status=FactStatus.ACTIVE)
+        assert len(db_facts) == 2
+
+    async def test_contradiction_detection(self, db: ResearchDatabase) -> None:
+        """Existing fact gets invalidated when LLM detects contradiction."""
+        registry = EntityRegistry(db)
+        extractor = FactExtractor(database=db, registry=registry)
+
+        # Create existing entities and fact
+        src = Entity.create(name="Andrew", entity_type=EntityType.PERSON)
+        tgt = Entity.create(name="Acme Corp", entity_type=EntityType.ORGANIZATION)
+        await db.create_entity(src)
+        await db.create_entity(tgt)
+
+        old_fact = Fact.create(
+            source_entity_id=src.id,
+            target_entity_id=tgt.id,
+            fact_text="Andrew works at Acme Corp",
+        )
+        await db.create_fact(old_fact)
+
+        # New extraction says Andrew LEFT Acme Corp
+        extraction_response = json.dumps({
+            "triplets": [
+                {
+                    "source": "Andrew",
+                    "source_type": "person",
+                    "relation": "LEFT",
+                    "target": "Acme Corp",
+                    "target_type": "organization",
+                    "fact": "Andrew left Acme Corp",
+                    "confidence": 0.9,
+                },
+            ]
+        })
+
+        contradiction_response = json.dumps({
+            "contradicts": True,
+            "supersedes_id": old_fact.id,
+            "reason": "Leaving contradicts working at",
+        })
+
+        mock_inference = AsyncMock()
+        # First call = extraction, second call = contradiction check
+        mock_inference.generate = AsyncMock(
+            side_effect=[
+                MagicMock(content=extraction_response),
+                MagicMock(content=contradiction_response),
+            ]
+        )
+
+        with patch(
+            "hestia.research.fact_extractor._get_inference_client",
+            new=AsyncMock(return_value=mock_inference),
+        ):
+            facts = await extractor.extract_from_text(
+                "Andrew left Acme Corp last month."
+            )
+
+        assert len(facts) == 1
+        assert facts[0].fact_text == "Andrew left Acme Corp"
+
+        # Verify old fact was invalidated
+        old = await db.get_fact(old_fact.id)
+        assert old is not None
+        assert old.status == FactStatus.SUPERSEDED
+        assert old.invalid_at is not None
+
+    async def test_extract_returns_empty_on_llm_failure(self, db: ResearchDatabase) -> None:
+        """LLM failure returns empty list, no crash."""
+        registry = EntityRegistry(db)
+        extractor = FactExtractor(database=db, registry=registry)
+
+        mock_inference = AsyncMock()
+        mock_inference.generate = AsyncMock(side_effect=RuntimeError("LLM down"))
+
+        with patch(
+            "hestia.research.fact_extractor._get_inference_client",
+            new=AsyncMock(return_value=mock_inference),
+        ):
+            facts = await extractor.extract_from_text("Some text here")
+
+        assert facts == []
