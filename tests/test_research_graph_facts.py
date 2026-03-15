@@ -283,3 +283,101 @@ class TestFactGraphBuilder:
         # All equal, so all should have the same weight
         weights = {nid: n.weight for nid, n in entity_nodes.items()}
         assert len(set(weights.values())) == 1  # all equal
+
+
+# ── ResearchManager Integration Tests ────────────────
+
+
+class TestResearchManagerFacts:
+    """Tests for fact/entity/community methods on ResearchManager."""
+
+    @pytest.mark.asyncio
+    async def test_get_entities_returns_list(self, populated_db: ResearchDatabase) -> None:
+        from hestia.research.manager import ResearchManager
+
+        manager = ResearchManager()
+        manager._database = populated_db
+        manager._initialized = True
+        result = await manager.get_entities()
+        assert "entities" in result
+        assert result["total"] == 3
+
+    @pytest.mark.asyncio
+    async def test_get_entities_filter_by_type(self, populated_db: ResearchDatabase) -> None:
+        from hestia.research.manager import ResearchManager
+
+        manager = ResearchManager()
+        manager._database = populated_db
+        manager._initialized = True
+        result = await manager.get_entities(entity_type="person")
+        assert result["total"] == 1
+        assert result["entities"][0]["name"] == "Andrew"
+
+    @pytest.mark.asyncio
+    async def test_get_facts_returns_active(self, populated_db: ResearchDatabase) -> None:
+        from hestia.research.manager import ResearchManager
+
+        manager = ResearchManager()
+        manager._database = populated_db
+        manager._initialized = True
+        result = await manager.get_facts()
+        assert "facts" in result
+        assert result["total"] == 3
+
+    @pytest.mark.asyncio
+    async def test_get_timeline(self, populated_db: ResearchDatabase) -> None:
+        from hestia.research.manager import ResearchManager
+
+        manager = ResearchManager()
+        manager._database = populated_db
+        manager._initialized = True
+        result = await manager.get_timeline()
+        assert "facts" in result
+        assert "entities" in result
+        assert "point_in_time" in result
+
+    @pytest.mark.asyncio
+    async def test_get_fact_graph(self, populated_db: ResearchDatabase) -> None:
+        from hestia.research.manager import ResearchManager
+
+        manager = ResearchManager()
+        manager._database = populated_db
+        manager._graph_builder = GraphBuilder()
+        manager._initialized = True
+        with patch.object(
+            manager._graph_builder,
+            "_get_research_database",
+            new=AsyncMock(return_value=populated_db),
+        ):
+            result = await manager.get_fact_graph()
+        assert len(result.nodes) > 0
+
+    @pytest.mark.asyncio
+    async def test_detect_communities(self, populated_db: ResearchDatabase) -> None:
+        from hestia.research.entity_registry import EntityRegistry
+        from hestia.research.manager import ResearchManager
+
+        manager = ResearchManager()
+        manager._database = populated_db
+        manager._entity_registry = EntityRegistry(populated_db)
+        manager._initialized = True
+        result = await manager.detect_communities()
+        assert "communities" in result
+
+    @pytest.mark.asyncio
+    async def test_get_entities_no_database(self) -> None:
+        from hestia.research.manager import ResearchManager
+
+        manager = ResearchManager()
+        manager._initialized = True
+        result = await manager.get_entities()
+        assert result == {"entities": [], "total": 0}
+
+    @pytest.mark.asyncio
+    async def test_get_fact_graph_no_builder(self) -> None:
+        from hestia.research.manager import ResearchManager
+
+        manager = ResearchManager()
+        manager._initialized = True
+        result = await manager.get_fact_graph()
+        assert result.metadata.get("error") == "not_initialized"

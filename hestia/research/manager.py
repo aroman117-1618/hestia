@@ -7,11 +7,14 @@ Follows the standard Hestia manager pattern:
 - Combines GraphBuilder + PrincipleStore + ResearchDatabase
 """
 
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Set
 
 from hestia.logging import LogComponent, get_logger
 
 from .database import ResearchDatabase, get_research_database, close_research_database
+from .entity_registry import EntityRegistry
+from .fact_extractor import FactExtractor
 from .graph_builder import GraphBuilder
 from .models import GraphResponse, Principle, PrincipleStatus
 from .principle_store import PrincipleStore
@@ -32,6 +35,8 @@ class ResearchManager:
         self._database: Optional[ResearchDatabase] = None
         self._graph_builder: Optional[GraphBuilder] = None
         self._principle_store: Optional[PrincipleStore] = None
+        self._entity_registry: Optional[EntityRegistry] = None
+        self._fact_extractor: Optional[FactExtractor] = None
         self._initialized = False
 
     async def initialize(self) -> None:
@@ -42,6 +47,8 @@ class ResearchManager:
         self._database = await get_research_database()
         self._graph_builder = GraphBuilder()
         self._principle_store = PrincipleStore(self._database)
+        self._entity_registry = EntityRegistry(self._database)
+        self._fact_extractor = FactExtractor(self._database, self._entity_registry)
 
         # Initialize ChromaDB collection for principles (async-safe)
         try:
@@ -202,6 +209,141 @@ class ResearchManager:
             return None
         p = await self._database.update_principle_content(principle_id, content)
         return p.to_dict() if p else None
+
+    # ── Fact Operations ──────────────────────────────────
+
+    async def extract_facts(self, time_range_days: int = 7) -> Dict[str, Any]:
+        """Extract facts from recent memory chunks via LLM."""
+        if not self._fact_extractor:
+            return {"error": "not_initialized", "facts_created": 0}
+
+        # Get recent memory chunks (same pattern as distill_principles)
+        try:
+            from hestia.memory import get_memory_manager
+            memory_mgr = await get_memory_manager()
+            results = await memory_mgr.search(query="*", limit=50, semantic_threshold=0.0)
+        except Exception as e:
+            logger.warning(
+                f"Cannot search memory for fact extraction: {type(e).__name__}",
+                component=LogComponent.RESEARCH,
+            )
+            return {
+                "error": type(e).__name__,
+                "facts_created": 0,
+                "chunks_processed": 0,
+                "entities_created": 0,
+            }
+
+        # Extract facts from each chunk
+        total_facts = 0
+        for result in results:
+            chunk = result.chunk
+            facts = await self._fact_extractor.extract_from_text(
+                text=chunk.content,
+                source_chunk_id=chunk.id,
+            )
+            total_facts += len(facts)
+
+        # Invalidate graph cache
+        if self._database:
+            await self._database.invalidate_cache()
+
+        entities_count = await self._database.count_entities() if self._database else 0
+
+        return {
+            "facts_created": total_facts,
+            "chunks_processed": len(results),
+            "entities_created": entities_count,
+        }
+
+    async def get_entities(
+        self,
+        entity_type: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """List entities with optional type filter."""
+        if not self._database:
+            return {"entities": [], "total": 0}
+
+        from .models import EntityType
+        etype = EntityType(entity_type) if entity_type else None
+        entities = await self._database.list_entities(entity_type=etype, limit=limit, offset=offset)
+        total = await self._database.count_entities(entity_type=etype)
+
+        return {
+            "entities": [e.to_dict() for e in entities],
+            "total": total,
+        }
+
+    async def get_facts(
+        self,
+        status: Optional[str] = None,
+        entity_id: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """List facts with optional filters."""
+        if not self._database:
+            return {"facts": [], "total": 0}
+
+        from .models import FactStatus
+        fstatus = FactStatus(status) if status else None
+        facts = await self._database.list_facts(
+            status=fstatus, source_entity_id=entity_id, limit=limit, offset=offset,
+        )
+        total = await self._database.count_facts(status=fstatus)
+
+        return {
+            "facts": [f.to_dict() for f in facts],
+            "total": total,
+        }
+
+    async def get_timeline(
+        self,
+        point_in_time: Optional[datetime] = None,
+    ) -> Dict[str, Any]:
+        """Get facts and entities valid at a point in time."""
+        if not self._database:
+            return {"facts": [], "entities": [], "point_in_time": None}
+
+        from datetime import datetime as dt, timezone
+        pit = point_in_time or dt.now(timezone.utc)
+
+        facts = await self._database.get_facts_valid_at(pit)
+        entities = await self._database.list_entities(limit=200)
+
+        return {
+            "facts": [f.to_dict() for f in facts],
+            "entities": [e.to_dict() for e in entities],
+            "point_in_time": pit.isoformat(),
+        }
+
+    async def get_fact_graph(
+        self,
+        center_entity: Optional[str] = None,
+    ) -> GraphResponse:
+        """Get the fact-based knowledge graph."""
+        if not self._graph_builder:
+            return GraphResponse(nodes=[], edges=[], clusters=[], metadata={"error": "not_initialized"})
+
+        return await self._graph_builder.build_fact_graph(center_entity=center_entity)
+
+    async def detect_communities(self) -> Dict[str, Any]:
+        """Run community detection on the entity-fact graph."""
+        if not self._entity_registry:
+            return {"communities": 0}
+
+        communities = await self._entity_registry.detect_communities()
+
+        # Invalidate graph cache
+        if self._database:
+            await self._database.invalidate_cache()
+
+        return {
+            "communities": len(communities),
+            "details": [c.to_dict() for c in communities],
+        }
 
 
 async def get_research_manager() -> ResearchManager:
