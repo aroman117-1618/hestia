@@ -4,8 +4,9 @@ Tools routes for Hestia API.
 Lists available tools and their definitions.
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
+from hestia.api.etag import etag_response
 from hestia.api.errors import sanitize_for_log
 from hestia.api.schemas import (
     ToolsResponse,
@@ -27,8 +28,10 @@ logger = get_logger()
     description="Get a list of all available tools and their definitions."
 )
 async def list_tools(
+    request: Request,
+    response: Response,
     device_id: str = Depends(get_device_token),
-) -> ToolsResponse:
+):
     """
     List all available tools.
 
@@ -71,6 +74,12 @@ async def list_tools(
             "tool_count": len(tools),
         }
     )
+
+    # ETag from tool names (static until deploy)
+    etag_source = "|".join(t.name for t in tools)
+    cached = etag_response(request, response, etag_source)
+    if cached:
+        return cached
 
     return ToolsResponse(
         tools=tools,
@@ -119,8 +128,10 @@ async def list_categories(
 )
 async def get_tool_details(
     tool_name: str,
+    request: Request,
+    response: Response,
     device_id: str = Depends(get_device_token),
-) -> ToolDefinition:
+):
     """
     Get details about a specific tool.
 
@@ -134,8 +145,6 @@ async def get_tool_details(
     Raises:
         HTTPException: If tool is not found.
     """
-    from fastapi import HTTPException, status
-
     registry = get_tool_registry()
 
     tool = registry.get(tool_name)
@@ -158,6 +167,12 @@ async def get_tool_details(
             default=param.default,
             enum_values=param.enum,
         )
+
+    # ETag from tool name + parameter count (static until deploy)
+    etag_source = f"{tool.name}:{len(params)}"
+    cached = etag_response(request, response, etag_source)
+    if cached:
+        return cached
 
     return ToolDefinition(
         name=tool.name,

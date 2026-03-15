@@ -8,9 +8,10 @@ static content from disk.
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, Field
 
+from hestia.api.etag import etag_response
 from hestia.api.middleware.auth import get_device_token
 from hestia.api.errors import sanitize_for_log
 from hestia.wiki import get_wiki_manager, get_wiki_scheduler
@@ -139,12 +140,23 @@ class WikiHealthResponse(BaseModel):
     description="List all articles, optionally filtered by type.",
 )
 async def list_articles(
+    request: Request,
+    response: Response,
     type: Optional[str] = Query(None, description="Filter by article type"),
     device_id: str = Depends(get_device_token),
 ):
     """List wiki articles."""
     manager = await get_wiki_manager()
     articles = await manager.list_articles(article_type=type)
+
+    # ETag from article metadata (IDs + generation timestamps)
+    etag_source = "|".join(
+        f"{a.id}:{a.generated_at.isoformat() if a.generated_at else 'none'}"
+        for a in articles
+    )
+    cached = etag_response(request, response, etag_source)
+    if cached:
+        return cached
 
     return WikiArticleListResponse(
         articles=[
@@ -176,6 +188,8 @@ async def list_articles(
 )
 async def get_article(
     article_id: str,
+    request: Request,
+    response: Response,
     device_id: str = Depends(get_device_token),
 ):
     """Get a single wiki article."""
@@ -187,6 +201,12 @@ async def get_article(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Article not found",
         )
+
+    # ETag from article content hash + generation timestamp
+    etag_source = f"{article.source_hash}:{article.generated_at}"
+    cached = etag_response(request, response, etag_source)
+    if cached:
+        return cached
 
     return WikiArticleResponse(
         id=article.id,

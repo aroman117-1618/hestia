@@ -34,6 +34,12 @@ class APIClient: HestiaClientProtocol {
     private let retryBaseDelay: TimeInterval
     private let retryMaxDelay: TimeInterval
 
+    // MARK: - ETag Cache
+
+    /// In-memory ETag cache: [URL path: (etag, cached response data)]
+    /// Used for conditional GET on stable endpoints (wiki, tools, agents).
+    private var etagCache: [String: (etag: String, data: Data)] = [:]
+
     // MARK: - JSON Coding
 
     private let encoder: JSONEncoder = {
@@ -536,6 +542,52 @@ class APIClient: HestiaClientProtocol {
         addHeaders(to: &request)
 
         return try await execute(request)
+    }
+
+    /// GET with ETag-based conditional caching.
+    /// On 304 Not Modified, returns the cached response without re-downloading.
+    /// Use for stable endpoints: wiki articles, tools, agents.
+    func getWithETag<T: Decodable>(_ path: String) async throws -> T {
+        var request = URLRequest(url: baseURL.appendingPathComponent(path))
+        request.httpMethod = "GET"
+        addHeaders(to: &request)
+
+        // Send If-None-Match if we have a cached ETag
+        if let cached = etagCache[path] {
+            request.setValue("\"\(cached.etag)\"", forHTTPHeaderField: "If-None-Match")
+        }
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw HestiaError.networkUnavailable
+        }
+
+        // 304: serve from cache
+        if httpResponse.statusCode == 304, let cached = etagCache[path] {
+            #if DEBUG
+            print("[APIClient] ETag cache hit: \(path)")
+            #endif
+            return try decoder.decode(T.self, from: cached.data)
+        }
+
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw HestiaError.serverError(
+                statusCode: httpResponse.statusCode,
+                message: "Request failed"
+            )
+        }
+
+        // Store new ETag + data
+        if let etag = httpResponse.value(forHTTPHeaderField: "ETag") {
+            let cleanEtag = etag.trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+            etagCache[path] = (etag: cleanEtag, data: data)
+            #if DEBUG
+            print("[APIClient] ETag cached: \(path) → \(cleanEtag)")
+            #endif
+        }
+
+        return try decoder.decode(T.self, from: data)
     }
 
     private func post<T: Decodable, B: Encodable>(_ path: String, body: B, timeout: TimeInterval? = nil) async throws -> T {
