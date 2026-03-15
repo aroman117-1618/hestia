@@ -2,12 +2,15 @@
 Chat routes for Hestia API.
 
 Main conversation endpoint for interacting with Hestia.
+Includes REST (POST /v1/chat) and SSE streaming (POST /v1/chat/stream).
 """
 
+import json
 from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 
 from hestia.api.schemas import (
     ChatRequest,
@@ -211,3 +214,131 @@ async def send_message(
                 "request_id": request_id,
             }
         )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SSE Streaming Endpoint
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post(
+    "/stream",
+    summary="Send a message with streaming response",
+    description=(
+        "Send a message to Hestia and receive a Server-Sent Events stream. "
+        "Events include status updates, response tokens, tool results, and "
+        "a final done event with metrics."
+    ),
+    responses={
+        401: {"model": ErrorResponse, "description": "Unauthorized"},
+    },
+)
+async def send_message_stream(
+    request: ChatRequest,
+    device_id: str = Depends(get_device_token),
+) -> StreamingResponse:
+    """
+    SSE streaming chat endpoint for iOS/macOS clients.
+
+    Reuses the same handler.handle_streaming() pipeline as the CLI WebSocket,
+    formatting each event as an SSE frame (event: type, data: JSON).
+
+    Event types:
+        status  — Pipeline stage progress (preparing, inference, tools)
+        token   — Streaming response token
+        tool_result — Tool execution result
+        insight — Metadata (cloud routing, synthesis)
+        clear_stream — Signal to discard buffered tokens (tool re-synthesis)
+        done    — Final event with metrics, mode, session_id
+        error   — Error during processing
+    """
+    request_id = f"req-{uuid4().hex[:12]}"
+    session_id = request.session_id or f"sess-{uuid4().hex[:12]}"
+
+    logger.info(
+        "Chat stream request received",
+        component=LogComponent.API,
+        data={
+            "request_id": request_id,
+            "session_id": session_id,
+            "device_id": device_id,
+            "message_length": len(request.message),
+        },
+    )
+
+    async def event_generator():
+        try:
+            handler = await get_request_handler()
+
+            # Build internal request (same as REST endpoint)
+            internal_request = Request.create(
+                content=request.message,
+                source=RequestSource.API,
+                session_id=session_id,
+                device_id=request.device_id or device_id,
+            )
+            internal_request.id = request_id
+            internal_request.force_local = request.force_local
+            if request.context_hints:
+                internal_request.context_hints = request.context_hints
+
+            # Detect implicit signal from previous response (Learning Cycle)
+            try:
+                outcome_mgr = await get_outcome_manager()
+                await outcome_mgr.detect_implicit_signal(
+                    session_id=session_id,
+                    user_id=device_id,
+                    new_message_content=request.message,
+                )
+            except Exception:
+                pass
+
+            # Stream events from handler
+            async for event in handler.handle_streaming(internal_request):
+                event_type = event.get("type", "status")
+                yield f"event: {event_type}\ndata: {json.dumps(event)}\n\n"
+
+                # Track outcome on done event (Learning Cycle)
+                if event_type == "done":
+                    try:
+                        outcome_mgr = await get_outcome_manager()
+                        await outcome_mgr.track_response(
+                            user_id=device_id,
+                            device_id=device_id,
+                            session_id=session_id,
+                            message_id=request_id,
+                            response_content=None,  # Content already streamed
+                            response_type="text",
+                            duration_ms=event.get("metrics", {}).get("duration_ms", 0),
+                            metadata={
+                                "mode": event.get("mode", "tia"),
+                                "streaming": True,
+                                "tokens_out": event.get("metrics", {}).get("tokens_out", 0),
+                            },
+                        )
+                    except Exception:
+                        pass
+
+        except Exception as e:
+            logger.error(
+                f"SSE stream error: {sanitize_for_log(e)}",
+                component=LogComponent.API,
+                data={"request_id": request_id},
+            )
+            error_event = {
+                "type": "error",
+                "code": "internal_error",
+                "message": "An error occurred processing your request.",
+                "request_id": request_id,
+            }
+            yield f"event: error\ndata: {json.dumps(error_event)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Request-ID": request_id,
+            "X-Accel-Buffering": "no",
+        },
+    )
