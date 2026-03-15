@@ -60,6 +60,9 @@ class CloudRoutingConfig:
     request_timeout: float = 60.0
     # Cloud-specific retries
     max_retries: int = 2
+    # Route tool-calling requests to cloud for better selection accuracy.
+    # Disable when local hardware can run 70B+ models with good tool calling.
+    tool_call_cloud_routing: bool = True
 
 
 @dataclass
@@ -204,6 +207,7 @@ class ModelRouter:
             spillover_on_local_failure=cloud_data.get("spillover_on_local_failure", True),
             request_timeout=cloud_data.get("request_timeout", 60.0),
             max_retries=cloud_data.get("max_retries", 2),
+            tool_call_cloud_routing=cloud_data.get("tool_call_cloud_routing", True),
         )
 
         # Cloud model config (used when routing to cloud tier)
@@ -240,6 +244,7 @@ class ModelRouter:
         prompt: str,
         token_count: int = 0,
         force_tier: Optional[ModelTier] = None,
+        has_tools: bool = False,
     ) -> RoutingDecision:
         """
         Determine which model tier to use for a request.
@@ -248,11 +253,15 @@ class ModelRouter:
         - disabled: local-only (primary/complex)
         - enabled_full: always cloud
         - enabled_smart: local first, cloud fallback on failure or high token count
+        - enabled_smart + has_tools + tool_call_cloud_routing: always cloud
 
         Args:
             prompt: The user prompt (for pattern matching).
             token_count: Estimated token count of the request.
             force_tier: Force a specific tier (overrides routing logic).
+            has_tools: Whether tool definitions are included in this request.
+                When True and cloud is enabled_smart with tool_call_cloud_routing,
+                routes directly to cloud for better tool selection accuracy.
 
         Returns:
             RoutingDecision with selected tier and configuration.
@@ -281,6 +290,15 @@ class ModelRouter:
 
         # enabled_smart: check spillover conditions
         if cloud_state == "enabled_smart" and self.cloud_model.enabled:
+            # Tool-calling requests → route to cloud for accurate tool selection
+            if has_tools and self.cloud_routing.tool_call_cloud_routing:
+                return RoutingDecision(
+                    tier=ModelTier.CLOUD,
+                    model_config=self.cloud_model,
+                    reason="cloud_smart_tool_routing",
+                    fallback_tier=ModelTier.PRIMARY,
+                )
+
             # High token count → route directly to cloud
             if token_count >= self.cloud_routing.spillover_token_threshold:
                 return RoutingDecision(
@@ -561,6 +579,7 @@ class ModelRouter:
                 "last_success": self._last_success.get(ModelTier.CLOUD),
                 "spillover_token_threshold": self.cloud_routing.spillover_token_threshold,
                 "spillover_on_local_failure": self.cloud_routing.spillover_on_local_failure,
+                "tool_call_cloud_routing": self.cloud_routing.tool_call_cloud_routing,
             },
             "architecture": architecture,
             "hardware_adaptation": {

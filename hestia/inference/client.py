@@ -417,6 +417,7 @@ class InferenceClient:
         routing = self.router.route(
             prompt=prompt or (messages[-1].content if messages else ""),
             token_count=token_count,
+            has_tools=bool(tools),
         )
 
         self.logger.info(
@@ -924,6 +925,7 @@ class InferenceClient:
         routing = self.router.route(
             prompt=messages[-1].content if messages else "",
             token_count=token_count,
+            has_tools=bool(tools),
         )
 
         self.logger.info(

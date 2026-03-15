@@ -154,6 +154,12 @@ cloud:
   # Smart mode: fall back to cloud after local retries are exhausted
   spillover_on_local_failure: true
 
+  # Route tool-calling requests to cloud for better tool selection accuracy.
+  # Local models (7-9B) struggle with multi-tool orchestration; cloud models
+  # (Claude, GPT-4) are dramatically better. Set to false when upgrading to
+  # hardware that can run larger local models (e.g., 70B+).
+  tool_call_cloud_routing: true
+
   # Cloud request timeout (120s for long-form generation like wiki articles)
   request_timeout: 120.0
 
