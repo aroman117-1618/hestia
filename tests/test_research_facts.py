@@ -630,3 +630,97 @@ class TestCommunitiesDatabase:
         assert len(await db.list_communities()) == 2
         await db.delete_all_communities()
         assert len(await db.list_communities()) == 0
+
+
+# ── Entity Registry Tests ──────────────────────────────
+
+
+from hestia.research.entity_registry import EntityRegistry
+
+
+@pytest.mark.asyncio
+class TestEntityRegistry:
+    """Tests for EntityRegistry resolution and community detection."""
+
+    async def test_resolve_exact_match(self, db: ResearchDatabase) -> None:
+        """Resolve an existing entity by exact canonical name."""
+        registry = EntityRegistry(db)
+        entity = Entity.create(name="Python", entity_type=EntityType.TOOL)
+        await db.create_entity(entity)
+
+        resolved = await registry.resolve_entity("Python", EntityType.TOOL)
+        assert resolved.id == entity.id
+        assert resolved.name == "Python"
+
+    async def test_resolve_creates_new(self, db: ResearchDatabase) -> None:
+        """Resolve an unknown name creates a new entity."""
+        registry = EntityRegistry(db)
+
+        resolved = await registry.resolve_entity("FastAPI", EntityType.TOOL)
+        assert resolved.name == "FastAPI"
+        assert resolved.canonical_name == "fastapi"
+        assert resolved.entity_type == EntityType.TOOL
+
+        # Verify it's in the database
+        fetched = await db.get_entity(resolved.id)
+        assert fetched is not None
+        assert fetched.name == "FastAPI"
+
+    async def test_resolve_case_insensitive(self, db: ResearchDatabase) -> None:
+        """Resolve with different casing returns the same entity."""
+        registry = EntityRegistry(db)
+        entity = Entity.create(name="Python", entity_type=EntityType.TOOL)
+        await db.create_entity(entity)
+
+        resolved = await registry.resolve_entity("python", EntityType.TOOL)
+        assert resolved.id == entity.id
+
+    async def test_label_propagation_simple(self, db: ResearchDatabase) -> None:
+        """Three entities connected by facts end up in the same community."""
+        registry = EntityRegistry(db)
+
+        e1 = Entity.create(name="A", entity_type=EntityType.CONCEPT)
+        e2 = Entity.create(name="B", entity_type=EntityType.CONCEPT)
+        e3 = Entity.create(name="C", entity_type=EntityType.CONCEPT)
+        await db.create_entity(e1)
+        await db.create_entity(e2)
+        await db.create_entity(e3)
+
+        f1 = Fact.create(source_entity_id=e1.id, target_entity_id=e2.id, fact_text="A-B")
+        f2 = Fact.create(source_entity_id=e2.id, target_entity_id=e3.id, fact_text="B-C")
+        await db.create_fact(f1)
+        await db.create_fact(f2)
+
+        communities = await registry.detect_communities(min_community_size=2)
+        assert len(communities) == 1
+        assert len(communities[0].member_entity_ids) == 3
+
+    async def test_label_propagation_disconnected(self, db: ResearchDatabase) -> None:
+        """Two separate pairs of entities produce two communities."""
+        registry = EntityRegistry(db)
+
+        e1 = Entity.create(name="A", entity_type=EntityType.CONCEPT)
+        e2 = Entity.create(name="B", entity_type=EntityType.CONCEPT)
+        e3 = Entity.create(name="C", entity_type=EntityType.CONCEPT)
+        e4 = Entity.create(name="D", entity_type=EntityType.CONCEPT)
+        await db.create_entity(e1)
+        await db.create_entity(e2)
+        await db.create_entity(e3)
+        await db.create_entity(e4)
+
+        f1 = Fact.create(source_entity_id=e1.id, target_entity_id=e2.id, fact_text="A-B")
+        f2 = Fact.create(source_entity_id=e3.id, target_entity_id=e4.id, fact_text="C-D")
+        await db.create_fact(f1)
+        await db.create_fact(f2)
+
+        communities = await registry.detect_communities(min_community_size=2)
+        assert len(communities) == 2
+        sizes = sorted([len(c.member_entity_ids) for c in communities])
+        assert sizes == [2, 2]
+
+    async def test_label_propagation_empty(self, db: ResearchDatabase) -> None:
+        """No facts yields no communities."""
+        registry = EntityRegistry(db)
+
+        communities = await registry.detect_communities(min_community_size=2)
+        assert communities == []
