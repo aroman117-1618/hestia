@@ -505,11 +505,11 @@ class TestToolRegistration:
         """Test getting notes tools."""
         tools = get_notes_tools()
 
-        assert len(tools) >= 7
+        assert len(tools) >= 6
         tool_names = [t.name for t in tools]
         assert "list_note_folders" in tool_names
         assert "list_notes" in tool_names
-        assert "get_note" in tool_names
+        # get_note removed from LLM tool list — read_note supersedes it
         assert "read_note" in tool_names
         assert "find_note" in tool_names
         assert "create_note" in tool_names

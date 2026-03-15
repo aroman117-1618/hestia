@@ -915,22 +915,11 @@ def get_notes_tools() -> List[Tool]:
             handler=list_notes,
             category="notes",
         ),
-        Tool(
-            name="get_note",
-            description="Get the content of a note by ID or title. If a title is given instead of an ID, it will be fuzzy-resolved to the best match.",
-            parameters={
-                "note_id": ToolParam(
-                    type=ToolParamType.STRING,
-                    description="ID or title of the note to retrieve",
-                    required=True,
-                ),
-            },
-            handler=get_note,
-            category="notes",
-        ),
+        # get_note removed from LLM tool list — read_note supersedes it.
+        # get_note is still available internally (e.g., for direct ID lookups).
         Tool(
             name="read_note",
-            description="Read a note by name — finds the best-matching note and returns its full content in one step. Use this when the user asks to read, show, or open a specific note by name.",
+            description="Read a note by name — the PRIMARY tool for reading notes. Finds the best-matching note by fuzzy title search and returns its full content in one step. Always use this when the user asks to read, show, open, or see a specific note.",
             parameters={
                 "query": ToolParam(
                     type=ToolParamType.STRING,

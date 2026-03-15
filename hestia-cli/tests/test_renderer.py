@@ -279,6 +279,79 @@ class TestAgentColoredRenderer:
         assert "malicious" in text
 
 
+# ── Insight Callout Tests ────────────────────────────────────
+
+
+class TestInsightRendering:
+    """Test insight callout rendering and auto-gating."""
+
+    def test_render_insight_event(self):
+        """Insight events render as a bordered panel."""
+        renderer, output = make_renderer()
+        renderer.render_event({
+            "type": "insight",
+            "content": "Routed to cloud — local model too slow.",
+            "insight_key": "cloud_routing",
+        })
+        text = output.getvalue()
+        assert "cloud" in text.lower()
+        assert "💡" in text or "Insight" in text
+
+    def test_insight_auto_gating_suppresses_repeat(self):
+        """Same insight_key shown only once in auto mode."""
+        renderer, output = make_renderer()
+        renderer.render_event({
+            "type": "insight",
+            "content": "First cloud routing insight.",
+            "insight_key": "cloud_routing",
+        })
+        first_len = len(output.getvalue())
+        assert "First cloud routing" in output.getvalue()
+
+        # Same key again — should be suppressed
+        renderer.render_event({
+            "type": "insight",
+            "content": "Second cloud routing insight.",
+            "insight_key": "cloud_routing",
+        })
+        # Output length should not grow (suppressed)
+        assert "Second cloud routing" not in output.getvalue()
+
+    def test_insight_different_keys_both_shown(self):
+        """Different insight_keys are both displayed."""
+        renderer, output = make_renderer()
+        renderer.render_event({
+            "type": "insight",
+            "content": "Cloud routing insight.",
+            "insight_key": "cloud_routing",
+        })
+        renderer.render_event({
+            "type": "insight",
+            "content": "Tool execution insight.",
+            "insight_key": "tool_execution",
+        })
+        text = output.getvalue()
+        assert "Cloud routing" in text
+        assert "Tool execution" in text
+
+    def test_insight_no_key_always_shown(self):
+        """Insights without a key are always displayed (no gating)."""
+        renderer, output = make_renderer()
+        renderer.render_event({
+            "type": "insight",
+            "content": "First ungated insight.",
+            "insight_key": "",
+        })
+        renderer.render_event({
+            "type": "insight",
+            "content": "Second ungated insight.",
+            "insight_key": "",
+        })
+        text = output.getvalue()
+        assert "First ungated" in text
+        assert "Second ungated" in text
+
+
 # ── Progressive Markdown Rendering Tests ────────────────────
 
 

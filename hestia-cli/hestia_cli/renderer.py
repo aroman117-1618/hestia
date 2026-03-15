@@ -66,6 +66,8 @@ class HestiaRenderer:
         # Markdown streaming state
         self._live: Optional[Live] = None
         self._in_code_block = False
+
+        # Insight auto-gating: show each insight type once per session
         self._seen_insight_keys: set = set()
         # use_markdown can be explicitly set (for tests), otherwise check env var
         if use_markdown is not None:
