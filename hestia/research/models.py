@@ -18,6 +18,8 @@ class NodeType(str, Enum):
     TOPIC = "topic"
     ENTITY = "entity"
     PRINCIPLE = "principle"
+    FACT = "fact"
+    COMMUNITY = "community"
 
 
 class EdgeType(str, Enum):
@@ -28,6 +30,9 @@ class EdgeType(str, Enum):
     ENTITY_MEMBERSHIP = "entity_membership"
     SEMANTIC = "semantic"
     PRINCIPLE_SOURCE = "principle_source"
+    RELATIONSHIP = "relationship"
+    SUPERSEDES = "supersedes"
+    COMMUNITY_MEMBER = "community_member"
 
 
 class PrincipleStatus(str, Enum):
@@ -35,6 +40,23 @@ class PrincipleStatus(str, Enum):
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
+
+
+class EntityType(str, Enum):
+    """Types of entities in the knowledge graph."""
+    PERSON = "person"
+    TOOL = "tool"
+    CONCEPT = "concept"
+    PLACE = "place"
+    PROJECT = "project"
+    ORGANIZATION = "organization"
+
+
+class FactStatus(str, Enum):
+    """Lifecycle status for knowledge graph facts."""
+    ACTIVE = "active"
+    SUPERSEDED = "superseded"
+    RETRACTED = "retracted"
 
 
 # Category-to-color mapping for frontend rendering.
@@ -50,6 +72,8 @@ CATEGORY_COLORS: Dict[str, str] = {
     "topic": "#FFD60A",
     "entity": "#30D158",
     "principle": "#BF5AF2",
+    "community": "#FF375F",
+    "fact_node": "#64D2FF",
 }
 
 
@@ -215,6 +239,248 @@ class GraphResponse:
             "edgeCount": len(self.edges),
             "metadata": self.metadata,
         }
+
+
+@dataclass
+class Fact:
+    """
+    A temporal fact (edge between two entities) in the knowledge graph.
+
+    Bi-temporal design:
+        valid_at   — when the fact became true in the real world
+        invalid_at — when the fact was superseded (real-world end)
+        expired_at — when the system detected the change
+    """
+    id: str
+    source_entity_id: str
+    target_entity_id: str
+    fact_text: str
+    weight: float = 1.0
+    status: FactStatus = FactStatus.ACTIVE
+    valid_at: Optional[datetime] = None
+    invalid_at: Optional[datetime] = None
+    expired_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    user_id: str = "default"
+
+    def is_valid_at(self, point_in_time: datetime) -> bool:
+        """Check whether this fact was valid at a given point in time."""
+        if self.valid_at and point_in_time < self.valid_at:
+            return False
+        if self.invalid_at and point_in_time >= self.invalid_at:
+            return False
+        return True
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize for API response. camelCase keys for Swift frontend."""
+        return {
+            "id": self.id,
+            "sourceEntityId": self.source_entity_id,
+            "targetEntityId": self.target_entity_id,
+            "factText": self.fact_text,
+            "weight": self.weight,
+            "status": self.status.value,
+            "validAt": self.valid_at.isoformat() if self.valid_at else None,
+            "invalidAt": self.invalid_at.isoformat() if self.invalid_at else None,
+            "expiredAt": self.expired_at.isoformat() if self.expired_at else None,
+            "createdAt": self.created_at.isoformat() if self.created_at else None,
+            "userId": self.user_id,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Fact":
+        """Deserialize from camelCase dict."""
+        def _parse_dt(key: str) -> Optional[datetime]:
+            val = data.get(key)
+            if val:
+                try:
+                    return datetime.fromisoformat(val)
+                except (ValueError, TypeError):
+                    pass
+            return None
+
+        return cls(
+            id=data["id"],
+            source_entity_id=data["sourceEntityId"],
+            target_entity_id=data["targetEntityId"],
+            fact_text=data["factText"],
+            weight=data.get("weight", 1.0),
+            status=FactStatus(data.get("status", "active")),
+            valid_at=_parse_dt("validAt"),
+            invalid_at=_parse_dt("invalidAt"),
+            expired_at=_parse_dt("expiredAt"),
+            created_at=_parse_dt("createdAt"),
+            user_id=data.get("userId", "default"),
+        )
+
+    @classmethod
+    def create(
+        cls,
+        source_entity_id: str,
+        target_entity_id: str,
+        fact_text: str,
+        weight: float = 1.0,
+        user_id: str = "default",
+    ) -> "Fact":
+        """Factory method with auto-generated UUID and timestamps."""
+        now = datetime.now(timezone.utc)
+        return cls(
+            id=str(uuid.uuid4()),
+            source_entity_id=source_entity_id,
+            target_entity_id=target_entity_id,
+            fact_text=fact_text,
+            weight=weight,
+            valid_at=now,
+            created_at=now,
+            user_id=user_id,
+        )
+
+
+@dataclass
+class Entity:
+    """
+    A node in the knowledge graph (person, tool, concept, etc.).
+
+    canonical_name is the lowercase version of name, used for deduplication.
+    """
+    id: str
+    name: str
+    canonical_name: str
+    entity_type: EntityType
+    summary: Optional[str] = None
+    community_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    user_id: str = "default"
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize for API response. camelCase keys for Swift frontend."""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "canonicalName": self.canonical_name,
+            "entityType": self.entity_type.value,
+            "summary": self.summary,
+            "communityId": self.community_id,
+            "createdAt": self.created_at.isoformat() if self.created_at else None,
+            "updatedAt": self.updated_at.isoformat() if self.updated_at else None,
+            "userId": self.user_id,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Entity":
+        """Deserialize from camelCase dict."""
+        def _parse_dt(key: str) -> Optional[datetime]:
+            val = data.get(key)
+            if val:
+                try:
+                    return datetime.fromisoformat(val)
+                except (ValueError, TypeError):
+                    pass
+            return None
+
+        return cls(
+            id=data["id"],
+            name=data["name"],
+            canonical_name=data["canonicalName"],
+            entity_type=EntityType(data["entityType"]),
+            summary=data.get("summary"),
+            community_id=data.get("communityId"),
+            created_at=_parse_dt("createdAt"),
+            updated_at=_parse_dt("updatedAt"),
+            user_id=data.get("userId", "default"),
+        )
+
+    @classmethod
+    def create(
+        cls,
+        name: str,
+        entity_type: EntityType,
+        summary: Optional[str] = None,
+        community_id: Optional[str] = None,
+        user_id: str = "default",
+    ) -> "Entity":
+        """Factory method with auto-generated UUID and timestamps."""
+        now = datetime.now(timezone.utc)
+        return cls(
+            id=str(uuid.uuid4()),
+            name=name,
+            canonical_name=name.lower(),
+            entity_type=entity_type,
+            summary=summary,
+            community_id=community_id,
+            created_at=now,
+            updated_at=now,
+            user_id=user_id,
+        )
+
+
+@dataclass
+class Community:
+    """
+    A cluster of related entities with optional LLM-generated summary.
+    """
+    id: str
+    label: str
+    summary: Optional[str] = None
+    member_entity_ids: List[str] = field(default_factory=list)
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    user_id: str = "default"
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize for API response. camelCase keys for Swift frontend."""
+        return {
+            "id": self.id,
+            "label": self.label,
+            "summary": self.summary,
+            "memberEntityIds": self.member_entity_ids,
+            "createdAt": self.created_at.isoformat() if self.created_at else None,
+            "updatedAt": self.updated_at.isoformat() if self.updated_at else None,
+            "userId": self.user_id,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Community":
+        """Deserialize from camelCase dict."""
+        def _parse_dt(key: str) -> Optional[datetime]:
+            val = data.get(key)
+            if val:
+                try:
+                    return datetime.fromisoformat(val)
+                except (ValueError, TypeError):
+                    pass
+            return None
+
+        return cls(
+            id=data["id"],
+            label=data["label"],
+            summary=data.get("summary"),
+            member_entity_ids=data.get("memberEntityIds", []),
+            created_at=_parse_dt("createdAt"),
+            updated_at=_parse_dt("updatedAt"),
+            user_id=data.get("userId", "default"),
+        )
+
+    @classmethod
+    def create(
+        cls,
+        label: str,
+        member_entity_ids: Optional[List[str]] = None,
+        summary: Optional[str] = None,
+        user_id: str = "default",
+    ) -> "Community":
+        """Factory method with auto-generated UUID and timestamps."""
+        now = datetime.now(timezone.utc)
+        return cls(
+            id=str(uuid.uuid4()),
+            label=label,
+            summary=summary,
+            member_entity_ids=member_entity_ids or [],
+            created_at=now,
+            updated_at=now,
+            user_id=user_id,
+        )
 
 
 @dataclass
