@@ -74,6 +74,13 @@ CATEGORY_COLORS: Dict[str, str] = {
     "principle": "#BF5AF2",
     "community": "#FF375F",
     "fact_node": "#64D2FF",
+    # Entity type colors (for fact-based graph)
+    "person": "#FF9F0A",
+    "tool": "#30D158",
+    "project": "#5AC8FA",
+    "organization": "#BF5AF2",
+    "place": "#FF375F",
+    "concept": "#64D2FF",
 }
 
 

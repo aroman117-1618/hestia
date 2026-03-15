@@ -26,6 +26,9 @@ from hestia.logging import LogComponent, get_logger
 from .models import (
     CATEGORY_COLORS,
     EdgeType,
+    Entity,
+    Fact,
+    FactStatus,
     GraphCluster,
     GraphEdge,
     GraphNode,
@@ -66,6 +69,261 @@ class GraphBuilder:
             from hestia.memory import get_memory_manager
             self._memory_manager = await get_memory_manager()
         return self._memory_manager
+
+    async def _get_research_database(self) -> Any:
+        """Lazy import to avoid circular dependencies."""
+        if self._research_database is None:
+            from .database import get_research_database
+            self._research_database = await get_research_database()
+        return self._research_database
+
+    # ── Fact-Based Graph ────────────────────────────────
+
+    async def build_fact_graph(
+        self,
+        center_entity: Optional[str] = None,
+        max_depth: int = 3,
+    ) -> GraphResponse:
+        """
+        Build a knowledge graph from entities, facts, and communities.
+
+        This is a separate entry point from build_graph(). Instead of
+        memory chunks, it uses the structured entity/fact/community tables.
+
+        Args:
+            center_entity: Entity ID to center the graph on (BFS filtering).
+            max_depth: Max hops from center_entity to include.
+
+        Returns:
+            GraphResponse with entity nodes, relationship edges, and community clusters.
+        """
+        start_time = time.time()
+
+        try:
+            db = await self._get_research_database()
+            entities = await db.list_entities(limit=200)
+            facts = await db.list_facts(status=FactStatus.ACTIVE, limit=500)
+            communities = await db.list_communities(limit=50)
+        except Exception as e:
+            logger.warning(
+                "Fact graph builder: DB query failed, returning empty graph",
+                component=LogComponent.RESEARCH,
+                data={"error": type(e).__name__},
+            )
+            return GraphResponse(
+                nodes=[], edges=[], clusters=[],
+                metadata={"error": type(e).__name__, "query_time_ms": 0},
+            )
+
+        if not entities:
+            return GraphResponse(
+                nodes=[], edges=[], clusters=[],
+                metadata={"total_entities": 0, "query_time_ms": 0},
+            )
+
+        # ── Build entity nodes ──────────────────────────
+        entity_id_set = {e.id for e in entities}
+        fact_counts: Counter = Counter()
+        for fact in facts:
+            if fact.source_entity_id in entity_id_set:
+                fact_counts[fact.source_entity_id] += 1
+            if fact.target_entity_id in entity_id_set:
+                fact_counts[fact.target_entity_id] += 1
+
+        max_fact_count = max(fact_counts.values()) if fact_counts else 1
+
+        entity_nodes: List[GraphNode] = []
+        for entity in entities:
+            count = fact_counts.get(entity.id, 0)
+            weight = (count / max_fact_count) if max_fact_count > 0 else 0.7
+            weight = max(weight, 0.2)  # minimum weight so isolated entities are visible
+
+            entity_nodes.append(GraphNode(
+                id=f"entity:{entity.id}",
+                content=entity.summary or f"{entity.entity_type.value}: {entity.name}",
+                node_type=NodeType.ENTITY,
+                category=entity.entity_type.value,
+                label=entity.name,
+                confidence=1.0,
+                weight=weight,
+                entities=[entity.name],
+                last_active=entity.updated_at,
+                metadata={
+                    "entity_type": entity.entity_type.value,
+                    "canonical_name": entity.canonical_name,
+                    "community_id": entity.community_id,
+                },
+            ))
+
+        node_id_set = {n.id for n in entity_nodes}
+
+        # ── Build RELATIONSHIP edges from facts ─────────
+        relationship_edges: List[GraphEdge] = []
+        for fact in facts:
+            from_id = f"entity:{fact.source_entity_id}"
+            to_id = f"entity:{fact.target_entity_id}"
+            if from_id in node_id_set and to_id in node_id_set:
+                relationship_edges.append(GraphEdge(
+                    from_id=from_id,
+                    to_id=to_id,
+                    edge_type=EdgeType.RELATIONSHIP,
+                    weight=fact.weight if fact.weight else 0.5,
+                    count=1,
+                ))
+
+        # ── Build community nodes and member edges ──────
+        community_nodes: List[GraphNode] = []
+        member_edges: List[GraphEdge] = []
+
+        for community in communities:
+            comm_node_id = f"community:{community.id}"
+            community_nodes.append(GraphNode(
+                id=comm_node_id,
+                content=community.summary or f"Community: {community.label}",
+                node_type=NodeType.COMMUNITY,
+                category="community",
+                label=community.label,
+                confidence=1.0,
+                weight=0.5,
+                metadata={"member_count": len(community.member_entity_ids)},
+            ))
+
+            for member_id in community.member_entity_ids:
+                entity_graph_id = f"entity:{member_id}"
+                if entity_graph_id in node_id_set:
+                    member_edges.append(GraphEdge(
+                        from_id=entity_graph_id,
+                        to_id=comm_node_id,
+                        edge_type=EdgeType.COMMUNITY_MEMBER,
+                        weight=0.3,
+                    ))
+
+        # ── Assemble all nodes and edges ────────────────
+        all_nodes = entity_nodes + community_nodes
+        all_edges = relationship_edges + member_edges
+
+        # ── BFS filter by center_entity ─────────────────
+        if center_entity:
+            all_nodes, all_edges = self._filter_by_center_entity(
+                center_entity, max_depth, all_nodes, all_edges, facts
+            )
+
+        # ── Enforce limits ──────────────────────────────
+        all_nodes = all_nodes[:MAX_NODES]
+        all_edges = all_edges[:MAX_EDGES]
+
+        # ── Layout ──────────────────────────────────────
+        self._compute_layout(all_nodes, all_edges)
+
+        # ── Clusters from communities ───────────────────
+        clusters = self._build_community_clusters(communities, all_nodes)
+
+        query_time_ms = int((time.time() - start_time) * 1000)
+
+        logger.info(
+            "Fact graph built",
+            component=LogComponent.RESEARCH,
+            data={
+                "nodes": len(all_nodes),
+                "edges": len(all_edges),
+                "clusters": len(clusters),
+                "query_time_ms": query_time_ms,
+            },
+        )
+
+        return GraphResponse(
+            nodes=all_nodes,
+            edges=all_edges,
+            clusters=clusters,
+            metadata={
+                "total_entities": len(entities),
+                "total_facts": len(facts),
+                "total_communities": len(communities),
+                "node_count": len(all_nodes),
+                "edge_count": len(all_edges),
+                "query_time_ms": query_time_ms,
+            },
+        )
+
+    def _filter_by_center_entity(
+        self,
+        center_entity_id: str,
+        max_depth: int,
+        nodes: List[GraphNode],
+        edges: List[GraphEdge],
+        facts: List[Fact],
+    ) -> Tuple[List[GraphNode], List[GraphEdge]]:
+        """BFS from center entity to find reachable nodes within max_depth hops."""
+        # Build adjacency from facts (entity ID → set of connected entity IDs)
+        adjacency: Dict[str, Set[str]] = defaultdict(set)
+        for fact in facts:
+            adjacency[fact.source_entity_id].add(fact.target_entity_id)
+            adjacency[fact.target_entity_id].add(fact.source_entity_id)
+
+        # BFS
+        visited: Set[str] = {center_entity_id}
+        frontier: Set[str] = {center_entity_id}
+        for _ in range(max_depth):
+            next_frontier: Set[str] = set()
+            for eid in frontier:
+                for neighbor in adjacency.get(eid, set()):
+                    if neighbor not in visited:
+                        visited.add(neighbor)
+                        next_frontier.add(neighbor)
+            frontier = next_frontier
+            if not frontier:
+                break
+
+        # Convert to graph node IDs
+        reachable_entity_ids = {f"entity:{eid}" for eid in visited}
+
+        # Also include community nodes whose members overlap
+        reachable_node_ids = set(reachable_entity_ids)
+        for node in nodes:
+            if node.node_type == NodeType.COMMUNITY:
+                member_ids = {
+                    f"entity:{mid}"
+                    for mid in node.metadata.get("member_entity_ids", [])
+                }
+                if member_ids & reachable_entity_ids:
+                    reachable_node_ids.add(node.id)
+
+        filtered_nodes = [n for n in nodes if n.id in reachable_node_ids]
+        filtered_edges = [
+            e for e in edges
+            if e.from_id in reachable_node_ids and e.to_id in reachable_node_ids
+        ]
+
+        return filtered_nodes, filtered_edges
+
+    def _build_community_clusters(
+        self,
+        communities: List[Any],
+        nodes: List[GraphNode],
+    ) -> List[GraphCluster]:
+        """Build clusters from community membership (not topic-based)."""
+        node_id_set = {n.id for n in nodes}
+        clusters: List[GraphCluster] = []
+        palette = list(CATEGORY_COLORS.values())
+
+        for i, community in enumerate(communities):
+            member_node_ids = [
+                f"entity:{mid}" for mid in community.member_entity_ids
+                if f"entity:{mid}" in node_id_set
+            ]
+            comm_node_id = f"community:{community.id}"
+            if comm_node_id in node_id_set:
+                member_node_ids.append(comm_node_id)
+
+            if len(member_node_ids) >= 2:
+                clusters.append(GraphCluster(
+                    id=f"cluster:{community.id}",
+                    label=community.label,
+                    node_ids=member_node_ids,
+                    color=palette[i % len(palette)],
+                ))
+
+        return clusters
 
     async def build_graph(
         self,
