@@ -1,7 +1,7 @@
 """
 Base database class for Hestia SQLite modules.
 
-Provides the common connect/close/schema lifecycle that all 11
+Provides the common connect/close/schema lifecycle that all 16
 database modules share. Subclasses override ``_init_schema()`` to
 define their own tables and migrations.
 """

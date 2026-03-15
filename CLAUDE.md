@@ -88,7 +88,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | Hardware | Mac Mini M1 (16GB) |
 | Model | Qwen 3.5 9B primary + Qwen 2.5 Coder 7B specialist (Ollama, local) + cloud (Anthropic/OpenAI/Google) |
 | SLM | qwen2.5:0.5b (council intent classification, ~100ms) |
-| Backend | Python 3.9+, FastAPI, 160 endpoints across 25 route modules |
+| Backend | Python 3.9+, FastAPI, 163 endpoints across 26 route modules |
 | Storage | ChromaDB (vectors) + SQLite (structured) + macOS Keychain (credentials) |
 | App | Native Swift/SwiftUI (iOS 26.0+) |
 | API | REST on port 8443 with JWT auth, HTTPS with self-signed cert |
@@ -105,7 +105,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 **Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
 **Field Guide UI Restructure: COMPLETE.** 5 thematic tabs, native SwiftUI diagrams, structured roadmap with `/v1/wiki/roadmap` endpoint.
 
-1683 tests (1680 passing, 3 skipped), 42 test files (36 backend + 6 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
+1819 tests (1816 passing, 3 skipped), 48 test files (41 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -218,7 +218,7 @@ hestia/
 │   │   └── manager.py            # ResearchManager singleton (graph, facts, entities, principles)
 │   ├── investigate/                 # URL content analysis (web articles, YouTube), LLM analysis pipeline
 │   │   └── extractors/             # BaseExtractor ABC, WebArticleExtractor, YouTubeExtractor
-│   ├── api/                         # FastAPI — 160 endpoints, 25 route modules
+│   ├── api/                         # FastAPI — 163 endpoints, 26 route modules
 │   │   ├── errors.py                # sanitize_for_log(), safe_error_detail()
 │   │   ├── schemas/                  # Pydantic request/response models (15 domain modules)
 │   │   ├── server.py                # App lifecycle, manager initialization
@@ -241,7 +241,7 @@ hestia/
 │   │   ├── Views/                   # Chat, CommandCenter (+ NeuralNet), Settings (+ Resources, Integrations, Wiki, DeviceManagement, ProactiveSettings), Auth
 │   │   ├── Views/Common/            # LottieAnimationView, LoadingView, GradientBackground
 │   │   └── Persistence/             # Core Data stack
-│   ├── macOS/                       # macOS app (105 files)
+│   ├── macOS/                       # macOS app (126 files)
 │   │   ├── Views/                   # Command, Explorer (Files+Resources), Health, Profile, Wiki (4 views), Resources (6 views), Chat, Chrome, Auth
 │   │   ├── ViewModels/              # MacChat, MacExplorer, MacExplorerResources, MacCloudSettings, MacIntegrations, MacWiki, MacHealth, MacUserProfile, MacCommandCenter
 │   │   ├── Models/                  # WikiModels, ToolModels, NewsfeedModels, HealthDataModels, DeviceModels
@@ -257,12 +257,12 @@ hestia/
 
 ---
 
-## API Summary (160 endpoints, 25 route modules)
+## API Summary (163 endpoints, 26 route modules)
 
 | Module | Endpoints | Key Routes |
 |--------|-----------|------------|
 | Health & Auth | 8 | `/v1/ping`, `/v1/health`, `/v1/ready`, `/v1/auth/register`, `/v1/auth/refresh`, `/v1/auth/invite`, `/v1/auth/register-with-invite`, `/v1/auth/re-invite` |
-| Chat & Mode | 4 | `/v1/chat`, `/v1/mode/*` |
+| Chat & Mode | 5 | `/v1/chat`, `/v1/chat/stream` (SSE), `/v1/mode/*` |
 | Memory | 5 | `/v1/memory/staged`, `approve`, `reject`, `search` |
 | Sessions | 3 | `/v1/sessions` CRUD |
 | Tools | 3 | `/v1/tools` list, details, schema |
@@ -335,7 +335,7 @@ Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 | Phase 4: Settings Integrations | COMPLETE | IntegrationsView (Calendar, Reminders, Notes, Mail), API contract rewrite |
 | Apple HealthKit Integration | COMPLETE | 27 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools, iOS HealthKitService |
 | Wiki / Architecture Field Guide | COMPLETE | AI-generated narratives, module deep dives, ADR browser, roadmap, Mermaid diagrams, iOS tabbed UI |
-| macOS App (Hestia) | COMPLETE | 105 files, 6 views (Command/Explorer/Health/Profile/Wiki/Resources), icon sidebar, chat panel, keyboard shortcuts ⌘1-6/\, responsive layout, app icon. |
+| macOS App (Hestia) | COMPLETE | 126 files, 6 views (Command/Explorer/Health/Profile/Wiki/Resources), icon sidebar, chat panel, keyboard shortcuts ⌘1-6/\, responsive layout, app icon. |
 
 ### Frontend Wiring — COMPLETE
 | Sprint | Status | Scope |
@@ -349,6 +349,7 @@ Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 ### Stability & Efficiency
 | Sprint | Status | Scope |
 |--------|--------|-------|
+| Sprint 12: Architecture Efficiency | COMPLETE | Parallel pre-inference pipeline (asyncio.gather), council bypass heuristic, SSE streaming (POST /v1/chat/stream + iOS/macOS), ETag conditional GET (wiki/tools) |
 | Sprint 7: Profile & Settings | COMPLETE | Settings accordion (4 sections), profile editing, agent V2 API, Resources consolidation, Field Guide migration, CacheManager, MarkdownEditor line numbers, amber accent audit, VoiceOver a11y |
 | Sprint 6: Stability & Efficiency | COMPLETE | Readiness gate, complete shutdown (15 managers), Uvicorn recycling (5K req), parallel init, pip-compile lockfile, log compression, Cache-Control |
 
