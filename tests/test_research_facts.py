@@ -1,9 +1,13 @@
-"""Tests for research knowledge graph models: Fact, Entity, Community."""
+"""Tests for research knowledge graph models and database: Fact, Entity, Community."""
 
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
+from typing import AsyncGenerator
 
 import pytest
+import pytest_asyncio
 
+from hestia.research.database import ResearchDatabase
 from hestia.research.models import (
     Community,
     EdgeType,
@@ -13,6 +17,20 @@ from hestia.research.models import (
     FactStatus,
     NodeType,
 )
+
+
+# ── Database Fixture ────────────────────────────────────
+
+
+@pytest_asyncio.fixture
+async def db(tmp_path: Path) -> AsyncGenerator[ResearchDatabase, None]:
+    """Create a temporary research database for testing."""
+    database = ResearchDatabase(db_path=tmp_path / "test_research.db")
+    await database.initialize()
+    try:
+        yield database
+    finally:
+        await database.close()
 
 
 class TestEntityType:
@@ -314,3 +332,301 @@ class TestCommunity:
         assert restored.summary == original.summary
         assert restored.member_entity_ids == original.member_entity_ids
         assert restored.user_id == original.user_id
+
+
+# ── Database Tests ──────────────────────────────────────
+
+
+@pytest.mark.asyncio
+class TestEntitiesDatabase:
+    """Database CRUD tests for entities table."""
+
+    async def test_create_and_get(self, db: ResearchDatabase) -> None:
+        entity = Entity.create(
+            name="FastAPI",
+            entity_type=EntityType.TOOL,
+            summary="Web framework",
+        )
+        created = await db.create_entity(entity)
+        assert created.id == entity.id
+
+        fetched = await db.get_entity(entity.id)
+        assert fetched is not None
+        assert fetched.name == "FastAPI"
+        assert fetched.entity_type == EntityType.TOOL
+        assert fetched.summary == "Web framework"
+        assert fetched.canonical_name == "fastapi"
+        assert fetched.user_id == "default"
+
+    async def test_get_nonexistent(self, db: ResearchDatabase) -> None:
+        result = await db.get_entity("no-such-id")
+        assert result is None
+
+    async def test_find_by_canonical_name(self, db: ResearchDatabase) -> None:
+        entity = Entity.create(name="Claude Code", entity_type=EntityType.TOOL)
+        await db.create_entity(entity)
+
+        found = await db.find_entity_by_name("claude code")
+        assert found is not None
+        assert found.id == entity.id
+
+    async def test_find_by_canonical_name_not_found(self, db: ResearchDatabase) -> None:
+        result = await db.find_entity_by_name("nonexistent")
+        assert result is None
+
+    async def test_list_all(self, db: ResearchDatabase) -> None:
+        e1 = Entity.create(name="Python", entity_type=EntityType.TOOL)
+        e2 = Entity.create(name="Andrew", entity_type=EntityType.PERSON)
+        await db.create_entity(e1)
+        await db.create_entity(e2)
+
+        entities = await db.list_entities()
+        assert len(entities) == 2
+
+    async def test_list_by_type(self, db: ResearchDatabase) -> None:
+        e1 = Entity.create(name="Python", entity_type=EntityType.TOOL)
+        e2 = Entity.create(name="Andrew", entity_type=EntityType.PERSON)
+        e3 = Entity.create(name="Vim", entity_type=EntityType.TOOL)
+        await db.create_entity(e1)
+        await db.create_entity(e2)
+        await db.create_entity(e3)
+
+        tools = await db.list_entities(entity_type=EntityType.TOOL)
+        assert len(tools) == 2
+        assert all(e.entity_type == EntityType.TOOL for e in tools)
+
+    async def test_update_summary(self, db: ResearchDatabase) -> None:
+        entity = Entity.create(name="Hestia", entity_type=EntityType.PROJECT)
+        await db.create_entity(entity)
+
+        await db.update_entity_summary(entity.id, "Personal AI assistant")
+        updated = await db.get_entity(entity.id)
+        assert updated is not None
+        assert updated.summary == "Personal AI assistant"
+
+    async def test_update_community(self, db: ResearchDatabase) -> None:
+        entity = Entity.create(name="SQLite", entity_type=EntityType.TOOL)
+        await db.create_entity(entity)
+
+        await db.update_entity_community(entity.id, "comm-1")
+        updated = await db.get_entity(entity.id)
+        assert updated is not None
+        assert updated.community_id == "comm-1"
+
+    async def test_count_all(self, db: ResearchDatabase) -> None:
+        assert await db.count_entities() == 0
+        await db.create_entity(Entity.create(name="A", entity_type=EntityType.CONCEPT))
+        await db.create_entity(Entity.create(name="B", entity_type=EntityType.TOOL))
+        assert await db.count_entities() == 2
+
+    async def test_count_by_type(self, db: ResearchDatabase) -> None:
+        await db.create_entity(Entity.create(name="A", entity_type=EntityType.CONCEPT))
+        await db.create_entity(Entity.create(name="B", entity_type=EntityType.TOOL))
+        await db.create_entity(Entity.create(name="C", entity_type=EntityType.CONCEPT))
+        assert await db.count_entities(entity_type=EntityType.CONCEPT) == 2
+        assert await db.count_entities(entity_type=EntityType.TOOL) == 1
+
+
+@pytest.mark.asyncio
+class TestFactsDatabase:
+    """Database CRUD tests for facts table."""
+
+    async def _make_entities(self, db: ResearchDatabase) -> tuple:
+        """Helper to create source and target entities."""
+        src = Entity.create(name="Andrew", entity_type=EntityType.PERSON)
+        tgt = Entity.create(name="Hestia", entity_type=EntityType.PROJECT)
+        await db.create_entity(src)
+        await db.create_entity(tgt)
+        return src, tgt
+
+    async def test_create_and_get(self, db: ResearchDatabase) -> None:
+        src, tgt = await self._make_entities(db)
+        fact = Fact.create(
+            source_entity_id=src.id,
+            target_entity_id=tgt.id,
+            fact_text="Andrew builds Hestia",
+        )
+        created = await db.create_fact(fact)
+        assert created.id == fact.id
+
+        fetched = await db.get_fact(fact.id)
+        assert fetched is not None
+        assert fetched.fact_text == "Andrew builds Hestia"
+        assert fetched.status == FactStatus.ACTIVE
+        assert fetched.source_entity_id == src.id
+        assert fetched.target_entity_id == tgt.id
+        assert fetched.user_id == "default"
+
+    async def test_get_nonexistent(self, db: ResearchDatabase) -> None:
+        result = await db.get_fact("no-such-id")
+        assert result is None
+
+    async def test_list_by_status(self, db: ResearchDatabase) -> None:
+        src, tgt = await self._make_entities(db)
+        f1 = Fact.create(source_entity_id=src.id, target_entity_id=tgt.id, fact_text="fact 1")
+        f2 = Fact.create(source_entity_id=src.id, target_entity_id=tgt.id, fact_text="fact 2")
+        await db.create_fact(f1)
+        await db.create_fact(f2)
+
+        # Both active
+        active = await db.list_facts(status=FactStatus.ACTIVE)
+        assert len(active) == 2
+
+        # Invalidate one
+        await db.invalidate_fact(f1.id)
+        active_after = await db.list_facts(status=FactStatus.ACTIVE)
+        assert len(active_after) == 1
+        superseded = await db.list_facts(status=FactStatus.SUPERSEDED)
+        assert len(superseded) == 1
+
+    async def test_list_by_source_entity(self, db: ResearchDatabase) -> None:
+        src, tgt = await self._make_entities(db)
+        other = Entity.create(name="Other", entity_type=EntityType.CONCEPT)
+        await db.create_entity(other)
+
+        f1 = Fact.create(source_entity_id=src.id, target_entity_id=tgt.id, fact_text="fact A")
+        f2 = Fact.create(source_entity_id=other.id, target_entity_id=tgt.id, fact_text="fact B")
+        await db.create_fact(f1)
+        await db.create_fact(f2)
+
+        results = await db.list_facts(source_entity_id=src.id)
+        assert len(results) == 1
+        assert results[0].fact_text == "fact A"
+
+    async def test_invalidate_fact(self, db: ResearchDatabase) -> None:
+        src, tgt = await self._make_entities(db)
+        fact = Fact.create(source_entity_id=src.id, target_entity_id=tgt.id, fact_text="old info")
+        await db.create_fact(fact)
+
+        result = await db.invalidate_fact(fact.id)
+        assert result is not None
+        assert result.status == FactStatus.SUPERSEDED
+        assert result.invalid_at is not None
+        assert result.expired_at is not None
+
+    async def test_invalidate_nonexistent(self, db: ResearchDatabase) -> None:
+        result = await db.invalidate_fact("no-such-id")
+        assert result is None
+
+    async def test_find_facts_between(self, db: ResearchDatabase) -> None:
+        src, tgt = await self._make_entities(db)
+        f1 = Fact.create(source_entity_id=src.id, target_entity_id=tgt.id, fact_text="rel 1")
+        f2 = Fact.create(source_entity_id=src.id, target_entity_id=tgt.id, fact_text="rel 2")
+        await db.create_fact(f1)
+        await db.create_fact(f2)
+
+        # Invalidate one
+        await db.invalidate_fact(f1.id)
+
+        # active_only=True (default)
+        active = await db.find_facts_between(src.id, tgt.id)
+        assert len(active) == 1
+
+        # active_only=False
+        all_facts = await db.find_facts_between(src.id, tgt.id, active_only=False)
+        assert len(all_facts) == 2
+
+    async def test_get_facts_valid_at_bitemporal(self, db: ResearchDatabase) -> None:
+        """Bi-temporal query: old superseded fact + current active fact."""
+        src, tgt = await self._make_entities(db)
+
+        # Old fact valid from Jan 1 to Feb 1
+        old_fact = Fact.create(
+            source_entity_id=src.id,
+            target_entity_id=tgt.id,
+            fact_text="Andrew learning Hestia",
+        )
+        old_fact.valid_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        old_fact.invalid_at = datetime(2026, 2, 1, tzinfo=timezone.utc)
+        old_fact.status = FactStatus.SUPERSEDED
+        await db.create_fact(old_fact)
+
+        # Current fact valid from Feb 1, no end
+        new_fact = Fact.create(
+            source_entity_id=src.id,
+            target_entity_id=tgt.id,
+            fact_text="Andrew builds Hestia",
+        )
+        new_fact.valid_at = datetime(2026, 2, 1, tzinfo=timezone.utc)
+        await db.create_fact(new_fact)
+
+        # Query at Jan 15 — should get old fact only
+        jan_facts = await db.get_facts_valid_at(datetime(2026, 1, 15, tzinfo=timezone.utc))
+        assert len(jan_facts) == 1
+        assert jan_facts[0].fact_text == "Andrew learning Hestia"
+
+        # Query at Mar 1 — should get new fact only
+        mar_facts = await db.get_facts_valid_at(datetime(2026, 3, 1, tzinfo=timezone.utc))
+        assert len(mar_facts) == 1
+        assert mar_facts[0].fact_text == "Andrew builds Hestia"
+
+        # Query before any facts
+        early = await db.get_facts_valid_at(datetime(2025, 12, 1, tzinfo=timezone.utc))
+        assert len(early) == 0
+
+    async def test_count_facts(self, db: ResearchDatabase) -> None:
+        src, tgt = await self._make_entities(db)
+        assert await db.count_facts() == 0
+
+        f1 = Fact.create(source_entity_id=src.id, target_entity_id=tgt.id, fact_text="f1")
+        f2 = Fact.create(source_entity_id=src.id, target_entity_id=tgt.id, fact_text="f2")
+        await db.create_fact(f1)
+        await db.create_fact(f2)
+        assert await db.count_facts() == 2
+
+        await db.invalidate_fact(f1.id)
+        assert await db.count_facts(status=FactStatus.ACTIVE) == 1
+        assert await db.count_facts(status=FactStatus.SUPERSEDED) == 1
+
+
+@pytest.mark.asyncio
+class TestCommunitiesDatabase:
+    """Database CRUD tests for communities table."""
+
+    async def test_create_and_get(self, db: ResearchDatabase) -> None:
+        community = Community.create(
+            label="Dev Tools",
+            member_entity_ids=["e1", "e2"],
+            summary="Development tools cluster",
+        )
+        created = await db.create_community(community)
+        assert created.id == community.id
+
+        fetched = await db.get_community(community.id)
+        assert fetched is not None
+        assert fetched.label == "Dev Tools"
+        assert fetched.member_entity_ids == ["e1", "e2"]
+        assert fetched.summary == "Development tools cluster"
+        assert fetched.user_id == "default"
+
+    async def test_get_nonexistent(self, db: ResearchDatabase) -> None:
+        result = await db.get_community("no-such-id")
+        assert result is None
+
+    async def test_list(self, db: ResearchDatabase) -> None:
+        c1 = Community.create(label="Group A")
+        c2 = Community.create(label="Group B")
+        await db.create_community(c1)
+        await db.create_community(c2)
+
+        communities = await db.list_communities()
+        assert len(communities) == 2
+
+    async def test_update_summary(self, db: ResearchDatabase) -> None:
+        community = Community.create(label="AI Stack")
+        await db.create_community(community)
+
+        await db.update_community_summary(community.id, "AI and ML tools")
+        updated = await db.get_community(community.id)
+        assert updated is not None
+        assert updated.summary == "AI and ML tools"
+
+    async def test_delete_all(self, db: ResearchDatabase) -> None:
+        c1 = Community.create(label="Group A")
+        c2 = Community.create(label="Group B")
+        await db.create_community(c1)
+        await db.create_community(c2)
+
+        assert len(await db.list_communities()) == 2
+        await db.delete_all_communities()
+        assert len(await db.list_communities()) == 0
