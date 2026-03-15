@@ -20,6 +20,7 @@ class NodeType(str, Enum):
     PRINCIPLE = "principle"
     FACT = "fact"
     COMMUNITY = "community"
+    EPISODE = "episode"
 
 
 class EdgeType(str, Enum):
@@ -496,6 +497,75 @@ class Community:
             created_at=now,
             updated_at=now,
             user_id=user_id,
+        )
+
+
+@dataclass
+class EpisodicNode:
+    """
+    A conversation episode in the knowledge graph.
+
+    Links a session summary to the entities and facts mentioned,
+    providing temporal 'when did we discuss X?' queries.
+    """
+    id: str
+    session_id: str
+    summary: str
+    user_id: str = "default"
+    entity_ids: List[str] = field(default_factory=list)
+    fact_ids: List[str] = field(default_factory=list)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize for API response. camelCase keys for Swift frontend."""
+        return {
+            "id": self.id,
+            "sessionId": self.session_id,
+            "summary": self.summary,
+            "userId": self.user_id,
+            "entityIds": self.entity_ids,
+            "factIds": self.fact_ids,
+            "createdAt": self.created_at.isoformat() if self.created_at else None,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "EpisodicNode":
+        """Deserialize from camelCase dict."""
+        created_at = None
+        if data.get("createdAt"):
+            try:
+                created_at = datetime.fromisoformat(data["createdAt"])
+            except (ValueError, TypeError):
+                pass
+
+        return cls(
+            id=data["id"],
+            session_id=data["sessionId"],
+            summary=data["summary"],
+            user_id=data.get("userId", "default"),
+            entity_ids=data.get("entityIds", []),
+            fact_ids=data.get("factIds", []),
+            created_at=created_at or datetime.now(timezone.utc),
+        )
+
+    @classmethod
+    def create(
+        cls,
+        session_id: str,
+        summary: str,
+        entity_ids: Optional[List[str]] = None,
+        fact_ids: Optional[List[str]] = None,
+        user_id: str = "default",
+    ) -> "EpisodicNode":
+        """Factory method with auto-generated UUID and timestamps."""
+        return cls(
+            id=str(uuid.uuid4()),
+            session_id=session_id,
+            summary=summary,
+            user_id=user_id,
+            entity_ids=entity_ids or [],
+            fact_ids=fact_ids or [],
+            created_at=datetime.now(timezone.utc),
         )
 
 

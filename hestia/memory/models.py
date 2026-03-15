@@ -49,6 +49,8 @@ class MemorySource(str, Enum):
     REMINDERS = "reminders"
     NOTES = "notes"
     HEALTH = "health"
+    CLAUDE_HISTORY = "claude_history"
+    OPENAI_HISTORY = "openai_history"
 
 
 @dataclass

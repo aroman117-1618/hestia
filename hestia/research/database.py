@@ -19,6 +19,7 @@ from .models import (
     Community,
     Entity,
     EntityType,
+    EpisodicNode,
     Fact,
     FactStatus,
     Principle,
@@ -113,6 +114,19 @@ class ResearchDatabase(BaseDatabase):
                 user_id TEXT NOT NULL DEFAULT 'default',
                 created_at TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS episodic_nodes (
+                id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                user_id TEXT NOT NULL DEFAULT 'default',
+                summary TEXT NOT NULL,
+                entity_ids TEXT NOT NULL DEFAULT '[]',
+                fact_ids TEXT NOT NULL DEFAULT '[]',
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_episodic_session ON episodic_nodes(session_id);
+            CREATE INDEX IF NOT EXISTS idx_episodic_user ON episodic_nodes(user_id);
+            CREATE INDEX IF NOT EXISTS idx_episodic_created ON episodic_nodes(created_at);
         """)
 
     # ── Graph Cache ─────────────────────────────────────────
@@ -712,6 +726,121 @@ class ResearchDatabase(BaseDatabase):
             user_id=row[4],
             created_at=created_at,
         )
+
+
+    # ── Episodic Nodes ─────────────────────────────────────
+
+    async def store_episodic_node(self, node: EpisodicNode) -> None:
+        """Insert an episodic node (conversation summary linked to entities/facts)."""
+        if not self._connection:
+            raise RuntimeError("Database not initialized")
+        await self._connection.execute(
+            """INSERT OR REPLACE INTO episodic_nodes
+               (id, session_id, user_id, summary, entity_ids, fact_ids, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (
+                node.id,
+                node.session_id,
+                node.user_id,
+                node.summary,
+                json.dumps(node.entity_ids),
+                json.dumps(node.fact_ids),
+                node.created_at.isoformat() if node.created_at else datetime.now(timezone.utc).isoformat(),
+            ),
+        )
+        await self._connection.commit()
+
+    async def get_episodic_nodes(
+        self,
+        user_id: str = "default",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[EpisodicNode]:
+        """List episodic nodes, newest first."""
+        if not self._connection:
+            return []
+        cursor = await self._connection.execute(
+            "SELECT * FROM episodic_nodes WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            (user_id, limit, offset),
+        )
+        rows = await cursor.fetchall()
+        return [self._row_to_episodic_node(row) for row in rows]
+
+    async def get_episodic_nodes_for_entity(
+        self, entity_id: str, user_id: str = "default",
+    ) -> List[EpisodicNode]:
+        """Find episodes that mention a specific entity via JSON array search."""
+        if not self._connection:
+            return []
+        # Use json_each to search within the JSON array
+        cursor = await self._connection.execute(
+            """SELECT DISTINCT e.* FROM episodic_nodes e, json_each(e.entity_ids) j
+               WHERE j.value = ? AND e.user_id = ?
+               ORDER BY e.created_at DESC""",
+            (entity_id, user_id),
+        )
+        rows = await cursor.fetchall()
+        return [self._row_to_episodic_node(row) for row in rows]
+
+    def _row_to_episodic_node(self, row: aiosqlite.Row) -> EpisodicNode:
+        """Convert a database row to an EpisodicNode."""
+        # Columns: id, session_id, user_id, summary, entity_ids, fact_ids, created_at
+        created_at = datetime.now(timezone.utc)
+        try:
+            created_at = datetime.fromisoformat(row[6])
+        except (ValueError, TypeError, IndexError):
+            pass
+
+        return EpisodicNode(
+            id=row[0],
+            session_id=row[1],
+            user_id=row[2],
+            summary=row[3],
+            entity_ids=json.loads(row[4]) if row[4] else [],
+            fact_ids=json.loads(row[5]) if row[5] else [],
+            created_at=created_at,
+        )
+
+    # ── Temporal Fact Queries ─────────────────────────────
+
+    async def get_facts_at_time(
+        self,
+        point_in_time: datetime,
+        subject: Optional[str] = None,
+        user_id: str = "default",
+        limit: int = 100,
+    ) -> List[Fact]:
+        """Get facts that were valid at a specific point in time.
+
+        A fact is valid at point_in_time if:
+        - valid_at <= point_in_time
+        - invalid_at IS NULL OR invalid_at > point_in_time
+        - expired_at IS NULL (not retracted)
+        """
+        if not self._connection:
+            return []
+
+        pit_str = point_in_time.isoformat()
+        query = """
+            SELECT f.* FROM facts f
+            JOIN entities e ON f.source_entity_id = e.id
+            WHERE f.valid_at <= ?
+              AND (f.invalid_at IS NULL OR f.invalid_at > ?)
+              AND f.expired_at IS NULL
+              AND f.user_id = ?
+        """
+        params: List[Any] = [pit_str, pit_str, user_id]
+
+        if subject:
+            query += " AND e.name LIKE ?"
+            params.append(f"%{subject}%")
+
+        query += " ORDER BY f.valid_at DESC LIMIT ?"
+        params.append(limit)
+
+        cursor = await self._connection.execute(query, params)
+        rows = await cursor.fetchall()
+        return [self._row_to_fact(row) for row in rows]
 
 
 async def get_research_database(db_path: Optional[Path] = None) -> "ResearchDatabase":
