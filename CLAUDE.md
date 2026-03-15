@@ -395,7 +395,7 @@ Hook source: `scripts/pre-push.sh` (symlinked from `.git/hooks/pre-push`). Bypas
 | Discovery | `/discovery` | Deep research with SWOT, argue/refute, priority matrix |
 | Plan Audit | `/plan-audit` | CISO/CTO/CPO critique of proposed plans |
 | Codebase Audit | `/codebase-audit` | Full-stack health assessment with executive panel |
-| Retrospective | `/retrospective` | Session learning audit, friction analysis, optimization |
+| Retrospective | `/retrospective` | [DEPRECATED] Merged into `/handoff` Phase 3 |
 
 ### Operational (day-to-day development)
 
@@ -410,7 +410,7 @@ Hook source: `scripts/pre-push.sh` (symlinked from `.git/hooks/pre-push`). Bypas
 ### Sprint Workflow (typical sequence)
 
 ```
-/discovery [topic]  →  /plan-audit  →  /scaffold or manual  →  /retrospective  →  /handoff
+/discovery [topic]  →  /plan-audit  →  /scaffold or manual  →  /handoff
 ```
 
 Definitions: `.claude/skills/`. Output saved to `docs/discoveries/`, `docs/plans/`, `docs/audits/`, `docs/retrospectives/`.

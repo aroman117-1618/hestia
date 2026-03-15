@@ -1,6 +1,6 @@
 ---
 paths:
-  - "hestia/**/*.py"
+  - "hestia/hestia/**/*.py"
 ---
 
 # Multi-User Readiness Rules

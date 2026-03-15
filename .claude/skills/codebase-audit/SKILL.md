@@ -23,7 +23,7 @@ Run a comprehensive, critical audit of the Hestia codebase. This is not a style 
 ## Phase 1: Scan
 
 1. Read `CLAUDE.md` for current project state, conventions, and architecture
-2. Use @hestia-explorer (Task with subagent_type=hestia-explorer) to map the current codebase state
+2. Use @hestia-explorer (Agent with subagent_type=hestia-explorer) to map the current codebase state
 3. Create a TaskCreate plan tracking each audit section below
 
 ## Phase 2: SWOT Analysis (Codebase as a Whole)
@@ -155,37 +155,6 @@ Cross-cutting assessment:
 - Check for stale files that should be archived to `docs/archive/`
 - Verify no debug artifacts, scratch files, or temporary outputs left behind
 
-## Phase 9: Multi-User & Multi-Device Readiness Assessment
-
-Assess how ready the codebase is for multi-user and multi-device scenarios:
-
-### Data Isolation
-- Are SQLite tables scoped by `user_id`? Which tables lack user scoping?
-- Are ChromaDB collections user-scoped or global?
-- Is the Keychain model per-user or per-device?
-- Are file paths (data/, logs/) user-isolated?
-
-### API Contract
-- Are all endpoints user-scoped via JWT claims?
-- Do any endpoints assume single-user (hardcoded paths, global state)?
-- Is `device_id` properly treated as sub-identity of `user_id`?
-
-### Infrastructure
-- Can the server handle concurrent users? Any shared mutable state?
-- Are sessions properly scoped per user?
-- Is memory/context properly isolated between users?
-
-### Experience Continuity
-- Can a user switch devices seamlessly?
-- Are preferences and settings portable?
-- Is conversation history tied to user or device?
-
-### Readiness Rating
-- **Ready**: Multi-user would work today
-- **Close**: Minor changes needed (add user_id columns, scope queries)
-- **Significant work**: Major refactoring needed (describe what)
-- **Not designed for it**: Fundamental architecture changes required
-
 ## Output Format
 
 Save the audit to `docs/audits/codebase-audit-[date].md` and present it:
@@ -253,16 +222,6 @@ Save the audit to `docs/audits/codebase-audit-[date].md` and present it:
 - Stale TODOs: [count]
 - Archive candidates: [list]
 
-## Multi-User Readiness
-**Rating:** Ready / Close / Significant Work / Not Designed For It
-| Area | Status | Gap |
-|------|--------|-----|
-| SQLite user scoping | [status] | [gap] |
-| ChromaDB isolation | [status] | [gap] |
-| API user scoping | [status] | [gap] |
-| Session isolation | [status] | [gap] |
-| Cross-device continuity | [status] | [gap] |
-
 ## Summary
 - **CISO:** [rating] — [one-line summary]
 - **CTO:** [rating] — [one-line summary]
@@ -271,7 +230,6 @@ Save the audit to `docs/audits/codebase-audit-[date].md` and present it:
 - Simplification opportunities: N
 - Consistency violations: N
 - Documentation drift: N items
-- Multi-user readiness: [rating]
 ```
 
 Be specific. File paths and line numbers for every finding. Concrete fix proposals, not vague suggestions.

@@ -1,6 +1,6 @@
 ---
 name: handoff
-description: Session wrap-up — document work, spot-check docs, clean workspace, prepare for the next session to pick up seamlessly
+description: Session wrap-up — document work, spot-check docs, process retro, clean workspace, prepare for the next session to pick up seamlessly
 user_invocable: true
 allowed_tools:
   - Bash
@@ -27,7 +27,7 @@ Run these in parallel:
 1. `git log --oneline -10` — recent commits
 2. `git status --short` — uncommitted changes
 3. `git diff --stat` — what's modified
-4. `source .venv/bin/activate && python -m pytest --tb=line -q 2>&1 | tail -15` — test status
+4. `source .venv/bin/activate && python -m pytest --tb=line -q --timeout=30 2>&1 | tail -15` — test status
 5. `lsof -i :8443 | grep LISTEN || echo 'No server running'` — server state
 
 Also review:
@@ -50,14 +50,38 @@ Then verify these files still reflect reality:
 
 If anything is stale, fix it now (use Edit tool). Don't leave documentation drift for the next session.
 
-## Phase 3: Workspace Cleanup
+## Phase 3: Process Retro (Quick)
+
+Analyze the session for process improvements. This replaces the standalone `/retrospective` — capture the high-value learnings without the overhead.
+
+### 3a: Config Gap Scan
+Review the conversation for problems that better configuration would have prevented:
+- Errors that required manual debugging (should a hook catch this?)
+- Information searched for that should be in CLAUDE.md or agent definitions
+- Tasks done manually that could be automated with hooks or skills
+- For each gap: **What happened** → **Root cause** → **Fix** (file + change)
+
+### 3b: First-Pass Success
+Quick assessment of development efficiency:
+- How many tasks were attempted vs. completed correctly on first try?
+- What caused rework? (wrong assumption, missing context, tool failure)
+- **Top blocker** to first-pass success and proposed mitigation
+
+### 3c: Agent Orchestration
+- Were @hestia-explorer, @hestia-tester, @hestia-reviewer used when they should have been?
+- Were there missed delegation or parallelism opportunities?
+- Any agent prompts that were too vague and wasted turns?
+
+Record findings in the SESSION_HANDOFF.md under a "Process Learnings" section.
+
+## Phase 4: Workspace Cleanup
 
 1. **Stale files** — any temporary files, scratch files, or debug artifacts to clean up?
 2. **Uncommitted changes** — should they be committed, stashed, or discarded? (Ask Andrew if unclear)
 3. **Orphaned branches** — any local branches that are no longer needed?
 4. **Server state** — is the server in a good state, or should it be restarted before handoff?
 
-## Phase 4: Write Handoff
+## Phase 5: Write Handoff
 
 Write `SESSION_HANDOFF.md` in the project root with this exact structure:
 
@@ -90,6 +114,11 @@ Write `SESSION_HANDOFF.md` in the project root with this exact structure:
 - [Things the next session might trip over]
 - [Environment state that's non-obvious]
 
+## Process Learnings
+- [Config gaps found and proposed fixes]
+- [First-pass success rate and top blocker]
+- [Agent orchestration observations]
+
 ## Next Step
 [The EXACT next action. Not "continue working on X" — specific like:]
 [- "Run `python -m pytest tests/test_health.py -v` to reproduce the 3 failing tests"]
@@ -97,22 +126,20 @@ Write `SESSION_HANDOFF.md` in the project root with this exact structure:
 [- "Then run full suite to verify no regressions"]
 ```
 
-## Phase 5: Update SPRINT.md
+## Phase 6: Update SPRINT.md
 
 If `SPRINT.md` exists, update phase markers for any topics worked on this session:
 - Move topics to their current phase (Research → Plan → Execute → Review → Done)
 - Add any new topics discovered during the session
 - Note any blockers
 
-## Phase 6: Update CLAUDE.md (if needed)
+## Phase 7: Update CLAUDE.md (if needed)
 
 Only update `CLAUDE.md` if:
 - Workstream status changed (e.g., "IN PROGRESS" → "COMPLETE")
 - Test counts changed significantly
 - New modules or endpoints were added
 - Project structure changed
-
-Update the "Context Continuity" section with a one-line note about this session.
 
 ## Verification
 
@@ -122,4 +149,5 @@ Before finishing, confirm:
 - [ ] Workspace is clean (no stale files, no ambiguous uncommitted changes)
 - [ ] SPRINT.md phases are current
 - [ ] CLAUDE.md status is accurate
+- [ ] Process learnings are captured (not just what happened, but how to improve)
 - [ ] The "Next Step" in handoff is specific enough that a fresh session could start immediately

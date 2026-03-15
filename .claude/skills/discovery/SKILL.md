@@ -35,7 +35,7 @@ The user should provide a topic, hypothesis, or question when invoking this skil
 ## Phase 2: Research — Argue & Refute
 
 ### 2.1 Initial Investigation
-- Use @hestia-explorer (Task with subagent_type=hestia-explorer) to investigate relevant codebase context
+- Use @hestia-explorer (Agent with subagent_type=hestia-explorer) to investigate relevant codebase context
 - Use WebSearch for external research — industry practices, documentation, prior art
 - Gather facts before forming opinions
 

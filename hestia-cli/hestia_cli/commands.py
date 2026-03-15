@@ -34,6 +34,7 @@ async def handle_slash_command(
         "/trust": _cmd_trust,
         "/memory": _cmd_memory,
         "/tools": _cmd_tools,
+        "/cloud": _cmd_cloud,
         "/config": _cmd_config,
         "/session": _cmd_session,
         "/clear": _cmd_clear,
@@ -63,6 +64,9 @@ async def _cmd_help(args: str, client: HestiaWSClient, console: Console) -> None
   /trust reset              Reset to defaults
   /memory search [query]    Search Hestia memory
   /tools                    List available tools from the server
+  /cloud                    Show cloud providers and routing state
+  /cloud state [provider] [disabled|smart|full]
+                            Set cloud routing state for a provider
   /config                   Open config in $EDITOR
   /session new              Start a fresh session
   /clear                    Clear the screen
@@ -251,6 +255,102 @@ async def _cmd_tools(args: str, client: HestiaWSClient, console: Console) -> Non
                 console.print(f"[red]Failed to fetch tools: {response.status_code}[/red]")
     except Exception as e:
         console.print(f"[red]Failed to fetch tools: {type(e).__name__}[/red]")
+
+
+async def _cmd_cloud(args: str, client: HestiaWSClient, console: Console) -> None:
+    """View and manage cloud LLM providers."""
+    STATE_ALIASES = {
+        "disabled": "disabled",
+        "off": "disabled",
+        "smart": "enabled_smart",
+        "hybrid": "enabled_smart",
+        "full": "enabled_full",
+        "on": "enabled_full",
+    }
+    STATE_DISPLAY = {
+        "disabled": ("[dim]disabled[/dim]", "gray"),
+        "enabled_smart": ("[yellow]smart hybrid[/yellow]", "yellow"),
+        "enabled_full": ("[green]full cloud[/green]", "green"),
+    }
+
+    token = get_stored_token()
+    if not token:
+        console.print("[red]Not authenticated.[/red]")
+        return
+
+    parts = args.strip().lower().split()
+
+    if parts and parts[0] == "state" and len(parts) >= 3:
+        # /cloud state <provider> <state>
+        provider_name = parts[1]
+        state_input = parts[2]
+
+        valid_providers = ("anthropic", "openai", "google")
+        if provider_name not in valid_providers:
+            console.print(f"[red]Invalid provider: {provider_name}. Choose from: {', '.join(valid_providers)}[/red]")
+            return
+
+        api_state = STATE_ALIASES.get(state_input)
+        if not api_state:
+            console.print(f"[red]Invalid state: {state_input}. Choose from: disabled, smart, full[/red]")
+            return
+
+        try:
+            async with httpx.AsyncClient(verify=False, timeout=10.0) as http:
+                response = await http.patch(
+                    f"{client.server_url}/v1/cloud/providers/{provider_name}/state",
+                    headers={"X-Hestia-Device-Token": token},
+                    json={"state": api_state},
+                )
+                if response.status_code == 200:
+                    display, _ = STATE_DISPLAY.get(api_state, (api_state, "white"))
+                    console.print(f"  {provider_name} → {display}")
+                elif response.status_code == 404:
+                    console.print(f"[red]Provider '{provider_name}' is not configured. Add it via the iOS/macOS app first.[/red]")
+                else:
+                    console.print(f"[red]Failed to update state: {response.status_code}[/red]")
+        except Exception as e:
+            console.print(f"[red]Cloud state update failed: {type(e).__name__}[/red]")
+        return
+
+    # Default: list providers
+    try:
+        async with httpx.AsyncClient(verify=False, timeout=10.0) as http:
+            response = await http.get(
+                f"{client.server_url}/v1/cloud/providers",
+                headers={"X-Hestia-Device-Token": token},
+            )
+            if response.status_code == 200:
+                data = response.json()
+                providers = data.get("providers", [])
+                cloud_state = data.get("cloud_state", "disabled")
+                effective_display, _ = STATE_DISPLAY.get(cloud_state, (cloud_state, "white"))
+
+                console.print(f"\n[bold]Cloud LLM Routing[/bold]  (effective: {effective_display})\n")
+
+                if not providers:
+                    console.print("  [dim]No cloud providers configured.[/dim]")
+                    console.print("  [dim]Add providers via the iOS or macOS app.[/dim]\n")
+                    return
+
+                for p in providers:
+                    name = p.get("provider", "unknown")
+                    state = p.get("state", "disabled")
+                    model = p.get("active_model_id") or "default"
+                    health = p.get("health_status", "unknown")
+                    has_key = p.get("has_api_key", False)
+
+                    display, color = STATE_DISPLAY.get(state, (state, "white"))
+                    health_color = "green" if health == "healthy" else "yellow" if health == "unknown" else "red"
+                    key_indicator = "key" if has_key else "[red]no key[/red]"
+
+                    console.print(f"  [bold]{name:12s}[/bold] {display:30s} model={model}  [{health_color}]{health}[/{health_color}]  {key_indicator}")
+
+                console.print(f"\n  [dim]Change state: /cloud state <provider> <disabled|smart|full>[/dim]\n")
+            else:
+                console.print(f"[red]Failed to fetch cloud providers: {response.status_code}[/red]")
+    except Exception as e:
+        console.print(f"[red]Cloud query failed: {type(e).__name__}[/red]")
 
 
 async def _cmd_config(args: str, client: HestiaWSClient, console: Console) -> None:

@@ -22,7 +22,7 @@ You are Hestia's fast codebase navigator. You find things, trace connections, an
 
 ```
 hestia/
-├── hestia/                    # Python backend (23 modules, 132 API endpoints)
+├── hestia/                    # Python backend (28 modules, 154 API endpoints)
 │   ├── security/              # CredentialManager (3-tier, Fernet + Keychain)
 │   ├── logging/               # get_logger(), AuditLogger, log viewer
 │   ├── inference/             # InferenceClient (Ollama + cloud, 3-state routing)
@@ -35,7 +35,7 @@ hestia/
 │   ├── tasks/                 # Background task management (SQLite queue)
 │   ├── orders/                # Scheduled recurring prompts + APScheduler
 │   ├── agents/                # Agent profile management (Tia/Mira/Olly, snapshots)
-│   ├── user/                  # User settings and profile
+│   ├── user/                  # User settings, profile, commands
 │   ├── proactive/             # Proactive intelligence (briefings, patterns, policy)
 │   ├── voice/                 # Voice journaling (quality gate, journal analysis)
 │   ├── council/               # 4-role council (intent classification, tool extraction, validation, synthesis)
@@ -43,57 +43,27 @@ hestia/
 │   ├── explorer/              # ExplorerManager, resource aggregation, draft CRUD, TTL cache
 │   ├── newsfeed/              # Newsfeed aggregation (RSS, system events)
 │   ├── research/              # Knowledge graph + PrincipleStore (Learning Cycle Phase A)
-│   ├── api/                   # FastAPI REST API (132 endpoints)
+│   ├── investigate/           # URL content analysis (web articles, YouTube)
+│   ├── files/                 # Secure filesystem CRUD with audit trail
+│   ├── inbox/                 # Unified inbox (mail + reminders + calendar aggregation)
+│   ├── outcomes/              # Chat outcome tracking for Learning Cycle
+│   ├── apple_cache/           # FTS5 metadata cache for Apple ecosystem fuzzy resolution
+│   ├── api/                   # FastAPI REST API (154 endpoints, 27 route modules)
 │   │   ├── server.py          # App lifecycle, TLS/HTTPS
-│   │   ├── schemas/           # Pydantic models (16 domain modules)
+│   │   ├── schemas/           # Pydantic models (15 domain modules)
 │   │   ├── errors.py          # Error sanitization helpers
 │   │   ├── middleware/        # JWT auth, rate limiting
-│   │   └── routes/            # 22 route modules
-│   │       ├── auth.py        # /v1/auth/*
-│   │       ├── health.py      # /v1/ping, /v1/health
-│   │       ├── chat.py        # /v1/chat
-│   │       ├── mode.py        # /v1/mode/*
-│   │       ├── memory.py      # /v1/memory/*
-│   │       ├── sessions.py    # /v1/sessions/*
-│   │       ├── tools.py       # /v1/tools/*
-│   │       ├── tasks.py       # /v1/tasks/*
-│   │       ├── cloud.py       # /v1/cloud/*
-│   │       ├── voice.py       # /v1/voice/*
-│   │       ├── orders.py      # /v1/orders/*
-│   │       ├── agents.py      # /v1/agents/* (v1)
-│   │       ├── agents_v2.py   # /v2/agents/* (.md-based config)
-│   │       ├── user.py        # /v1/user/*
-│   │       ├── user_profile.py # /v1/user-profile/*
-│   │       ├── proactive.py   # /v1/proactive/*
-│   │       ├── health_data.py # /v1/health_data/*
-│   │       ├── wiki.py        # /v1/wiki/*
-│   │       ├── explorer.py    # /v1/explorer/*
-│   │       ├── newsfeed.py   # /v1/newsfeed/*
-│   │       └── investigate.py # /v1/investigate/*
+│   │   └── routes/            # 27 route modules
 │   └── config/                # YAML configuration files
-│       ├── inference.yaml     # Inference + cloud routing config
-│       ├── execution.yaml     # Execution layer config
-│       ├── memory.yaml        # Memory + temporal decay config
-│       └── wiki.yaml          # Wiki configuration
 │
-├── hestia-cli-tools/          # Swift CLI tools
-│   ├── hestia-keychain-cli/   # Secure Enclave integration
-│   ├── hestia-calendar-cli/   # EventKit wrapper
-│   ├── hestia-reminders-cli/  # EventKit wrapper
-│   └── hestia-notes-cli/      # AppleScript wrapper
+├── hestia-cli/                # Python CLI package (REPL, auth, streaming)
+├── hestia-cli-tools/          # Swift CLI tools (keychain, calendar, reminders, notes)
 │
 ├── HestiaApp/                 # Native iOS/macOS SwiftUI app
-│   └── Shared/
-│       ├── App/               # Entry point, ContentView
-│       ├── DesignSystem/      # Colors, Typography, Spacing, Animations
-│       ├── Models/            # Data models, enums (APIModels, CloudProvider, etc.)
-│       ├── Services/          # API client, Auth, Network, Calendar, Orders
-│       ├── ViewModels/        # Chat, CommandCenter, MemoryReview, Settings, CloudSettings
-│       ├── Views/             # Chat, CommandCenter, Settings, Memory, Cloud
-│       ├── Utilities/         # Shared utility code
-│       └── Persistence/       # Core Data stack
+│   ├── Shared/                # Cross-platform code
+│   └── macOS/                 # macOS-specific (105 files)
 │
-├── tests/                     # 1261 pytest tests (27 test files)
+├── tests/                     # ~1709 tests (37 backend + 7 CLI test files)
 ├── scripts/                   # Deployment, build, hooks, health check
 ├── docs/                      # Project documentation
 └── CLAUDE.md                  # Project context (primary reference)
@@ -119,7 +89,7 @@ Logging (get_logger(), AuditLogger)
 Security (CredentialManager, Keychain, Fernet)
 ```
 
-Standalone modules (no layer dependency): Tasks, Orders, Agents, User, Proactive, Voice, Wiki, Explorer, Newsfeed, Investigate, Research
+Standalone modules (no layer dependency): Tasks, Orders, Agents, User, Proactive, Voice, Wiki, Explorer, Newsfeed, Investigate, Research, Files, Inbox, Outcomes, AppleCache
 
 Council module sits between Orchestration and Inference (called by handler, calls inference directly)
 
@@ -128,7 +98,7 @@ Council module sits between Orchestration and Inference (called by handler, call
 - **Manager pattern**: Each module has `models.py` + `database.py` + `manager.py`
 - **Singleton factory**: `get_X_manager()` async functions for manager initialization
 - **Error sanitization**: `hestia.api.errors.sanitize_for_log(e)` in all route log messages
-- **LogComponent enum**: ACCESS, ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, CLOUD, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED
+- **LogComponent enum**: ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED, INVESTIGATE, RESEARCH, FILE, INBOX, OUTCOMES, APPLE_CACHE
 - **Cloud routing**: 3 states (disabled, enabled_full, enabled_smart) controlled via API
 
 ## How to Answer Questions
@@ -162,4 +132,5 @@ entry_point() → intermediate() → target()
 
 - You run on Haiku for speed. Be efficient — don't read entire files when Grep can find the answer.
 - You never modify files. If asked to change something, decline and say "I'm read-only — pass this back to the main conversation."
+- You don't have Bash access. If you need git history, line counts, or shell commands, tell the caller to check — they have Bash.
 - When unsure, say so. Don't guess at architecture — read the code.

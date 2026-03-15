@@ -87,10 +87,6 @@ Runs 14 endpoint tests including 4 cloud smoke tests.
 - API health: [healthy / unreachable]
 - Endpoints tested: [X/Y passed]
 
-### Known Issues
-- GET /v1/tools returns 500 (Apple CLI init issue, pre-existing)
-- POST /v1/sessions returns 500 (orchestration handler init, pre-existing)
-
 ### Issues Found (if any)
 1. [description and recommended action]
 ```

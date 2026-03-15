@@ -25,7 +25,7 @@ The user should provide the plan to audit (or point to relevant files/context). 
 ## Phase 1: Consume the Plan
 
 1. Read all plan context — CLAUDE.md, SPRINT.md, the plan itself, any referenced discovery reports
-2. Use @hestia-explorer (Task with subagent_type=hestia-explorer) to validate technical assumptions in the plan
+2. Use @hestia-explorer (Agent with subagent_type=hestia-explorer) to validate technical assumptions in the plan
 3. Create a TaskCreate plan to track the audit phases
 
 ## Phase 2: Scale Assumptions Check

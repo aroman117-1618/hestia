@@ -11,7 +11,7 @@ allowed_tools:
   - Edit
   - Grep
   - Glob
-  - Task
+  - Agent
   - TaskCreate
   - TaskUpdate
   - TaskList
@@ -26,7 +26,7 @@ The user should provide a feature description when invoking this skill. If not p
 ## Phase 1: Research & Design
 
 1. Read `CLAUDE.md` to understand project conventions (manager pattern, logging, error handling, etc.)
-2. Use @hestia-explorer (Task with subagent_type=hestia-explorer) to find similar existing modules for reference
+2. Use @hestia-explorer (Agent with subagent_type=hestia-explorer) to find similar existing modules for reference
 3. Identify the vertical slices needed. For a typical Hestia module, this is:
    - **Models**: `models.py` — Pydantic/dataclass definitions
    - **Database**: `database.py` — SQLite/ChromaDB persistence
@@ -41,12 +41,12 @@ The user should provide a feature description when invoking this skill. If not p
 
 ## Phase 2: Parallel Build
 
-Launch parallel Task sub-agents for independent slices:
+Launch parallel Agent sub-agents for independent slices. **Use `isolation: "worktree"` for all writing agents** to prevent conflicts between parallel writers:
 
-- **Agent 1** (hestia-explorer or general-purpose): Build models + database layer with unit tests
-- **Agent 2** (general-purpose): Build manager layer with unit tests
-- **Agent 3** (general-purpose): Build route layer with integration tests
-- **Agent 4** (general-purpose): Build iOS files if applicable
+- **Agent 1** (hestia-explorer or general-purpose): Build models + database layer with unit tests — `isolation: "worktree"`
+- **Agent 2** (general-purpose): Build manager layer with unit tests — `isolation: "worktree"`
+- **Agent 3** (general-purpose): Build route layer with integration tests — `isolation: "worktree"`
+- **Agent 4** (general-purpose): Build iOS files if applicable — `isolation: "worktree"`
 
 Each agent MUST:
 - Follow Hestia conventions from CLAUDE.md (type hints, async/await, get_logger(), sanitize_for_log)
@@ -56,11 +56,13 @@ Each agent MUST:
 
 Slices that depend on each other (e.g., routes depend on manager) should be built sequentially, not in parallel.
 
+After worktree agents complete, merge their changes into the main branch and resolve any conflicts.
+
 ## Phase 3: Integrate & Test
 
-1. Run the full test suite: `python -m pytest --tb=short -q`
+1. Run the full test suite: `python -m pytest --tb=short -q --timeout=30`
 2. Fix any integration issues (import errors, type mismatches, missing dependencies)
-3. Run @hestia-reviewer (Task with subagent_type=hestia-reviewer) on all new files
+3. Run @hestia-reviewer (Agent with subagent_type=hestia-reviewer, prompt starts with "MODE: code-audit") on all new files
 4. Verify the new module checklist from CLAUDE.md:
    - [ ] `LogComponent` enum updated
    - [ ] `auto-test.sh` mapping added
