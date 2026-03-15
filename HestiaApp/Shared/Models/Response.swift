@@ -46,6 +46,84 @@ struct ToolCallInfo: Codable, Identifiable {
     let result: String?
 }
 
+// MARK: - SSE Streaming Events
+
+/// Events received from the SSE streaming chat endpoint (POST /v1/chat/stream).
+/// Each event corresponds to a stage in the Hestia response pipeline.
+enum ChatStreamEvent {
+    /// Pipeline progress update (preparing, inference, tools)
+    case status(stage: String, detail: String)
+    /// Streaming response token — append to the live message
+    case token(content: String, requestId: String)
+    /// Tool execution completed
+    case toolResult(callId: String, toolName: String, status: String, result: String?)
+    /// Signal to discard previously streamed tokens (tool re-synthesis)
+    case clearStream
+    /// Metadata insight (cloud routing, synthesis info)
+    case insight(content: String, key: String)
+    /// Final event — contains metrics, mode, session ID
+    case done(requestId: String, metrics: ResponseMetrics?, mode: String, sessionId: String?)
+    /// Error during processing
+    case error(code: String, message: String)
+}
+
+/// Parse an SSE event from its type string and JSON data string.
+/// Returns nil for unrecognized event types (forward-compatible).
+func parseChatStreamEvent(type: String, data: String) -> ChatStreamEvent? {
+    guard let jsonData = data.data(using: .utf8),
+          let dict = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+        return nil
+    }
+
+    switch type {
+    case "status":
+        guard let stage = dict["stage"] as? String,
+              let detail = dict["detail"] as? String else { return nil }
+        return .status(stage: stage, detail: detail)
+
+    case "token":
+        guard let content = dict["content"] as? String,
+              let requestId = dict["request_id"] as? String else { return nil }
+        return .token(content: content, requestId: requestId)
+
+    case "tool_result":
+        guard let callId = dict["call_id"] as? String,
+              let toolName = dict["tool_name"] as? String,
+              let status = dict["status"] as? String else { return nil }
+        let result = dict["result"] as? String
+        return .toolResult(callId: callId, toolName: toolName, status: status, result: result)
+
+    case "clear_stream":
+        return .clearStream
+
+    case "insight":
+        guard let content = dict["content"] as? String,
+              let key = dict["insight_key"] as? String else { return nil }
+        return .insight(content: content, key: key)
+
+    case "done":
+        let requestId = dict["request_id"] as? String ?? ""
+        let mode = dict["mode"] as? String ?? "tia"
+        let sessionId = dict["session_id"] as? String
+        var metrics: ResponseMetrics?
+        if let metricsDict = dict["metrics"] as? [String: Any] {
+            let tokensIn = metricsDict["tokens_in"] as? Int ?? 0
+            let tokensOut = metricsDict["tokens_out"] as? Int ?? 0
+            let durationMs = metricsDict["duration_ms"] as? Double ?? 0
+            metrics = ResponseMetrics(tokensIn: tokensIn, tokensOut: tokensOut, durationMs: durationMs)
+        }
+        return .done(requestId: requestId, metrics: metrics, mode: mode, sessionId: sessionId)
+
+    case "error":
+        let code = dict["code"] as? String ?? "unknown"
+        let message = dict["message"] as? String ?? "An error occurred."
+        return .error(code: code, message: message)
+
+    default:
+        return nil  // Forward-compatible: ignore unknown event types
+    }
+}
+
 // MARK: - Request Model
 
 /// Request to send to the Hestia backend

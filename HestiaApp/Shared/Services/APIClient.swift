@@ -168,6 +168,88 @@ class APIClient: HestiaClientProtocol {
         return try await post("/chat", body: request)
     }
 
+    /// Send a message and receive an SSE token stream.
+    /// Returns an AsyncThrowingStream of ChatStreamEvent for real-time display.
+    func sendMessageStream(
+        _ message: String,
+        sessionId: String?,
+        forceLocal: Bool = false
+    ) -> AsyncThrowingStream<ChatStreamEvent, Error> {
+        AsyncThrowingStream { [weak self] continuation in
+            Task { [weak self] in
+                guard let self else {
+                    continuation.finish()
+                    return
+                }
+                do {
+                    let body = HestiaRequest(
+                        message: message,
+                        sessionId: sessionId,
+                        deviceId: nil,
+                        forceLocal: forceLocal,
+                        contextHints: nil
+                    )
+
+                    var request = URLRequest(url: baseURL.appendingPathComponent("/chat/stream"))
+                    request.httpMethod = "POST"
+                    request.httpBody = try encoder.encode(body)
+                    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+                    if let token = deviceToken {
+                        request.setValue(token, forHTTPHeaderField: "X-Hestia-Device-Token")
+                    }
+
+                    let (bytes, response) = try await session.bytes(for: request)
+
+                    guard let httpResponse = response as? HTTPURLResponse,
+                          (200...299).contains(httpResponse.statusCode) else {
+                        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+                        continuation.finish(throwing: HestiaError.serverError(
+                            statusCode: statusCode,
+                            message: "Stream request failed"
+                        ))
+                        return
+                    }
+
+                    // Parse SSE stream line by line
+                    var currentEvent = ""
+                    var currentData = ""
+
+                    for try await line in bytes.lines {
+                        if line.hasPrefix("event: ") {
+                            currentEvent = String(line.dropFirst(7))
+                        } else if line.hasPrefix("data: ") {
+                            currentData = String(line.dropFirst(6))
+                        } else if line.isEmpty {
+                            // Empty line = end of SSE frame
+                            if !currentData.isEmpty {
+                                if let event = parseChatStreamEvent(
+                                    type: currentEvent, data: currentData
+                                ) {
+                                    continuation.yield(event)
+                                    if case .done = event {
+                                        continuation.finish()
+                                        return
+                                    }
+                                    if case .error = event {
+                                        continuation.finish()
+                                        return
+                                    }
+                                }
+                            }
+                            currentEvent = ""
+                            currentData = ""
+                        }
+                    }
+
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
+    }
+
     func getCurrentMode() async throws -> HestiaMode {
         struct ModeResponse: Codable {
             let current: ModeInfo

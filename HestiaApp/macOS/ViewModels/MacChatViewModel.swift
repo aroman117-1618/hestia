@@ -86,26 +86,14 @@ class MacChatViewModel: ObservableObject {
             let wasForceLocal = forceLocal
             forceLocal = false
 
-            let response = try await client.sendMessage(text, sessionId: sessionId, forceLocal: wasForceLocal)
-
-            if sessionId == nil {
-                sessionId = response.sessionId
-            }
-
-            if let newMode = HestiaMode(rawValue: response.mode),
-               newMode != appState.currentMode {
-                appState.switchMode(to: newMode)
-            }
-
-            switch response.responseType {
-            case .text, .clarification:
-                await displayResponseWithTypewriter(response, mode: appState.currentMode)
-            case .error:
-                if let error = response.error {
-                    throw HestiaError.from(responseError: error)
-                }
-            case .toolCall:
-                addAssistantMessage(response.content, mode: appState.currentMode)
+            // Try streaming first, fall back to REST
+            do {
+                try await sendMessageStreaming(text, sessionId: sessionId, forceLocal: wasForceLocal, appState: appState)
+            } catch {
+                #if DEBUG
+                print("[MacChatVM] Streaming failed, falling back to REST: \(error)")
+                #endif
+                try await sendMessageREST(text, sessionId: sessionId, forceLocal: wasForceLocal, appState: appState)
             }
         } catch let error as HestiaError {
             handleError(error)
@@ -231,6 +219,101 @@ class MacChatViewModel: ObservableObject {
     }
 
     // MARK: - Private Methods
+
+    /// Send via SSE streaming — tokens appear in real-time.
+    private func sendMessageStreaming(
+        _ text: String,
+        sessionId: String?,
+        forceLocal: Bool,
+        appState: AppState
+    ) async throws {
+        let assistantMessage = ConversationMessage(
+            id: UUID().uuidString,
+            role: .assistant,
+            content: "",
+            timestamp: Date(),
+            mode: appState.currentMode
+        )
+        messages.append(assistantMessage)
+        let messageIndex = messages.count - 1
+
+        isTyping = true
+        currentTypingText = ""
+
+        let stream = client.sendMessageStream(text, sessionId: sessionId, forceLocal: forceLocal)
+
+        for try await event in stream {
+            switch event {
+            case .token(let content, _):
+                currentTypingText = (currentTypingText ?? "") + content
+                messages[messageIndex].content += content
+
+            case .clearStream:
+                currentTypingText = ""
+                messages[messageIndex].content = ""
+
+            case .toolResult(_, _, _, _):
+                break  // Tool results followed by synthesis tokens
+
+            case .status(_, let detail):
+                #if DEBUG
+                print("[MacChatVM] \(detail)")
+                #endif
+
+            case .done(_, _, let mode, let returnedSessionId):
+                if self.sessionId == nil, let sid = returnedSessionId {
+                    self.sessionId = sid
+                }
+                if let newMode = HestiaMode(rawValue: mode),
+                   newMode != appState.currentMode {
+                    appState.switchMode(to: newMode)
+                }
+
+            case .insight(_, _):
+                break
+
+            case .error(_, let message):
+                throw HestiaError.serverError(statusCode: 0, message: message)
+            }
+        }
+
+        isTyping = false
+        currentTypingText = nil
+
+        if messages.count > Constants.Limits.maxConversationHistory {
+            messages.removeFirst(messages.count - Constants.Limits.maxConversationHistory)
+        }
+    }
+
+    /// Fallback: send via REST with typewriter effect.
+    private func sendMessageREST(
+        _ text: String,
+        sessionId: String?,
+        forceLocal: Bool,
+        appState: AppState
+    ) async throws {
+        let response = try await client.sendMessage(text, sessionId: sessionId, forceLocal: forceLocal)
+
+        if self.sessionId == nil {
+            self.sessionId = response.sessionId
+        }
+
+        if let newMode = HestiaMode(rawValue: response.mode),
+           newMode != appState.currentMode {
+            appState.switchMode(to: newMode)
+        }
+
+        switch response.responseType {
+        case .text, .clarification:
+            await displayResponseWithTypewriter(response, mode: appState.currentMode)
+        case .error:
+            if let error = response.error {
+                throw HestiaError.from(responseError: error)
+            }
+        case .toolCall:
+            addAssistantMessage(response.content, mode: appState.currentMode)
+        }
+    }
 
     private func displayResponseWithTypewriter(_ response: HestiaResponse, mode: HestiaMode) async {
         let content = response.content

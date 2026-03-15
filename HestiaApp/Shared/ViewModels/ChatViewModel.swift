@@ -98,32 +98,14 @@ class ChatViewModel: ObservableObject {
             let wasForceLocal = forceLocal
             forceLocal = false
 
-            // Send to backend
-            let response = try await client.sendMessage(text, sessionId: sessionId, forceLocal: wasForceLocal)
-
-            // Store session ID if new
-            if sessionId == nil {
-                sessionId = response.sessionId
-            }
-
-            // Update mode if changed
-            if let newMode = HestiaMode(rawValue: response.mode) {
-                if newMode != appState.currentMode {
-                    appState.switchMode(to: newMode)
-                }
-            }
-
-            // Handle response type
-            switch response.responseType {
-            case .text, .clarification:
-                await displayResponseWithTypewriter(response, mode: appState.currentMode)
-            case .error:
-                if let error = response.error {
-                    throw HestiaError.from(responseError: error)
-                }
-            case .toolCall:
-                // Tool calls display immediately without typewriter
-                addAssistantMessage(response.content, mode: appState.currentMode)
+            // Try streaming first, fall back to REST
+            do {
+                try await sendMessageStreaming(text, sessionId: sessionId, forceLocal: wasForceLocal, appState: appState)
+            } catch {
+                #if DEBUG
+                print("[ChatVM] Streaming failed, falling back to REST: \(error)")
+                #endif
+                try await sendMessageREST(text, sessionId: sessionId, forceLocal: wasForceLocal, appState: appState)
             }
 
         } catch let error as HestiaError {
@@ -194,6 +176,108 @@ class ChatViewModel: ObservableObject {
     }
 
     // MARK: - Private Methods
+
+    /// Send via SSE streaming — tokens appear in real-time as the LLM generates them.
+    private func sendMessageStreaming(
+        _ text: String,
+        sessionId: String?,
+        forceLocal: Bool,
+        appState: AppState
+    ) async throws {
+        // Create a placeholder assistant message for streaming
+        let assistantMessage = ConversationMessage(
+            id: UUID().uuidString,
+            role: .assistant,
+            content: "",
+            timestamp: Date(),
+            mode: appState.currentMode
+        )
+        messages.append(assistantMessage)
+        let messageIndex = messages.count - 1
+
+        isTyping = true
+        currentTypingText = ""
+
+        let stream = client.sendMessageStream(text, sessionId: sessionId, forceLocal: forceLocal)
+
+        for try await event in stream {
+            switch event {
+            case .token(let content, _):
+                currentTypingText = (currentTypingText ?? "") + content
+                messages[messageIndex].content += content
+
+            case .clearStream:
+                // Tool re-synthesis: discard previous tokens
+                currentTypingText = ""
+                messages[messageIndex].content = ""
+
+            case .toolResult(_, let toolName, _, let result):
+                #if DEBUG
+                print("[ChatVM] Tool result: \(toolName)")
+                #endif
+                // Tool results are followed by synthesis tokens — don't display raw result
+                _ = result
+
+            case .status(_, let detail):
+                #if DEBUG
+                print("[ChatVM] \(detail)")
+                #endif
+
+            case .done(_, _, let mode, let returnedSessionId):
+                if self.sessionId == nil, let sid = returnedSessionId {
+                    self.sessionId = sid
+                }
+                if let newMode = HestiaMode(rawValue: mode),
+                   newMode != appState.currentMode {
+                    appState.switchMode(to: newMode)
+                }
+
+            case .insight(_, _):
+                break
+
+            case .error(_, let message):
+                throw HestiaError.serverError(statusCode: 0, message: message)
+            }
+        }
+
+        isTyping = false
+        currentTypingText = nil
+
+        // Enforce message limit
+        if messages.count > Constants.Limits.maxConversationHistory {
+            messages.removeFirst(messages.count - Constants.Limits.maxConversationHistory)
+        }
+    }
+
+    /// Fallback: send via REST and display with typewriter effect.
+    private func sendMessageREST(
+        _ text: String,
+        sessionId: String?,
+        forceLocal: Bool,
+        appState: AppState
+    ) async throws {
+        let response = try await client.sendMessage(text, sessionId: sessionId, forceLocal: forceLocal)
+
+        if self.sessionId == nil {
+            self.sessionId = response.sessionId
+        }
+
+        if let newMode = HestiaMode(rawValue: response.mode),
+           newMode != appState.currentMode {
+            appState.switchMode(to: newMode)
+        }
+
+        switch response.responseType {
+        case .text, .clarification:
+            await displayResponseWithTypewriter(response, mode: appState.currentMode)
+        case .error:
+            if let error = response.error {
+                throw HestiaError.from(responseError: error)
+            }
+        case .toolCall:
+            addAssistantMessage(response.content, mode: appState.currentMode)
+        }
+    }
 
     private func displayResponseWithTypewriter(_ response: HestiaResponse, mode: HestiaMode) async {
         let content = response.content

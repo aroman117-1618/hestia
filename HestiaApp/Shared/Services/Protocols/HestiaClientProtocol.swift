@@ -8,6 +8,9 @@ protocol HestiaClientProtocol {
     /// Send a message to Hestia and get a response
     func sendMessage(_ message: String, sessionId: String?, forceLocal: Bool) async throws -> HestiaResponse
 
+    /// Send a message and receive an SSE token stream for real-time display
+    func sendMessageStream(_ message: String, sessionId: String?, forceLocal: Bool) -> AsyncThrowingStream<ChatStreamEvent, Error>
+
     // MARK: - Mode Management
 
     /// Get the current mode

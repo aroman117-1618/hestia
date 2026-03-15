@@ -4,7 +4,7 @@ import Foundation
 struct ConversationMessage: Codable, Identifiable, Equatable {
     let id: String
     let role: MessageRole
-    let content: String
+    var content: String
     let timestamp: Date
     let mode: HestiaMode?
 

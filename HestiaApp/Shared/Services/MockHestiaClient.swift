@@ -17,6 +17,37 @@ class MockHestiaClient: HestiaClientProtocol {
 
     // MARK: - Chat
 
+    func sendMessageStream(_ message: String, sessionId: String?, forceLocal: Bool = false) -> AsyncThrowingStream<ChatStreamEvent, Error> {
+        AsyncThrowingStream { continuation in
+            Task { [weak self] in
+                guard let self else {
+                    continuation.finish()
+                    return
+                }
+                // Simulate streaming with fake tokens
+                let responseContent = self.generateResponse(for: message)
+                let words = responseContent.split(separator: " ")
+
+                continuation.yield(.status(stage: "preparing", detail: "Loading context"))
+                try? await Task.sleep(nanoseconds: 100_000_000)
+
+                continuation.yield(.status(stage: "inference", detail: "Generating response"))
+                for word in words {
+                    try? await Task.sleep(nanoseconds: 50_000_000) // 50ms per word
+                    continuation.yield(.token(content: String(word) + " ", requestId: "mock-req"))
+                }
+
+                continuation.yield(.done(
+                    requestId: "mock-req",
+                    metrics: ResponseMetrics(tokensIn: 50, tokensOut: words.count * 2, durationMs: Double(words.count) * 50),
+                    mode: self.currentMode.rawValue,
+                    sessionId: sessionId ?? self.sessionId ?? UUID().uuidString
+                ))
+                continuation.finish()
+            }
+        }
+    }
+
     func sendMessage(_ message: String, sessionId: String?, forceLocal: Bool = false) async throws -> HestiaResponse {
         // Simulate network delay
         let delay = Double.random(in: networkDelayRange)
