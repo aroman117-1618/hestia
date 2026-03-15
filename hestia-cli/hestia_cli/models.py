@@ -23,6 +23,9 @@ class ServerEventType(str, Enum):
     PONG = "pong"
     INSIGHT = "insight"
     CLEAR_STREAM = "clear_stream"
+    TOOL_START = "tool_start"
+    AGENTIC_DONE = "agentic_done"
+    VERIFICATION = "verification"
 
 
 class PipelineStage(str, Enum):

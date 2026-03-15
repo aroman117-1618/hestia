@@ -35,6 +35,7 @@ async def handle_slash_command(
         "/memory": _cmd_memory,
         "/tools": _cmd_tools,
         "/cloud": _cmd_cloud,
+        "/code": _cmd_code,
         "/config": _cmd_config,
         "/session": _cmd_session,
         "/clear": _cmd_clear,
@@ -67,6 +68,7 @@ async def _cmd_help(args: str, client: HestiaWSClient, console: Console) -> None
   /cloud                    Show cloud providers and routing state
   /cloud state [provider] [disabled|smart|full]
                             Set cloud routing state for a provider
+  /code [task]              Start agentic coding session (iterative tool loop)
   /config                   Open config in $EDITOR
   /session new              Start a fresh session
   /clear                    Clear the screen
@@ -351,6 +353,111 @@ async def _cmd_cloud(args: str, client: HestiaWSClient, console: Console) -> Non
                 console.print(f"[red]Failed to fetch cloud providers: {response.status_code}[/red]")
     except Exception as e:
         console.print(f"[red]Cloud query failed: {type(e).__name__}[/red]")
+
+
+async def _cmd_code(args: str, client: HestiaWSClient, console: Console) -> None:
+    """Start an agentic coding session via /v1/chat/agentic SSE endpoint.
+
+    Usage: /code fix the typo in hestia/memory/manager.py
+    """
+    if not args.strip():
+        console.print("[yellow]Usage: /code <task description>[/yellow]")
+        console.print("[dim]Example: /code fix the failing test in test_memory.py[/dim]")
+        return
+
+    from hestia_cli.auth import get_stored_token
+    from rich.panel import Panel
+
+    token = get_stored_token()
+    if not token:
+        console.print("[red]Not authenticated. Run 'hestia setup' first.[/red]")
+        return
+
+    console.print(Panel(
+        f"[bold]Agentic coding session[/bold]\n[dim]{args}[/dim]",
+        border_style="bright_cyan",
+        width=60,
+    ))
+
+    try:
+        from hestia_cli.config import load_config
+        config = load_config()
+        base_url = config.get("server_url", "https://localhost:8443")
+
+        # Stream SSE events from the agentic endpoint
+        import json
+        async with httpx.AsyncClient(verify=False, timeout=httpx.Timeout(300.0)) as http:
+            async with http.stream(
+                "POST",
+                f"{base_url}/v1/chat/agentic",
+                json={"message": args, "mode": "tia"},
+                headers={"X-Hestia-Device-Token": token, "Accept": "text/event-stream"},
+            ) as response:
+                if response.status_code != 200:
+                    console.print(f"[red]Server returned {response.status_code}[/red]")
+                    return
+
+                current_event = ""
+                current_data = ""
+                async for line in response.aiter_lines():
+                    if line.startswith("event: "):
+                        current_event = line[7:]
+                    elif line.startswith("data: "):
+                        current_data = line[6:]
+                    elif line == "":
+                        if current_data:
+                            try:
+                                event = json.loads(current_data)
+                                _render_agentic_event(event, console)
+                            except json.JSONDecodeError:
+                                pass
+                        current_event = ""
+                        current_data = ""
+
+    except httpx.ConnectError:
+        console.print("[red]Cannot connect to server. Is it running?[/red]")
+    except Exception as e:
+        console.print(f"[red]Agentic session failed: {type(e).__name__}[/red]")
+
+
+def _render_agentic_event(event: Dict, console: Console) -> None:
+    """Render a single agentic SSE event in the CLI."""
+    from rich.panel import Panel
+
+    event_type = event.get("type", "")
+
+    if event_type == "status":
+        stage = event.get("stage", "")
+        detail = event.get("detail", "")
+        console.print(f"[dim]  [{stage}] {detail}[/dim]")
+
+    elif event_type == "token":
+        content = event.get("content", "")
+        console.print(content, end="")
+
+    elif event_type == "tool_start":
+        tool = event.get("tool_name", "?")
+        iteration = event.get("iteration", "?")
+        console.print(f"\n[bright_cyan]  [Tool] {tool}[/bright_cyan] [dim](iteration {iteration})[/dim]")
+
+    elif event_type == "tool_result":
+        tool = event.get("tool_name", "?")
+        status = event.get("status", "?")
+        output = event.get("output", "")
+        icon = "[green]OK[/green]" if status == "success" else f"[red]{status}[/red]"
+        console.print(f"  [Tool] {tool} → {icon}")
+        if output and len(output) < 200:
+            console.print(f"    [dim]{output[:200]}[/dim]")
+
+    elif event_type == "agentic_done":
+        iterations = event.get("iterations", 0)
+        duration = event.get("duration_ms", 0)
+        console.print(f"\n[bold green]  Agentic session complete[/bold green]")
+        console.print(f"  [dim]{iterations} iterations, {duration:.0f}ms[/dim]\n")
+
+    elif event_type == "error":
+        msg = event.get("message", "Unknown error")
+        console.print(f"\n[red]  Error: {msg}[/red]")
 
 
 async def _cmd_config(args: str, client: HestiaWSClient, console: Console) -> None:
