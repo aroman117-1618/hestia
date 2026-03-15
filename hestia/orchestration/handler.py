@@ -1452,6 +1452,22 @@ class RequestHandler:
                 data={"request_id": request.id}
             )
 
+        # Fire-and-forget fact extraction for qualifying messages (Sprint 13 WS1)
+        combined = f"{request.content}\n{response.content}"
+        if len(combined) > 200:
+            import asyncio
+            asyncio.create_task(self._maybe_extract_facts(combined))
+
+    async def _maybe_extract_facts(self, text: str) -> None:
+        """Fire-and-forget: extract facts from qualifying chat content."""
+        try:
+            from hestia.research.manager import get_research_manager
+            research_mgr = await get_research_manager()
+            if research_mgr and hasattr(research_mgr, '_fact_extractor') and research_mgr._fact_extractor:
+                await research_mgr._fact_extractor.extract_from_text(text=text[:2000])
+        except Exception:
+            pass  # Silent — never block chat for fact extraction
+
     async def _try_execute_tool_from_response(
         self,
         content: str,

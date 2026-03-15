@@ -6,8 +6,8 @@ community detection, and principle distillation.
 Part of the Learning Cycle (Phase A).
 """
 
-from datetime import datetime
-from typing import Any, Dict, Optional, Set
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Set
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
@@ -430,4 +430,196 @@ async def update_principle(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update principle",
+        )
+
+
+# =============================================================================
+# Entity Search + Fact Invalidation + Temporal Queries (Sprint 13 WS1)
+# =============================================================================
+
+
+@router.get("/entities/search")
+async def search_entities(
+    q: str = Query(..., min_length=1, description="Entity name to search"),
+    limit: int = Query(default=20, ge=1, le=100),
+    device_token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """Search entities by name (fuzzy match via canonical name)."""
+    try:
+        manager = await get_research_manager()
+        if not manager._database:
+            return {"entities": [], "count": 0}
+
+        # Search using canonical name LIKE query
+        cursor = await manager._database._connection.execute(
+            "SELECT * FROM entities WHERE canonical_name LIKE ? ORDER BY updated_at DESC LIMIT ?",
+            (f"%{q.lower()}%", limit),
+        )
+        rows = await cursor.fetchall()
+        entities = [manager._database._row_to_entity(row) for row in rows]
+
+        return {
+            "entities": [e.to_dict() for e in entities],
+            "count": len(entities),
+            "query": q,
+        }
+
+    except Exception as e:
+        logger.error(
+            "Entity search error",
+            component=LogComponent.RESEARCH,
+            data={"error": sanitize_for_log(e), "query": q},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Entity search failed",
+        )
+
+
+@router.post("/facts/{fact_id}/invalidate")
+async def invalidate_fact(
+    fact_id: str,
+    reason: Optional[str] = Query(default=None),
+    device_token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """Mark a fact as invalidated (set invalid_at to now)."""
+    try:
+        manager = await get_research_manager()
+        if not manager._database:
+            raise HTTPException(status_code=503, detail="Database not available")
+
+        now = datetime.now(timezone.utc).isoformat()
+        await manager._database._connection.execute(
+            "UPDATE facts SET invalid_at = ?, status = 'superseded' WHERE id = ?",
+            (now, fact_id),
+        )
+        await manager._database._connection.commit()
+
+        # Invalidate graph cache
+        await manager._database.invalidate_cache()
+
+        return {
+            "fact_id": fact_id,
+            "status": "invalidated",
+            "invalid_at": now,
+            "reason": reason,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Fact invalidation error",
+            component=LogComponent.RESEARCH,
+            data={"error": sanitize_for_log(e), "fact_id": fact_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Fact invalidation failed",
+        )
+
+
+@router.get("/facts/at-time")
+async def get_facts_at_time(
+    point_in_time: str = Query(..., description="ISO datetime for temporal query"),
+    subject: Optional[str] = Query(default=None, description="Filter by entity name"),
+    limit: int = Query(default=100, ge=1, le=500),
+    device_token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """Get facts that were valid at a specific point in time."""
+    try:
+        pit = datetime.fromisoformat(point_in_time.replace("Z", "+00:00"))
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid datetime format. Use ISO 8601.",
+        )
+
+    try:
+        manager = await get_research_manager()
+        if not manager._database:
+            return {"facts": [], "count": 0}
+
+        facts = await manager._database.get_facts_at_time(
+            point_in_time=pit,
+            subject=subject,
+            limit=limit,
+        )
+
+        return {
+            "facts": [f.to_dict() for f in facts],
+            "count": len(facts),
+            "point_in_time": pit.isoformat(),
+            "subject": subject,
+        }
+
+    except Exception as e:
+        logger.error(
+            "Temporal fact query error",
+            component=LogComponent.RESEARCH,
+            data={"error": sanitize_for_log(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Temporal fact query failed",
+        )
+
+
+@router.get("/episodes")
+async def list_episodic_nodes(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    device_token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """List episodic memory nodes (conversation summaries in the knowledge graph)."""
+    try:
+        manager = await get_research_manager()
+        if not manager._database:
+            return {"episodes": [], "count": 0}
+
+        nodes = await manager._database.get_episodic_nodes(limit=limit, offset=offset)
+        return {
+            "episodes": [n.to_dict() for n in nodes],
+            "count": len(nodes),
+        }
+
+    except Exception as e:
+        logger.error(
+            "Episodic nodes error",
+            component=LogComponent.RESEARCH,
+            data={"error": sanitize_for_log(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to list episodic nodes",
+        )
+
+
+@router.get("/episodes/for-entity/{entity_id}")
+async def get_episodes_for_entity(
+    entity_id: str,
+    device_token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """Find episodes that mention a specific entity."""
+    try:
+        manager = await get_research_manager()
+        if not manager._database:
+            return {"episodes": [], "count": 0}
+
+        nodes = await manager._database.get_episodic_nodes_for_entity(entity_id)
+        return {
+            "episodes": [n.to_dict() for n in nodes],
+            "count": len(nodes),
+            "entity_id": entity_id,
+        }
+
+    except Exception as e:
+        logger.error(
+            "Episodes for entity error",
+            component=LogComponent.RESEARCH,
+            data={"error": sanitize_for_log(e), "entity_id": entity_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to find episodes for entity",
         )
