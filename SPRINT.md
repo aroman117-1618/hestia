@@ -1,4 +1,39 @@
-# Current Sprint: Memory Pipeline + CLI Polish (Sprint 11.5) — COMPLETE
+# Current Sprint: Knowledge Graph Evolution (Sprint 9-KG) — COMPLETE
+
+**Started:** 2026-03-15
+**Discovery:** `docs/discoveries/hestia-enhancement-candidates-2026-03-15.md`
+**Execution Plan:** `docs/superpowers/plans/2026-03-15-knowledge-graph-evolution.md`
+**ADR:** ADR-041
+
+## Sprint 9-KG Summary
+
+Evolved the Neural Net from a co-occurrence visualization into a temporal knowledge graph with bi-temporal facts, entity relationships, contradiction detection, and community clustering — all on existing SQLite + ChromaDB (no Neo4j/FalkorDB). Inspired by Graphiti framework.
+
+### What Was Built
+- **Fact model** with bi-temporal tracking (`valid_at`, `invalid_at`, `expired_at`)
+- **Entity Registry** with canonical name dedup + label propagation community detection
+- **Fact Extractor** with LLM triplet extraction + contradiction detection
+- **Fact-based graph builder** (`mode=facts` on `/v1/research/graph`)
+- **6 new API endpoints** (facts extract/list/timeline, entities list, communities detect/list)
+- **~88 new tests** across 2 test files
+
+### Key Commits
+- `19fc9cb` feat: Fact, Entity, Community models with bi-temporal tracking
+- `145c577` feat: facts, entities, communities tables with bi-temporal queries
+- `e87bc5b` feat: entity registry with label propagation communities
+- `5be2254` feat: LLM fact extraction with contradiction detection
+- `fe2ddfd` feat: fact-based graph builder with entity nodes and relationship edges
+- `73512f9` feat: 6 new research API endpoints
+- `86a0c26` fix: align Fact model — add relation, source_chunk_id, rename weight→confidence
+- `b7cdf03` merge: Sprint 9 Knowledge Graph Evolution
+
+### Test Results
+- Research tests: 158 passing
+- Full suite: exit code 0 (all pass)
+
+---
+
+## Previous: Memory Pipeline + CLI Polish (Sprint 11.5) — COMPLETE
 
 **Started:** 2026-03-05
 **Discovery:** `docs/discoveries/sprint-12-cli-macos-polish-2026-03-05.md`

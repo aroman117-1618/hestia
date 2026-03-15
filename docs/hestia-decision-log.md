@@ -1500,6 +1500,37 @@ Hestia's primary model (Qwen 2.5 7B) underperformed on coding tasks. The CLI has
 
 ---
 
+### ADR-041: Knowledge Graph Evolution — Bi-Temporal Facts on SQLite
+
+**Date:** 2026-03-15
+**Status:** Active (extends ADR-039 Research Module)
+**Sprint:** 9-KG
+
+#### Context
+Hestia's research module (ADR-039) had a co-occurrence graph — memories sharing tags got edges. This produced visually interesting Neural Net visualizations but no semantic understanding of entity relationships or temporal fact evolution. The Graphiti framework (github.com/getzep/graphiti) demonstrated bi-temporal knowledge graphs with entity extraction, contradiction detection, and community clustering — but required Neo4j/FalkorDB + cloud LLM, which doesn't fit M1 16GB.
+
+#### Decision
+1. **Portable Graphiti concepts on existing infrastructure** — SQLite + ChromaDB, no new databases
+2. **Bi-temporal facts** — `valid_at`, `invalid_at`, `expired_at` on fact edges (not nodes). Enables "what was true on date X?" queries.
+3. **Entity registry** — canonical name dedup (case-insensitive). ChromaDB embedding dedup deferred to M5 Ultra.
+4. **Label propagation** for community detection (~30 lines on adjacency list, no graph algorithms library needed)
+5. **LLM-powered extraction** — Qwen 3.5 9B extracts entity-relation-entity triplets via JSON mode. Contradiction detection via separate LLM call.
+6. **On-demand extraction** (like principle distillation), not per-chat — avoids 10s latency penalty
+7. **Two graph modes** — `mode=legacy` (existing co-occurrence) and `mode=facts` (entity-relationship) on same `/v1/research/graph` endpoint
+
+#### Alternatives Considered
+- **Full Graphiti MCP** with FalkorDB — rejected (1-2GB RAM, doesn't fit M1 alongside Ollama). Deferred to M5 Ultra.
+- **Markowitz optimization** for model routing — rejected (only 2-3 models, problem too small for portfolio theory)
+- **Neo4j Community Edition** — rejected (heavy infrastructure for personal assistant scale)
+
+#### Consequences
+- 6 new API endpoints, 3 new SQLite tables, 2 new source files, ~88 new tests
+- Facts accumulate via on-demand extraction or future scheduled Orders
+- When M5 Ultra arrives: add ChromaDB entity dedup (threshold 0.85), LLM entity summaries, full Graphiti MCP as upgrade path
+- Existing graph mode preserved — no breaking changes to macOS/iOS Neural Net views
+
+---
+
 ## Adding New Decisions
 
 When making a significant architectural decision:
