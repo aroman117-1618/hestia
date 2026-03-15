@@ -58,33 +58,19 @@ struct MainTabView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            // Chat tab - client configured via environment in ChatView.onAppear
+            // Chat tab (primary)
             ChatView()
                 .tabItem {
                     Label("Chat", systemImage: "message.fill")
                 }
                 .tag(0)
 
-            // Command Center tab
-            CommandCenterView()
-                .tabItem {
-                    Label("Command", systemImage: "square.grid.2x2.fill")
-                }
-                .tag(1)
-
-            // Explorer tab
-            ExplorerView()
-                .tabItem {
-                    Label("Explorer", systemImage: "rectangle.stack.fill")
-                }
-                .tag(2)
-
-            // Settings tab
+            // Settings tab (Cloud, Integrations, Device Management, Proactive, Health, Profile, Agents)
             SettingsView()
                 .tabItem {
                     Label("Settings", systemImage: "gearshape.fill")
                 }
-                .tag(3)
+                .tag(1)
         }
         .accentColor(.white)
     }

@@ -71,6 +71,14 @@ targets:
           - "App/Configuration.swift"
           # Utilities moved to HestiaShared
           - "Utilities/Constants.swift"
+          # iOS trimming (Sprint 13 WS2) — macOS is the primary full-featured app
+          - "Views/CommandCenter/**"
+          - "Views/Explorer/**"
+          - "Views/Wiki/**"
+          - "ViewModels/NewsfeedViewModel.swift"
+          - "ViewModels/NeuralNetViewModel.swift"
+          - "ViewModels/ExplorerViewModel.swift"
+          - "ViewModels/WikiViewModel.swift"
       - path: iOS
         type: group
         excludes:
