@@ -88,7 +88,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | Hardware | Mac Mini M1 (16GB) |
 | Model | Qwen 3.5 9B primary + Qwen 2.5 Coder 7B specialist (Ollama, local) + cloud (Anthropic/OpenAI/Google) |
 | SLM | qwen2.5:0.5b (council intent classification, ~100ms) |
-| Backend | Python 3.9+, FastAPI, 163 endpoints across 26 route modules |
+| Backend | Python 3.9+, FastAPI, 170 endpoints across 26 route modules |
 | Storage | ChromaDB (vectors) + SQLite (structured) + macOS Keychain (credentials) |
 | App | Native Swift/SwiftUI (iOS 26.0+) |
 | API | REST on port 8443 with JWT auth, HTTPS with self-signed cert |
@@ -105,7 +105,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 **Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
 **Field Guide UI Restructure: COMPLETE.** 5 thematic tabs, native SwiftUI diagrams, structured roadmap with `/v1/wiki/roadmap` endpoint.
 
-1819 tests (1816 passing, 3 skipped), 48 test files (41 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
+1900 tests (1897 passing, 3 skipped), 48 test files (41 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -208,9 +208,9 @@ hestia/
 │   │   ├── database.py             # AppleCacheDatabase (FTS5 virtual table, sync tracking)
 │   │   ├── resolver.py             # SmartResolver (FTS5 candidates + rapidfuzz scoring)
 │   │   └── manager.py              # AppleCacheManager (TTL sync, write-through, singleton)
-│   ├── research/                    # Knowledge graph + PrincipleStore + Temporal Facts (ADR-041)
-│   │   ├── models.py              # Fact, Entity, Community, Principle dataclasses + graph types
-│   │   ├── database.py            # SQLite: facts, entities, communities, principles, graph_cache
+│   ├── research/                    # Knowledge graph + PrincipleStore + Temporal Facts + Episodic Nodes (ADR-041)
+│   │   ├── models.py              # Fact, Entity, Community, EpisodicNode, Principle dataclasses + graph types
+│   │   ├── database.py            # SQLite: facts, entities, communities, principles, episodic_nodes, graph_cache
 │   │   ├── graph_builder.py       # Co-occurrence graph (legacy) + fact-based graph (mode=facts)
 │   │   ├── entity_registry.py     # Entity resolution (canonical dedup) + label propagation communities
 │   │   ├── fact_extractor.py      # LLM triplet extraction + bi-temporal contradiction detection
@@ -262,8 +262,8 @@ hestia/
 | Module | Endpoints | Key Routes |
 |--------|-----------|------------|
 | Health & Auth | 8 | `/v1/ping`, `/v1/health`, `/v1/ready`, `/v1/auth/register`, `/v1/auth/refresh`, `/v1/auth/invite`, `/v1/auth/register-with-invite`, `/v1/auth/re-invite` |
-| Chat & Mode | 5 | `/v1/chat`, `/v1/chat/stream` (SSE), `/v1/mode/*` |
-| Memory | 5 | `/v1/memory/staged`, `approve`, `reject`, `search` |
+| Chat & Mode | 6 | `/v1/chat`, `/v1/chat/stream` (SSE), `/v1/chat/agentic` (iterative tool loop), `/v1/mode/*` |
+| Memory | 7 | `/v1/memory/staged`, `approve`, `reject`, `search`, `ingest`, `import/claude` |
 | Sessions | 3 | `/v1/sessions` CRUD |
 | Tools | 3 | `/v1/tools` list, details, schema |
 | Tasks | 6 | `/v1/tasks` CRUD + approve/cancel/retry |
@@ -280,7 +280,7 @@ hestia/
 | Explorer | 6 | `/v1/explorer/resources` list/detail/content, drafts CRUD |
 | Newsfeed | 5 | `/v1/newsfeed/timeline`, `unread-count`, `items/{id}/read`, `items/{id}/dismiss`, `refresh` |
 | Investigate | 5 | `/v1/investigate/url`, `history`, `compare`, `{id}` (GET), `{id}` (DELETE) |
-| Research | 12 | `/v1/research/graph` (legacy+facts mode), `facts/extract`, `facts` (list), `facts/timeline`, `entities` (list), `entities/communities`, `communities` (list), `principles/distill`, `principles` (list), `principles/{id}/approve`, `principles/{id}/reject`, `principles/{id}` (PUT) |
+| Research | 18 | `/v1/research/graph` (legacy+facts mode), `facts/extract`, `facts` (list), `facts/timeline`, `facts/at-time`, `facts/{id}/invalidate`, `entities` (list), `entities/search`, `entities/communities`, `communities` (list), `episodes` (list), `episodes/for-entity/{id}`, `principles/distill`, `principles` (list), `principles/{id}/approve`, `principles/{id}/reject`, `principles/{id}` (PUT) |
 | Files | 9 | `/v1/files` (list, create), `/v1/files/content`, `/v1/files/metadata`, `/v1/files` (PUT, DELETE), `/v1/files/move`, `/v1/files/delete` (POST alias), `/v1/files/audit-log` |
 | Inbox | 7 | `/v1/inbox` (list), `/v1/inbox/unread-count`, `/v1/inbox/{id}`, `/v1/inbox/{id}/read`, `/v1/inbox/mark-all-read`, `/v1/inbox/{id}/archive`, `/v1/inbox/refresh` |
 | Outcomes | 5 | `/v1/outcomes` (list), `/v1/outcomes/stats`, `/v1/outcomes/{id}`, `/v1/outcomes/{id}/feedback`, `/v1/outcomes/track` |

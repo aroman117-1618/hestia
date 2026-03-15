@@ -1,4 +1,60 @@
-# Current Sprint: Knowledge Graph Evolution (Sprint 9-KG) — COMPLETE
+# Current Sprint: Hestia Evolution (Sprint 13) — COMPLETE
+
+**Started:** 2026-03-15
+**Discovery:** `docs/discoveries/hestia-enhancement-candidates-2026-03-15.md`, `docs/discoveries/hestia-agentic-self-development-2026-03-15.md`
+**Execution Plan:** `docs/superpowers/plans/2026-03-15-hestia-evolution-sprint-13.md`
+**Plan Audit:** `docs/plans/sprint-13-evolution-audit-2026-03-15.md`
+
+## Sprint 13 Summary
+
+4 workstreams: knowledge graph completion, iOS/macOS app strategy, Claude history import, agentic self-development.
+
+### WS1: Knowledge Graph (complete)
+- EpisodicNode model + episodic_nodes table with user_id scoping
+- Temporal fact queries: `get_facts_at_time(point_in_time, subject)` — "what did I know in January?"
+- Fire-and-forget fact extraction after qualifying chat messages (>200 chars)
+- 6 new endpoints: entity search, fact invalidation, temporal queries, episodic list/search
+- 11 new tests
+
+### WS2: App Strategy (complete)
+- iOS trimmed to Chat + Settings (macOS is primary full-featured app)
+- project.yml excludes: CommandCenter, Explorer, Wiki, NeuralNet views from iOS target
+- Both Xcode schemes build clean
+
+### WS3: Claude History Import (complete + executed)
+- ClaudeHistoryParser: 4-layer extraction (text, thinking blocks, summaries, tool patterns)
+- Credential stripping (API keys, PATs, passwords) — 7 redacted in real import
+- Import pipeline with content-hash dedup via source_dedup table
+- `POST /v1/memory/import/claude` endpoint
+- **988 chunks imported from 78 conversations**, dedup verified on re-import
+- 26 new tests
+
+### WS4: Agentic Self-Development (Phases 0-2 complete)
+- Phase 0: `edit_file`, `glob_files`, `grep_files`, `git_status/diff/add/commit/log` tools
+- Phase 1: `handle_agentic()` iterative tool loop (while tool_calls, max 25 iterations)
+- Phase 2: Self-modification verification layer + CLI `/code` command
+- Security: `hestia/security/` excluded from edit, `[hestia-auto]` commit prefix, force-push blocked
+- `CODING` intent type added to council, `~/hestia` in sandbox allowlist
+- 44 new tests
+
+### Key Commits
+- `d87ca2f` feat: episodic memory nodes + temporal fact queries
+- `6d0d7b2` feat: auto fact extraction + entity search + temporal queries + episodic endpoints
+- `1642aee` feat: Claude history parser with credential stripping
+- `601040a` feat: Claude history import pipeline + API endpoint
+- `07baeb9` refactor(iOS): trim to Chat + Settings
+- `e796b01` feat: code editing + git tools + CODING intent
+- `1ea8d74` feat: agentic tool loop + /v1/chat/agentic SSE endpoint
+- `bd466e3` feat: self-modification verification layer
+- `e50176d` feat: CLI /code command
+
+### Test Results
+- 1900 collected, ~1897 passing, 3 skipped
+- 81 new tests across 6 test files
+
+---
+
+# Previous: Knowledge Graph Evolution (Sprint 9-KG) — COMPLETE
 
 **Started:** 2026-03-15
 **Discovery:** `docs/discoveries/hestia-enhancement-candidates-2026-03-15.md`
