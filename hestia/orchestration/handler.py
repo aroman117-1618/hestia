@@ -5,8 +5,9 @@ Main entry point for processing requests through the complete pipeline:
 Request -> Validation -> Memory Retrieval -> Prompt Building -> Inference -> [Tool Execution] -> Response
 """
 
+import asyncio
 import time
-from typing import Any, AsyncGenerator, Callable, Dict, List, Optional, Union
+from typing import Any, AsyncGenerator, Callable, Dict, List, Optional, Tuple, Union
 
 from hestia.logging import get_logger, LogComponent
 from hestia.inference import get_inference_client, InferenceClient, Message
@@ -178,6 +179,68 @@ class RequestHandler:
             self._council_manager = get_council_manager()
         return self._council_manager
 
+    async def _load_user_profile_context(
+        self,
+        request: Request,
+        will_use_cloud: bool,
+    ) -> Tuple[str, str, Optional[str]]:
+        """Load user profile context and detect command expansion.
+
+        Runs as part of the parallel pre-inference pipeline.
+
+        Returns:
+            (user_profile_context, command_system_instructions, expanded_content)
+            expanded_content is non-None only when a /command was expanded.
+        """
+        user_profile_context = ""
+        command_system_instructions = ""
+        expanded_content = None
+        try:
+            from hestia.user.config_loader import get_user_config_loader
+            from hestia.user.config_models import TOPIC_KEYWORDS, UserConfigFile
+            user_loader = await get_user_config_loader()
+            user_config = await user_loader.load()
+
+            # Get base context (always-load files)
+            if will_use_cloud:
+                user_profile_context = user_config.get_cloud_safe_context()
+            else:
+                user_profile_context = user_config.context_block
+
+            # Keyword-based topic detection for selective loading
+            msg_lower = request.content.lower()
+            topic_files = []
+            for config_file, keywords in TOPIC_KEYWORDS.items():
+                if any(kw in msg_lower for kw in keywords):
+                    topic_files.append(config_file)
+            if topic_files:
+                topic_context = user_config.get_topic_context(topic_files)
+                if topic_context:
+                    user_profile_context = f"{user_profile_context}\n\n{topic_context}" if user_profile_context else topic_context
+
+            # Command expansion: detect /command syntax
+            if request.content.strip().startswith("/"):
+                parts = request.content.strip().split(None, 1)
+                cmd_name = parts[0].lstrip("/")
+                cmd_args = parts[1] if len(parts) > 1 else ""
+                cmd = await user_loader.get_command(cmd_name)
+                if cmd:
+                    command_system_instructions = cmd.system_instructions
+                    if cmd_args:
+                        expanded_content = cmd.expand(cmd_args)
+                    self.logger.info(
+                        f"Expanded command: /{cmd_name}",
+                        component=LogComponent.ORCHESTRATION,
+                        data={"request_id": request.id, "command": cmd_name},
+                    )
+        except Exception as e:
+            self.logger.warning(
+                f"Failed to load user profile: {type(e).__name__}",
+                component=LogComponent.ORCHESTRATION,
+                data={"request_id": request.id},
+            )
+        return user_profile_context, command_system_instructions, expanded_content
+
     def _register_builtin_tools(self) -> None:
         """Register built-in tools with the registry."""
         try:
@@ -284,8 +347,8 @@ class RequestHandler:
     def _will_route_to_cloud(self, content: str, force_local: bool = False) -> bool:
         """Predict whether this request will route to cloud.
 
-        Returns True only for enabled_full state. enabled_smart is treated
-        as local since routing depends on token count (unpredictable here).
+        Returns True for enabled_full, or enabled_smart when tool_call_cloud_routing
+        is enabled (since tools are always included in chat requests).
 
         Args:
             content: Request content (unused currently, reserved for future).
@@ -294,7 +357,14 @@ class RequestHandler:
         if force_local:
             return False
         try:
-            return self.inference_client.router.cloud_routing.state == "enabled_full"
+            cloud_cfg = self.inference_client.router.cloud_routing
+            if cloud_cfg.state == "enabled_full":
+                return True
+            # Smart mode with tool routing → tools always passed in chat,
+            # so this request will route to cloud
+            if cloud_cfg.state == "enabled_smart" and cloud_cfg.tool_call_cloud_routing:
+                return True
+            return False
         except Exception:
             return False
 
@@ -431,69 +501,74 @@ class RequestHandler:
             # Step 5: Determine routing for privacy controls
             will_use_cloud = self._will_route_to_cloud(request.content, force_local)
 
-            # Step 5.5: Retrieve relevant memory (cloud-safe filtering when routing to cloud)
+            # Steps 5.5-6.5: Parallel pre-inference pipeline
+            # Memory retrieval, user profile loading, and council intent classification
+            # are independent operations — run concurrently for ~150-350ms savings.
             memory = await self._get_memory_manager()
-            memory_context = await memory.build_context(
-                query=request.content,
-                max_tokens=4000,
-                include_recent=True,
-                cloud_safe=will_use_cloud,
+            council = self._get_council_manager()
+
+            parallel_start = time.perf_counter()
+            results = await asyncio.gather(
+                memory.build_context(
+                    query=request.content,
+                    max_tokens=4000,
+                    include_recent=True,
+                    cloud_safe=will_use_cloud,
+                ),
+                self._load_user_profile_context(request, will_use_cloud),
+                council.classify_intent(request.content),
+                return_exceptions=True,
+            )
+            parallel_ms = (time.perf_counter() - parallel_start) * 1000
+            self.logger.info(
+                f"Parallel pre-inference complete in {parallel_ms:.0f}ms",
+                component=LogComponent.ORCHESTRATION,
+                data={"request_id": request.id, "parallel_ms": round(parallel_ms)},
             )
 
-            # Step 6: Build prompt with tool behavior guidance
-            # Tool schemas are passed via native API (tools parameter), not in the prompt.
-            # TOOL_INSTRUCTIONS constant provides the LLM with routing guidance.
-            tool_instructions = TOOL_INSTRUCTIONS
-
-            # Step 6.3: Load user profile context (markdown-based identity)
-            user_profile_context = ""
-            command_system_instructions = ""
-            try:
-                from hestia.user.config_loader import get_user_config_loader
-                from hestia.user.config_models import TOPIC_KEYWORDS, UserConfigFile
-                user_loader = await get_user_config_loader()
-                user_config = await user_loader.load()
-
-                # Get base context (always-load files)
-                if will_use_cloud:
-                    user_profile_context = user_config.get_cloud_safe_context()
-                else:
-                    user_profile_context = user_config.context_block
-
-                # Keyword-based topic detection for selective loading
-                msg_lower = request.content.lower()
-                topic_files = []
-                for config_file, keywords in TOPIC_KEYWORDS.items():
-                    if any(kw in msg_lower for kw in keywords):
-                        topic_files.append(config_file)
-                if topic_files:
-                    topic_context = user_config.get_topic_context(topic_files)
-                    if topic_context:
-                        user_profile_context = f"{user_profile_context}\n\n{topic_context}" if user_profile_context else topic_context
-
-                # Command expansion: detect /command syntax
-                if request.content.strip().startswith("/"):
-                    parts = request.content.strip().split(None, 1)
-                    cmd_name = parts[0].lstrip("/")
-                    cmd_args = parts[1] if len(parts) > 1 else ""
-                    cmd = await user_loader.get_command(cmd_name)
-                    if cmd:
-                        command_system_instructions = cmd.system_instructions
-                        if cmd_args:
-                            request.content = cmd.expand(cmd_args)
-                        self.logger.info(
-                            f"Expanded command: /{cmd_name}",
-                            component=LogComponent.ORCHESTRATION,
-                            data={"request_id": request.id, "command": cmd_name},
-                        )
-            except Exception as e:
+            # Unpack memory result
+            if isinstance(results[0], Exception):
                 self.logger.warning(
-                    f"Failed to load user profile: {type(e).__name__}",
+                    f"Memory retrieval failed: {type(results[0]).__name__}",
                     component=LogComponent.ORCHESTRATION,
                     data={"request_id": request.id},
                 )
+                memory_context = ""
+            else:
+                memory_context = results[0]
 
-            # Combine tool + command instructions
+            # Unpack profile result
+            if isinstance(results[1], Exception):
+                self.logger.warning(
+                    f"Profile loading failed: {type(results[1]).__name__}",
+                    component=LogComponent.ORCHESTRATION,
+                    data={"request_id": request.id},
+                )
+                user_profile_context = ""
+                command_system_instructions = ""
+            else:
+                user_profile_context, command_system_instructions, expanded_content = results[1]
+                # Apply command expansion (mutates request.content)
+                if expanded_content is not None:
+                    request.content = expanded_content
+
+            # Unpack intent result
+            intent = None
+            if isinstance(results[2], Exception):
+                self.logger.warning(
+                    f"Council intent classification failed: {type(results[2]).__name__}",
+                    component=LogComponent.ORCHESTRATION,
+                    data={"request_id": request.id},
+                )
+            else:
+                intent = results[2]
+                task.context["intent"] = {
+                    "type": intent.primary_intent.value,
+                    "confidence": intent.confidence,
+                }
+
+            # Build prompt with tool behavior guidance
+            tool_instructions = TOOL_INSTRUCTIONS
             combined_instructions = tool_instructions
             if command_system_instructions:
                 combined_instructions = f"{tool_instructions}\n\n## Command Mode\n\n{command_system_instructions}"
@@ -514,22 +589,6 @@ class RequestHandler:
                     f"Token budget exceeded: {budget_status['total_tokens']}/{budget_status['budget']}",
                     component=LogComponent.ORCHESTRATION,
                     data={"request_id": request.id}
-                )
-
-            # Step 6.5: Council pre-inference (intent classification)
-            intent = None
-            try:
-                council = self._get_council_manager()
-                intent = await council.classify_intent(request.content)
-                task.context["intent"] = {
-                    "type": intent.primary_intent.value,
-                    "confidence": intent.confidence,
-                }
-            except Exception as e:
-                self.logger.warning(
-                    f"Council intent classification failed: {type(e).__name__}",
-                    component=LogComponent.ORCHESTRATION,
-                    data={"request_id": request.id},
                 )
 
             # Step 7: Run inference with retry
@@ -701,61 +760,72 @@ class RequestHandler:
             # Step 5: Privacy routing
             will_use_cloud = self._will_route_to_cloud(request.content, force_local)
 
-            # Step 5.5: Memory retrieval
-            yield {"type": "status", "stage": "memory", "detail": "Retrieving memory context"}
+            # Steps 5.5-6.5: Parallel pre-inference pipeline (same as handle())
+            yield {"type": "status", "stage": "preparing", "detail": "Loading memory, profile, and classifying intent"}
             memory = await self._get_memory_manager()
-            memory_context = await memory.build_context(
-                query=request.content,
-                max_tokens=4000,
-                include_recent=True,
-                cloud_safe=will_use_cloud,
+            council = self._get_council_manager()
+
+            parallel_start = time.perf_counter()
+            results = await asyncio.gather(
+                memory.build_context(
+                    query=request.content,
+                    max_tokens=4000,
+                    include_recent=True,
+                    cloud_safe=will_use_cloud,
+                ),
+                self._load_user_profile_context(request, will_use_cloud),
+                council.classify_intent(request.content),
+                return_exceptions=True,
+            )
+            parallel_ms = (time.perf_counter() - parallel_start) * 1000
+            self.logger.info(
+                f"Parallel pre-inference (streaming) complete in {parallel_ms:.0f}ms",
+                component=LogComponent.ORCHESTRATION,
+                data={"request_id": request.id, "parallel_ms": round(parallel_ms)},
             )
 
-            # Step 6: Build prompt (same as handle())
-            yield {"type": "status", "stage": "building_prompt", "detail": "Building prompt"}
-            tool_instructions = TOOL_INSTRUCTIONS
-            # Load user profile context
-            user_profile_context = ""
-            command_system_instructions = ""
-            try:
-                from hestia.user.config_loader import get_user_config_loader
-                from hestia.user.config_models import TOPIC_KEYWORDS, UserConfigFile
-                user_loader = await get_user_config_loader()
-                user_config = await user_loader.load()
-
-                if will_use_cloud:
-                    user_profile_context = user_config.get_cloud_safe_context()
-                else:
-                    user_profile_context = user_config.context_block
-
-                # Keyword-based topic detection
-                msg_lower = request.content.lower()
-                topic_files = []
-                for config_file, keywords in TOPIC_KEYWORDS.items():
-                    if any(kw in msg_lower for kw in keywords):
-                        topic_files.append(config_file)
-                if topic_files:
-                    topic_context = user_config.get_topic_context(topic_files)
-                    if topic_context:
-                        user_profile_context = f"{user_profile_context}\n\n{topic_context}" if user_profile_context else topic_context
-
-                # Command expansion
-                if request.content.strip().startswith("/"):
-                    parts = request.content.strip().split(None, 1)
-                    cmd_name = parts[0].lstrip("/")
-                    cmd_args = parts[1] if len(parts) > 1 else ""
-                    cmd = await user_loader.get_command(cmd_name)
-                    if cmd:
-                        command_system_instructions = cmd.system_instructions
-                        if cmd_args:
-                            request.content = cmd.expand(cmd_args)
-            except Exception as e:
+            # Unpack memory result
+            if isinstance(results[0], Exception):
                 self.logger.warning(
-                    f"Failed to load user profile for streaming: {type(e).__name__}",
+                    f"Memory retrieval failed: {type(results[0]).__name__}",
                     component=LogComponent.ORCHESTRATION,
                     data={"request_id": request.id},
                 )
+                memory_context = ""
+            else:
+                memory_context = results[0]
 
+            # Unpack profile result
+            if isinstance(results[1], Exception):
+                self.logger.warning(
+                    f"Profile loading failed: {type(results[1]).__name__}",
+                    component=LogComponent.ORCHESTRATION,
+                    data={"request_id": request.id},
+                )
+                user_profile_context = ""
+                command_system_instructions = ""
+            else:
+                user_profile_context, command_system_instructions, expanded_content = results[1]
+                if expanded_content is not None:
+                    request.content = expanded_content
+
+            # Unpack intent result
+            intent = None
+            if isinstance(results[2], Exception):
+                self.logger.warning(
+                    f"Council intent classification failed: {type(results[2]).__name__}",
+                    component=LogComponent.ORCHESTRATION,
+                    data={"request_id": request.id},
+                )
+            else:
+                intent = results[2]
+                task.context["intent"] = {
+                    "type": intent.primary_intent.value,
+                    "confidence": intent.confidence,
+                }
+
+            # Build prompt
+            tool_instructions = TOOL_INSTRUCTIONS
             combined_instructions = tool_instructions
             if command_system_instructions:
                 combined_instructions = f"{tool_instructions}\n\n## Command Mode\n\n{command_system_instructions}"
@@ -806,23 +876,6 @@ class RequestHandler:
                     f"Token budget exceeded: {budget_status['total_tokens']}/{budget_status['budget']}",
                     component=LogComponent.ORCHESTRATION,
                     data={"request_id": request.id}
-                )
-
-            # Step 6.5: Council intent classification
-            yield {"type": "status", "stage": "council", "detail": "Classifying intent"}
-            intent = None
-            try:
-                council = self._get_council_manager()
-                intent = await council.classify_intent(request.content)
-                task.context["intent"] = {
-                    "type": intent.primary_intent.value,
-                    "confidence": intent.confidence,
-                }
-            except Exception as e:
-                self.logger.warning(
-                    f"Council intent classification failed: {type(e).__name__}",
-                    component=LogComponent.ORCHESTRATION,
-                    data={"request_id": request.id},
                 )
 
             # Step 7: Streaming inference

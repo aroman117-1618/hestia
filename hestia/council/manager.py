@@ -28,6 +28,26 @@ from .models import (
 from .roles import Coordinator, Analyzer, Validator, Responder
 
 
+# Keywords that indicate a message likely needs tool routing (not pure CHAT).
+# Used by the fast-path bypass in classify_intent() to skip the SLM call
+# for short conversational messages that would always classify as CHAT.
+TOOL_TRIGGER_KEYWORDS = frozenset({
+    # Apple ecosystem tools
+    "note", "notes", "calendar", "schedule", "event", "reminder",
+    "email", "mail", "inbox",
+    # Health
+    "health", "sleep", "steps", "heart", "weight", "workout",
+    # File operations
+    "file", "read", "write", "search", "list", "create", "delete",
+    # Investigation
+    "investigate", "url", "compare", "article",
+    # Proactive/temporal
+    "briefing", "today", "tomorrow", "week", "morning",
+    # System commands
+    "command", "run", "execute", "shell",
+})
+
+
 class CouncilManager:
     """
     Orchestrates council roles for enhanced request processing.
@@ -49,6 +69,10 @@ class CouncilManager:
 
         self.logger = get_logger()
         self._inference_client = inference_client
+
+        # Bypass metrics (O2: council fast-path observability)
+        self._fast_path_count = 0
+        self._slm_count = 0
 
         # Role instances
         self.coordinator = Coordinator()
@@ -102,6 +126,7 @@ class CouncilManager:
         Fast intent classification (Coordinator role only).
 
         Uses cloud LLM when cloud active, SLM when cloud disabled.
+        Short non-tool messages bypass the SLM call entirely (fast-path).
         """
         if not self.config.enabled or not self.config.coordinator_enabled:
             return IntentClassification.create(
@@ -110,6 +135,28 @@ class CouncilManager:
                 reasoning="Council disabled",
             )
 
+        # Fast-path: skip SLM for short conversational messages
+        # These always classify as CHAT — saves 80-150ms per message.
+        words = user_message.split()
+        msg_lower = user_message.lower()
+        if (
+            len(words) < 8
+            and not any(kw in msg_lower for kw in TOOL_TRIGGER_KEYWORDS)
+            and not user_message.strip().startswith("/")
+        ):
+            self._fast_path_count += 1
+            self.logger.debug(
+                f"Council fast-path: short non-tool message "
+                f"(bypass #{self._fast_path_count})",
+                component=LogComponent.COUNCIL,
+            )
+            return IntentClassification.create(
+                primary_intent=IntentType.CHAT,
+                confidence=0.9,
+                reasoning="fast-path: short message without tool keywords",
+            )
+
+        self._slm_count += 1
         messages = [Message(role="user", content=user_message)]
 
         start = time.perf_counter()

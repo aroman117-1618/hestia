@@ -799,7 +799,8 @@ class TestClassifyIntent:
             })
         )
 
-        result = await mgr.classify_intent("Hey Tia, how are you?")
+        # Use 8+ words to bypass the fast-path (O2) and test the SLM path
+        result = await mgr.classify_intent("Hey Tia, I was wondering how you are doing today")
         assert result.primary_intent == IntentType.CHAT
         mgr._inference_client._call_ollama.assert_awaited_once()
 
@@ -812,7 +813,8 @@ class TestClassifyIntent:
                         "secondary_intents": [], "reasoning": "test"})
         )
 
-        await mgr.classify_intent("Hello")
+        # Use 8+ words to bypass the fast-path (O2) and test the SLM path
+        await mgr.classify_intent("Could you please tell me what you think about this topic")
 
         call_kwargs = mgr._inference_client._call_ollama.call_args
         assert call_kwargs.kwargs.get("model_name") == "qwen2.5:0.5b"
@@ -851,7 +853,8 @@ class TestClassifyIntent:
         mgr = _make_manager(cloud_active=False)
         mgr._inference_client._call_ollama.side_effect = ConnectionError("Ollama down")
 
-        result = await mgr.classify_intent("Hello")
+        # Use 8+ words to bypass the fast-path (O2) and test the SLM exception path
+        result = await mgr.classify_intent("Could you please tell me what you think about this topic")
         assert result.primary_intent == IntentType.UNCLEAR
         assert result.confidence == 0.0
 
@@ -864,7 +867,8 @@ class TestClassifyIntent:
                         "secondary_intents": [], "reasoning": "test"})
         )
 
-        await mgr.classify_intent("Hello")
+        # Use 8+ words to bypass the fast-path (O2) and test the cloud path
+        await mgr.classify_intent("Could you please tell me what you think about this topic")
 
         call_kwargs = mgr._inference_client._call_cloud.call_args
         assert "system" in call_kwargs.kwargs
@@ -1694,7 +1698,12 @@ class TestHandlerCouncilIntegration:
         council._inference_client._call_cloud.side_effect = track_calls
 
         handler = _make_handler_with_mocks(council_manager=council)
-        request = Request.create(content="Hey, how are you?", session_id="test-session")
+        # Use 8+ words to avoid the fast-path bypass (O2) so classify_intent
+        # actually calls the SLM/cloud, letting us verify post-inference skip.
+        request = Request.create(
+            content="Hey there, I was wondering how you are doing today",
+            session_id="test-session",
+        )
 
         response = await handler.handle(request)
         assert response.content is not None

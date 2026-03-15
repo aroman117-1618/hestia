@@ -176,9 +176,8 @@ class TestHandleStreaming:
         status_events = [e for e in events if e["type"] == "status"]
         stages = [e["stage"] for e in status_events]
         assert "validating" in stages
-        assert "memory" in stages
-        assert "building_prompt" in stages
-        assert "council" in stages
+        # O1: memory + profile + council now run in parallel as "preparing"
+        assert "preparing" in stages
         assert "inference" in stages
 
         # Verify tokens
