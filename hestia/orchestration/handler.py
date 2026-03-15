@@ -1431,6 +1431,145 @@ class RequestHandler:
         # Return last response even if validation failed
         return response
 
+    # ── Agentic Tool Loop (Sprint 13 WS4 Phase 1) ──────────────────
+    # This is a NEW method — handle() and handle_streaming() are untouched.
+    # Audit condition #3: never modify existing production handler methods.
+
+    async def handle_agentic(
+        self,
+        request: Request,
+        tool_approval_callback: Optional[Callable] = None,
+        max_iterations: int = 25,
+        max_tokens: int = 150000,
+    ) -> AsyncGenerator[dict, None]:
+        """Agentic tool loop — iterates until the model stops calling tools.
+
+        Unlike handle()/handle_streaming() which do a single inference + single
+        tool pass, this method loops: inference → tool execution → feed results
+        back → re-inference, until the model produces a final text response
+        with no tool calls, or a safety limit is reached.
+
+        This method is SEPARATE from the production chat pipeline.
+        """
+        start_time = time.time()
+        task = self.state_machine.create_task(request)
+        iteration = 0
+        total_tokens_used = 0
+
+        try:
+            # Initialize — same as handle_streaming() Steps 1-6
+            memory = await get_memory_manager()
+            inference = await get_inference_client()
+            mode_manager = await get_mode_manager()
+
+            yield {"type": "status", "stage": "preparing", "detail": "Building agentic context"}
+
+            # Build initial messages
+            memory_context = await memory.build_context(request.content)
+            prompt_builder = await get_prompt_builder()
+            system_prompt = await prompt_builder.build_system_prompt(
+                mode=request.mode,
+                memory_context=memory_context,
+                tool_definitions=get_tool_registry().get_definitions_for_prompt(),
+            )
+
+            messages = [
+                Message(role="system", content=system_prompt),
+                Message(role="user", content=request.content),
+            ]
+
+            # Get tool definitions for the model
+            tool_defs = get_tool_registry().get_definitions_as_list()
+            executor = await get_tool_executor()
+
+            yield {"type": "status", "stage": "inference", "detail": f"Starting agentic loop (max {max_iterations} iterations)"}
+
+            while iteration < max_iterations:
+                iteration += 1
+
+                # Call inference with tools
+                response = await inference.chat(
+                    messages=messages,
+                    tools=tool_defs,
+                )
+
+                # Track token usage
+                if hasattr(response, 'usage') and response.usage:
+                    total_tokens_used += getattr(response.usage, 'total_tokens', 0)
+
+                # Yield any text content
+                if response.content:
+                    yield {"type": "token", "content": response.content, "request_id": request.id}
+
+                # Check for tool calls
+                if not response.tool_calls:
+                    break  # Natural termination — model is done
+
+                # Execute tools and feed results back
+                for tc in response.tool_calls:
+                    tool_name = tc.get("function", {}).get("name", "unknown") if isinstance(tc, dict) else getattr(tc, "name", "unknown")
+                    tool_args = tc.get("function", {}).get("arguments", {}) if isinstance(tc, dict) else getattr(tc, "arguments", {})
+
+                    yield {
+                        "type": "tool_start",
+                        "tool_name": tool_name,
+                        "iteration": iteration,
+                    }
+
+                    # Execute via tool executor
+                    tool_call = ToolCall.create(tool_name=tool_name, arguments=tool_args if isinstance(tool_args, dict) else {})
+                    result = await executor.execute(tool_call)
+
+                    yield {
+                        "type": "tool_result",
+                        "tool_name": tool_name,
+                        "status": result.status.value,
+                        "output": str(result.output)[:2000] if result.output else None,
+                        "error": result.error,
+                    }
+
+                    # Append tool call + result to messages for next iteration
+                    messages.append(Message(
+                        role="assistant",
+                        content=f"[Tool call: {tool_name}({tool_args})]",
+                    ))
+                    messages.append(Message(
+                        role="user",
+                        content=f"[Tool result for {tool_name}]: {result.to_message_content()}",
+                    ))
+
+                # Safety check: token budget
+                if total_tokens_used > max_tokens:
+                    yield {
+                        "type": "status",
+                        "stage": "budget_warning",
+                        "detail": f"Token budget {total_tokens_used}/{max_tokens} exceeded. Stopping.",
+                    }
+                    break
+
+            # Done
+            duration_ms = (time.time() - start_time) * 1000
+            yield {
+                "type": "agentic_done",
+                "iterations": iteration,
+                "total_tokens": total_tokens_used,
+                "duration_ms": duration_ms,
+                "mode": request.mode.value,
+                "session_id": request.session_id,
+            }
+
+        except Exception as e:
+            self.logger.error(
+                f"Agentic loop error: {type(e).__name__}",
+                component=LogComponent.ORCHESTRATION,
+                data={"request_id": request.id, "iteration": iteration},
+            )
+            yield {
+                "type": "error",
+                "code": "agentic_error",
+                "message": f"Agentic loop failed at iteration {iteration}: {type(e).__name__}",
+            }
+
     async def _store_conversation(
         self,
         request: Request,

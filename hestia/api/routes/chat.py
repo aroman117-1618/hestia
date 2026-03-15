@@ -342,3 +342,69 @@ async def send_message_stream(
             "X-Accel-Buffering": "no",
         },
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Agentic Coding Endpoint (Sprint 13 WS4)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post(
+    "/agentic",
+    summary="Agentic coding session with iterative tool loop",
+    description=(
+        "Send a coding task to Hestia. Unlike /chat and /stream, this endpoint "
+        "runs an iterative tool loop: the model calls tools, sees results, and "
+        "calls more tools until the task is complete or a safety limit is reached."
+    ),
+    responses={
+        401: {"model": ErrorResponse, "description": "Unauthorized"},
+    },
+)
+async def send_agentic_request(
+    request: ChatRequest,
+    device_id: str = Depends(get_device_token),
+) -> StreamingResponse:
+    """
+    Agentic coding SSE endpoint.
+
+    Streams events: status, token, tool_start, tool_result, agentic_done, error.
+    """
+    from hestia.orchestration import get_request_handler
+    from hestia.orchestration.models import Request, RequestSource, Mode
+
+    request_id = f"agentic-{uuid4().hex[:12]}"
+
+    handler = await get_request_handler()
+    hestia_request = Request(
+        id=request_id,
+        content=request.message,
+        source=RequestSource.API,
+        mode=Mode(request.mode or "tia"),
+        session_id=request.session_id,
+        device_id=device_id,
+        force_local=False,  # Agentic always uses cloud
+    )
+
+    async def event_generator():
+        try:
+            async for event in handler.handle_agentic(hestia_request):
+                event_type = event.get("type", "status")
+                yield f"event: {event_type}\ndata: {json.dumps(event)}\n\n"
+        except Exception as e:
+            logger.error(
+                f"Agentic stream error: {sanitize_for_log(e)}",
+                component=LogComponent.API,
+                data={"request_id": request_id},
+            )
+            yield f"event: error\ndata: {json.dumps({'type': 'error', 'code': 'agentic_error', 'message': 'Agentic session failed.'})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Request-ID": request_id,
+            "X-Accel-Buffering": "no",
+        },
+    )
