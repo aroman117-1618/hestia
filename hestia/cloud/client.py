@@ -10,6 +10,7 @@ Each provider has its own request/response format:
 - Google Gemini: POST /v1beta/models/{model}:generateContent (key param)
 """
 
+import json
 import time
 from typing import Any, Dict, List, Optional
 
@@ -92,6 +93,7 @@ class CloudInferenceClient:
         max_tokens: int = 2048,
         request_id: str = "",
         mode: str = "tia",
+        tools: Optional[List[Dict[str, Any]]] = None,
     ) -> InferenceResponse:
         """
         Make a completion call to a cloud provider.
@@ -106,6 +108,7 @@ class CloudInferenceClient:
             max_tokens: Maximum output tokens.
             request_id: Request ID for tracking.
             mode: Current persona mode for usage tracking.
+            tools: Optional tool definitions (OpenAI-compatible format).
 
         Returns:
             Normalized InferenceResponse.
@@ -125,14 +128,17 @@ class CloudInferenceClient:
             if provider == CloudProvider.ANTHROPIC:
                 response = await self._call_anthropic(
                     model_id, api_key, messages, system, temperature, max_tokens,
+                    tools=tools,
                 )
             elif provider == CloudProvider.OPENAI:
                 response = await self._call_openai(
                     model_id, api_key, messages, system, temperature, max_tokens,
+                    tools=tools,
                 )
             elif provider == CloudProvider.GOOGLE:
                 response = await self._call_google(
                     model_id, api_key, messages, system, temperature, max_tokens,
+                    tools=tools,
                 )
             else:
                 raise CloudInferenceError(f"Unsupported provider: {provider.value}")
@@ -215,6 +221,7 @@ class CloudInferenceClient:
         system: Optional[str],
         temperature: float,
         max_tokens: int,
+        tools: Optional[List[Dict[str, Any]]] = None,
     ) -> InferenceResponse:
         """Call Anthropic Messages API."""
         client = await self._get_client()
@@ -225,20 +232,51 @@ class CloudInferenceClient:
             "content-type": "application/json",
         }
 
-        # Anthropic format: system is top-level, messages are user/assistant
+        # Anthropic format: system is top-level, messages are user/assistant.
+        # Tool-calling messages need structured content blocks.
+        anthropic_messages = []
+        for msg in messages:
+            if msg.role not in ("user", "assistant"):
+                continue
+            if msg.role == "assistant" and msg.tool_calls:
+                # Assistant message with tool_use blocks
+                content_blocks: List[Dict[str, Any]] = []
+                if msg.content:
+                    content_blocks.append({"type": "text", "text": msg.content})
+                for tc in msg.tool_calls:
+                    content_blocks.append({
+                        "type": "tool_use",
+                        "id": tc.get("id", ""),
+                        "name": tc.get("function", {}).get("name", ""),
+                        "input": tc.get("function", {}).get("arguments", {}),
+                    })
+                anthropic_messages.append({"role": "assistant", "content": content_blocks})
+            elif msg.tool_call_id:
+                # Tool result message
+                anthropic_messages.append({
+                    "role": "user",
+                    "content": [{
+                        "type": "tool_result",
+                        "tool_use_id": msg.tool_call_id,
+                        "content": msg.content,
+                    }],
+                })
+            else:
+                anthropic_messages.append({"role": msg.role, "content": msg.content})
+
         request_body: Dict[str, Any] = {
             "model": model_id,
             "max_tokens": max_tokens,
             "temperature": temperature,
-            "messages": [
-                {"role": msg.role, "content": msg.content}
-                for msg in messages
-                if msg.role in ("user", "assistant")
-            ],
+            "messages": anthropic_messages,
         }
 
         if system:
             request_body["system"] = system
+
+        # Convert tools from OpenAI format to Anthropic format
+        if tools:
+            request_body["tools"] = self._convert_tools_to_anthropic(tools)
 
         response = await client.post(
             "https://api.anthropic.com/v1/messages",
@@ -250,12 +288,25 @@ class CloudInferenceClient:
 
         data = response.json()
 
-        # Extract content from response
+        # Extract content and tool calls from response
         content_blocks = data.get("content", [])
         content = ""
+        tool_calls_response = None
         for block in content_blocks:
             if block.get("type") == "text":
                 content += block.get("text", "")
+            elif block.get("type") == "tool_use":
+                # Normalize to Ollama-compatible format with provider ID preserved:
+                # [{"id": "toolu_...", "function": {"name": ..., "arguments": {...}}}]
+                if tool_calls_response is None:
+                    tool_calls_response = []
+                tool_calls_response.append({
+                    "id": block.get("id", ""),
+                    "function": {
+                        "name": block.get("name", ""),
+                        "arguments": block.get("input", {}),
+                    }
+                })
 
         usage = data.get("usage", {})
 
@@ -267,6 +318,7 @@ class CloudInferenceClient:
             duration_ms=0.0,  # Set by caller
             finish_reason=data.get("stop_reason", "end_turn"),
             raw_response=data,
+            tool_calls=tool_calls_response,
         )
 
     # ── OpenAI ────────────────────────────────────────────────────────
@@ -279,6 +331,7 @@ class CloudInferenceClient:
         system: Optional[str],
         temperature: float,
         max_tokens: int,
+        tools: Optional[List[Dict[str, Any]]] = None,
     ) -> InferenceResponse:
         """Call OpenAI Chat Completions API."""
         client = await self._get_client()
@@ -288,12 +341,39 @@ class CloudInferenceClient:
             "Content-Type": "application/json",
         }
 
-        # OpenAI format: system message in messages array
-        oai_messages: List[Dict[str, str]] = []
+        # OpenAI format: system message in messages array.
+        # Tool-calling messages need structured fields.
+        oai_messages: List[Dict[str, Any]] = []
         if system:
             oai_messages.append({"role": "system", "content": system})
         for msg in messages:
-            oai_messages.append({"role": msg.role, "content": msg.content})
+            if msg.role == "assistant" and msg.tool_calls:
+                # Assistant message with tool_calls array
+                oai_tool_calls = []
+                for tc in msg.tool_calls:
+                    oai_tool_calls.append({
+                        "id": tc.get("id", ""),
+                        "type": "function",
+                        "function": {
+                            "name": tc.get("function", {}).get("name", ""),
+                            "arguments": json.dumps(tc.get("function", {}).get("arguments", {})),
+                        },
+                    })
+                oai_msg: Dict[str, Any] = {
+                    "role": "assistant",
+                    "content": msg.content or None,
+                    "tool_calls": oai_tool_calls,
+                }
+                oai_messages.append(oai_msg)
+            elif msg.tool_call_id:
+                # Tool result message
+                oai_messages.append({
+                    "role": "tool",
+                    "tool_call_id": msg.tool_call_id,
+                    "content": msg.content,
+                })
+            else:
+                oai_messages.append({"role": msg.role, "content": msg.content})
 
         request_body: Dict[str, Any] = {
             "model": model_id,
@@ -301,6 +381,10 @@ class CloudInferenceClient:
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
+
+        # Tools are already in OpenAI-compatible format — pass through
+        if tools:
+            request_body["tools"] = tools
 
         response = await client.post(
             "https://api.openai.com/v1/chat/completions",
@@ -315,9 +399,36 @@ class CloudInferenceClient:
         choices = data.get("choices", [])
         content = ""
         finish_reason = "stop"
+        tool_calls_response = None
         if choices:
-            content = choices[0].get("message", {}).get("content", "")
+            message = choices[0].get("message", {})
+            content = message.get("content", "") or ""
             finish_reason = choices[0].get("finish_reason", "stop")
+            # Parse tool calls from OpenAI response
+            raw_tool_calls = message.get("tool_calls")
+            if raw_tool_calls:
+                tool_calls_response = []
+                for tc in raw_tool_calls:
+                    fn = tc.get("function", {})
+                    # OpenAI returns arguments as JSON string
+                    args = fn.get("arguments", "{}")
+                    if isinstance(args, str):
+                        try:
+                            args = json.loads(args)
+                        except json.JSONDecodeError:
+                            self.logger.warning(
+                                "Failed to parse OpenAI tool arguments JSON",
+                                component=LogComponent.INFERENCE,
+                                data={"tool_name": fn.get("name", ""), "args_preview": args[:100]},
+                            )
+                            args = {}
+                    tool_calls_response.append({
+                        "id": tc.get("id", ""),
+                        "function": {
+                            "name": fn.get("name", ""),
+                            "arguments": args,
+                        }
+                    })
 
         usage = data.get("usage", {})
 
@@ -329,6 +440,7 @@ class CloudInferenceClient:
             duration_ms=0.0,
             finish_reason=finish_reason,
             raw_response=data,
+            tool_calls=tool_calls_response,
         )
 
     # ── Google Gemini ─────────────────────────────────────────────────
@@ -341,6 +453,7 @@ class CloudInferenceClient:
         system: Optional[str],
         temperature: float,
         max_tokens: int,
+        tools: Optional[List[Dict[str, Any]]] = None,
     ) -> InferenceResponse:
         """Call Google Gemini generateContent API.
 
@@ -376,6 +489,10 @@ class CloudInferenceClient:
                 "parts": [{"text": system}],
             }
 
+        # Convert tools to Gemini format
+        if tools:
+            request_body["tools"] = self._convert_tools_to_google(tools)
+
         response = await client.post(
             f"https://generativelanguage.googleapis.com/v1beta/models/{model_id}:generateContent",
             params={"key": api_key},
@@ -386,13 +503,26 @@ class CloudInferenceClient:
 
         data = response.json()
 
-        # Extract content
+        # Extract content and tool calls
         candidates = data.get("candidates", [])
         content = ""
         finish_reason = "stop"
+        tool_calls_response = None
         if candidates:
             parts = candidates[0].get("content", {}).get("parts", [])
-            content = "".join(p.get("text", "") for p in parts)
+            for p in parts:
+                if "text" in p:
+                    content += p["text"]
+                elif "functionCall" in p:
+                    if tool_calls_response is None:
+                        tool_calls_response = []
+                    fc = p["functionCall"]
+                    tool_calls_response.append({
+                        "function": {
+                            "name": fc.get("name", ""),
+                            "arguments": fc.get("args", {}),
+                        }
+                    })
             finish_reason = candidates[0].get("finishReason", "STOP").lower()
 
         usage = data.get("usageMetadata", {})
@@ -405,7 +535,48 @@ class CloudInferenceClient:
             duration_ms=0.0,
             finish_reason=finish_reason,
             raw_response=data,
+            tool_calls=tool_calls_response,
         )
+
+    # ── Tool Format Converters ─────────────────────────────────────────
+
+    @staticmethod
+    def _convert_tools_to_anthropic(
+        tools: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """Convert OpenAI-format tools to Anthropic format.
+
+        OpenAI: [{"type": "function", "function": {"name", "description", "parameters"}}]
+        Anthropic: [{"name", "description", "input_schema"}]
+        """
+        anthropic_tools = []
+        for tool in tools:
+            fn = tool.get("function", {})
+            anthropic_tools.append({
+                "name": fn.get("name", ""),
+                "description": fn.get("description", ""),
+                "input_schema": fn.get("parameters", {"type": "object", "properties": {}}),
+            })
+        return anthropic_tools
+
+    @staticmethod
+    def _convert_tools_to_google(
+        tools: List[Dict[str, Any]],
+    ) -> List[Dict[str, Any]]:
+        """Convert OpenAI-format tools to Google Gemini format.
+
+        OpenAI: [{"type": "function", "function": {"name", "description", "parameters"}}]
+        Gemini: [{"functionDeclarations": [{"name", "description", "parameters"}]}]
+        """
+        declarations = []
+        for tool in tools:
+            fn = tool.get("function", {})
+            declarations.append({
+                "name": fn.get("name", ""),
+                "description": fn.get("description", ""),
+                "parameters": fn.get("parameters", {"type": "object", "properties": {}}),
+            })
+        return [{"functionDeclarations": declarations}]
 
     # ── Error Handling ────────────────────────────────────────────────
 

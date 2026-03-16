@@ -140,9 +140,17 @@ class InferenceResponse:
 
 @dataclass
 class Message:
-    """Chat message."""
+    """Chat message.
+
+    For tool-calling flows, optional structured fields carry provider-specific
+    metadata alongside the plain-text content (which local Ollama uses as-is).
+    """
     role: str  # "system", "user", "assistant"
     content: str
+    # Assistant message: tool calls returned by the model
+    tool_calls: Optional[List[Dict[str, Any]]] = None
+    # Tool result message: ID of the tool_use/tool_call this result answers
+    tool_call_id: Optional[str] = None
 
 
 class TokenCounter:
@@ -441,6 +449,7 @@ class InferenceClient:
                     prompt=prompt,
                     temperature=temperature,
                     max_tokens=max_tokens,
+                    tools=tools,
                 )
                 self.router.record_success(ModelTier.CLOUD)
                 return response
@@ -499,6 +508,7 @@ class InferenceClient:
                         prompt=prompt,
                         temperature=temperature,
                         max_tokens=max_tokens,
+                        tools=tools,
                     )
                     response.fallback_used = True
                     self.router.record_success(ModelTier.CLOUD)
@@ -626,6 +636,7 @@ class InferenceClient:
         prompt: str = "",
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
     ) -> InferenceResponse:
         """
         Call cloud LLM provider.
@@ -682,6 +693,7 @@ class InferenceClient:
                 system=system,
                 temperature=temperature if temperature is not None else self.config.temperature,
                 max_tokens=max_tokens or self.config.max_tokens,
+                tools=tools,
             )
         except Exception as e:
             # Sanitize error message to prevent credential leakage in logs
@@ -908,6 +920,7 @@ class InferenceClient:
                     system=system,
                     temperature=temperature,
                     max_tokens=max_tokens,
+                    tools=tools,
                 )
                 self.router.record_success(ModelTier.CLOUD)
                 if response.content:
@@ -942,6 +955,7 @@ class InferenceClient:
                     system=system,
                     temperature=temperature,
                     max_tokens=max_tokens,
+                    tools=tools,
                 )
                 self.router.record_success(ModelTier.CLOUD)
                 # Yield the complete content as a single token
@@ -999,6 +1013,7 @@ class InferenceClient:
                         system=system,
                         temperature=temperature,
                         max_tokens=max_tokens,
+                        tools=tools,
                     )
                     response.fallback_used = True
                     self.router.record_success(ModelTier.CLOUD)

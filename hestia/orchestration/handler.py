@@ -1486,8 +1486,7 @@ class RequestHandler:
                 )
 
                 # Track token usage
-                if hasattr(response, 'usage') and response.usage:
-                    total_tokens_used += getattr(response.usage, 'total_tokens', 0)
+                total_tokens_used += response.tokens_in + response.tokens_out
 
                 # Yield any text content
                 if response.content:
@@ -1497,10 +1496,22 @@ class RequestHandler:
                 if not response.tool_calls:
                     break  # Natural termination — model is done
 
-                # Execute tools and feed results back
+                # Execute tools and feed results back.
+                # Build one assistant message with all tool calls from this iteration,
+                # then one tool-result message per executed tool. Cloud providers
+                # (Anthropic, OpenAI) require structured tool_call/tool_result fields;
+                # local Ollama uses the plain-text content as fallback.
+                assistant_content = response.content or ""
+                messages.append(Message(
+                    role="assistant",
+                    content=assistant_content or f"[Tool calls: {', '.join(tc.get('function', {}).get('name', '?') if isinstance(tc, dict) else '?' for tc in response.tool_calls)}]",
+                    tool_calls=response.tool_calls,
+                ))
+
                 for tc in response.tool_calls:
                     tool_name = tc.get("function", {}).get("name", "unknown") if isinstance(tc, dict) else getattr(tc, "name", "unknown")
                     tool_args = tc.get("function", {}).get("arguments", {}) if isinstance(tc, dict) else getattr(tc, "arguments", {})
+                    tool_call_id = tc.get("id", "") if isinstance(tc, dict) else getattr(tc, "id", "")
 
                     yield {
                         "type": "tool_start",
@@ -1520,14 +1531,12 @@ class RequestHandler:
                         "error": result.error,
                     }
 
-                    # Append tool call + result to messages for next iteration
-                    messages.append(Message(
-                        role="assistant",
-                        content=f"[Tool call: {tool_name}({tool_args})]",
-                    ))
+                    # Append tool result with structured ID for cloud providers
+                    result_text = result.to_message_content()
                     messages.append(Message(
                         role="user",
-                        content=f"[Tool result for {tool_name}]: {result.to_message_content()}",
+                        content=f"[Tool result for {tool_name}]: {result_text}",
+                        tool_call_id=tool_call_id,
                     ))
 
                 # Safety check: token budget

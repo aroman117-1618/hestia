@@ -694,3 +694,357 @@ class TestRouterCloudIntegration:
         router.record_failure(ModelTier.CLOUD)
         router.reset_failure_counts()
         assert router._failure_counts[ModelTier.CLOUD] == 0
+
+
+# ── Test: Cloud Tool Calling ─────────────────────────────────────────
+
+
+class TestCloudToolCalling:
+    """Tests for tool calling through cloud providers."""
+
+    @pytest.fixture
+    def sample_tools(self) -> list:
+        """OpenAI-format tool definitions (same as get_definitions_as_list())."""
+        return [
+            {
+                "type": "function",
+                "function": {
+                    "name": "read_file",
+                    "description": "Read a file from the filesystem.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string", "description": "File path"},
+                        },
+                        "required": ["path"],
+                    },
+                },
+            },
+        ]
+
+    @pytest.mark.asyncio
+    async def test_anthropic_tools_converted_and_sent(
+        self, client: CloudInferenceClient, messages: list, sample_tools: list,
+    ) -> None:
+        """Tools are converted from OpenAI format to Anthropic format in the request."""
+        mock_resp = _mock_response(200, {
+            "content": [{"type": "text", "text": "I'll read that file."}],
+            "model": "claude-sonnet-4-20250514",
+            "usage": {"input_tokens": 20, "output_tokens": 10},
+            "stop_reason": "end_turn",
+        })
+
+        with patch.object(client, "_get_client") as mock_get:
+            mock_http = AsyncMock()
+            mock_http.post = AsyncMock(return_value=mock_resp)
+            mock_get.return_value = mock_http
+
+            await client.complete(
+                provider=CloudProvider.ANTHROPIC,
+                model_id="claude-sonnet-4-20250514",
+                api_key="sk-ant-test-key",
+                messages=messages,
+                tools=sample_tools,
+            )
+
+            call_args = mock_http.post.call_args
+            body = call_args.kwargs.get("json", call_args[1].get("json", {}))
+
+            # Verify Anthropic format: {"name", "description", "input_schema"}
+            assert "tools" in body
+            assert len(body["tools"]) == 1
+            tool = body["tools"][0]
+            assert tool["name"] == "read_file"
+            assert tool["description"] == "Read a file from the filesystem."
+            assert "input_schema" in tool
+            assert tool["input_schema"]["type"] == "object"
+
+    @pytest.mark.asyncio
+    async def test_anthropic_tool_use_response_parsed(
+        self, client: CloudInferenceClient, messages: list, sample_tools: list,
+    ) -> None:
+        """Anthropic tool_use content blocks are parsed into Ollama-compatible format."""
+        mock_resp = _mock_response(200, {
+            "content": [
+                {"type": "text", "text": "Let me read that file."},
+                {
+                    "type": "tool_use",
+                    "id": "toolu_01ABC",
+                    "name": "read_file",
+                    "input": {"path": "/tmp/test.py"},
+                },
+            ],
+            "model": "claude-sonnet-4-20250514",
+            "usage": {"input_tokens": 25, "output_tokens": 15},
+            "stop_reason": "tool_use",
+        })
+
+        with patch.object(client, "_get_client") as mock_get:
+            mock_http = AsyncMock()
+            mock_http.post = AsyncMock(return_value=mock_resp)
+            mock_get.return_value = mock_http
+
+            response = await client.complete(
+                provider=CloudProvider.ANTHROPIC,
+                model_id="claude-sonnet-4-20250514",
+                api_key="sk-ant-test-key",
+                messages=messages,
+                tools=sample_tools,
+            )
+
+        assert response.content == "Let me read that file."
+        assert response.tool_calls is not None
+        assert len(response.tool_calls) == 1
+        tc = response.tool_calls[0]
+        assert tc["id"] == "toolu_01ABC"
+        assert tc["function"]["name"] == "read_file"
+        assert tc["function"]["arguments"] == {"path": "/tmp/test.py"}
+
+    @pytest.mark.asyncio
+    async def test_anthropic_multiple_tool_calls(
+        self, client: CloudInferenceClient, messages: list, sample_tools: list,
+    ) -> None:
+        """Multiple tool_use blocks in one response are all parsed."""
+        mock_resp = _mock_response(200, {
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": "toolu_01A",
+                    "name": "read_file",
+                    "input": {"path": "/tmp/a.py"},
+                },
+                {
+                    "type": "tool_use",
+                    "id": "toolu_01B",
+                    "name": "read_file",
+                    "input": {"path": "/tmp/b.py"},
+                },
+            ],
+            "model": "claude-sonnet-4-20250514",
+            "usage": {"input_tokens": 30, "output_tokens": 20},
+            "stop_reason": "tool_use",
+        })
+
+        with patch.object(client, "_get_client") as mock_get:
+            mock_http = AsyncMock()
+            mock_http.post = AsyncMock(return_value=mock_resp)
+            mock_get.return_value = mock_http
+
+            response = await client.complete(
+                provider=CloudProvider.ANTHROPIC,
+                model_id="claude-sonnet-4-20250514",
+                api_key="sk-ant-test-key",
+                messages=messages,
+                tools=sample_tools,
+            )
+
+        assert response.tool_calls is not None
+        assert len(response.tool_calls) == 2
+        assert response.tool_calls[0]["function"]["arguments"]["path"] == "/tmp/a.py"
+        assert response.tool_calls[1]["function"]["arguments"]["path"] == "/tmp/b.py"
+
+    @pytest.mark.asyncio
+    async def test_anthropic_no_tools_no_tool_calls(
+        self, client: CloudInferenceClient, messages: list,
+    ) -> None:
+        """Without tools parameter, tool_calls is None."""
+        mock_resp = _mock_response(200, {
+            "content": [{"type": "text", "text": "Plain text response."}],
+            "model": "claude-sonnet-4-20250514",
+            "usage": {"input_tokens": 10, "output_tokens": 5},
+            "stop_reason": "end_turn",
+        })
+
+        with patch.object(client, "_get_client") as mock_get:
+            mock_http = AsyncMock()
+            mock_http.post = AsyncMock(return_value=mock_resp)
+            mock_get.return_value = mock_http
+
+            response = await client.complete(
+                provider=CloudProvider.ANTHROPIC,
+                model_id="claude-sonnet-4-20250514",
+                api_key="sk-ant-test-key",
+                messages=messages,
+            )
+
+        assert response.tool_calls is None
+
+    @pytest.mark.asyncio
+    async def test_openai_tools_passed_through(
+        self, client: CloudInferenceClient, messages: list, sample_tools: list,
+    ) -> None:
+        """OpenAI tools are passed through unchanged (already correct format)."""
+        mock_resp = _mock_response(200, {
+            "choices": [{
+                "message": {
+                    "content": None,
+                    "tool_calls": [{
+                        "id": "call_abc",
+                        "type": "function",
+                        "function": {
+                            "name": "read_file",
+                            "arguments": '{"path": "/tmp/test.py"}',
+                        },
+                    }],
+                },
+                "finish_reason": "tool_calls",
+            }],
+            "model": "gpt-4",
+            "usage": {"prompt_tokens": 20, "completion_tokens": 10},
+        })
+
+        with patch.object(client, "_get_client") as mock_get:
+            mock_http = AsyncMock()
+            mock_http.post = AsyncMock(return_value=mock_resp)
+            mock_get.return_value = mock_http
+
+            response = await client.complete(
+                provider=CloudProvider.OPENAI,
+                model_id="gpt-4",
+                api_key="sk-openai-test-key",
+                messages=messages,
+                tools=sample_tools,
+            )
+
+            # Verify tools passed through as-is
+            call_args = mock_http.post.call_args
+            body = call_args.kwargs.get("json", call_args[1].get("json", {}))
+            assert body["tools"] == sample_tools
+
+        # Verify response parsed correctly
+        assert response.tool_calls is not None
+        assert len(response.tool_calls) == 1
+        assert response.tool_calls[0]["id"] == "call_abc"
+        assert response.tool_calls[0]["function"]["name"] == "read_file"
+        assert response.tool_calls[0]["function"]["arguments"] == {"path": "/tmp/test.py"}
+        assert response.content == ""
+
+    @pytest.mark.asyncio
+    async def test_google_tools_converted(
+        self, client: CloudInferenceClient, messages: list, sample_tools: list,
+    ) -> None:
+        """Google tools are converted to functionDeclarations format."""
+        mock_resp = _mock_response(200, {
+            "candidates": [{
+                "content": {
+                    "parts": [{
+                        "functionCall": {
+                            "name": "read_file",
+                            "args": {"path": "/tmp/test.py"},
+                        },
+                    }],
+                },
+                "finishReason": "STOP",
+            }],
+            "usageMetadata": {"promptTokenCount": 20, "candidatesTokenCount": 10},
+        })
+
+        with patch.object(client, "_get_client") as mock_get:
+            mock_http = AsyncMock()
+            mock_http.post = AsyncMock(return_value=mock_resp)
+            mock_get.return_value = mock_http
+
+            response = await client.complete(
+                provider=CloudProvider.GOOGLE,
+                model_id="gemini-pro",
+                api_key="google-test-key",
+                messages=messages,
+                tools=sample_tools,
+            )
+
+            # Verify Gemini format: {"functionDeclarations": [...]}
+            call_args = mock_http.post.call_args
+            body = call_args.kwargs.get("json", call_args[1].get("json", {}))
+            assert "tools" in body
+            assert "functionDeclarations" in body["tools"][0]
+            decl = body["tools"][0]["functionDeclarations"][0]
+            assert decl["name"] == "read_file"
+
+        # Verify response parsed correctly
+        assert response.tool_calls is not None
+        assert len(response.tool_calls) == 1
+        assert response.tool_calls[0]["function"]["name"] == "read_file"
+        assert response.tool_calls[0]["function"]["arguments"] == {"path": "/tmp/test.py"}
+
+    @pytest.mark.asyncio
+    async def test_anthropic_structured_tool_messages(
+        self, client: CloudInferenceClient, sample_tools: list,
+    ) -> None:
+        """Messages with tool_calls/tool_call_id are converted to Anthropic format."""
+        # Simulate a multi-turn: user asks → model calls tool → tool result → model responds
+        messages = [
+            Message(role="user", content="Read /tmp/test.py"),
+            Message(
+                role="assistant",
+                content="I'll read that file.",
+                tool_calls=[{
+                    "id": "toolu_01ABC",
+                    "function": {"name": "read_file", "arguments": {"path": "/tmp/test.py"}},
+                }],
+            ),
+            Message(
+                role="user",
+                content="[Tool result for read_file]: print('hello')",
+                tool_call_id="toolu_01ABC",
+            ),
+        ]
+
+        mock_resp = _mock_response(200, {
+            "content": [{"type": "text", "text": "The file contains a hello print."}],
+            "model": "claude-sonnet-4-20250514",
+            "usage": {"input_tokens": 50, "output_tokens": 10},
+            "stop_reason": "end_turn",
+        })
+
+        with patch.object(client, "_get_client") as mock_get:
+            mock_http = AsyncMock()
+            mock_http.post = AsyncMock(return_value=mock_resp)
+            mock_get.return_value = mock_http
+
+            await client.complete(
+                provider=CloudProvider.ANTHROPIC,
+                model_id="claude-sonnet-4-20250514",
+                api_key="sk-ant-test-key",
+                messages=messages,
+                tools=sample_tools,
+            )
+
+            call_args = mock_http.post.call_args
+            body = call_args.kwargs.get("json", call_args[1].get("json", {}))
+            api_messages = body["messages"]
+
+            # Message 0: plain user message
+            assert api_messages[0] == {"role": "user", "content": "Read /tmp/test.py"}
+
+            # Message 1: assistant with tool_use block
+            assert api_messages[1]["role"] == "assistant"
+            assert isinstance(api_messages[1]["content"], list)
+            blocks = api_messages[1]["content"]
+            assert blocks[0] == {"type": "text", "text": "I'll read that file."}
+            assert blocks[1]["type"] == "tool_use"
+            assert blocks[1]["id"] == "toolu_01ABC"
+            assert blocks[1]["name"] == "read_file"
+
+            # Message 2: user with tool_result block
+            assert api_messages[2]["role"] == "user"
+            assert isinstance(api_messages[2]["content"], list)
+            result_block = api_messages[2]["content"][0]
+            assert result_block["type"] == "tool_result"
+            assert result_block["tool_use_id"] == "toolu_01ABC"
+
+    def test_convert_tools_to_anthropic(self, sample_tools: list) -> None:
+        """Static converter produces correct Anthropic tool format."""
+        result = CloudInferenceClient._convert_tools_to_anthropic(sample_tools)
+        assert len(result) == 1
+        assert result[0]["name"] == "read_file"
+        assert "input_schema" in result[0]
+        assert "type" not in result[0]  # No OpenAI "type": "function" wrapper
+
+    def test_convert_tools_to_google(self, sample_tools: list) -> None:
+        """Static converter produces correct Google functionDeclarations format."""
+        result = CloudInferenceClient._convert_tools_to_google(sample_tools)
+        assert len(result) == 1
+        assert "functionDeclarations" in result[0]
+        decls = result[0]["functionDeclarations"]
+        assert len(decls) == 1
+        assert decls[0]["name"] == "read_file"

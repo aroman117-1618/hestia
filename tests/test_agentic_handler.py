@@ -12,7 +12,9 @@ def _make_mock_inference_response(content="", tool_calls=None):
     resp = MagicMock()
     resp.content = content
     resp.tool_calls = tool_calls or []
-    resp.usage = MagicMock(total_tokens=100)
+    resp.tokens_in = 50
+    resp.tokens_out = 50
+    resp.tier = "cloud"
     return resp
 
 
