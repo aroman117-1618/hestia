@@ -60,6 +60,14 @@ class OutcomeDatabase(BaseDatabase):
             CREATE INDEX IF NOT EXISTS idx_outcomes_session
                 ON outcomes(session_id, timestamp DESC);
         """)
+        # Migration: add agent routing columns (ADR-042)
+        for col in ("agent_route TEXT", "route_confidence REAL"):
+            try:
+                await self._connection.execute(
+                    f"ALTER TABLE outcomes ADD COLUMN {col}"
+                )
+            except Exception:
+                pass  # Column already exists
         await self._connection.commit()
 
     # -- Store / Query --------------------------------------------------------
@@ -79,8 +87,9 @@ class OutcomeDatabase(BaseDatabase):
                (id, user_id, device_id, session_id, message_id,
                 response_content, response_type, duration_ms,
                 feedback, feedback_note, implicit_signal,
-                elapsed_to_next_ms, timestamp, metadata)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                elapsed_to_next_ms, timestamp, metadata,
+                agent_route, route_confidence)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 record.id,
                 record.user_id,
@@ -96,6 +105,8 @@ class OutcomeDatabase(BaseDatabase):
                 record.elapsed_to_next_ms,
                 record.timestamp.isoformat(),
                 metadata_json,
+                record.agent_route,
+                record.route_confidence,
             ),
         )
         await self._connection.commit()
@@ -304,6 +315,8 @@ class OutcomeDatabase(BaseDatabase):
             "elapsed_to_next_ms": row["elapsed_to_next_ms"],
             "timestamp": row["timestamp"],
             "metadata": metadata,
+            "agent_route": row["agent_route"] if "agent_route" in row.keys() else None,
+            "route_confidence": row["route_confidence"] if "route_confidence" in row.keys() else None,
         }
 
 

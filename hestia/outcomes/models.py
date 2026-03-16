@@ -49,6 +49,9 @@ class OutcomeRecord:
     elapsed_to_next_ms: Optional[int] = None
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     metadata: Dict[str, Any] = field(default_factory=dict)
+    # Agent orchestrator routing (ADR-042)
+    agent_route: Optional[str] = None         # AgentRoute value
+    route_confidence: Optional[float] = None   # Routing confidence
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize for API response."""
@@ -67,6 +70,8 @@ class OutcomeRecord:
             "elapsed_to_next_ms": self.elapsed_to_next_ms,
             "timestamp": self.timestamp.isoformat(),
             "metadata": self.metadata,
+            "agent_route": self.agent_route,
+            "route_confidence": self.route_confidence,
         }
 
     @classmethod
@@ -94,4 +99,6 @@ class OutcomeRecord:
             elapsed_to_next_ms=data.get("elapsed_to_next_ms"),
             timestamp=timestamp,
             metadata=data.get("metadata", {}),
+            agent_route=data.get("agent_route"),
+            route_confidence=data.get("route_confidence"),
         )

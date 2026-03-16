@@ -21,6 +21,7 @@ from hestia.api.schemas import (
     ResponseError,
     ErrorResponse,
 )
+from hestia.api.schemas.chat import AgentBylineSchema
 from hestia.api.middleware.auth import get_device_token
 from hestia.orchestration.handler import get_request_handler
 from hestia.orchestration.models import Request, RequestSource, Mode, ResponseType
@@ -150,6 +151,14 @@ async def send_message(
                 code=response.error_code,
                 message=response.error_message,
             ) if response.error_code else None,
+            bylines=[
+                AgentBylineSchema(
+                    agent=b.agent.value,
+                    contribution=b.contribution_type,
+                    summary=b.summary,
+                )
+                for b in response.bylines
+            ] if response.bylines else None,
         )
 
         # Track outcome for Learning Cycle
