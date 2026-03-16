@@ -1,54 +1,62 @@
 # Session Handoff — 2026-03-16
 
 ## Mission
-Resolve known landmines from Sprint 13 handoff, then live-test and fix the agentic coding loop (iterative tool chaining with cloud inference).
+Design and implement the Agent Orchestrator (Sprint 14) — evolving Hestia from user-routed persona switching to a coordinator-delegate model. Then update the master roadmap with research brief integration, memory lifecycle components, and Graph RAG Lite planning.
 
 ## Completed
-- **Landmine: count-check.sh broken** — Two bugs: pytest collected from hestia-cli/tests (conftest collision) and run_with_timeout kill guards failed under set -euo pipefail. Fixed both. (4206e0a)
-- **Landmine: Memory import relevance penalty** — 0.9x multiplier for claude_history/openai_history chunks in search results, applied before temporal decay. 1 new test. (a2b29a1)
-- **Landmine: HestiaShared gitignored** — Committed as tracked SPM package, deleted 27 duplicate files from Shared/, removed exclude list from project.yml. Both Xcode schemes build clean. Also fixed pre-existing WikiView #if !os(iOS) guard. (55db881)
-- **Agentic cloud routing** — Added force_cloud parameter to chat() and _call_with_routing() so handle_agentic() bypasses the router and goes directly to cloud. Improved error messages with sanitized details. (56057b0)
-- **Claude CLI subscription fallback** — When Anthropic API returns billing (HTTP 400) or rate-limit (HTTP 429) errors, automatically falls back to claude -p (subscription billing via OAuth). Strips ANTHROPIC_API_KEY from subprocess env. Default model: sonnet. 7 new tests. (7a411cf)
-- **Cleanup** — Removed .serena/ directory (unused MCP plugin), added scripts/add-cloud-key.sh, CI workflow_call trigger, tasks/lessons.md template. (eb4f315)
-- **Security audit (Clinejection)** — Full prompt injection audit across CI/CD and backend. Hardened claude.yml (block fork PRs, collaborators-only, read-only permissions). Added indirect prompt injection mitigations: safety preamble on investigate analysis prompts, [TOOL DATA] boundary markers in agentic loop, moved focus param from system prompt to user content. Sandbox path allowlist verified — all sensitive paths blocked. (912c6f2)
+- **Agent Orchestrator (Sprint 14)** — Full implementation across 4 chunks:
+  - `cf9bf5b` Chunk 1: agent_models.py, router.py, audit_db.py, council extension, config/orchestration.yaml
+  - `548b9cc` Chunk 2: planner.py, executor.py, context_manager.py, synthesizer.py
+  - `fdd908b` Chunk 3: handler integration, ChatResponse.bylines, outcomes columns, mode patterns, server lifecycle
+  - `30dba79` Chunk 4: golden dataset (33 cases, 100% accuracy), ADR-042, SPRINT.md, CLAUDE.md
+- **Byline rendering** across iOS, macOS, and CLI (`1883da4`)
+  - HestiaShared: AgentByline model, HestiaResponse.bylines, ConversationMessage.bylines
+  - SSE done event: parses bylines array
+  - iOS MessageBubble: byline footer below assistant messages with VoiceOver
+  - macOS MacMessageBubble: byline row after sender label
+  - CLI renderer: byline lines in _render_done before metrics
+- **Master roadmap overhaul** (`6f07889`) — Three eras (Foundation/Intelligence Infrastructure/Anticipatory Autonomy), Sprints 15-22 planned
+- **Gate 2 marked PASSED** (`2f2b796`) — OutcomeTracker + multi-source memory confirmed operational
+- **Codebase audit** (`f9568da`) — Healthy. CLAUDE.md drift items fixed (test count, endpoint count, LogComponent list)
+- **Design spec + plan audit** (`2f63901`) — Full design doc and 9-section plan audit with CISO/CTO/CPO verdicts
 
 ## In Progress
-- **CLI fallback Phase 2 (tool calling helper)** — Deferred. Live testing proved the existing text-based tool extraction works with the CLI path without explicit tool schema embedding. Helper (_tool_defs_to_instructions()) can be added if a failure case is found.
-- **CLI fallback Phase 3 (UI indicator)** — Deferred to roadmap. inference_source field exists on InferenceResponse but is not yet threaded through API responses or displayed in iOS/macOS UI.
+- None — all work committed
 
 ## Decisions Made
-- HestiaShared is the single source of truth for foundational Swift code (models, networking, design system, config). Shared/ retains ViewModels, Views, and platform services only.
-- CLI fallback uses sonnet by default (not opus) to control subscription cost.
-- CLI fallback applies to ALL cloud paths (chat, stream, agentic), not just agentic.
-- Phase 3 UI indicator (inference source badge) deferred to existing UI roadmap.
-- .serena/ removed — built-in tools (Grep, Glob, Read) + hestia-explorer sub-agent cover all needs.
-- Indirect prompt injection: structural controls (sandbox, gate, approval) are the real defense. LLM-level mitigations ([TOOL DATA] markers, safety preambles) raise the bar but aren't bulletproof.
+- **ADR-042:** Agent Orchestrator — Hestia as single interface, Artemis (analysis) and Apollo (execution) as internal specialists. Council extended (not replaced). Deterministic intent-to-route heuristic as primary router. Confidence gating: >0.8 dispatch, 0.5-0.8 enriched solo, <0.5 pure solo.
+- **Gate 2 PASSED:** Data infrastructure is operational. MetaMonitor (Sprint 15) will analyze signal quality — that's a deliverable, not a prerequisite.
+- **Health/Whoop deferred to Sprint 21 (P3):** Intelligence infrastructure (Sprints 15-18) is higher leverage per hour. Feature breadth can wait.
+- **Graph RAG Lite (Sprint 17):** Dual-path retrieval — SYNTHESIS intent routes through knowledge graph + vector chunks; normal queries unchanged.
+- **Memory lifecycle (Sprint 16):** Importance scoring at ingest, nightly consolidation, monthly pruning.
+- **MoE opportunity closed:** ADR-042 addresses the same need with explicit routing instead of opaque learned routing.
 
 ## Test Status
-- 1917 collected, 1914 passing, 3 skipped (Ollama integration)
-- No failures
-- 8 new tests this session (1 memory import penalty, 7 CLI fallback)
-- count-check.sh passes clean
+- Backend: 2012 collected, 2009 passing, 3 skipped (Ollama integration)
+- CLI: 135 passing, 0 failures
+- 1 pre-existing failure: `test_inference.py::TestInferenceClientIntegration::test_simple_completion` — Ollama flakiness (empty response at 1.6 tok/s), not caused by this session's changes
+- count-check.sh: test file count shows "drift" because script doesn't scan hestia-cli/tests/ — actual count is correct (51 + 7 = 58)
 
 ## Uncommitted Changes
 - None — all committed
 
 ## Known Issues / Landmines
-- **Anthropic API billing** — The API key's credits show "credit balance too low" (HTTP 400). $148.73 remaining with $1,068 pending. Anthropic support contacted. The CLI fallback masks this completely — agentic loop works via subscription.
-- **Agentic sandbox paths** — read_file with relative paths (e.g. "hestia/memory/models.py") is denied by sandbox. The model works around it via glob_files + grep_files, but teaching absolute paths in the agentic system prompt would reduce iteration count.
-- **Integration tests hit Ollama** — TestInferenceClientIntegration (2 tests) claim to skip when Ollama is unavailable, but the skip logic doesn't work. They timeout instead. Pre-existing.
-- **HestiaShared on Mac Mini** — Fresh deploy needs xcodegen regeneration since project.yml changed. The deploy script should handle this, but verify after next push.
-- **Cloud cold-boot** — After server restart, cloud defaults to disabled. First /v1/cloud/providers call syncs from SQLite to enabled_full. Documented behavior, not a bug.
-- **Residual prompt injection surface** — Indirect injection via external data (web pages in investigate, Apple Notes/Mail content, imported history) flowing into LLM prompts is mitigated but not eliminated. Structural controls (sandbox allowlist, comm gate, tool approval) are the hard defense. See audit findings in security commit 912c6f2.
+- **handler.py is 2510 lines** — Codebase audit's #1 tech debt item. The orchestrator added ~150 lines (`_try_orchestrated_response`, `_get_orchestrator_config`). Plan decomposition for a future sprint.
+- **Config directory split** — `hestia/config/` (6 YAML files) vs top-level `config/` (orchestration.yaml). Audit recommends moving orchestration.yaml into `hestia/config/` for consistency. Low priority.
+- **Orchestrator config loaded from disk on every request** — `_get_orchestrator_config()` reads `config/orchestration.yaml` each time. Should be cached at startup (like inference.yaml). Not a performance issue at current scale, but fix before production traffic.
+- **Byline rendering not tested on real specialist dispatch** — The orchestrator correctly routes to specialists and generates bylines in tests, but hasn't been live-tested with Ollama/cloud actually running two inference calls. Need a live test once server is restarted.
+- **Pre-existing:** Anthropic API billing — credits show "balance too low." CLI fallback masks this completely.
+- **Pre-existing:** Agentic sandbox paths — relative paths denied. Teaching absolute paths in system prompt would reduce iteration count.
+- **Pre-existing:** HestiaShared on Mac Mini — fresh deploy needs xcodegen regeneration.
+- **41+ commits ahead of remote** — Deploy to Mac Mini needed.
 
 ## Process Learnings
-- **Config gap: security hook false positive** — The security_reminder_hook.py triggers on "exec" in Python test files that mock asyncio.create_subprocess. It's designed for JS child_process and doesn't apply to Python async subprocesses. Consider adding a file-type filter to the hook.
-- **First-pass success: ~90%** — Rework was minimal: WikiView iOS build error (exposed by cleanup, not caused by it), test fixture using wrong store() parameter (source= vs metadata=ChunkMetadata(source=)). Both caught quickly.
-- **Agent orchestration: good** — Used hestia-explorer effectively for parallel research (3 calls). Could have used hestia-reviewer for the HestiaShared restructure given its scope (39 files). Skipped due to confidence in Xcode build verification.
-- **Key debugging insight** — The "14-char API key" mystery was solved by direct Keychain retrieval (sk-invalid-key placeholder). Adding debug logging to _call_cloud() was essential — the original error messages were opaque (CloudAuthError: CloudAuthError). The improved warning-level logging is now permanent.
+- **First-pass success: ~95%** — Only one test failure during implementation (chain test content was 13 words, below 15-word threshold). Fixed in <1 minute. The logger import pattern (`from hestia.logging.logger import LogComponent` → should be `from hestia.logging import get_logger, LogComponent`) was caught immediately from memory.
+- **Agent orchestration: excellent** — @hestia-explorer used for two deep research passes (current architecture + byline rendering). Both returned comprehensive results that saved significant exploration time. @hestia-tester launched in background for full suite while continuing work.
+- **Brainstorming skill value:** The structured brainstorming → plan audit → implementation pipeline caught the SLM routing accuracy risk early (audit recommendation #5: use heuristic, not SLM). This would have been a mid-implementation discovery without the audit.
+- **Config gap:** count-check.sh doesn't scan `hestia-cli/tests/` — always shows drift for test file count. Could be fixed by adding CLI path scanning.
 
 ## Next Step
-1. **Agentic sandbox paths** — In hestia/orchestration/handler.py, update the agentic system prompt to tell the model to use absolute paths (e.g., /Users/andrewlonati/hestia/...) for file tools. This will reduce tool iteration waste from 11 to ~3 iterations.
-2. **Deploy to Mac Mini** — 41 commits ahead of remote. Run ./scripts/deploy-to-mini.sh. Verify xcodegen regenerates correctly with the new project.yml.
-3. **When API billing resolves** — Re-test agentic loop without CLI fallback to confirm native API tool calling works. Check logs for inference_source: "api" vs "subscription".
-4. **Phase 3 UI indicator** — Add inference_source to chat/stream/agentic response metrics and display in iOS/macOS chat bubble metadata. Blend into next UI sprint.
+1. **Live-test orchestrator** — Start server (`python -m hestia.api.server`), send messages that should trigger Artemis/Apollo routing (e.g., "compare SQLite vs Postgres" for Artemis, "write a function that validates emails" for Apollo). Verify bylines appear in CLI and API responses.
+2. **Deploy to Mac Mini** — 41+ commits ahead. Run `./scripts/deploy-to-mini.sh`. Verify xcodegen regenerates with updated project.yml.
+3. **Begin Sprint 15 planning** — MetaMonitor + Memory Health + Trigger Metrics. Start with `/discovery` to research MetaMonitor design patterns, then `/plan-audit` before implementation.
