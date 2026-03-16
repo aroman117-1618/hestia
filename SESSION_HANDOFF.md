@@ -1,67 +1,51 @@
-# Session Handoff — 2026-03-15
+# Session Handoff — 2026-03-16
 
 ## Mission
-Sprint 13 "Hestia Evolution" — complete knowledge graph, trim iOS app, import Claude conversation history, and build agentic self-development tools (iterative tool loop, code/git tools, verification layer).
+Resolve known landmines from Sprint 13 handoff, then live-test and fix the agentic coding loop (iterative tool chaining with cloud inference).
 
 ## Completed
-- **WS1: Knowledge Graph (complete)** — EpisodicNode model + DB table + CRUD, temporal fact queries (`get_facts_at_time()`), fire-and-forget fact extraction after chat (>200 chars), 6 new API endpoints (entity search, fact invalidation, temporal query, episodic list/search)
-  - `d87ca2f` episodic nodes + temporal queries + MemorySource expansion
-  - `6d0d7b2` auto fact extraction + new endpoints
-
-- **WS2: App Strategy (complete)** — iOS trimmed to Chat + Settings (2 tabs). Command Center, Explorer, Wiki, Neural Net excluded from iOS target. macOS unchanged (full feature set). Both Xcode schemes build clean.
-  - `07baeb9` iOS trimming
-
-- **WS3: Claude Import (complete + executed)** — ClaudeHistoryParser extracts 4 layers (text, thinking blocks, summaries, tool patterns). Credential stripping (regex for API keys, GitHub PATs, passwords). Import pipeline with content-hash dedup. **988 chunks imported from 78 conversations, 0 failed.** Re-import verified: 984 skipped.
-  - `1642aee` parser
-  - `601040a` pipeline + endpoint
-  - Import executed live against Andrew's export data
-
-- **WS4: Agentic Self-Development (Phases 0-2 complete)**
-  - Phase 0: `edit_file`, `glob_files`, `grep_files` code tools + `git_status/diff/add/commit/log` with safety checks + `CODING` intent + sandbox allowlist expansion (`e796b01`)
-  - Phase 1: `handle_agentic()` iterative tool loop (max 25 iterations, 150K token budget) + `POST /v1/chat/agentic` SSE endpoint (`1ea8d74`)
-  - Phase 2: Self-modification verification layer (detection, test mapping, test runner, diff) + CLI `/code` command (`bd466e3`, `e50176d`)
-
-- **Pre-sprint cleanup** — Fixed macOS build break (SSE streaming in HestiaShared package), cleaned 7 stale worktrees, resolved stash conflicts, committed CLI insight callouts + Apple tools cleanup, committed orphaned docs
+- **Landmine: count-check.sh broken** — Two bugs: pytest collected from hestia-cli/tests (conftest collision) and run_with_timeout kill guards failed under set -euo pipefail. Fixed both. (4206e0a)
+- **Landmine: Memory import relevance penalty** — 0.9x multiplier for claude_history/openai_history chunks in search results, applied before temporal decay. 1 new test. (a2b29a1)
+- **Landmine: HestiaShared gitignored** — Committed as tracked SPM package, deleted 27 duplicate files from Shared/, removed exclude list from project.yml. Both Xcode schemes build clean. Also fixed pre-existing WikiView #if !os(iOS) guard. (55db881)
+- **Agentic cloud routing** — Added force_cloud parameter to chat() and _call_with_routing() so handle_agentic() bypasses the router and goes directly to cloud. Improved error messages with sanitized details. (56057b0)
+- **Claude CLI subscription fallback** — When Anthropic API returns billing (HTTP 400) or rate-limit (HTTP 429) errors, automatically falls back to claude -p (subscription billing via OAuth). Strips ANTHROPIC_API_KEY from subprocess env. Default model: sonnet. 7 new tests. (7a411cf)
+- **Cleanup** — Removed .serena/ directory (unused MCP plugin), added scripts/add-cloud-key.sh, CI workflow_call trigger, tasks/lessons.md template. (eb4f315)
 
 ## In Progress
-- **Nothing** — all Sprint 13 work committed
+- **CLI fallback Phase 2 (tool calling helper)** — Deferred. Live testing proved the existing text-based tool extraction works with the CLI path without explicit tool schema embedding. Helper (_tool_defs_to_instructions()) can be added if a failure case is found.
+- **CLI fallback Phase 3 (UI indicator)** — Deferred to roadmap. inference_source field exists on InferenceResponse but is not yet threaded through API responses or displayed in iOS/macOS UI.
 
 ## Decisions Made
-- iOS trimmed to Chat + Settings — macOS is primary full-featured app (reduces maintenance at 6hrs/week)
-- `handle_agentic()` is a completely separate method from `handle()`/`handle_streaming()` — production chat pipeline untouched
-- `hestia/security/` and `hestia/config/` excluded from agentic edit_file (never self-modifiable)
-- `[hestia-auto]` prefix on all automated git commits for easy filtering
-- Credential stripping in import pipeline (7 redacted in real import)
-- Content-hash dedup (not chunk-ID based) ensures re-imports are safe
+- HestiaShared is the single source of truth for foundational Swift code (models, networking, design system, config). Shared/ retains ViewModels, Views, and platform services only.
+- CLI fallback uses sonnet by default (not opus) to control subscription cost.
+- CLI fallback applies to ALL cloud paths (chat, stream, agentic), not just agentic.
+- Phase 3 UI indicator (inference source badge) deferred to existing UI roadmap.
+- .serena/ removed — built-in tools (Grep, Glob, Read) + hestia-explorer sub-agent cover all needs.
 
 ## Test Status
-- 1900 collected, ~1897 passing, 3 skipped (Ollama integration)
+- 1917 collected, 1914 passing, 3 skipped (Ollama integration)
 - No failures
-- 81 new tests this session across 6 new test files
+- 8 new tests this session (1 memory import penalty, 7 CLI fallback)
+- count-check.sh passes clean
 
 ## Uncommitted Changes
-- `CLAUDE.md` — updated counts (170 endpoints, 1900 tests, new endpoints)
-- `SESSION_HANDOFF.md` — this file
-- `SPRINT.md` — to be updated below
+- None — all committed
 
 ## Known Issues / Landmines
-- **HestiaShared is gitignored** — SSE streaming fix (sendMessageStream, ChatStreamEvent, Sendable) is local to this machine. Any fresh clone needs to re-propagate from `Shared/` to `HestiaShared/`. Consider un-gitignoring or adding a build script.
-- **Agentic loop not live-tested with real LLM** — Unit tests mock inference. The audit recommended a proof-of-concept with real Anthropic API before relying on tool chaining (audit condition #7). Run `/code` with a simple task to validate.
-- **Cloud state cold-boot** — After server restart, cloud defaults to `disabled` from inference.yaml. First `/v1/cloud/providers` call syncs from SQLite → corrects to `enabled_full`.
-- **Memory search relevance penalty** — Audit condition #8 recommended 0.9x multiplier for imported chunks. Not yet implemented — imported chunks rank equally with conversation memory in search results.
-- **`count-check.sh` is broken** — Script exists but fails to run (line 1 error). Needs debugging.
-- **iOS Voice tab** — The plan called for a 3-tab layout (Chat, Voice, Settings) but VoiceRecordingOverlay is embedded in ChatView, not a separate tab. Current trimming gives 2 tabs (Chat, Settings). Voice is accessible via the chat interface.
+- **Anthropic API billing** — The API key's credits show "credit balance too low" (HTTP 400). $148.73 remaining with $1,068 pending. Anthropic support contacted. The CLI fallback masks this completely — agentic loop works via subscription.
+- **Agentic sandbox paths** — read_file with relative paths (e.g. "hestia/memory/models.py") is denied by sandbox. The model works around it via glob_files + grep_files, but teaching absolute paths in the agentic system prompt would reduce iteration count.
+- **Integration tests hit Ollama** — TestInferenceClientIntegration (2 tests) claim to skip when Ollama is unavailable, but the skip logic doesn't work. They timeout instead. Pre-existing.
+- **HestiaShared on Mac Mini** — Fresh deploy needs xcodegen regeneration since project.yml changed. The deploy script should handle this, but verify after next push.
+- **Cloud cold-boot** — After server restart, cloud defaults to disabled. First /v1/cloud/providers call syncs from SQLite to enabled_full. Documented behavior, not a bug.
 
 ## Process Learnings
-- **Config gap**: `count-check.sh` fails — should be fixed or removed. Manual count verification is error-prone.
-- **First-pass success**: ~85%. Rework was mostly test fixture issues (pytest `request` reserved word, AsyncMock vs MagicMock for async factories, sandbox validation in tmp_path). These are predictable mock patterns — could add a "testing patterns" section to CLAUDE.md.
-- **Agent orchestration**: Good use of @hestia-explorer (3 parallel research agents at session start). Could have used @hestia-tester more proactively after each commit instead of running pytest manually. @hestia-reviewer was skipped due to velocity — acceptable for this sprint but should be used on the agentic handler code.
-- **Parallel execution**: Researching all 3 workstreams simultaneously at the start saved significant time. The 3 explorer agents returned in ~60s with everything needed for implementation.
+- **Config gap: security hook false positive** — The security_reminder_hook.py triggers on "exec" in Python test files that mock asyncio.create_subprocess. It's designed for JS child_process and doesn't apply to Python async subprocesses. Consider adding a file-type filter to the hook.
+- **First-pass success: ~90%** — Rework was minimal: WikiView iOS build error (exposed by cleanup, not caused by it), test fixture using wrong store() parameter (source= vs metadata=ChunkMetadata(source=)). Both caught quickly.
+- **Agent orchestration: good** — Used hestia-explorer effectively for parallel research (3 calls). Could have used hestia-reviewer for the HestiaShared restructure given its scope (39 files). Skipped due to confidence in Xcode build verification.
+- **Key debugging insight** — The "14-char API key" mystery was solved by direct Keychain retrieval (sk-invalid-key placeholder). Adding debug logging to _call_cloud() was essential — the original error messages were opaque (CloudAuthError: CloudAuthError). The improved warning-level logging is now permanent.
 
 ## Next Step
-1. **Live-test the agentic loop** — Start server, then in CLI run `/code read hestia/memory/models.py and tell me about the MemorySource enum`. Verify tool chaining works with real Anthropic API. This validates audit condition #7.
-2. **Implement relevance penalty** — In `hestia/memory/manager.py`, add 0.9x score multiplier for chunks with `source=claude_history` in search results (audit condition #8).
-3. **OpenAI import** — When Andrew pulls his OpenAI data, create `hestia/memory/importers/openai.py` following the same pattern as `claude.py`. The pipeline already supports `MemorySource.OPENAI_HISTORY`.
-4. **WS4 Phase 3 (Learning Cycle)** — Integrate PrincipleStore for coding patterns. Deferred until agentic loop is validated with real usage.
-5. **Gate 2 evaluation for Sprint 11B MetaMonitor** — With 988 imported chunks + ongoing chat memory + Apple ecosystem ingestion, assess whether OutcomeTracker has enough signal.
-6. **Deploy to Mac Mini** — 33 commits ahead of remote.
+1. **Agentic sandbox paths** — In hestia/orchestration/handler.py, update the agentic system prompt to tell the model to use absolute paths (e.g., /Users/andrewlonati/hestia/...) for file tools. This will reduce tool iteration waste from 11 to ~3 iterations.
+2. **Deploy to Mac Mini** — 41 commits ahead of remote. Run ./scripts/deploy-to-mini.sh. Verify xcodegen regenerates correctly with the new project.yml.
+3. **When API billing resolves** — Re-test agentic loop without CLI fallback to confirm native API tool calling works. Check logs for inference_source: "api" vs "subscription".
+4. **Phase 3 UI indicator** — Add inference_source to chat/stream/agentic response metrics and display in iOS/macOS chat bubble metadata. Blend into next UI sprint.
