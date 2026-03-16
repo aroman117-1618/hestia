@@ -1,4 +1,43 @@
-# Current Sprint: Hestia Evolution (Sprint 13) — COMPLETE
+# Current Sprint: Agent Orchestrator (Sprint 14)
+
+**Started:** 2026-03-16
+**Design Spec:** `docs/superpowers/specs/2026-03-16-agent-orchestrator-design.md`
+**Plan Audit:** `docs/plans/agent-orchestrator-audit-2026-03-16.md`
+**Implementation Plan:** `docs/superpowers/plans/2026-03-16-agent-orchestrator.md`
+**ADR:** ADR-042
+
+## Sprint 14 Summary
+
+Evolve Hestia from user-routed persona switching to a coordinator-delegate model. Hestia becomes the single user interface, orchestrating Artemis (analysis) and Apollo (execution) as internal sub-agents.
+
+### What Was Built
+- **AgentRoute enum** + orchestrator models (AgentTask, AgentResult, ExecutionPlan, AgentByline)
+- **Intent-to-route heuristic** (AgentRouter) — deterministic mapping from council IntentType to AgentRoute via keyword matching
+- **OrchestrationPlanner** with confidence gating (>0.8 dispatch, 0.5-0.8 enriched solo, <0.5 pure solo) and chain validation
+- **AgentExecutor** with sequential chains, parallel groups (asyncio.gather), and fallback on error
+- **Context slicing** per agent (Artemis gets full history, Apollo gets recent + tools)
+- **Result synthesizer** with byline generation and footer formatting
+- **Handler integration** — orchestrator hooks between pre-inference and inference, falls back to normal pipeline on solo/error
+- **Council extension** — `agent_route` and `route_confidence` on IntentClassification
+- **ChatResponse.bylines** — optional API field for client attribution rendering
+- **Outcome tracking** — `agent_route` and `route_confidence` columns (migration)
+- **Routing audit database** — SQLite, user_id-scoped, fire-and-forget logging
+- **@artemis/@apollo invoke patterns** preserved as power-user override
+- **orchestration.yaml** config with kill switch
+- **Golden dataset** — 33 test cases, 100% routing accuracy
+
+### Key Commits
+- `cf9bf5b` feat: agent orchestrator foundation (Chunk 1)
+- `548b9cc` feat: orchestration core (Chunk 2)
+- `fdd908b` feat: integrate orchestrator into handler pipeline (Chunk 3)
+
+### Test Results
+- ~100 new tests across 3 test files
+- Full suite: pending verification
+
+---
+
+# Previous: Hestia Evolution (Sprint 13) — COMPLETE
 
 **Started:** 2026-03-15
 **Discovery:** `docs/discoveries/hestia-enhancement-candidates-2026-03-15.md`, `docs/discoveries/hestia-agentic-self-development-2026-03-15.md`

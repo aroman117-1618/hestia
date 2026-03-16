@@ -58,7 +58,7 @@ When resuming work from a previous session, FIRST read `SESSION_HANDOFF.md` (if 
 This is a multi-session project (Hestia). Key references:
 - Project plans and workstreams are in `docs/`
 - Previous session context may be compacted — check docs and CLAUDE.md FIRST before searching transcripts
-- Current workstreams: Sprint 9 (Knowledge Graph Evolution — bi-temporal facts, entity registry, communities). Sprints 1-8 COMPLETE. See `SPRINT.md`.
+- Current workstreams: Sprint 14 (Agent Orchestrator — coordinate/analyze/delegate model). Sprints 1-13 COMPLETE. See `SPRINT.md`.
 - **2026-03-01:** Sprint 4 — audit remediation (proactive auth fix, auth dep standardization), macOS Wiki/Explorer Resources/Resources tab. 66 macOS files total.
 - **2026-02-28:** macOS app renamed to "Hestia" — UX polished: keyboard shortcuts (⌘1-6/\), sidebar, responsive layout, app icon. Both Xcode schemes build clean.
 - **2026-02-28:** Claude Code config refresh — new skills, CI/CD pipeline, sprint tracker. Direct API billing active.
@@ -79,7 +79,7 @@ Do NOT assume the first hypothesis is correct — validate before implementing f
 
 Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, adaptive, sardonic, anticipates needs.
 
-**Three Modes:** `@Tia` (Hestia — daily ops), `@Mira` (Artemis — Socratic teaching), `@Olly` (Apollo — focused dev)
+**Three Agents:** Hestia (coordinator — single user interface), Artemis (analysis specialist), Apollo (execution specialist). Hestia routes internally. `@artemis`/`@apollo` override available. See ADR-042.
 
 ## Technical Stack
 
@@ -181,7 +181,7 @@ hestia/
 │   ├── cloud/                       # CloudManager, CloudInferenceClient (Anthropic/OpenAI/Google)
 │   ├── council/                     # CouncilManager (4-role, dual-path), IntentType, prompts
 │   ├── memory/                      # MemoryManager, ChromaDB, SQLite, TemporalDecay, AutoTagger
-│   ├── orchestration/               # RequestHandler, StateMachine, ModeManager, PromptBuilder
+│   ├── orchestration/               # RequestHandler, StateMachine, ModeManager, PromptBuilder, AgentOrchestrator
 │   ├── execution/                   # ToolExecutor, ToolRegistry, Sandbox, CommGate
 │   ├── apple/                       # 20 tools (Calendar, Reminders, Notes, Mail)
 │   ├── health/                      # HealthKit sync, metrics DB, coaching, 5 chat tools
@@ -305,9 +305,12 @@ Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 
 **Knowledge Graph (Sprint 9 — Graphiti-inspired):** Bi-temporal facts (`valid_at`, `invalid_at`, `expired_at`) on SQLite edges between entities. Entity resolution via canonical name dedup. Community detection via label propagation (no graph DB). LLM-powered triplet extraction + contradiction detection. Two graph modes: `mode=legacy` (co-occurrence) and `mode=facts` (entity-relationship). On-demand extraction (not per-chat) to avoid inference overhead.
 
+**Agent Orchestrator (ADR-042):** Hestia is the single user interface. Council coordinator classifies intent, then `AgentRouter` maps intent → `AgentRoute` (HESTIA_SOLO, ARTEMIS, APOLLO, ARTEMIS_THEN_APOLLO) via deterministic keyword heuristic. Confidence gating: >0.8 = full specialist dispatch, 0.5-0.8 = enriched solo, <0.5 = pure solo. Chains validated before execution. `asyncio.gather` for parallel groups (genuine on M5 Ultra, sequential on M1). Byline attribution in responses. Kill switch: `orchestration.yaml → enabled: false`.
+
 **Key ADRs** (full list: `docs/hestia-decision-log.md`):
 - ADR-001/040: Dual local model — Qwen 3.5 9B primary + Qwen 2.5 Coder 7B specialist
 - ADR-041: Knowledge Graph Evolution — bi-temporal facts on SQLite, Graphiti-inspired without graph DB
+- ADR-042: Agent Orchestrator — coordinate/analyze/delegate model, council extension, byline attribution
 - ADR-003: Single-agent architecture
 - ADR-009: Keychain + Secure Enclave credentials
 - ADR-013: Tag-based memory with temporal decay
