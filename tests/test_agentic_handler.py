@@ -31,37 +31,30 @@ class TestAgenticHandler:
     @pytest.fixture
     def handler(self):
         """Create a handler with mocked dependencies."""
-        with patch("hestia.orchestration.handler.get_memory_manager", new_callable=AsyncMock) as mock_mem, \
-             patch("hestia.orchestration.handler.get_inference_client", new_callable=AsyncMock) as mock_inf, \
-             patch("hestia.orchestration.handler.get_mode_manager", new_callable=AsyncMock) as mock_mode, \
-             patch("hestia.orchestration.handler.get_prompt_builder", new_callable=AsyncMock) as mock_prompt, \
-             patch("hestia.orchestration.handler.get_tool_registry") as mock_reg, \
+        with patch("hestia.orchestration.handler.get_tool_registry") as mock_reg, \
              patch("hestia.orchestration.handler.get_tool_executor", new_callable=AsyncMock) as mock_exec:
 
             from hestia.orchestration.handler import RequestHandler
-
-            # All async factories must be AsyncMock so `await` works
-            # The RETURNED objects use MagicMock with selective AsyncMock methods
+            from hestia.orchestration.prompt import PromptBuilder
+            from hestia.inference import Message
 
             # Mock memory
             mem = MagicMock()
             mem.build_context = AsyncMock(return_value="")
-            mock_mem.return_value = mem  # AsyncMock patch makes await work
 
             # Mock inference
             inf = MagicMock()
             inf.chat = AsyncMock(return_value=_make_mock_inference_response(
                 content="The file contains memory models including MemoryScope and ChunkType enums."
             ))
-            mock_inf.return_value = inf
 
-            # Mock mode manager
-            mock_mode.return_value = MagicMock()
-
-            # Mock prompt builder
-            pb = MagicMock()
-            pb.build_system_prompt = AsyncMock(return_value="You are Hestia.")
-            mock_prompt.return_value = pb
+            # Mock prompt builder — return messages list + components tuple
+            pb = MagicMock(spec=PromptBuilder)
+            pb.build = MagicMock(return_value=(
+                [Message(role="system", content="You are Hestia."),
+                 Message(role="user", content="placeholder")],
+                MagicMock(),  # PromptComponents
+            ))
 
             # Mock registry (sync — not awaited)
             reg = MagicMock()
@@ -74,9 +67,13 @@ class TestAgenticHandler:
             executor.execute = AsyncMock()
             mock_exec.return_value = executor
 
-            handler = RequestHandler()
-            handler._inference = inf
-            handler._mock_executor = executor
+            # Pass mocks through constructor (not module-level patches)
+            handler = RequestHandler(
+                inference_client=inf,
+                memory_manager=mem,
+                mode_manager=MagicMock(),
+                prompt_builder=pb,
+            )
 
             yield handler, inf, executor
 

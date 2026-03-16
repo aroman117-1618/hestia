@@ -1457,26 +1457,18 @@ class RequestHandler:
         total_tokens_used = 0
 
         try:
-            # Initialize — same as handle_streaming() Steps 1-6
-            memory = await get_memory_manager()
-            inference = await get_inference_client()
-            mode_manager = await get_mode_manager()
+            # Initialize managers (match handle_streaming() pattern)
+            memory = self._memory_manager or await get_memory_manager()
+            inference = self._inference_client or get_inference_client()
 
             yield {"type": "status", "stage": "preparing", "detail": "Building agentic context"}
 
-            # Build initial messages
+            # Build prompt using the same PromptBuilder.build() as other endpoints
             memory_context = await memory.build_context(request.content)
-            prompt_builder = await get_prompt_builder()
-            system_prompt = await prompt_builder.build_system_prompt(
-                mode=request.mode,
+            messages, _components = self._prompt_builder.build(
+                request=request,
                 memory_context=memory_context,
-                tool_definitions=get_tool_registry().get_definitions_for_prompt(),
             )
-
-            messages = [
-                Message(role="system", content=system_prompt),
-                Message(role="user", content=request.content),
-            ]
 
             # Get tool definitions for the model
             tool_defs = get_tool_registry().get_definitions_as_list()
