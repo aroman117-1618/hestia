@@ -49,8 +49,8 @@ class TestIntentType:
     """Tests for IntentType enum."""
 
     def test_all_values_exist(self):
-        """All 13 intent types are defined."""
-        assert len(IntentType) == 13
+        """All 14 intent types are defined."""
+        assert len(IntentType) == 14
 
     def test_from_string_valid(self):
         """Valid strings parse correctly."""
