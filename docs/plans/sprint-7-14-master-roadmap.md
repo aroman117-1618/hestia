@@ -359,12 +359,12 @@ Monitoring:   [NONE]        →   [memory health   →  [+graph health     →  
 
 ### Decision Gates (Updated)
 
-| Gate | After Sprint | Decision |
-|------|-------------|----------|
-| **Gate 2** | Sprint 15 | Is MetaMonitor collecting meaningful patterns? Is memory health data useful? → Go/No-Go on Memory Lifecycle (Sprint 16) |
-| **Gate 3** | Sprint 17 | Is Graph RAG Lite improving synthesis quality? Is importance scoring measurably helping retrieval? → Go/No-Go on Active Inference (Sprint 19) vs. simplified heuristics |
-| **Gate 4** | Sprint 20 | Is anticipatory execution reliable? Is Whoop developer access approved? → Go/No-Go on Health Dashboard (Sprint 21) |
-| **Gate 5** | Hardware | M5 Ultra purchased? → Unlock Sprint 22 (Vision + Explainable Memory) + research brief triggers |
+| Gate | After Sprint | Decision | Status |
+|------|-------------|----------|--------|
+| **Gate 2** | Sprint 14 | Is OutcomeTracker collecting signals? Multi-source memory flowing? M1 stable? | **PASSED** (2026-03-16) — OutcomeTracker deployed (Sprint 10), 988 Claude history chunks imported (Sprint 13), InboxMemoryBridge wired (Sprint 11.5), M1 stable under full load. Remaining unknowns ("are signals meaningful?") are Sprint 15 deliverables, not prerequisites. |
+| **Gate 3** | Sprint 17 | Is Graph RAG Lite improving synthesis quality? Is importance scoring measurably helping retrieval? → Go/No-Go on Active Inference (Sprint 19) vs. simplified heuristics | Pending |
+| **Gate 4** | Sprint 20 | Is anticipatory execution reliable? Is Whoop developer access approved? → Go/No-Go on Health Dashboard (Sprint 21) | Pending |
+| **Gate 5** | Hardware | M5 Ultra purchased? → Unlock Sprint 22 (Vision + Explainable Memory) + research brief triggers | Pending |
 
 ---
 
