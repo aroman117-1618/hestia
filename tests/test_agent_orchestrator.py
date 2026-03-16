@@ -335,3 +335,357 @@ class TestIntentClassificationExtension:
         d = ic.to_dict()
         assert d["agent_route"] is None
         assert d["route_confidence"] == 0.0
+
+
+# ── Context Manager ──────────────────────────────────────────────────────────
+
+from hestia.orchestration.context_manager import (
+    slice_context_for_artemis,
+    slice_context_for_apollo,
+    slice_context_for_synthesis,
+)
+
+
+class TestContextManager:
+    """Context slicing for specialist agents."""
+
+    def test_artemis_gets_full_history(self):
+        ctx = slice_context_for_artemis(
+            memory_context="memories here",
+            user_profile="profile here",
+            conversation_history=[
+                {"role": "user", "content": "msg1"},
+                {"role": "assistant", "content": "resp1"},
+                {"role": "user", "content": "msg2"},
+                {"role": "assistant", "content": "resp2"},
+            ],
+            tool_instructions="tool defs",
+        )
+        assert "memories here" in ctx["memory"]
+        assert "profile here" in ctx["profile"]
+        assert len(ctx["history"]) == 4
+        assert "tool_instructions" not in ctx
+
+    def test_apollo_gets_recent_turns_only(self):
+        history = [{"role": "user", "content": f"msg{i}"} for i in range(20)]
+        ctx = slice_context_for_apollo(
+            conversation_history=history,
+            tool_instructions="tool defs",
+            artemis_output=None,
+        )
+        assert len(ctx["history"]) <= 6
+        assert ctx["tool_instructions"] == "tool defs"
+
+    def test_apollo_gets_artemis_output_when_chained(self):
+        ctx = slice_context_for_apollo(
+            conversation_history=[],
+            tool_instructions="tool defs",
+            artemis_output="SSE is better because...",
+        )
+        assert ctx["artemis_analysis"] == "SSE is better because..."
+
+    def test_synthesis_gets_all_results(self):
+        results = [
+            AgentResult(agent_id=AgentRoute.ARTEMIS, content="analysis", confidence=0.9),
+            AgentResult(agent_id=AgentRoute.APOLLO, content="code", confidence=0.85),
+        ]
+        ctx = slice_context_for_synthesis(
+            agent_results=results,
+            original_request="research and implement X",
+            user_profile="profile",
+        )
+        assert len(ctx["agent_results"]) == 2
+        assert ctx["original_request"] == "research and implement X"
+
+    def test_artemis_excludes_pii_when_cloud(self):
+        ctx = slice_context_for_artemis(
+            memory_context="memories",
+            user_profile="SENSITIVE: SSN 123-45-6789",
+            conversation_history=[],
+            tool_instructions="",
+            cloud_safe=True,
+        )
+        assert ctx["profile"] == ""
+
+
+# ── Synthesizer ──────────────────────────────────────────────────────────────
+
+from hestia.orchestration.synthesizer import (
+    generate_bylines,
+    synthesize_single_agent,
+    synthesize_multi_agent,
+    format_byline_footer,
+)
+
+
+class TestSynthesizer:
+    """Result synthesis and byline generation."""
+
+    def test_single_agent_returns_content_with_byline(self):
+        result = AgentResult(
+            agent_id=AgentRoute.ARTEMIS,
+            content="SSE is better for unidirectional data flow.",
+            confidence=0.9,
+        )
+        content, bylines = synthesize_single_agent(result, "analyze SSE vs WS")
+        assert "SSE is better" in content
+        assert len(bylines) == 1
+        assert bylines[0].agent == AgentRoute.ARTEMIS
+
+    def test_multi_agent_combines_outputs(self):
+        r1 = AgentResult(
+            agent_id=AgentRoute.ARTEMIS,
+            content="SSE is better because...",
+            confidence=0.9,
+        )
+        r2 = AgentResult(
+            agent_id=AgentRoute.APOLLO,
+            content="```python\nclass SSEHandler:\n    pass\n```",
+            confidence=0.85,
+        )
+        content, bylines = synthesize_multi_agent([r1, r2], "research and build SSE")
+        assert "SSE is better" in content
+        assert "SSEHandler" in content
+        assert len(bylines) == 2
+
+    def test_byline_format(self):
+        bylines = generate_bylines([
+            AgentResult(agent_id=AgentRoute.ARTEMIS, content="analysis", confidence=0.9),
+        ])
+        assert len(bylines) == 1
+        formatted = bylines[0].format()
+        assert "\U0001f4d0" in formatted
+        assert "Artemis" in formatted
+
+    def test_hestia_solo_no_byline(self):
+        result = AgentResult(
+            agent_id=AgentRoute.HESTIA_SOLO,
+            content="Your calendar is clear today.",
+            confidence=1.0,
+        )
+        content, bylines = synthesize_single_agent(result, "calendar check")
+        assert len(bylines) == 0
+
+    def test_empty_results(self):
+        content, bylines = synthesize_multi_agent([], "something")
+        assert content == ""
+        assert bylines == []
+
+    def test_format_byline_footer(self):
+        bylines = [
+            AgentByline(agent=AgentRoute.ARTEMIS, contribution_type="analysis", summary="analyzed X"),
+        ]
+        footer = format_byline_footer(bylines)
+        assert "---" in footer
+        assert "Artemis" in footer
+
+    def test_format_byline_footer_empty(self):
+        assert format_byline_footer([]) == ""
+
+
+# ── Orchestration Planner ────────────────────────────────────────────────────
+
+from hestia.orchestration.planner import OrchestrationPlanner
+
+
+class TestOrchestrationPlanner:
+    """Orchestration planner — builds execution plans from routing decisions."""
+
+    def setup_method(self):
+        self.config = OrchestratorConfig()
+        self.planner = OrchestrationPlanner(self.config)
+
+    def test_high_confidence_full_dispatch(self):
+        plan = self.planner.build_plan(
+            route=AgentRoute.ARTEMIS, route_confidence=0.9,
+            content="analyze the trade-offs",
+            memory_context="mem", user_profile="profile",
+            conversation_history=[], tool_instructions="tools",
+            cloud_available=True,
+        )
+        assert plan.route == AgentRoute.ARTEMIS
+        assert len(plan.steps) == 1
+        assert plan.steps[0].tasks[0].agent_id == AgentRoute.ARTEMIS
+
+    def test_medium_confidence_enriched_solo(self):
+        plan = self.planner.build_plan(
+            route=AgentRoute.ARTEMIS, route_confidence=0.6,
+            content="maybe analyze this",
+            memory_context="", user_profile="",
+            conversation_history=[], tool_instructions="",
+            cloud_available=False,
+        )
+        assert plan.route == AgentRoute.HESTIA_SOLO
+        assert len(plan.steps) == 1
+        assert plan.steps[0].tasks[0].agent_id == AgentRoute.HESTIA_SOLO
+
+    def test_low_confidence_pure_solo(self):
+        plan = self.planner.build_plan(
+            route=AgentRoute.ARTEMIS, route_confidence=0.3,
+            content="something unclear",
+            memory_context="", user_profile="",
+            conversation_history=[], tool_instructions="",
+            cloud_available=False,
+        )
+        assert plan.route == AgentRoute.HESTIA_SOLO
+
+    def test_chain_collapsed_for_short_request(self):
+        plan = self.planner.build_plan(
+            route=AgentRoute.ARTEMIS_THEN_APOLLO, route_confidence=0.9,
+            content="do it",
+            memory_context="", user_profile="",
+            conversation_history=[], tool_instructions="",
+            cloud_available=True,
+        )
+        assert plan.estimated_hops == 1
+
+    def test_chain_collapsed_when_no_cloud_and_low_max_hops(self):
+        self.config.max_hops_local = 1
+        planner = OrchestrationPlanner(self.config)
+        plan = planner.build_plan(
+            route=AgentRoute.ARTEMIS_THEN_APOLLO, route_confidence=0.9,
+            content="research how HealthKit handles background sync then implement the full solution with tests",
+            memory_context="", user_profile="",
+            conversation_history=[], tool_instructions="",
+            cloud_available=False,
+        )
+        assert plan.estimated_hops <= 1
+
+    def test_chain_preserved_with_cloud(self):
+        plan = self.planner.build_plan(
+            route=AgentRoute.ARTEMIS_THEN_APOLLO, route_confidence=0.9,
+            content="research how HealthKit handles background sync and data permissions then implement the full solution with comprehensive tests and error handling",
+            memory_context="mem", user_profile="profile",
+            conversation_history=[], tool_instructions="tools",
+            cloud_available=True,
+        )
+        assert plan.estimated_hops == 2
+        assert plan.steps[0].tasks[0].agent_id == AgentRoute.ARTEMIS
+        assert plan.steps[1].tasks[0].agent_id == AgentRoute.APOLLO
+
+    def test_solo_produces_single_step(self):
+        plan = self.planner.build_plan(
+            route=AgentRoute.HESTIA_SOLO, route_confidence=0.9,
+            content="what time is it",
+            memory_context="", user_profile="",
+            conversation_history=[], tool_instructions="",
+            cloud_available=False,
+        )
+        assert plan.route == AgentRoute.HESTIA_SOLO
+        assert plan.estimated_hops == 1
+
+    def test_apollo_gets_coding_model_preference(self):
+        plan = self.planner.build_plan(
+            route=AgentRoute.APOLLO, route_confidence=0.9,
+            content="write the migration script",
+            memory_context="", user_profile="",
+            conversation_history=[], tool_instructions="tools",
+            cloud_available=False,
+        )
+        assert plan.steps[0].tasks[0].model_preference == "coding"
+
+
+# ── Agent Executor ───────────────────────────────────────────────────────────
+
+from unittest.mock import AsyncMock, MagicMock
+from hestia.orchestration.executor import AgentExecutor
+
+
+class TestAgentExecutor:
+    """Agent executor — dispatches tasks to inference."""
+
+    def setup_method(self):
+        self.config = OrchestratorConfig()
+        self.mock_inference = AsyncMock()
+        self.mock_prompt_builder = MagicMock()
+
+    def _make_executor(self):
+        return AgentExecutor(
+            config=self.config,
+            inference_client=self.mock_inference,
+            prompt_builder=self.mock_prompt_builder,
+        )
+
+    @pytest.mark.asyncio
+    async def test_execute_solo_returns_none(self):
+        executor = self._make_executor()
+        task = AgentTask(agent_id=AgentRoute.HESTIA_SOLO, prompt="hi", context_slice={})
+        plan = ExecutionPlan(
+            steps=[ExecutionStep(tasks=[task])],
+            rationale="solo",
+            route=AgentRoute.HESTIA_SOLO,
+        )
+        result = await executor.execute(plan)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_execute_single_specialist(self):
+        executor = self._make_executor()
+        mock_response = MagicMock()
+        mock_response.content = "Analysis: SSE is better."
+        mock_response.tokens_in = 100
+        mock_response.tokens_out = 50
+        mock_response.duration_ms = 2000
+        mock_response.tool_calls = None
+        self.mock_inference.chat = AsyncMock(return_value=mock_response)
+
+        task = AgentTask(
+            agent_id=AgentRoute.ARTEMIS, prompt="analyze SSE vs WS",
+            context_slice={"memory": "ctx", "profile": "prof", "history": []},
+        )
+        plan = ExecutionPlan(
+            steps=[ExecutionStep(tasks=[task])],
+            rationale="analysis",
+            route=AgentRoute.ARTEMIS,
+        )
+        results = await executor.execute(plan)
+        assert results is not None
+        assert len(results) == 1
+        assert results[0].agent_id == AgentRoute.ARTEMIS
+        assert "SSE is better" in results[0].content
+
+    @pytest.mark.asyncio
+    async def test_execute_chain(self):
+        executor = self._make_executor()
+        responses = [
+            MagicMock(content="Analysis output", tokens_in=100, tokens_out=50, duration_ms=2000, tool_calls=None),
+            MagicMock(content="Code output", tokens_in=80, tokens_out=120, duration_ms=3000, tool_calls=None),
+        ]
+        self.mock_inference.chat = AsyncMock(side_effect=responses)
+
+        t1 = AgentTask(
+            agent_id=AgentRoute.ARTEMIS, prompt="analyze",
+            context_slice={"memory": "", "profile": "", "history": []},
+        )
+        t2 = AgentTask(
+            agent_id=AgentRoute.APOLLO, prompt="build",
+            context_slice={"history": [], "tool_instructions": ""},
+            model_preference="coding",
+        )
+        plan = ExecutionPlan(
+            steps=[ExecutionStep(tasks=[t1]), ExecutionStep(tasks=[t2], depends_on=0)],
+            rationale="chain",
+            route=AgentRoute.ARTEMIS_THEN_APOLLO,
+        )
+        results = await executor.execute(plan)
+        assert len(results) == 2
+        assert results[0].agent_id == AgentRoute.ARTEMIS
+        assert results[1].agent_id == AgentRoute.APOLLO
+
+    @pytest.mark.asyncio
+    async def test_error_handling(self):
+        executor = self._make_executor()
+        self.mock_inference.chat = AsyncMock(side_effect=Exception("Ollama down"))
+
+        task = AgentTask(
+            agent_id=AgentRoute.ARTEMIS, prompt="analyze",
+            context_slice={"memory": "", "profile": "", "history": []},
+        )
+        plan = ExecutionPlan(
+            steps=[ExecutionStep(tasks=[task])],
+            rationale="test",
+            route=AgentRoute.ARTEMIS,
+        )
+        results = await executor.execute(plan)
+        assert results is not None
+        assert results[0].error is not None
