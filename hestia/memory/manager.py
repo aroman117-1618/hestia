@@ -396,9 +396,19 @@ class MemoryManager:
             self._temporal_decay is not None
             and self._temporal_decay.enabled
         )
+        # Import sources get a relevance penalty so native conversation
+        # memory ranks higher when competing at similar similarity scores.
+        _IMPORT_SOURCES = {
+            MemorySource.CLAUDE_HISTORY.value,
+            MemorySource.OPENAI_HISTORY.value,
+        }
+        _IMPORT_PENALTY = 0.9
+
         results = []
         for chunk in chunks:
             score = scores.get(chunk.id, 0.0)
+            if chunk.metadata.source in _IMPORT_SOURCES:
+                score *= _IMPORT_PENALTY
             if decay_applied:
                 score = self._temporal_decay.apply(
                     relevance_score=score,

@@ -523,6 +523,35 @@ class TestMemoryManager:
         assert any(r.chunk.id == chunk.id for r in results)
 
     @pytest.mark.asyncio
+    async def test_import_relevance_penalty(self, memory_manager: MemoryManager):
+        """Imported chunks get a 0.9x relevance penalty vs native conversation."""
+        # Store identical content — one native, one imported
+        native = await memory_manager.store(
+            content="The capital of France is Paris, a beautiful city of lights.",
+            chunk_type=ChunkType.CONVERSATION,
+            auto_tag=False,
+        )
+        imported = await memory_manager.store(
+            content="The capital of France is Paris, a beautiful city of lights.",
+            chunk_type=ChunkType.CONVERSATION,
+            auto_tag=False,
+            metadata=ChunkMetadata(source=MemorySource.CLAUDE_HISTORY.value),
+        )
+
+        results = await memory_manager.search(
+            "capital of France Paris",
+            limit=10,
+            semantic_threshold=0.1,
+        )
+
+        native_result = next((r for r in results if r.chunk.id == native.id), None)
+        imported_result = next((r for r in results if r.chunk.id == imported.id), None)
+
+        assert native_result is not None
+        assert imported_result is not None
+        assert native_result.relevance_score > imported_result.relevance_score
+
+    @pytest.mark.asyncio
     async def test_store_exchange(self, memory_manager: MemoryManager):
         """Test storing a conversation exchange."""
         user_chunk, assistant_chunk = await memory_manager.store_exchange(
