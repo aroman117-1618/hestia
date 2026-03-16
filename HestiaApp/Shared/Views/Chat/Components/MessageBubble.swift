@@ -55,6 +55,18 @@ struct MessageBubble: View {
                         .cornerRadius(CornerRadius.standard)
                 }
 
+                // Agent bylines (when specialists contributed)
+                if !isUser, let bylines = message.bylines, !bylines.isEmpty {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(bylines, id: \.agent) { byline in
+                            Text(byline.formatted)
+                                .font(.messageTimestamp)
+                                .foregroundColor(.white.opacity(0.45))
+                        }
+                    }
+                    .padding(.horizontal, Spacing.xs)
+                }
+
                 // Timestamp
                 Text(message.timestamp, style: .time)
                     .font(.messageTimestamp)
@@ -80,7 +92,12 @@ struct MessageBubble: View {
 
     private var accessibilityLabel: String {
         let sender = isUser ? "You said" : "\(message.mode?.displayName ?? "Hestia") said"
-        return "\(sender): \(message.content)"
+        var label = "\(sender): \(message.content)"
+        if let bylines = message.bylines, !bylines.isEmpty {
+            let attribution = bylines.map { "\($0.displayName) \($0.summary)" }.joined(separator: ". ")
+            label += ". With contributions from \(attribution)"
+        }
+        return label
     }
 }
 

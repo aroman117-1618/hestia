@@ -68,7 +68,8 @@ public class MockHestiaClient: HestiaClientProtocol {
                         requestId: response.requestId,
                         metrics: response.metrics,
                         mode: response.mode,
-                        sessionId: response.sessionId
+                        sessionId: response.sessionId,
+                        bylines: response.bylines
                     ))
                     continuation.finish()
                 } catch {

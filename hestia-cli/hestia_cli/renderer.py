@@ -481,13 +481,23 @@ class HestiaRenderer:
             )
 
     def _render_done(self, event: Dict[str, Any]) -> None:
-        """Render completion with optional metrics and routing indicator."""
+        """Render completion with optional metrics, bylines, and routing indicator."""
         # Clear any lingering status line
         if self._status_visible:
             _clear_line()
             self._status_visible = False
 
         self.console.print()  # Newline after streaming
+
+        # Agent bylines — show when specialists contributed
+        bylines = event.get("bylines")
+        if bylines:
+            for byline in bylines:
+                agent = byline.get("agent", "")
+                summary = byline.get("summary", "")
+                icon = {"artemis": "\U0001f4d0", "apollo": "\u26a1"}.get(agent, "")
+                name = {"artemis": "Artemis", "apollo": "Apollo"}.get(agent, agent.capitalize())
+                self.console.print(f"[dim]  {icon} {name} \u2014 {summary}[/dim]")
 
         if self.show_metrics:
             metrics = event.get("metrics", {})

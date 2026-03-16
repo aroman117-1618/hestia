@@ -7,13 +7,15 @@ public struct ConversationMessage: Codable, Identifiable, Equatable, Sendable {
     public var content: String
     public let timestamp: Date
     public let mode: HestiaMode?
+    public var bylines: [AgentByline]?
 
-    public init(id: String, role: MessageRole, content: String, timestamp: Date, mode: HestiaMode?) {
+    public init(id: String, role: MessageRole, content: String, timestamp: Date, mode: HestiaMode?, bylines: [AgentByline]? = nil) {
         self.id = id
         self.role = role
         self.content = content
         self.timestamp = timestamp
         self.mode = mode
+        self.bylines = bylines
     }
 
     public enum MessageRole: String, Codable, Sendable {

@@ -12,8 +12,9 @@ public struct HestiaResponse: Codable, Sendable {
     public let metrics: ResponseMetrics
     public let toolCalls: [ToolCallInfo]?
     public let error: ResponseError?
+    public let bylines: [AgentByline]?
 
-    public init(requestId: String, content: String, responseType: ResponseType, mode: String, sessionId: String?, timestamp: Date, metrics: ResponseMetrics, toolCalls: [ToolCallInfo]?, error: ResponseError?) {
+    public init(requestId: String, content: String, responseType: ResponseType, mode: String, sessionId: String?, timestamp: Date, metrics: ResponseMetrics, toolCalls: [ToolCallInfo]?, error: ResponseError?, bylines: [AgentByline]? = nil) {
         self.requestId = requestId
         self.content = content
         self.responseType = responseType
@@ -23,6 +24,7 @@ public struct HestiaResponse: Codable, Sendable {
         self.metrics = metrics
         self.toolCalls = toolCalls
         self.error = error
+        self.bylines = bylines
     }
 }
 
@@ -77,6 +79,44 @@ public struct ToolCallInfo: Codable, Identifiable, Sendable {
     }
 }
 
+// MARK: - Agent Byline Attribution (ADR-042)
+
+/// Attribution for a specialist agent's contribution to a response
+public struct AgentByline: Codable, Sendable, Equatable {
+    public let agent: String       // "artemis", "apollo"
+    public let contribution: String // "analysis", "implementation"
+    public let summary: String     // One-line description
+
+    public init(agent: String, contribution: String, summary: String) {
+        self.agent = agent
+        self.contribution = contribution
+        self.summary = summary
+    }
+
+    /// Display icon for this agent
+    public var icon: String {
+        switch agent {
+        case "artemis": return "\u{1F4D0}"  // 📐
+        case "apollo": return "\u{26A1}"    // ⚡
+        default: return ""
+        }
+    }
+
+    /// Display name for this agent
+    public var displayName: String {
+        switch agent {
+        case "artemis": return "Artemis"
+        case "apollo": return "Apollo"
+        default: return agent.capitalized
+        }
+    }
+
+    /// Formatted single-line byline
+    public var formatted: String {
+        "\(icon) \(displayName) \u{2014} \(summary)"
+    }
+}
+
 // MARK: - SSE Streaming Events
 
 /// Events received from the SSE streaming chat endpoint (POST /v1/chat/stream).
@@ -92,8 +132,8 @@ public enum ChatStreamEvent: Sendable {
     case clearStream
     /// Metadata insight (cloud routing, synthesis info)
     case insight(content: String, key: String)
-    /// Final event — contains metrics, mode, session ID
-    case done(requestId: String, metrics: ResponseMetrics?, mode: String, sessionId: String?)
+    /// Final event — contains metrics, mode, session ID, optional bylines
+    case done(requestId: String, metrics: ResponseMetrics?, mode: String, sessionId: String?, bylines: [AgentByline]?)
     /// Error during processing
     case error(code: String, message: String)
 }
@@ -143,7 +183,17 @@ public func parseChatStreamEvent(type: String, data: String) -> ChatStreamEvent?
             let durationMs = metricsDict["duration_ms"] as? Double ?? 0
             metrics = ResponseMetrics(tokensIn: tokensIn, tokensOut: tokensOut, durationMs: durationMs)
         }
-        return .done(requestId: requestId, metrics: metrics, mode: mode, sessionId: sessionId)
+        var bylines: [AgentByline]?
+        if let bylineArray = dict["bylines"] as? [[String: Any]] {
+            bylines = bylineArray.compactMap { item in
+                guard let agent = item["agent"] as? String,
+                      let contribution = item["contribution"] as? String,
+                      let summary = item["summary"] as? String else { return nil }
+                return AgentByline(agent: agent, contribution: contribution, summary: summary)
+            }
+            if bylines?.isEmpty == true { bylines = nil }
+        }
+        return .done(requestId: requestId, metrics: metrics, mode: mode, sessionId: sessionId, bylines: bylines)
 
     case "error":
         let code = dict["code"] as? String ?? "unknown"
