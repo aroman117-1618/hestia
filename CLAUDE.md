@@ -34,6 +34,10 @@
 | @hestia-explorer | Haiku | Phase 1: Find code, trace architecture |
 | @hestia-tester | Sonnet | Phase 3: Run tests, diagnose failures |
 | @hestia-reviewer | Sonnet | Phase 2: Plan audit, Phase 4: Code audit, Session retro + docs check |
+| @hestia-build-validator | Sonnet | Phase 3: Verify iOS + macOS Xcode builds compile |
+| @hestia-simplifier | Sonnet | Post-Phase 3: Find dead code, over-abstraction, unnecessary complexity |
+| @hestia-preflight-checker | Haiku | Fast environment health dashboard (server, git, processes, Ollama) |
+| @hestia-critic | Sonnet | Strategic adversarial critique of architectural decisions and features |
 | @hestia-deployer | Sonnet | Deploy to Mac Mini when requested |
 
 Definitions: `.claude/agents/`. Read-only specialists — diagnose and report, never modify code.
@@ -163,9 +167,9 @@ Use Python 3.12 (not 3.13+). Pin version in pyproject.toml with `requires-python
 ## Andrew's Context
 
 - **Skills**: Strong SQL/APIs, growing Python/infra
-- **Time**: ~6 hours/week
+- **Time**: ~12 hours/week (hands-on) + autonomous Claude Code acceleration (sub-agents, hooks, background tasks)
 - **Style**: 70% teach-as-we-build, 30% just-make-it-work
-- **Tools**: Claude Code implements, Xcode reviews
+- **Tools**: Claude Code (Opus 4.6, API billing) + Xcode reviews
 
 ---
 
