@@ -105,7 +105,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 **Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
 **Field Guide UI Restructure: COMPLETE.** 5 thematic tabs, native SwiftUI diagrams, structured roadmap with `/v1/wiki/roadmap` endpoint.
 
-1909 tests (1906 passing, 3 skipped), 48 test files (41 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
+1917 tests (1914 passing, 3 skipped), 48 test files (41 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
