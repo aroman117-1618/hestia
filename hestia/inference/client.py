@@ -122,6 +122,8 @@ class InferenceResponse:
     fallback_used: bool = False
     # Native tool calls from Ollama API (structured, not text-parsed)
     tool_calls: Optional[List[Dict[str, Any]]] = None
+    # Which inference path was used: "local", "api", "subscription"
+    inference_source: str = "local"
 
     @property
     def total_tokens(self) -> int:
@@ -247,6 +249,10 @@ class InferenceClient:
         # Cloud inference (lazy-loaded if not provided)
         self._cloud_inference_client = cloud_inference_client
         self._cloud_manager = cloud_manager
+
+        # CLI fallback availability (cached)
+        import shutil
+        self._cli_available = shutil.which("claude") is not None
 
     async def _get_client(self, timeout: Optional[float] = None) -> httpx.AsyncClient:
         """Get or create HTTP client with optional custom timeout."""
@@ -724,6 +730,19 @@ class InferenceClient:
                 component=LogComponent.INFERENCE,
                 data={"provider": active_provider.provider.value, "key_len": len(api_key) if api_key else 0},
             )
+
+            # Fallback to Claude CLI (subscription) for billing/rate-limit errors
+            if self._should_fallback_to_cli(e):
+                self.logger.info(
+                    "Falling back to Claude CLI (subscription billing)",
+                    component=LogComponent.INFERENCE,
+                )
+                return await self._call_claude_cli(
+                    messages=chat_messages,
+                    system=system,
+                    model=active_provider.active_model_id,
+                )
+
             raise type(e)(safe_msg) from None
 
         # Track usage
@@ -740,7 +759,151 @@ class InferenceClient:
                 component=LogComponent.INFERENCE,
             )
 
+        response.inference_source = "api"
         return response
+
+    def _should_fallback_to_cli(self, error: Exception) -> bool:
+        """Check if a cloud error should trigger CLI fallback."""
+        if not self._cli_available:
+            return False
+
+        from hestia.cloud.client import CloudRateLimitError, CloudAuthError
+
+        # Billing errors (HTTP 400 with "credit balance" message)
+        error_msg = str(error).lower()
+        if "credit balance" in error_msg or "billing" in error_msg:
+            return True
+
+        # Rate limit errors
+        if isinstance(error, CloudRateLimitError):
+            return True
+
+        # Do NOT fall back on auth errors (bad key) — CLI won't help
+        if isinstance(error, CloudAuthError):
+            return False
+
+        return False
+
+    async def _call_claude_cli(
+        self,
+        messages: Optional[List[Message]] = None,
+        system: Optional[str] = None,
+        model: Optional[str] = None,
+        tool_instructions: Optional[str] = None,
+    ) -> InferenceResponse:
+        """
+        Call Claude Code CLI as inference backend (uses subscription billing).
+
+        Falls back to this when the Anthropic API returns billing/rate-limit
+        errors. The CLI uses OAuth/subscription auth, bypassing API credits.
+        """
+        import json
+        import os
+        import shutil
+        import time
+
+        if not shutil.which("claude"):
+            raise LocalModelFailed("Claude CLI not found on PATH")
+
+        # Build prompt from messages
+        prompt_parts = []
+        if messages:
+            for msg in messages:
+                if msg.role == "system":
+                    continue
+                prefix = "User" if msg.role == "user" else "Assistant"
+                if msg.content:
+                    prompt_parts.append(f"{prefix}: {msg.content}")
+
+        prompt_text = "\n\n".join(prompt_parts) if prompt_parts else ""
+
+        # Build CLI args
+        cli_model = model or "sonnet"
+        args = [
+            "claude", "-p",
+            "--output-format", "json",
+            "--tools", "",
+            "--model", cli_model,
+            "--no-session-persistence",
+        ]
+
+        # System prompt (combine base system + tool instructions if any)
+        combined_system = ""
+        if system:
+            combined_system = system
+        if tool_instructions:
+            combined_system += ("\n\n" if combined_system else "") + tool_instructions
+        if combined_system:
+            args.extend(["--append-system-prompt", combined_system])
+
+        # Strip ANTHROPIC_API_KEY to force subscription auth
+        env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
+
+        start_time = time.perf_counter()
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *args,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=env,
+            )
+            stdout, stderr = await asyncio.wait_for(
+                proc.communicate(input=prompt_text.encode()),
+                timeout=120.0,
+            )
+        except asyncio.TimeoutError:
+            raise LocalModelFailed("Claude CLI timed out after 120s")
+        except Exception as e:
+            raise LocalModelFailed(
+                f"Claude CLI subprocess error: {type(e).__name__}"
+            ) from e
+
+        duration_ms = (time.perf_counter() - start_time) * 1000
+
+        if proc.returncode != 0:
+            error_msg = "unknown error"
+            try:
+                data = json.loads(stdout.decode())
+                error_msg = data.get("result", stderr.decode()[:200])
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                error_msg = stderr.decode()[:200] if stderr else f"exit code {proc.returncode}"
+            raise LocalModelFailed(f"Claude CLI failed: {error_msg}")
+
+        # Parse JSON response
+        try:
+            data = json.loads(stdout.decode())
+        except json.JSONDecodeError as e:
+            raise LocalModelFailed(f"Claude CLI returned invalid JSON: {e}") from e
+
+        content = data.get("result", "")
+        usage = data.get("usage", {})
+
+        self.logger.info(
+            f"Claude CLI inference complete: {cli_model}, "
+            f"cost=${data.get('total_cost_usd', 0):.4f}",
+            component=LogComponent.INFERENCE,
+            data={
+                "model": cli_model,
+                "tokens_in": usage.get("input_tokens", 0),
+                "tokens_out": usage.get("output_tokens", 0),
+                "duration_ms": duration_ms,
+                "cost_usd": data.get("total_cost_usd", 0),
+            },
+        )
+
+        return InferenceResponse(
+            content=content,
+            model=cli_model,
+            tokens_in=usage.get("input_tokens", 0),
+            tokens_out=usage.get("output_tokens", 0),
+            duration_ms=duration_ms,
+            finish_reason=data.get("stop_reason", "end_turn"),
+            raw_response=data,
+            tier="cloud",
+            inference_source="subscription",
+        )
 
     async def complete(
         self,
