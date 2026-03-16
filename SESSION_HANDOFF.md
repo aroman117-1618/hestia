@@ -10,6 +10,7 @@ Resolve known landmines from Sprint 13 handoff, then live-test and fix the agent
 - **Agentic cloud routing** — Added force_cloud parameter to chat() and _call_with_routing() so handle_agentic() bypasses the router and goes directly to cloud. Improved error messages with sanitized details. (56057b0)
 - **Claude CLI subscription fallback** — When Anthropic API returns billing (HTTP 400) or rate-limit (HTTP 429) errors, automatically falls back to claude -p (subscription billing via OAuth). Strips ANTHROPIC_API_KEY from subprocess env. Default model: sonnet. 7 new tests. (7a411cf)
 - **Cleanup** — Removed .serena/ directory (unused MCP plugin), added scripts/add-cloud-key.sh, CI workflow_call trigger, tasks/lessons.md template. (eb4f315)
+- **Security audit (Clinejection)** — Full prompt injection audit across CI/CD and backend. Hardened claude.yml (block fork PRs, collaborators-only, read-only permissions). Added indirect prompt injection mitigations: safety preamble on investigate analysis prompts, [TOOL DATA] boundary markers in agentic loop, moved focus param from system prompt to user content. Sandbox path allowlist verified — all sensitive paths blocked. (912c6f2)
 
 ## In Progress
 - **CLI fallback Phase 2 (tool calling helper)** — Deferred. Live testing proved the existing text-based tool extraction works with the CLI path without explicit tool schema embedding. Helper (_tool_defs_to_instructions()) can be added if a failure case is found.
@@ -21,6 +22,7 @@ Resolve known landmines from Sprint 13 handoff, then live-test and fix the agent
 - CLI fallback applies to ALL cloud paths (chat, stream, agentic), not just agentic.
 - Phase 3 UI indicator (inference source badge) deferred to existing UI roadmap.
 - .serena/ removed — built-in tools (Grep, Glob, Read) + hestia-explorer sub-agent cover all needs.
+- Indirect prompt injection: structural controls (sandbox, gate, approval) are the real defense. LLM-level mitigations ([TOOL DATA] markers, safety preambles) raise the bar but aren't bulletproof.
 
 ## Test Status
 - 1917 collected, 1914 passing, 3 skipped (Ollama integration)
@@ -37,6 +39,7 @@ Resolve known landmines from Sprint 13 handoff, then live-test and fix the agent
 - **Integration tests hit Ollama** — TestInferenceClientIntegration (2 tests) claim to skip when Ollama is unavailable, but the skip logic doesn't work. They timeout instead. Pre-existing.
 - **HestiaShared on Mac Mini** — Fresh deploy needs xcodegen regeneration since project.yml changed. The deploy script should handle this, but verify after next push.
 - **Cloud cold-boot** — After server restart, cloud defaults to disabled. First /v1/cloud/providers call syncs from SQLite to enabled_full. Documented behavior, not a bug.
+- **Residual prompt injection surface** — Indirect injection via external data (web pages in investigate, Apple Notes/Mail content, imported history) flowing into LLM prompts is mitigated but not eliminated. Structural controls (sandbox allowlist, comm gate, tool approval) are the hard defense. See audit findings in security commit 912c6f2.
 
 ## Process Learnings
 - **Config gap: security hook false positive** — The security_reminder_hook.py triggers on "exec" in Python test files that mock asyncio.create_subprocess. It's designed for JS child_process and doesn't apply to Python async subprocesses. Consider adding a file-type filter to the hook.
