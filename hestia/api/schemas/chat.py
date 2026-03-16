@@ -30,6 +30,10 @@ class ChatRequest(BaseModel):
         False,
         description="Force local inference, bypass cloud routing"
     )
+    mode: Optional[str] = Field(
+        None,
+        description="Persona mode (tia, mira, olly). Defaults to mode detection from message."
+    )
     context_hints: Dict[str, Any] = Field(
         default_factory=dict,
         description="Additional context hints"

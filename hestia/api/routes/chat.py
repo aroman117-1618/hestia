@@ -373,17 +373,23 @@ async def send_agentic_request(
     from hestia.orchestration.models import Request, RequestSource, Mode
 
     request_id = f"agentic-{uuid4().hex[:12]}"
+    session_id = request.session_id or f"sess-{uuid4().hex[:12]}"
 
     handler = await get_request_handler()
-    hestia_request = Request(
-        id=request_id,
+
+    # Use Request.create() like other chat endpoints for consistent mode detection
+    hestia_request = Request.create(
         content=request.message,
         source=RequestSource.API,
-        mode=Mode(request.mode or "tia"),
-        session_id=request.session_id,
-        device_id=device_id,
-        force_local=False,  # Agentic always uses cloud
+        session_id=session_id,
+        device_id=request.device_id or device_id,
     )
+    hestia_request.id = request_id
+    hestia_request.force_local = False  # Agentic always uses cloud
+
+    # Override mode if explicitly provided by the client
+    if request.mode:
+        hestia_request.mode = Mode(request.mode)
 
     async def event_generator():
         try:
