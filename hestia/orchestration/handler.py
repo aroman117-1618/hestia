@@ -1483,6 +1483,7 @@ class RequestHandler:
                 response = await inference.chat(
                     messages=messages,
                     tools=tool_defs,
+                    force_cloud=True,
                 )
 
                 # Track token usage
@@ -1560,15 +1561,16 @@ class RequestHandler:
             }
 
         except Exception as e:
+            from hestia.api.errors import sanitize_for_log
             self.logger.error(
-                f"Agentic loop error: {type(e).__name__}",
+                f"Agentic loop error: {type(e).__name__}: {sanitize_for_log(e)}",
                 component=LogComponent.ORCHESTRATION,
                 data={"request_id": request.id, "iteration": iteration},
             )
             yield {
                 "type": "error",
                 "code": "agentic_error",
-                "message": f"Agentic loop failed at iteration {iteration}: {type(e).__name__}",
+                "message": f"Agentic loop failed at iteration {iteration}: {type(e).__name__}: {sanitize_for_log(e)}",
             }
 
     async def _store_conversation(

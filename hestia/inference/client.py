@@ -403,6 +403,7 @@ class InferenceClient:
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
+        force_cloud: bool = False,
     ) -> InferenceResponse:
         """
         Call inference with smart model routing (local + cloud).
@@ -422,6 +423,23 @@ class InferenceClient:
             InferenceResponse with generated content.
         """
         token_count = self._count_request_tokens(prompt, system, messages)
+
+        # Force cloud — skip routing entirely (used by agentic handler)
+        if force_cloud:
+            self.logger.info(
+                "Routing decision: cloud (force_cloud)",
+                component=LogComponent.INFERENCE,
+                data={"tier": "cloud", "reason": "force_cloud", "token_count": token_count},
+            )
+            return await self._call_cloud(
+                messages=messages,
+                system=system,
+                prompt=prompt,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                tools=tools,
+            )
+
         routing = self.router.route(
             prompt=prompt or (messages[-1].content if messages else ""),
             token_count=token_count,
@@ -701,6 +719,11 @@ class InferenceClient:
             if api_key and len(api_key) > 8:
                 safe_msg = safe_msg.replace(api_key, "***REDACTED***")
                 safe_msg = safe_msg.replace(api_key[:8], "***")
+            self.logger.warning(
+                f"Cloud call failed: {type(e).__name__}: {safe_msg}",
+                component=LogComponent.INFERENCE,
+                data={"provider": active_provider.provider.value, "key_len": len(api_key) if api_key else 0},
+            )
             raise type(e)(safe_msg) from None
 
         # Track usage
@@ -804,6 +827,7 @@ class InferenceClient:
         max_tokens: Optional[int] = None,
         validate: bool = True,
         tools: Optional[List[Dict[str, Any]]] = None,
+        force_cloud: bool = False,
     ) -> InferenceResponse:
         """
         Generate response for chat conversation.
@@ -843,6 +867,7 @@ class InferenceClient:
                 temperature=temperature,
                 max_tokens=max_tokens,
                 tools=tools,
+                force_cloud=force_cloud,
             )
 
             if validate:
