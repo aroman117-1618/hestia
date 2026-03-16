@@ -59,6 +59,9 @@ class IntentClassification:
     confidence: float
     secondary_intents: List[IntentType] = field(default_factory=list)
     reasoning: str = ""
+    # Agent routing (populated by orchestrator, not council)
+    agent_route: Optional[str] = None      # AgentRoute value
+    route_confidence: float = 0.0
 
     @classmethod
     def create(
@@ -67,12 +70,16 @@ class IntentClassification:
         confidence: float,
         secondary_intents: Optional[List[IntentType]] = None,
         reasoning: str = "",
+        agent_route: Optional[str] = None,
+        route_confidence: float = 0.0,
     ) -> "IntentClassification":
         return cls(
             primary_intent=primary_intent,
             confidence=max(0.0, min(1.0, confidence)),
             secondary_intents=secondary_intents or [],
             reasoning=reasoning,
+            agent_route=agent_route,
+            route_confidence=max(0.0, min(1.0, route_confidence)),
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -81,6 +88,8 @@ class IntentClassification:
             "confidence": self.confidence,
             "secondary_intents": [i.value for i in self.secondary_intents],
             "reasoning": self.reasoning,
+            "agent_route": self.agent_route,
+            "route_confidence": self.route_confidence,
         }
 
 
