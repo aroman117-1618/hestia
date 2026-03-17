@@ -5,10 +5,9 @@
 #
 # Workflow:
 #   1. Edit this file (add/remove/update packages)
-#   2. Recompile on Python 3.11+:
-#      pip-compile requirements.in --output-file=requirements.txt --no-emit-index-url
-#   3. Verify no backports-* packages remain (they break CI on 3.11+)
-#   4. Commit BOTH files
+#   2. Recompile targeting Python 3.11 (works from any local Python):
+#      uv pip compile requirements.in --python-version 3.11 --output-file requirements.txt --no-emit-index-url
+#   3. Commit BOTH files
 
 # API Framework
 fastapi>=0.104.0
