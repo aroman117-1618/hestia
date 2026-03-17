@@ -49,7 +49,7 @@ struct MemoryChunkRow: View {
                     isEditing = true
                 } label: {
                     Image(systemName: "pencil")
-                        .foregroundColor(.secondary)
+                        .foregroundStyle(MacColors.textSecondary)
                 }
                 .buttonStyle(.plain)
             }
@@ -73,7 +73,7 @@ struct MemoryChunkRow: View {
             TextEditor(text: $editContent)
                 .font(MacTypography.body)
                 .frame(minHeight: 80)
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.accentColor, lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(MacColors.amberAccent, lineWidth: 1))
 
             let chunkTypes: [(String, String)] = [
                 ("fact", "Fact"), ("preference", "Preference"), ("decision", "Decision"),
@@ -109,7 +109,7 @@ struct MemoryChunkRow: View {
         }
         .padding(MacSpacing.sm)
         .background(MacColors.cardGradient)
-        .cornerRadius(8)
+        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
     }
 
     // MARK: - Type Badge
