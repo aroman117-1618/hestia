@@ -21,6 +21,7 @@ from hestia.api.schemas import (
     ResponseError,
     ErrorResponse,
 )
+from hestia.api.schemas.chat import AgentBylineSchema
 from hestia.api.middleware.auth import get_device_token
 from hestia.orchestration.handler import get_request_handler
 from hestia.orchestration.models import Request, RequestSource, Mode, ResponseType
@@ -47,6 +48,16 @@ def _response_type_to_enum(rt: ResponseType) -> ResponseTypeEnum:
         ResponseType.STRUCTURED: ResponseTypeEnum.TEXT,  # Map structured to text
     }
     return mapping.get(rt, ResponseTypeEnum.TEXT)
+
+
+async def _get_last_chunk_ids() -> list:
+    """Get chunk IDs from the last memory retrieval (Sprint 15 feedback loop)."""
+    try:
+        from hestia.memory import get_memory_manager
+        memory = await get_memory_manager()
+        return getattr(memory, '_last_retrieved_chunk_ids', [])
+    except Exception:
+        return []
 
 
 @router.post(
@@ -150,6 +161,14 @@ async def send_message(
                 code=response.error_code,
                 message=response.error_message,
             ) if response.error_code else None,
+            bylines=[
+                AgentBylineSchema(
+                    agent=b.agent.value,
+                    contribution=b.contribution_type,
+                    summary=b.summary,
+                )
+                for b in response.bylines
+            ] if response.bylines else None,
         )
 
         # Track outcome for Learning Cycle
@@ -167,6 +186,7 @@ async def send_message(
                     "mode": api_response.mode.value,
                     "tool_calls": len(response.tool_calls) if response.tool_calls else 0,
                     "tokens_out": response.tokens_out or 0,
+                    "retrieved_chunk_ids": await _get_last_chunk_ids(),
                 },
             )
         except Exception:
@@ -313,6 +333,7 @@ async def send_message_stream(
                                 "mode": event.get("mode", "tia"),
                                 "streaming": True,
                                 "tokens_out": event.get("metrics", {}).get("tokens_out", 0),
+                                "retrieved_chunk_ids": await _get_last_chunk_ids(),
                             },
                         )
                     except Exception:

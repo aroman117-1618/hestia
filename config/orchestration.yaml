@@ -1,0 +1,56 @@
+# config/orchestration.yaml
+# Agent orchestrator configuration — coordinate/analyze/delegate model
+# ADR-042
+
+orchestrator:
+  enabled: true  # Kill switch — false falls back to current single-pipeline behavior
+
+  confidence_thresholds:
+    full_dispatch: 0.8     # Route confidence above this -> full specialist dispatch
+    enriched_solo: 0.5     # Route confidence 0.5-0.8 -> Hestia solo with persona hints
+
+  chain_validation:
+    min_words_for_chain: 15   # Requests shorter than this -> collapse multi-agent to single
+    max_hops_local: 2          # Max inference calls when cloud is disabled
+    max_hops_cloud: 4          # Max inference calls when cloud is enabled
+
+  fallback:
+    min_specialist_confidence: 0.4  # Specialist results below this trigger fallback to Hestia
+
+  # Keywords that trigger Artemis (analysis) routing for CHAT intent
+  analysis_keywords:
+    - "analyze"
+    - "compare"
+    - "trade-off"
+    - "tradeoff"
+    - "pros and cons"
+    - "evaluate"
+    - "assess"
+    - "review"
+    - "explain why"
+    - "help me think"
+    - "what are the options"
+    - "should i"
+    - "debate"
+    - "argue"
+    - "research"
+    - "investigate"
+    - "deep dive"
+
+  # Keywords that trigger Apollo (execution) routing for CHAT intent
+  execution_keywords:
+    - "write"
+    - "build"
+    - "implement"
+    - "create"
+    - "scaffold"
+    - "generate"
+    - "code"
+    - "fix"
+    - "refactor"
+    - "migrate"
+    - "deploy"
+    - "script"
+    - "function"
+    - "class"
+    - "test"

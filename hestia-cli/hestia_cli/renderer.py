@@ -24,7 +24,9 @@ from rich.text import Text
 from rich.markup import escape
 
 from hestia_cli.models import (
-    AgentTheme, ASCII_FRAMES, COMMON_VERBS, DoneMetrics, FIRE_FRAMES,
+    AgentTheme, ASCII_FRAMES, BANNER_EMBER_FRAMES, BANNER_FIRE_BODY,
+    BANNER_FIRE_COLORS, BANNER_FIRE_TIP, BANNER_TIP_COLORS,
+    build_hestia_text_rows, COMMON_VERBS, DoneMetrics, FIRE_FRAMES,
     MIRA_VERBS, OLLY_VERBS, PipelineStage, STAGE_LABELS,
     TIA_VERBS, ToolRequest,
 )
@@ -34,6 +36,55 @@ def _clear_line() -> None:
     """Clear the current terminal line using ANSI escape directly to stdout."""
     sys.stdout.write("\r\033[K")
     sys.stdout.flush()
+
+
+def _build_banner_frame(frame_idx: int, version: str) -> str:
+    """Build a single animated banner frame as a Rich markup string.
+
+    The banner consists of:
+    - Animated ember particles above the campfire (2 lines)
+    - Campfire with color-cycling flame tip (5 lines)
+    - 'HESTIA' in pixel-font block letters beside the campfire
+    - Version, tagline, and divider below
+    """
+    text_rows = build_hestia_text_rows()
+    ember1, ember2 = BANNER_EMBER_FRAMES[frame_idx % len(BANNER_EMBER_FRAMES)]
+    tip_color = BANNER_TIP_COLORS[frame_idx % len(BANNER_TIP_COLORS)]
+
+    lines = []
+    lines.append("")  # top padding
+
+    # Ember lines (animated particles above campfire)
+    lines.append(f"[#E0A050]{ember1}[/]")
+    lines.append(f"[#E0A050]{ember2}[/]")
+
+    # Flame tip + HESTIA row 0
+    lines.append(
+        f"[{tip_color}]{BANNER_FIRE_TIP}[/]"
+        f"[#EBDFD1]{text_rows[0]}[/]"
+    )
+
+    # Fire body (4 rows) + HESTIA text rows 1-4
+    for i in range(4):
+        line = (
+            f"[{BANNER_FIRE_COLORS[i]}]{BANNER_FIRE_BODY[i]}[/]"
+            f"[#EBDFD1]{text_rows[i + 1]}[/]"
+        )
+        if i == 3:
+            line += f"  [dim]v{version}[/]"
+        lines.append(line)
+
+    lines.append("")  # spacing
+
+    # Tagline
+    lines.append(
+        "  [dim]local inference  ·  secure by default  ·  your data, your machine[/]"
+    )
+
+    # Divider
+    lines.append(f"  [#B7874A]{'═' * 65}[/]")
+
+    return "\n".join(lines)
 
 
 class HestiaRenderer:
@@ -175,20 +226,48 @@ class HestiaRenderer:
         self._in_code_block = False
         # Don't reset _in_streaming — the synthesized response tokens will follow
 
-    def render_startup_banner(
+    async def render_startup_banner(
         self,
         server_url: str,
         mode: str,
+        version: str,
+        first_run: bool = True,
         device_id: Optional[str] = None,
         trust_tiers: Optional[Dict[str, str]] = None,
     ) -> None:
-        """Render the startup banner."""
-        self.console.print()
-        self.console.print(
-            f"[bold]Hestia CLI[/bold] v0.1 — connected to [cyan]{server_url}[/cyan]"
-        )
+        """Render the startup banner with optional animation.
+
+        First run: animated campfire with flickering embers (~1.5s).
+        Subsequent runs: static single frame.
+        Narrow terminals (<60 cols): simple text fallback.
+        """
+        use_color = os.environ.get("HESTIA_NO_COLOR") is None
+        narrow = self.console.width is not None and self.console.width < 60
+
+        if narrow:
+            # Narrow terminal: simple text fallback
+            self.console.print(f"\n[bold]Hestia[/bold] v{version}\n")
+        elif use_color and first_run:
+            # First run: animated banner (6 frames at 250ms = 1.5s)
+            initial = Text.from_markup(_build_banner_frame(0, version))
+            with Live(initial, console=self.console, auto_refresh=False) as live:
+                for i in range(6):
+                    frame = _build_banner_frame(i, version)
+                    live.update(Text.from_markup(frame))
+                    live.refresh()
+                    if i < 5:
+                        await asyncio.sleep(0.25)
+        elif use_color:
+            # Subsequent runs: static colored banner
+            frame = _build_banner_frame(0, version)
+            self.console.print(Text.from_markup(frame))
+        else:
+            # No color: plain text banner
+            self._render_plain_banner(version)
+
+        # Connection info below the banner
         color = self.agent_color
-        info_parts = [f"[{color}]@{mode}[/{color}]"]
+        info_parts = [f"[{color}]@{mode}[/{color}]", f"[cyan]{server_url}[/cyan]"]
         if device_id:
             info_parts.append(f"device:{device_id[:8]}")
         if trust_tiers:
@@ -197,11 +276,27 @@ class HestiaRenderer:
                 for k, v in trust_tiers.items()
             )
             info_parts.append(f"trust: {tier_summary}")
-        self.console.print(" | ".join(info_parts))
+        self.console.print(f"  {' | '.join(info_parts)}")
         self.console.print(
-            "[dim]Type a message to chat. /help for commands. Ctrl+C to cancel. Ctrl+D to exit.[/dim]"
+            "  [dim]Type a message to chat. /help for commands. Ctrl+C to cancel. Ctrl+D to exit.[/dim]"
         )
         self.console.print()
+
+    def _render_plain_banner(self, version: str) -> None:
+        """Render a static plain-text banner (no color mode)."""
+        text_rows = build_hestia_text_rows()
+        self.console.print()
+        self.console.print(f"  {BANNER_FIRE_TIP}{text_rows[0]}")
+        for i in range(4):
+            suffix = text_rows[i + 1]
+            if i == 3:
+                suffix += f"  v{version}"
+            self.console.print(f"  {BANNER_FIRE_BODY[i]}{suffix}")
+        self.console.print()
+        self.console.print(
+            "  local inference  ·  secure by default  ·  your data, your machine"
+        )
+        self.console.print(f"  {'═' * 65}")
 
     def render_reconnecting(self, attempt: int) -> None:
         """Show reconnection status."""
@@ -481,13 +576,23 @@ class HestiaRenderer:
             )
 
     def _render_done(self, event: Dict[str, Any]) -> None:
-        """Render completion with optional metrics and routing indicator."""
+        """Render completion with optional metrics, bylines, and routing indicator."""
         # Clear any lingering status line
         if self._status_visible:
             _clear_line()
             self._status_visible = False
 
         self.console.print()  # Newline after streaming
+
+        # Agent bylines — show when specialists contributed
+        bylines = event.get("bylines")
+        if bylines:
+            for byline in bylines:
+                agent = byline.get("agent", "")
+                summary = byline.get("summary", "")
+                icon = {"artemis": "\U0001f4d0", "apollo": "\u26a1"}.get(agent, "")
+                name = {"artemis": "Artemis", "apollo": "Apollo"}.get(agent, agent.capitalize())
+                self.console.print(f"[dim]  {icon} {name} \u2014 {summary}[/dim]")
 
         if self.show_metrics:
             metrics = event.get("metrics", {})

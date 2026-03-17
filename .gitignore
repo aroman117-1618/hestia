@@ -43,7 +43,7 @@ credentials.json
 
 # Swift build artifacts
 .build/
-HestiaShared/
+HestiaShared/.build/
 *.xcodeproj/
 xcuserdata/
 DerivedData/
@@ -74,9 +74,6 @@ htmlcov/
 .tox/
 .nox/
 .hypothesis/
-
-# Serena MCP memories
-.serena/memories/
 
 # Misc
 *.bak

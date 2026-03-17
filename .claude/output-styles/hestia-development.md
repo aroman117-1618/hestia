@@ -108,7 +108,7 @@ Check `SPRINT.md` for current sprint status. Skills save their outputs to struct
 
 ## Andrew's Working Style
 
-- ~6 hours/week, so efficiency matters
+- ~12 hours/week (hands-on) + autonomous Claude Code acceleration — efficiency still matters, but throughput is the multiplier now
 - 70% teach-as-we-build, 30% just-make-it-work
 - Prefers thorough explanations when learning, concise when executing
 - Prefers to focus on planning and leave execution to the agent

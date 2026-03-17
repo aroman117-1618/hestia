@@ -6,7 +6,7 @@ but as lightweight Pydantic models for client-side use.
 """
 
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from pydantic import BaseModel, Field
 
@@ -135,3 +135,58 @@ FIRE_FRAMES = [
 ]
 
 ASCII_FRAMES = ["◠", "◡", "○", "◉", "●", "◎"]
+
+
+# ── Banner Startup Animation ──────────────────────────────
+
+# Pixel font for "HESTIA" block letters (5 chars wide per letter)
+_PIXEL_FONT: Dict[str, List[str]] = {
+    "H": ["█   █", "█   █", "█████", "█   █", "█   █"],
+    "E": ["█████", "█    ", "████ ", "█    ", "█████"],
+    "S": [" ████", "█    ", " ███ ", "    █", "████ "],
+    "T": ["█████", "  █  ", "  █  ", "  █  ", "  █  "],
+    "I": ["█████", "  █  ", "  █  ", "  █  ", "█████"],
+    "A": [" ███ ", "█   █", "█████", "█   █", "█   █"],
+}
+
+
+def build_hestia_text_rows() -> List[str]:
+    """Assemble 'HESTIA' as 5 rows of pixel-font block text."""
+    rows: List[str] = []
+    for row_idx in range(5):
+        parts = [_PIXEL_FONT[ch][row_idx] for ch in "HESTIA"]
+        rows.append("  ".join(parts))
+    return rows
+
+
+# Ember positions per animation frame (each line 14 chars wide)
+BANNER_EMBER_FRAMES: List[Tuple[str, str]] = [
+    ("      ·  °    ", "       ·      "),
+    ("        ° ·   ", "      ·       "),
+    ("     °    ·   ", "        ·     "),
+    ("       ·   °  ", "      ·       "),
+    ("     ·  °     ", "       ·      "),
+    ("       °  ·   ", "     ·        "),
+]
+
+# Flame tip color cycle (amber flicker)
+BANNER_TIP_COLORS: List[str] = [
+    "#FEE685", "#FFB900", "#FEE685", "#FF8904", "#FFB900", "#FF8904",
+]
+
+# Campfire shape components (14 chars wide each)
+BANNER_FIRE_TIP: str = "      /\\      "
+BANNER_FIRE_BODY: List[str] = [
+    "     /  \\     ",
+    "    / /\\ \\    ",
+    "   / /  \\ \\   ",
+    "  /_/    \\_\\  ",
+]
+
+# Campfire body gradient colors (top to bottom)
+BANNER_FIRE_COLORS: List[str] = [
+    "#FFB900",  # bright amber
+    "#FF8904",  # dark amber
+    "#E0A050",  # amber accent
+    "#B7874A",  # brown base
+]

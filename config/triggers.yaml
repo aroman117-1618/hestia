@@ -1,0 +1,28 @@
+triggers:
+  enabled: true
+  check_interval_hours: 24
+
+  thresholds:
+    memory_total_chunks:
+      value: 5000
+      direction: above
+      message: "Memory chunk count exceeded {value}. Consider Sprint 16 consolidation."
+      cooldown_days: 30
+
+    memory_redundancy_pct:
+      value: 30
+      direction: above
+      message: "Memory redundancy rate is {value}%. Consolidation would reduce noise."
+      cooldown_days: 30
+
+    knowledge_entity_count:
+      value: 500
+      direction: above
+      message: "Knowledge graph has {value} entities. Graph RAG Lite (Sprint 17) may be actionable."
+      cooldown_days: 30
+
+    inference_avg_latency_ms:
+      value: 3000
+      direction: above
+      message: "Average inference latency is {value}ms. Consider model optimization."
+      cooldown_days: 7

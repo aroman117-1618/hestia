@@ -1531,6 +1531,42 @@ Hestia's research module (ADR-039) had a co-occurrence graph — memories sharin
 
 ---
 
+### ADR-042: Agent Orchestrator — Coordinate/Analyze/Delegate Model
+
+**Date:** 2026-03-16
+**Status:** Active
+**Sprint:** 14 (Agent Orchestrator)
+
+#### Context
+Hestia's 3-agent system (Tia/Mira/Olly) required users to manually route requests via @mentions. This added cognitive overhead and didn't align with the Jarvis-like vision of an assistant that anticipates needs. The user shouldn't need to decide which personality to talk to — they should just talk, and the system should figure out the rest.
+
+#### Decision
+1. **Hestia becomes the single user interface** — she coordinates Artemis (analysis) and Apollo (execution) as internal sub-agents
+2. **Council coordinator extended** (not replaced) — adds `agent_route` and `route_confidence` fields to `IntentClassification`
+3. **Deterministic intent-to-route heuristic** as primary routing — maps IntentType → AgentRoute via keyword matching. SLM does intent classification only (proven). No model-dependent routing decisions
+4. **Confidence gating** — >0.8 = full specialist dispatch, 0.5-0.8 = enriched solo with persona hints, <0.5 = pure solo
+5. **Async execution interfaces** — collapse to sequential on M1, parallelize on M5 Ultra
+6. **Byline attribution** — responses include specialist credit (e.g., "📐 Artemis — analyzed trade-offs")
+7. **@mention override preserved** — `@artemis`/`@apollo` override routing as power-user escape hatch
+8. **Routing audit log** — every routing decision logged with `user_id` for family-scale readiness
+9. **Outcome tracking extended** — `agent_route` and `route_confidence` columns on outcomes table for learning loop
+
+#### Alternatives Considered
+- **Replace council with new orchestrator** — rejected (council is proven with 130+ tests; extending is safer)
+- **SLM-based routing** — rejected as primary (0.5B model can't reliably do multi-dimensional classification; reserved for future enhancement)
+- **Separate orchestration module** — rejected (orchestration layer already exists; new files added within it)
+
+#### Consequences
+- 5 new files in `hestia/orchestration/` (agent_models, router, planner, executor, context_manager, synthesizer, audit_db)
+- `config/orchestration.yaml` with kill switch (`enabled: false` falls back to current behavior)
+- ~100 new tests (models, routing, planning, execution, golden dataset, audit)
+- On M1: common case (HESTIA_SOLO) has zero overhead. Specialist dispatch adds 1-2 inference calls
+- On M5 Ultra: genuine parallel specialist execution via `asyncio.gather()`
+- MetaMonitor (future Sprint 11B) gains routing audit data as input source
+- World Model (future Sprint 13) gains routing preferences as a Routine Layer domain
+
+---
+
 ## Adding New Decisions
 
 When making a significant architectural decision:

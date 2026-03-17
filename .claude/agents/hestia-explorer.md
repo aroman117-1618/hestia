@@ -22,7 +22,7 @@ You are Hestia's fast codebase navigator. You find things, trace connections, an
 
 ```
 hestia/
-├── hestia/                    # Python backend (28 modules, 154 API endpoints)
+├── hestia/                    # Python backend (28 modules, ~170 API endpoints)
 │   ├── security/              # CredentialManager (3-tier, Fernet + Keychain)
 │   ├── logging/               # get_logger(), AuditLogger, log viewer
 │   ├── inference/             # InferenceClient (Ollama + cloud, 3-state routing)
@@ -48,7 +48,7 @@ hestia/
 │   ├── inbox/                 # Unified inbox (mail + reminders + calendar aggregation)
 │   ├── outcomes/              # Chat outcome tracking for Learning Cycle
 │   ├── apple_cache/           # FTS5 metadata cache for Apple ecosystem fuzzy resolution
-│   ├── api/                   # FastAPI REST API (154 endpoints, 27 route modules)
+│   ├── api/                   # FastAPI REST API (~170 endpoints, 26 route modules)
 │   │   ├── server.py          # App lifecycle, TLS/HTTPS
 │   │   ├── schemas/           # Pydantic models (15 domain modules)
 │   │   ├── errors.py          # Error sanitization helpers
@@ -63,7 +63,7 @@ hestia/
 │   ├── Shared/                # Cross-platform code
 │   └── macOS/                 # macOS-specific (105 files)
 │
-├── tests/                     # ~1709 tests (37 backend + 7 CLI test files)
+├── tests/                     # ~2012 tests (51 backend + 7 CLI test files)
 ├── scripts/                   # Deployment, build, hooks, health check
 ├── docs/                      # Project documentation
 └── CLAUDE.md                  # Project context (primary reference)

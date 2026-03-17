@@ -87,15 +87,21 @@ class TestRenderer:
 
     def test_startup_banner(self):
         renderer, output = make_renderer()
-        renderer.render_startup_banner(
-            server_url="https://localhost:8443",
-            mode="tia",
-            device_id="dev-123456789",
+        asyncio.run(
+            renderer.render_startup_banner(
+                server_url="https://localhost:8443",
+                mode="tia",
+                version="0.1.0",
+                first_run=False,  # Static banner for test
+                device_id="dev-123456789",
+            )
         )
         text = output.getvalue()
-        assert "Hestia CLI" in text
+        assert "█████" in text  # Block letter pixel art
         assert "localhost:8443" in text
         assert "@tia" in text
+        assert "v0.1.0" in text
+        assert "local inference" in text
 
     def test_streaming_buffer(self):
         renderer, _ = make_renderer()

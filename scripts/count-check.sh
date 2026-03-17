@@ -35,8 +35,8 @@ run_with_timeout() {
     local watchdog=$!
     wait "$pid" 2>/dev/null
     local exit_code=$?
-    kill "$watchdog" 2>/dev/null
-    wait "$watchdog" 2>/dev/null
+    kill "$watchdog" 2>/dev/null || true
+    wait "$watchdog" 2>/dev/null || true
     return $exit_code
 }
 
@@ -46,7 +46,7 @@ echo "[COUNT-CHECK] Verifying codebase counts against CLAUDE.md..."
 echo ""
 
 # --- 1. Test count ---
-COLLECT_OUTPUT=$(run_with_timeout 30 "$PYTHON" -m pytest --collect-only -q 2>&1 | tail -3)
+COLLECT_OUTPUT=$(run_with_timeout 30 "$PYTHON" -m pytest "$PROJECT_ROOT/tests/" --collect-only -q 2>&1 | tail -3) || true
 ACTUAL_TESTS=$(echo "$COLLECT_OUTPUT" | grep -oE '^[0-9]+ tests? collected' | grep -oE '^[0-9]+' || echo "0")
 
 if [ "$ACTUAL_TESTS" = "0" ]; then

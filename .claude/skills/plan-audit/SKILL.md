@@ -116,9 +116,37 @@ Three executives render verdicts based on all previous findings:
 - Is the priority ordering correct?
 - **Verdict:** Acceptable / Needs Remediation / Reject
 
-## Phase 9: Final Critiques
+## Phase 9: Sustained Devil's Advocate
 
-Three targeted stress-tests:
+This is not a checklist — it's a sustained adversarial argument against the plan. The previous phases identified risks and gaps. This phase builds the strongest possible case for NOT doing this plan.
+
+### 9.1 The Counter-Plan
+
+Construct a coherent alternative approach that achieves the same goals differently:
+- What would you build instead?
+- Why is the alternative better on the dimensions that matter most?
+- What does the alternative sacrifice? Is that sacrifice acceptable?
+
+If you can't build a credible counter-plan, the plan is probably strong. Say so.
+
+### 9.2 Future Regret Analysis
+
+Project forward and identify what the team will regret:
+- **3 months**: What daily friction will this plan create?
+- **6 months**: What will be expensive to change because of choices made here?
+- **12 months**: Will this approach survive the next era of the roadmap? (Check `SPRINT.md` and roadmap context)
+
+### 9.3 The Uncomfortable Questions
+
+Ask the questions nobody wants to hear:
+- **"Do we actually need this?"** — Is the problem real, or are we building for a hypothetical?
+- **"Are we building this because it's valuable, or because it's interesting?"** — Distinguish engineering curiosity from user value
+- **"What's the cost of doing nothing?"** — Sometimes the best plan is no plan
+- **"Who benefits?"** — If the answer is only "future us, maybe" — that's a warning sign
+
+### 9.4 Final Stress Tests
+
+Three targeted critiques:
 
 1. **Most likely failure**: What single thing is most likely to go wrong? What's the mitigation?
 2. **Critical assumption**: What assumption, if wrong, would invalidate the entire plan? How do we validate it early?

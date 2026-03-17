@@ -85,6 +85,18 @@ struct MacMessageBubble: View {
             }
             .padding(.leading, MacSpacing.sm)
 
+            // Agent bylines (when specialists contributed)
+            if let bylines = message.bylines, !bylines.isEmpty {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(bylines, id: \.agent) { byline in
+                        Text(byline.formatted)
+                            .font(MacTypography.caption)
+                            .foregroundStyle(MacColors.textSecondary)
+                    }
+                }
+                .padding(.leading, MacSpacing.sm)
+            }
+
             // Outcome feedback (visible on hover or when feedback already submitted)
             if isHovered || feedbackState != nil {
                 OutcomeFeedbackRow(

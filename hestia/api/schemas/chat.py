@@ -40,6 +40,13 @@ class ChatRequest(BaseModel):
     )
 
 
+class AgentBylineSchema(BaseModel):
+    """Attribution for a specialist agent's contribution."""
+    agent: str = Field(description="Agent identifier (artemis, apollo)")
+    contribution: str = Field(description="Type of contribution (analysis, implementation)")
+    summary: str = Field(description="One-line description of contribution")
+
+
 class ChatResponse(BaseModel):
     """Response from Hestia."""
     request_id: str = Field(description="Unique request identifier")
@@ -56,4 +63,8 @@ class ChatResponse(BaseModel):
     error: Optional[ResponseError] = Field(
         None,
         description="Error details if response_type is error"
+    )
+    bylines: Optional[List[AgentBylineSchema]] = Field(
+        None,
+        description="Agent attribution bylines (present when specialists contributed)"
     )

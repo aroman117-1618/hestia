@@ -1,4 +1,76 @@
-# Current Sprint: Hestia Evolution (Sprint 13) — COMPLETE
+# Current Sprint: MetaMonitor + Memory Health + Trigger Metrics (Sprint 15)
+
+**Started:** 2026-03-16
+**Discovery:** `docs/discoveries/metamonitor-memory-health-triggers-2026-03-16.md`
+**Plan Audit:** `docs/plans/sprint-15-metamonitor-audit-2026-03-16.md`
+**Implementation Plan:** `docs/superpowers/plans/2026-03-16-sprint-15-metamonitor.md`
+
+## Sprint 15 Summary
+
+Hestia's first self-awareness infrastructure. Hourly behavioral analysis, daily memory health diagnostics, configurable threshold monitoring. Prerequisite for all downstream learning (Sprints 16-20).
+
+### What Was Built
+- **Retrieval feedback loop** — `build_context()` stashes chunk IDs as `_last_retrieved_chunk_ids`; chat.py threads them into outcome metadata. Enables Sprint 16 importance scoring.
+- **`hestia/learning/` module** — new module following manager pattern:
+  - `models.py`: MetaMonitorReport, MemoryHealthSnapshot, TriggerAlert, CorrectionType, RoutingQualityStats
+  - `database.py`: LearningDatabase (BaseDatabase) — 3 tables (monitor_reports, health_snapshots, trigger_log), all user_id-scoped
+  - `meta_monitor.py`: MetaMonitorManager — hourly SQL analysis (routing quality correlation, acceptance trend, confusion loop detection, latency trend). Pure aggregation, no inference.
+  - `memory_health.py`: MemoryHealthMonitor — daily ChromaDB + knowledge graph diagnostics (chunk count, source distribution, entity/fact/community counts, contradictions)
+  - `trigger_monitor.py`: TriggerMonitor — configurable YAML thresholds with cooldown, briefing injection ready
+- **handler.py decomposition** — extracted `AgenticHandler` (~145 lines) into `agentic_handler.py`, reducing handler.py from ~2440 to ~2300 lines
+- **LEARNING LogComponent** — 20 components total
+- **5 API endpoints** under `/v1/learning/` (report, memory-health, memory-health/history, alerts, alerts/{id}/acknowledge)
+- **config/triggers.yaml** — 4 initial thresholds (chunk count, redundancy, entity count, latency)
+
+### Deferred (per audit half-time cut list)
+- Outcome → Principle pipeline (defer to Sprint 16)
+- Correction classification (defer to Sprint 16)
+- Read-only settings tools (defer to Sprint 18)
+- Briefing injection wiring (infrastructure ready, wiring deferred)
+
+### Key Commits
+- `6c6020c` refactor: extract AgenticHandler + LEARNING LogComponent
+- `fa7eb7d` feat: retrieval feedback loop — chunk IDs in outcome metadata
+- `8eacb3e` feat: learning module — MetaMonitor, MemoryHealth, TriggerMonitor, 5 endpoints
+- `097f798` docs: Sprint 15 discovery, plan audit, implementation plan
+
+### Test Results
+- 27 new tests in `tests/test_learning.py`
+- Full suite: 2034 passing, 1 pre-existing skip (Ollama integration)
+
+---
+
+# Previous: Agent Orchestrator (Sprint 14) — COMPLETE
+
+**Started:** 2026-03-16
+**Design Spec:** `docs/superpowers/specs/2026-03-16-agent-orchestrator-design.md`
+**Plan Audit:** `docs/plans/agent-orchestrator-audit-2026-03-16.md`
+**Implementation Plan:** `docs/superpowers/plans/2026-03-16-agent-orchestrator.md`
+**ADR:** ADR-042
+
+## Sprint 14 Summary
+
+Evolved Hestia from user-routed persona switching to a coordinator-delegate model. Hestia is the single user interface, orchestrating Artemis (analysis) and Apollo (execution) as internal sub-agents.
+
+### What Was Built
+- **AgentRoute enum** + orchestrator models (AgentTask, AgentResult, ExecutionPlan, AgentByline)
+- **Intent-to-route heuristic** (AgentRouter) — deterministic mapping from council IntentType to AgentRoute via keyword matching
+- **OrchestrationPlanner** with confidence gating (>0.8 dispatch, 0.5-0.8 enriched solo, <0.5 pure solo) and chain validation
+- **AgentExecutor** with sequential chains, parallel groups (asyncio.gather), and fallback on error
+- **Context slicing** per agent (Artemis gets full history, Apollo gets recent + tools)
+- **Result synthesizer** with byline generation and footer formatting
+- **Handler integration** — orchestrator hooks between pre-inference and inference, falls back to normal pipeline on solo/error
+- **Council extension** — `agent_route` and `route_confidence` on IntentClassification
+- **ChatResponse.bylines** — optional API field for client attribution rendering
+- **Outcome tracking** — `agent_route` and `route_confidence` columns (migration)
+- **Routing audit database** — SQLite, user_id-scoped, fire-and-forget logging
+- **@artemis/@apollo invoke patterns** preserved as power-user override
+- **orchestration.yaml** config with kill switch
+- **Golden dataset** — 33 test cases, 100% routing accuracy
+
+---
+
+# Previous: Hestia Evolution (Sprint 13) — COMPLETE
 
 **Started:** 2026-03-15
 **Discovery:** `docs/discoveries/hestia-enhancement-candidates-2026-03-15.md`, `docs/discoveries/hestia-agentic-self-development-2026-03-15.md`

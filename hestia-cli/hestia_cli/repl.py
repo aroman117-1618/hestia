@@ -21,7 +21,8 @@ from rich.console import Console
 from hestia_cli.bootstrap import ensure_server_running, ensure_authenticated, ensure_models_available
 from hestia_cli.client import HestiaWSClient, ConnectionError, AuthenticationError
 from hestia_cli.commands import handle_slash_command, detect_mode_prefix
-from hestia_cli.config import get_config_dir, load_config
+from hestia_cli import __version__
+from hestia_cli.config import get_config_dir, has_seen_banner, load_config, mark_banner_seen
 from hestia_cli.context import get_repo_context
 from hestia_cli.models import ServerEventType
 from hestia_cli.renderer import HestiaRenderer
@@ -113,12 +114,17 @@ async def repl_loop(client: HestiaWSClient, console: Console) -> None:
         theme = await client.fetch_agent_theme()
         renderer.set_agent_theme(theme)
 
-        renderer.render_startup_banner(
+        first_run = not has_seen_banner()
+        await renderer.render_startup_banner(
             server_url=client.server_url,
             mode=client.mode,
+            version=__version__,
+            first_run=first_run,
             device_id=client.device_id,
             trust_tiers=client.trust_tiers,
         )
+        if first_run:
+            mark_banner_seen()
     except AuthenticationError as e:
         console.print(f"[red]Authentication failed: {e}[/red]")
         console.print("[dim]Run 'hestia auth login' to authenticate.[/dim]")

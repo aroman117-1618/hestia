@@ -39,38 +39,6 @@ targets:
       - path: Shared
         type: group
         excludes:
-          # Models moved to HestiaShared
-          - "Models/APIModels.swift"
-          - "Models/AgentProfile.swift"
-          - "Models/CalendarEvent.swift"
-          - "Models/CloudProvider.swift"
-          - "Models/HealthModels.swift"
-          - "Models/HestiaError.swift"
-          - "Models/HestiaMode.swift"
-          - "Models/MemoryChunk.swift"
-          - "Models/Message.swift"
-          - "Models/Order.swift"
-          - "Models/Response.swift"
-          - "Models/SystemHealth.swift"
-          - "Models/UserProfile.swift"
-          # Services moved to HestiaShared
-          - "Services/APIClient.swift"
-          - "Services/APIClientProvider.swift"
-          - "Services/AuthService.swift"
-          - "Services/CertificatePinning.swift"
-          - "Services/MockHestiaClient.swift"
-          - "Services/NetworkMonitor.swift"
-          - "Services/Protocols/HestiaClientProtocol.swift"
-          # DesignSystem moved to HestiaShared
-          - "DesignSystem/Colors.swift"
-          - "DesignSystem/Typography.swift"
-          - "DesignSystem/Spacing.swift"
-          - "DesignSystem/Animations.swift"
-          # App files moved to HestiaShared
-          - "App/AppState.swift"
-          - "App/Configuration.swift"
-          # Utilities moved to HestiaShared
-          - "Utilities/Constants.swift"
           # iOS trimming (Sprint 13 WS2) — macOS is the primary full-featured app
           - "Views/CommandCenter/**"
           - "Views/Explorer/**"

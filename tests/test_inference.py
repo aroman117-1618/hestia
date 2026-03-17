@@ -552,6 +552,118 @@ class TestDefaultAgentPerTier:
         assert router.get_suggested_agent("hello") == "custom"
 
 
+class TestClaudeCLIFallback:
+    """Tests for Claude CLI subscription fallback."""
+
+    def _make_client(self, cli_available: bool = True) -> InferenceClient:
+        """Create a client with mocked CLI availability."""
+        client = InferenceClient()
+        client._cli_available = cli_available
+        return client
+
+    def test_should_fallback_on_billing_error(self):
+        """Billing errors trigger CLI fallback."""
+        client = self._make_client(cli_available=True)
+        error = Exception("Your credit balance is too low to access the API")
+        assert client._should_fallback_to_cli(error) is True
+
+    def test_should_fallback_on_rate_limit(self):
+        """Rate limit errors trigger CLI fallback."""
+        from hestia.cloud.client import CloudRateLimitError
+        client = self._make_client(cli_available=True)
+        error = CloudRateLimitError("rate limited", retry_after=30.0)
+        assert client._should_fallback_to_cli(error) is True
+
+    def test_no_fallback_on_auth_error(self):
+        """Auth errors (bad key) do NOT trigger CLI fallback."""
+        from hestia.cloud.client import CloudAuthError
+        client = self._make_client(cli_available=True)
+        error = CloudAuthError("invalid API key")
+        assert client._should_fallback_to_cli(error) is False
+
+    def test_no_fallback_when_cli_missing(self):
+        """No fallback if claude CLI is not installed."""
+        client = self._make_client(cli_available=False)
+        error = Exception("credit balance is too low")
+        assert client._should_fallback_to_cli(error) is False
+
+    @pytest.mark.asyncio
+    async def test_call_claude_cli_parses_json(self):
+        """CLI JSON output is parsed into InferenceResponse."""
+        import json
+
+        cli_response = json.dumps({
+            "type": "result",
+            "result": "Hello from CLI!",
+            "total_cost_usd": 0.001,
+            "stop_reason": "end_turn",
+            "usage": {
+                "input_tokens": 10,
+                "output_tokens": 5,
+            },
+        })
+
+        client = self._make_client()
+
+        mock_proc = AsyncMock()
+        mock_proc.communicate = AsyncMock(
+            return_value=(cli_response.encode(), b"")
+        )
+        mock_proc.returncode = 0
+
+        with patch(
+            "asyncio.create_subprocess_exec", return_value=mock_proc
+        ), patch("shutil.which", return_value="/usr/bin/claude"):
+            response = await client._call_claude_cli(
+                messages=[Message(role="user", content="Hello")],
+            )
+
+        assert response.content == "Hello from CLI!"
+        assert response.inference_source == "subscription"
+        assert response.tokens_in == 10
+        assert response.tokens_out == 5
+
+    @pytest.mark.asyncio
+    async def test_call_claude_cli_strips_api_key(self):
+        """ANTHROPIC_API_KEY is stripped from subprocess env."""
+        import json
+
+        cli_response = json.dumps({
+            "type": "result", "result": "ok",
+            "usage": {"input_tokens": 1, "output_tokens": 1},
+        })
+
+        client = self._make_client()
+        captured_env = {}
+
+        async def mock_subprocess(*args, **kwargs):
+            captured_env.update(kwargs.get("env", {}))
+            proc = AsyncMock()
+            proc.communicate = AsyncMock(
+                return_value=(cli_response.encode(), b"")
+            )
+            proc.returncode = 0
+            return proc
+
+        with patch(
+            "asyncio.create_subprocess_exec", side_effect=mock_subprocess
+        ), patch("shutil.which", return_value="/usr/bin/claude"), \
+             patch.dict("os.environ", {"ANTHROPIC_API_KEY": "sk-test-key"}):
+            await client._call_claude_cli(
+                messages=[Message(role="user", content="test")],
+            )
+
+        assert "ANTHROPIC_API_KEY" not in captured_env
+
+    def test_inference_source_defaults_to_local(self):
+        """InferenceResponse defaults to local inference source."""
+        response = InferenceResponse(
+            content="test", model="test", tokens_in=0,
+            tokens_out=0, duration_ms=0,
+        )
+        assert response.inference_source == "local"
+
+
 class TestInferenceClientIntegration:
     """
     Integration tests that require Ollama running.

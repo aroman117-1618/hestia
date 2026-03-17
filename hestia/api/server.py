@@ -49,6 +49,7 @@ from hestia.files import get_file_manager, close_file_manager
 from hestia.inbox import get_inbox_manager, close_inbox_manager
 from hestia.outcomes import get_outcome_manager, close_outcome_manager
 from hestia.apple_cache import get_apple_cache_manager, close_apple_cache_manager
+from hestia.orchestration.audit_db import get_routing_audit_db, close_routing_audit_db
 
 # Import routers
 from hestia.api.routes import (
@@ -79,6 +80,7 @@ from hestia.api.routes import (
     ws_chat_router,
 )
 from hestia.api.routes.agents_v2 import router as agents_v2_router
+from hestia.api.routes.learning import router as learning_router
 
 logger = get_logger()
 
@@ -321,6 +323,7 @@ async def lifespan(app: FastAPI):
             await get_inbox_manager()
             await get_outcome_manager()
             await get_apple_cache_manager()
+            await get_routing_audit_db()
 
         # ── Phase 3: Sequential dependents ───────────────────────────
         # Schedulers depend on their managers from Phase 2
@@ -382,7 +385,17 @@ async def lifespan(app: FastAPI):
 
         shutdown_errors = 0
 
-        # 20. outcome_manager (newest -> first closed)
+        # 21. routing_audit_db (newest -> first closed)
+        try:
+            await close_routing_audit_db()
+        except Exception as e:
+            shutdown_errors += 1
+            logger.warning(
+                f"Routing audit DB cleanup error: {type(e).__name__}",
+                component=LogComponent.API,
+            )
+
+        # 20. outcome_manager
         try:
             await close_outcome_manager()
         except Exception as e:
@@ -750,6 +763,7 @@ app.include_router(research_router)
 app.include_router(files_router)
 app.include_router(inbox_router)
 app.include_router(outcomes_router)
+app.include_router(learning_router)
 app.include_router(ws_chat_router)
 
 

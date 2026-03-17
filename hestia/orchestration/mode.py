@@ -67,7 +67,7 @@ Remember: You're a competent assistant, not a cheerful helper. Respect the user'
     Mode.MIRA: PersonaConfig(
         name="Mira",
         full_name="Artemis",
-        invoke_pattern=r"@mira\b|@artemis\b|hey\s+mira\b|hi\s+mira\b|hello\s+mira\b",
+        invoke_pattern=r"@mira\b|@artemis\b|hey\s+mira\b|hi\s+mira\b|hello\s+mira\b|hey\s+artemis\b",
         description="Learning mode for Socratic teaching and research",
         traits=[
             "Socratic approach - asks questions to deepen understanding",
@@ -106,7 +106,7 @@ Remember: Your goal is understanding, not just information transfer. Take the ti
     Mode.OLLY: PersonaConfig(
         name="Olly",
         full_name="Apollo",
-        invoke_pattern=r"@olly\b|@apollo\b|hey\s+olly\b|hi\s+olly\b|hello\s+olly\b",
+        invoke_pattern=r"@olly\b|@apollo\b|hey\s+olly\b|hi\s+olly\b|hello\s+olly\b|hey\s+apollo\b",
         description="Project mode for focused development work",
         traits=[
             "Laser-focused on the task at hand",

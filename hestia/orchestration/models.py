@@ -7,8 +7,11 @@ Defines request/response structures, task states, and conversation models.
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from uuid import uuid4
+
+if TYPE_CHECKING:
+    from hestia.orchestration.agent_models import AgentByline
 
 
 class TaskState(Enum):
@@ -124,6 +127,12 @@ class Response:
 
     # Memory operations performed
     memory_operations: List[str] = field(default_factory=list)
+
+    # Agent orchestrator bylines
+    bylines: List["AgentByline"] = field(default_factory=list)
+
+    # Retrieval feedback loop — chunk IDs used in context (Sprint 15)
+    retrieved_chunk_ids: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API response."""

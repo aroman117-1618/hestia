@@ -151,6 +151,15 @@ class RequestHandler:
         self._conversations: dict[str, Conversation] = {}
         self._handle_count: int = 0
 
+        # Agentic handler (extracted for maintainability)
+        from hestia.orchestration.agentic_handler import AgenticHandler
+        self._agentic_handler = AgenticHandler(
+            memory_manager=self._memory_manager,
+            inference_client=self._inference_client,
+            prompt_builder=self._prompt_builder,
+            state_machine=self.state_machine,
+        )
+
         # Register built-in tools
         self._register_builtin_tools()
 
@@ -566,6 +575,23 @@ class RequestHandler:
                     "type": intent.primary_intent.value,
                     "confidence": intent.confidence,
                 }
+
+            # Step 6.5: Agent orchestration (ADR-042)
+            orchestrator_response = await self._try_orchestrated_response(
+                request=request,
+                original_content=original_content,
+                intent=intent,
+                memory_context=memory_context,
+                user_profile_context=user_profile_context,
+                conversation=conversation,
+                will_use_cloud=will_use_cloud,
+                task=task,
+                start_time=start_time,
+                memory=memory,
+            )
+            if orchestrator_response is not None:
+                self.state_machine.complete(task, orchestrator_response)
+                return orchestrator_response
 
             # Build prompt with tool behavior guidance
             tool_instructions = TOOL_INSTRUCTIONS
@@ -1244,6 +1270,173 @@ class RequestHandler:
             return "\n\n".join(results)
         return None
 
+    # ── Agent Orchestrator (ADR-042) ────────────────────────────────────────
+
+    def _get_orchestrator_config(self) -> "OrchestratorConfig":
+        """Load orchestrator config from YAML."""
+        from hestia.orchestration.agent_models import OrchestratorConfig
+        try:
+            import yaml
+            from pathlib import Path
+            config_path = Path("config/orchestration.yaml")
+            if config_path.exists():
+                with open(config_path) as f:
+                    data = yaml.safe_load(f)
+                return OrchestratorConfig.from_dict(data.get("orchestrator", {}))
+        except Exception:
+            pass
+        return OrchestratorConfig()
+
+    async def _try_orchestrated_response(
+        self,
+        request: Request,
+        original_content: str,
+        intent: Optional[Any],
+        memory_context: str,
+        user_profile_context: str,
+        conversation: "Conversation",
+        will_use_cloud: bool,
+        task: Task,
+        start_time: float,
+        memory: Any,
+    ) -> Optional[Response]:
+        """
+        Attempt agent-orchestrated response. Returns Response if a specialist
+        handled the request, None if the normal pipeline should continue.
+        """
+        from hestia.orchestration.agent_models import AgentRoute, OrchestratorConfig
+        from hestia.orchestration.router import AgentRouter
+        from hestia.orchestration.planner import OrchestrationPlanner
+        from hestia.orchestration.executor import AgentExecutor
+        from hestia.orchestration.synthesizer import (
+            synthesize_single_agent, synthesize_multi_agent, format_byline_footer,
+        )
+
+        config = self._get_orchestrator_config()
+        if not config.enabled or intent is None:
+            return None
+
+        try:
+            router = AgentRouter(config)
+
+            # Detect explicit @mention override
+            explicit_agent = None
+            detected_mode = self._mode_manager.detect_mode_from_input(original_content)
+            if detected_mode is not None:
+                agent_map = {"mira": "artemis", "olly": "apollo"}
+                explicit_agent = agent_map.get(detected_mode.value)
+
+            route, route_confidence = router.resolve_with_override(
+                intent.primary_intent, request.content, explicit_agent
+            )
+
+            # Enrich intent
+            intent.agent_route = route.value
+            intent.route_confidence = route_confidence
+            task.context["agent_route"] = route.value
+            task.context["route_confidence"] = route_confidence
+
+            if not route.involves_specialist:
+                return None  # Continue with normal pipeline
+
+            # Build and validate plan
+            planner = OrchestrationPlanner(config)
+            plan = planner.build_plan(
+                route=route,
+                route_confidence=route_confidence,
+                content=request.content,
+                memory_context=memory_context,
+                user_profile=user_profile_context,
+                conversation_history=conversation.get_recent_context(),
+                tool_instructions=TOOL_INSTRUCTIONS,
+                cloud_available=will_use_cloud,
+                cloud_safe=will_use_cloud,
+            )
+
+            # If plan collapsed to solo, continue with normal pipeline
+            if not plan.route.involves_specialist:
+                return None
+
+            # Execute the plan
+            self.logger.info(
+                f"Orchestrator: dispatching {plan.route.value} "
+                f"(confidence={route_confidence:.2f}, hops={plan.estimated_hops})",
+                component=LogComponent.ORCHESTRATION,
+                data={"request_id": request.id, "route": plan.route.value},
+            )
+
+            executor = AgentExecutor(config, self.inference_client, self._prompt_builder)
+            agent_results = await executor.execute(plan)
+
+            if not agent_results:
+                return None  # Executor returned None or empty — fall back
+
+            # Check for error results
+            if all(r.error for r in agent_results):
+                self.logger.warning(
+                    "All agent results had errors — falling back to normal pipeline",
+                    component=LogComponent.ORCHESTRATION,
+                    data={"request_id": request.id},
+                )
+                return None
+
+            # Synthesize
+            if len(agent_results) == 1:
+                content, bylines = synthesize_single_agent(agent_results[0], request.content)
+            else:
+                content, bylines = synthesize_multi_agent(agent_results, request.content)
+
+            content += format_byline_footer(bylines)
+
+            response = Response(
+                request_id=request.id,
+                content=content,
+                response_type=ResponseType.TEXT,
+                mode=request.mode,
+                tokens_in=sum(r.tokens_used for r in agent_results),
+                tokens_out=0,
+                duration_ms=(time.time() - start_time) * 1000,
+                bylines=bylines,
+            )
+
+            # Store conversation
+            await self._store_conversation(request, response, memory)
+            conversation.add_turn(request.content, response.content)
+
+            # Log routing audit (fire-and-forget)
+            try:
+                from hestia.orchestration.audit_db import get_routing_audit_db
+                from hestia.orchestration.agent_models import RoutingAuditEntry
+                audit_db = await get_routing_audit_db()
+                user_id = getattr(request, "device_id", None) or "unknown"
+                entry = RoutingAuditEntry.create(
+                    user_id=user_id,
+                    request_id=request.id,
+                    intent=intent.primary_intent.value,
+                    route_chosen=plan.route.value,
+                    route_confidence=route_confidence,
+                )
+                entry.actual_agents = [r.agent_id.value for r in agent_results]
+                entry.total_inference_calls = sum(1 for r in agent_results if not r.error)
+                entry.total_duration_ms = int(response.duration_ms)
+                entry.fallback_triggered = any(r.error for r in agent_results)
+                await audit_db.store(entry)
+            except Exception as e:
+                self.logger.warning(
+                    f"Routing audit log failed: {type(e).__name__}",
+                    component=LogComponent.ORCHESTRATION,
+                )
+
+            return response
+
+        except Exception as e:
+            self.logger.warning(
+                f"Orchestrator failed, falling back to normal pipeline: {type(e).__name__}",
+                component=LogComponent.ORCHESTRATION,
+                data={"request_id": request.id},
+            )
+            return None  # Fall back to normal pipeline
+
     async def _run_inference_with_retry(
         self,
         task: Task,
@@ -1442,125 +1635,17 @@ class RequestHandler:
         max_iterations: int = 25,
         max_tokens: int = 150000,
     ) -> AsyncGenerator[dict, None]:
-        """Agentic tool loop — iterates until the model stops calling tools.
+        """Agentic tool loop — delegates to AgenticHandler.
 
-        Unlike handle()/handle_streaming() which do a single inference + single
-        tool pass, this method loops: inference → tool execution → feed results
-        back → re-inference, until the model produces a final text response
-        with no tool calls, or a safety limit is reached.
-
-        This method is SEPARATE from the production chat pipeline.
+        See hestia/orchestration/agentic_handler.py for full implementation.
         """
-        start_time = time.time()
-        task = self.state_machine.create_task(request)
-        iteration = 0
-        total_tokens_used = 0
-
-        try:
-            # Initialize managers (match handle_streaming() pattern)
-            memory = self._memory_manager or await get_memory_manager()
-            inference = self._inference_client or get_inference_client()
-
-            yield {"type": "status", "stage": "preparing", "detail": "Building agentic context"}
-
-            # Build prompt using the same PromptBuilder.build() as other endpoints
-            memory_context = await memory.build_context(request.content)
-            messages, _components = self._prompt_builder.build(
-                request=request,
-                memory_context=memory_context,
-            )
-
-            # Get tool definitions for the model
-            tool_defs = get_tool_registry().get_definitions_as_list()
-            executor = await get_tool_executor()
-
-            yield {"type": "status", "stage": "inference", "detail": f"Starting agentic loop (max {max_iterations} iterations)"}
-
-            while iteration < max_iterations:
-                iteration += 1
-
-                # Call inference with tools
-                response = await inference.chat(
-                    messages=messages,
-                    tools=tool_defs,
-                )
-
-                # Track token usage
-                if hasattr(response, 'usage') and response.usage:
-                    total_tokens_used += getattr(response.usage, 'total_tokens', 0)
-
-                # Yield any text content
-                if response.content:
-                    yield {"type": "token", "content": response.content, "request_id": request.id}
-
-                # Check for tool calls
-                if not response.tool_calls:
-                    break  # Natural termination — model is done
-
-                # Execute tools and feed results back
-                for tc in response.tool_calls:
-                    tool_name = tc.get("function", {}).get("name", "unknown") if isinstance(tc, dict) else getattr(tc, "name", "unknown")
-                    tool_args = tc.get("function", {}).get("arguments", {}) if isinstance(tc, dict) else getattr(tc, "arguments", {})
-
-                    yield {
-                        "type": "tool_start",
-                        "tool_name": tool_name,
-                        "iteration": iteration,
-                    }
-
-                    # Execute via tool executor
-                    tool_call = ToolCall.create(tool_name=tool_name, arguments=tool_args if isinstance(tool_args, dict) else {})
-                    result = await executor.execute(tool_call)
-
-                    yield {
-                        "type": "tool_result",
-                        "tool_name": tool_name,
-                        "status": result.status.value,
-                        "output": str(result.output)[:2000] if result.output else None,
-                        "error": result.error,
-                    }
-
-                    # Append tool call + result to messages for next iteration
-                    messages.append(Message(
-                        role="assistant",
-                        content=f"[Tool call: {tool_name}({tool_args})]",
-                    ))
-                    messages.append(Message(
-                        role="user",
-                        content=f"[Tool result for {tool_name}]: {result.to_message_content()}",
-                    ))
-
-                # Safety check: token budget
-                if total_tokens_used > max_tokens:
-                    yield {
-                        "type": "status",
-                        "stage": "budget_warning",
-                        "detail": f"Token budget {total_tokens_used}/{max_tokens} exceeded. Stopping.",
-                    }
-                    break
-
-            # Done
-            duration_ms = (time.time() - start_time) * 1000
-            yield {
-                "type": "agentic_done",
-                "iterations": iteration,
-                "total_tokens": total_tokens_used,
-                "duration_ms": duration_ms,
-                "mode": request.mode.value,
-                "session_id": request.session_id,
-            }
-
-        except Exception as e:
-            self.logger.error(
-                f"Agentic loop error: {type(e).__name__}",
-                component=LogComponent.ORCHESTRATION,
-                data={"request_id": request.id, "iteration": iteration},
-            )
-            yield {
-                "type": "error",
-                "code": "agentic_error",
-                "message": f"Agentic loop failed at iteration {iteration}: {type(e).__name__}",
-            }
+        async for event in self._agentic_handler.handle_agentic(
+            request=request,
+            tool_approval_callback=tool_approval_callback,
+            max_iterations=max_iterations,
+            max_tokens=max_tokens,
+        ):
+            yield event
 
     async def _store_conversation(
         self,

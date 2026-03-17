@@ -260,13 +260,16 @@ class MacChatViewModel: ObservableObject {
                 print("[MacChatVM] \(detail)")
                 #endif
 
-            case .done(_, _, let mode, let returnedSessionId):
+            case .done(_, _, let mode, let returnedSessionId, let bylines):
                 if self.sessionId == nil, let sid = returnedSessionId {
                     self.sessionId = sid
                 }
                 if let newMode = HestiaMode(rawValue: mode),
                    newMode != appState.currentMode {
                     appState.switchMode(to: newMode)
+                }
+                if let bylines = bylines, !bylines.isEmpty {
+                    messages[messageIndex].bylines = bylines
                 }
 
             case .insight(_, _):
@@ -305,17 +308,17 @@ class MacChatViewModel: ObservableObject {
 
         switch response.responseType {
         case .text, .clarification:
-            await displayResponseWithTypewriter(response, mode: appState.currentMode)
+            await displayResponseWithTypewriter(response, mode: appState.currentMode, bylines: response.bylines)
         case .error:
             if let error = response.error {
                 throw HestiaError.from(responseError: error)
             }
         case .toolCall:
-            addAssistantMessage(response.content, mode: appState.currentMode)
+            addAssistantMessage(response.content, mode: appState.currentMode, bylines: response.bylines)
         }
     }
 
-    private func displayResponseWithTypewriter(_ response: HestiaResponse, mode: HestiaMode) async {
+    private func displayResponseWithTypewriter(_ response: HestiaResponse, mode: HestiaMode, bylines: [AgentByline]? = nil) async {
         let content = response.content
         isTyping = true
         currentTypingText = ""
@@ -329,16 +332,17 @@ class MacChatViewModel: ObservableObject {
 
         isTyping = false
         currentTypingText = nil
-        addAssistantMessage(content, mode: mode)
+        addAssistantMessage(content, mode: mode, bylines: bylines)
     }
 
-    private func addAssistantMessage(_ content: String, mode: HestiaMode) {
+    private func addAssistantMessage(_ content: String, mode: HestiaMode, bylines: [AgentByline]? = nil) {
         let message = ConversationMessage(
             id: UUID().uuidString,
             role: .assistant,
             content: content,
             timestamp: Date(),
-            mode: mode
+            mode: mode,
+            bylines: bylines
         )
         messages.append(message)
 

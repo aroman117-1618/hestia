@@ -130,7 +130,48 @@ Actively look for ways to reduce complexity while preserving functionality:
 - Scripts with overlapping functionality
 - Dead endpoints, unused models, orphaned test helpers
 
-## Phase 7: Cohesion & Consistency
+## Phase 7: Adversarial Critique — "What Will We Regret?"
+
+This is NOT another assessment pass. This is a sustained devil's advocate challenge to the project's most significant architectural decisions. The previous phases asked "is this correct?" — this phase asks "is this the right thing?"
+
+### 7.1 Identify the 3 Most Load-Bearing Decisions
+
+Read `docs/hestia-decision-log.md` and the codebase. Find the 3 architectural decisions that:
+- The most code depends on (highest coupling)
+- Would be most expensive to reverse
+- Were made earliest (and thus with the least information)
+
+### 7.2 Challenge Each Decision
+
+For each of the 3 decisions:
+
+**Steel-man first**: State the decision and its rationale accurately. Show you understand why it was made.
+
+**Then attack**:
+- **Premises**: What assumptions does this rest on? Are they still true?
+- **Alternatives dismissed**: What was the alternative? Was it dismissed too quickly?
+- **Hidden costs**: What has this decision made harder over time? What can't change independently?
+- **Time horizon**: Will this approach survive the next major capability addition?
+
+**Build a counter-argument**: Construct a coherent case for how the project would be better with a different approach. Not a list of complaints — a real alternative with trade-offs acknowledged.
+
+### 7.3 Project-Level Strategic Challenges
+
+Zoom out from individual decisions:
+- **What is the project optimizing for that it shouldn't be?** (e.g., flexibility over simplicity, features over depth)
+- **What capability will be hardest to add in 6 months?** Why?
+- **Where is complexity accumulating fastest?** Is that where the value is, or where the debt is?
+- **What would a competitor (or a rewrite) do differently?**
+
+### 7.4 Verdict per Decision
+
+For each of the 3 decisions:
+- **VALIDATED**: Holds up under scrutiny. Alternatives are worse.
+- **WATCH**: Defensible now but has a shelf life. State the trigger for reassessment.
+- **RECONSIDER**: Costs accumulating faster than benefits. Propose migration path.
+- **REVERSE**: Actively causing harm. Propose immediate action.
+
+## Phase 8: Cohesion & Consistency
 
 Cross-cutting assessment:
 - Naming conventions: consistent across Python and Swift?
@@ -139,7 +180,7 @@ Cross-cutting assessment:
 - Logging levels: appropriate severity assignments?
 - HTTP status codes: semantically correct?
 
-## Phase 8: Documentation Currency & Workspace Hygiene
+## Phase 9: Documentation Currency & Workspace Hygiene
 
 ### Documentation Accuracy
 - Verify CLAUDE.md counts match reality (modules, endpoints, tests, route modules)

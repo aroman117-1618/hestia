@@ -44,10 +44,12 @@ struct SettingsView: View {
                             resourcesSection
                         }
 
-                        // Knowledge (Wiki)
+                        #if !os(iOS)
+                        // Knowledge (Wiki) — macOS only
                         settingsSection("Knowledge") {
                             knowledgeSection
                         }
+                        #endif
 
                         // Proactive Intelligence
                         settingsSection("Intelligence") {
@@ -243,6 +245,7 @@ struct SettingsView: View {
 
     // MARK: - Knowledge Section
 
+    #if !os(iOS)
     private var knowledgeSection: some View {
         NavigationLink(destination: WikiView().environmentObject(appState)) {
             HStack {
@@ -268,6 +271,7 @@ struct SettingsView: View {
         .settingsRow()
         .padding(.horizontal, Spacing.lg)
     }
+    #endif
 
     // MARK: - Proactive Intelligence Section
 
