@@ -26,3 +26,9 @@ triggers:
       direction: above
       message: "Average inference latency is {value}ms. Consider model optimization."
       cooldown_days: 7
+
+    low_importance_ratio:
+      value: 50
+      direction: above
+      message: "{value}% of chunks have importance below 0.3. Consider reviewing consolidation settings."
+      cooldown_days: 14
