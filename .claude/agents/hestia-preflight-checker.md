@@ -44,21 +44,21 @@ ps aux | grep "[p]ython.*hestia" | grep -v pytest
 
 ### 4. Virtual Environment
 ```bash
-python --version 2>&1 && which python
+source /Users/andrewlonati/hestia/.venv/bin/activate && python --version 2>&1 && which python
 ```
 - HEALTHY: Python 3.12.x from `.venv/`
 - WARNING: Wrong version or system Python
 
 ### 5. Ollama Status
 ```bash
-curl -s --connect-timeout 3 http://localhost:11434/api/tags | python -c "import sys,json; tags=json.load(sys.stdin); print(f'{len(tags.get(\"models\",[]))} models loaded')" 2>&1
+curl -s --connect-timeout 3 http://localhost:11434/api/tags | python3 -c "import sys,json; tags=json.load(sys.stdin); print(f'{len(tags.get(\"models\",[]))} models loaded')" 2>&1
 ```
 - HEALTHY: Responds with model count
 - DOWN: Connection refused or timeout
 
 ### 6. Test Count Drift
 ```bash
-cd /Users/andrewlonati/hestia && python -m pytest tests/ --collect-only -q 2>/dev/null | tail -1
+source /Users/andrewlonati/hestia/.venv/bin/activate && cd /Users/andrewlonati/hestia && python -m pytest tests/ --collect-only -q 2>/dev/null | tail -1
 ```
 - Compare collected count against CLAUDE.md stated count
 - CURRENT: Within 20 tests
