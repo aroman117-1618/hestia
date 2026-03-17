@@ -7,6 +7,7 @@ struct ResearchView: View {
     @State private var selectedMode: ResearchMode = .graph
     @State private var selectedTimeRange: TimeRange = .thirtyDays
     @State private var searchText: String = ""
+    @State private var graphNeedsRefresh = false
     // activeFilters derived from graphViewModel.activeDataSources
     @State private var hoveredNode: MacNeuralNetViewModel.GraphNode?
     @StateObject private var graphViewModel = MacNeuralNetViewModel()
@@ -18,24 +19,35 @@ struct ResearchView: View {
             VStack(spacing: 0) {
                 headerBar(compact: isCompact)
 
-                // Filter bar always visible in both modes
-                filterBar(compact: isCompact)
-                    .padding(.top, MacSpacing.sm)
+                // Filter bar visible in graph and principles modes (not memory)
+                if selectedMode != .memory {
+                    filterBar(compact: isCompact)
+                        .padding(.top, MacSpacing.sm)
+                }
 
-                // Main content: graph (+ optional detail panel) or explorer
+                // Main content: graph (+ optional detail panel), principles, or memory
                 switch selectedMode {
                 case .graph:
                     graphContentWithPanel
-                case .explorer:
+                case .principles:
                     ZStack {
                         ambientBackground
                         ResearchPrinciplesView(viewModel: graphViewModel)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                case .memory:
+                    MemoryBrowserView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
         }
         .background(MacColors.windowBackground)
+        .onChange(of: selectedMode) { _, newMode in
+            if newMode == .graph && graphNeedsRefresh {
+                graphNeedsRefresh = false
+                Task { await graphViewModel.loadGraph() }
+            }
+        }
         .onAppear {
             if graphViewModel.nodes.isEmpty && !graphViewModel.isLoading {
                 Task { await graphViewModel.loadGraph() }
@@ -318,7 +330,7 @@ struct ResearchView: View {
 
             Spacer()
 
-            // Refresh button (graph mode) or time range picker (explorer mode)
+            // Refresh button (graph mode) or time range picker (principles mode); memory mode has no trailing control
             if selectedMode == .graph {
                 Button {
                     Task { await graphViewModel.loadGraph() }
@@ -331,7 +343,7 @@ struct ResearchView: View {
                         .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
                 }
                 .buttonStyle(.hestia)
-            } else {
+            } else if selectedMode == .principles {
                 timeRangePicker(compact: compact)
             }
         }
@@ -341,8 +353,9 @@ struct ResearchView: View {
 
     private func modeToggle(compact: Bool) -> some View {
         HStack(spacing: 2) {
-            modeButton(.graph, icon: "point.3.connected.trianglepath.dotted", label: "Graph", compact: compact)
-            modeButton(.explorer, icon: "lightbulb", label: "Principles", compact: compact)
+            modeButton(.graph,      icon: "point.3.connected.trianglepath.dotted", label: "Graph",      compact: compact)
+            modeButton(.principles, icon: "lightbulb",                              label: "Principles", compact: compact)
+            modeButton(.memory,     icon: "brain.head.profile",                    label: "Memory",     compact: compact)
         }
         .padding(MacSpacing.xs)
         .background(MacColors.textPrimary.opacity(0.04))
@@ -798,7 +811,8 @@ struct ResearchPrinciplesView: View {
 
 enum ResearchMode {
     case graph
-    case explorer
+    case principles
+    case memory
 }
 
 enum TimeRange: CaseIterable {

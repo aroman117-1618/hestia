@@ -39,7 +39,6 @@ extension WorkspaceView {
         case .health: "Vitals"
         case .research: "Research"
         case .explorer: "Explorer"
-        case .memory: "Memory Browser"
         case .settings: "Settings"
         }
     }

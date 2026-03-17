@@ -62,7 +62,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         editMenuItem.submenu = editMenu
         mainMenu.addItem(editMenuItem)
 
-        // View menu — matches sidebar order (⌘1-5 + ⌘6 settings)
+        // View menu — matches sidebar order (⌘1-4 + ⌘6 settings)
         let viewMenuItem = NSMenuItem(title: "View", action: nil, keyEquivalent: "")
         let viewMenu = NSMenu(title: "View")
 
@@ -81,10 +81,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let expItem = NSMenuItem(title: "Explorer", action: #selector(showExplorerView), keyEquivalent: "4")
         expItem.target = self
         viewMenu.addItem(expItem)
-
-        let memoryItem = NSMenuItem(title: "Memory Browser", action: #selector(showMemoryView), keyEquivalent: "5")
-        memoryItem.target = self
-        viewMenu.addItem(memoryItem)
 
         viewMenu.addItem(.separator())
 
@@ -127,9 +123,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             case "4":
                 self?.switchView(to: .explorer)
                 return nil
-            case "5":
-                self?.switchView(to: .memory)
-                return nil
             case "6":
                 self?.switchView(to: .settings)
                 return nil
@@ -159,7 +152,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func showHealthView() { switchView(to: .health) }
     @objc private func showResearchView() { switchView(to: .research) }
     @objc private func showExplorerView() { switchView(to: .explorer) }
-    @objc private func showMemoryView() { switchView(to: .memory) }
     @objc private func showSettingsView() { switchView(to: .settings) }
     @objc private func toggleChatPanel() { mainWindowController?.toggleChatPanel(nil) }
 }

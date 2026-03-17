@@ -28,8 +28,6 @@ struct WorkspaceRootView: View {
                                 ResearchView()
                             case .explorer:
                                 ExplorerView()
-                            case .memory:
-                                MemoryBrowserView()
                             case .settings:
                                 MacSettingsView()
                             }

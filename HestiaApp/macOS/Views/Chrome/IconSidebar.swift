@@ -19,7 +19,6 @@ struct IconSidebar: View {
                 navIcon(.health, systemName: "waveform.path.ecg", shortcut: 2)
                 navIcon(.research, systemName: "point.3.connected.trianglepath.dotted", shortcut: 3)
                 navIcon(.explorer, systemName: "magnifyingglass", shortcut: 4)
-                navIcon(.memory, systemName: "brain.head.profile", shortcut: 5)
             }
             .padding(.top, MacSpacing.xxl)
 
@@ -105,7 +104,6 @@ struct IconSidebar: View {
         case .health: "Vitals"
         case .research: "Research"
         case .explorer: "Explorer"
-        case .memory: "Memory Browser"
         case .settings: "Settings"
         }
     }

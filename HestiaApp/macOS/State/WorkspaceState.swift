@@ -8,7 +8,6 @@ enum WorkspaceView: String, CaseIterable {
     case health
     case research
     case explorer
-    case memory
     case settings
 }
 
@@ -42,7 +41,7 @@ class WorkspaceState {
         } else {
             // Migrate legacy values: wiki/resources/profile → settings
             let savedRaw = UserDefaults.standard.string(forKey: WorkspaceDefaults.currentView)
-            if savedRaw == "wiki" || savedRaw == "resources" || savedRaw == "profile" {
+            if savedRaw == "wiki" || savedRaw == "resources" || savedRaw == "profile" || savedRaw == "memory" {
                 self.currentView = .settings
             } else {
                 self.currentView = .command
