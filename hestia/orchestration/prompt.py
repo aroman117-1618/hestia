@@ -332,6 +332,7 @@ class PromptBuilder:
         chat_context: Optional[Dict[str, Any]] = None,
         cloud_safe: bool = False,
         user_profile_context: str = "",
+        principles: str = "",
     ) -> tuple[List[Message], PromptComponents]:
         """
         Build complete prompt for inference.
@@ -347,6 +348,9 @@ class PromptBuilder:
                           (active_tab, selected_text, attached_files, etc.).
             cloud_safe: If True, use minimal system prompt without personality.
                         Tool definitions are still included (functional, not private).
+            principles: Pre-formatted approved behavioral principles string.
+                        Injected as a "## Behavioral Principles" section.
+                        Excluded when cloud_safe=True (same policy as user identity).
 
         Returns:
             Tuple of (messages list, prompt components).
@@ -416,6 +420,9 @@ class PromptBuilder:
             full_system = f"{full_system}\n\n{formatted_context}"
         if formatted_memory:
             full_system = f"{full_system}\n\n{formatted_memory}"
+        # Inject approved behavioral principles (excluded from cloud-safe builds)
+        if principles and not cloud_safe:
+            full_system = f"{full_system}\n\n## Behavioral Principles\n{principles}"
 
         messages.append(Message(role="system", content=full_system))
 
