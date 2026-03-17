@@ -3,8 +3,26 @@ import HestiaShared
 
 struct MemoryChunkRow: View {
     let chunk: MemoryChunkItem
+    @ObservedObject var viewModel: MacMemoryBrowserViewModel
+    var onChunkEdited: (() -> Void)? = nil
+
+    @State private var isEditing = false
+    @State private var editContent = ""
+    @State private var editChunkType = ""
+    @State private var isHovered = false
 
     var body: some View {
+        if isEditing {
+            editView
+        } else {
+            readView
+                .onHover { isHovered = $0 }
+        }
+    }
+
+    // MARK: - Read View
+
+    private var readView: some View {
         HStack(spacing: MacSpacing.md) {
             // Type badge
             chunkTypeBadge
@@ -23,6 +41,19 @@ struct MemoryChunkRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
+            // Pencil edit button — visible on hover
+            if isHovered {
+                Button {
+                    editContent = chunk.content
+                    editChunkType = chunk.chunkType
+                    isEditing = true
+                } label: {
+                    Image(systemName: "pencil")
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+
             // Importance indicator
             importanceIndicator
         }
@@ -33,6 +64,52 @@ struct MemoryChunkRow: View {
                 .strokeBorder(MacColors.cardBorder, lineWidth: 1)
         }
         .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
+    }
+
+    // MARK: - Edit View
+
+    private var editView: some View {
+        VStack(alignment: .leading, spacing: MacSpacing.sm) {
+            TextEditor(text: $editContent)
+                .font(MacTypography.body)
+                .frame(minHeight: 80)
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.accentColor, lineWidth: 1))
+
+            let chunkTypes: [(String, String)] = [
+                ("fact", "Fact"), ("preference", "Preference"), ("decision", "Decision"),
+                ("action_item", "Action Item"), ("research", "Research"),
+                ("system", "System"), ("insight", "Insight")
+            ]
+            Picker("Type", selection: $editChunkType) {
+                ForEach(chunkTypes, id: \.0) { value, label in
+                    Text(label).tag(value)
+                }
+            }
+            .pickerStyle(.menu)
+            .frame(maxWidth: 160)
+
+            HStack {
+                Button("Save") {
+                    Task {
+                        await viewModel.updateChunk(
+                            id: chunk.id,
+                            content: editContent != chunk.content ? editContent : nil,
+                            chunkType: editChunkType != chunk.chunkType ? editChunkType : nil,
+                            tags: nil
+                        )
+                        isEditing = false
+                        onChunkEdited?()
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button("Cancel") { isEditing = false }
+                    .buttonStyle(.bordered)
+            }
+        }
+        .padding(MacSpacing.sm)
+        .background(MacColors.cardGradient)
+        .cornerRadius(8)
     }
 
     // MARK: - Type Badge

@@ -2,6 +2,18 @@ import Foundation
 
 // MARK: - Memory Browser API Response Types
 
+struct MemoryChunkUpdateRequest: Codable {
+    let content: String?
+    let chunkType: String?
+    let tags: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case content
+        case chunkType = "chunk_type"
+        case tags
+    }
+}
+
 struct MemoryChunkListResponse: Codable {
     let chunks: [MemoryChunkItem]
     let total: Int

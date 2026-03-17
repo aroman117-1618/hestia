@@ -3,6 +3,7 @@ import HestiaShared
 
 struct MemoryBrowserView: View {
     @StateObject private var viewModel = MacMemoryBrowserViewModel()
+    var onChunkEdited: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 0) {
@@ -150,7 +151,7 @@ struct MemoryBrowserView: View {
         ScrollView {
             LazyVStack(spacing: MacSpacing.sm) {
                 ForEach(viewModel.chunks) { chunk in
-                    MemoryChunkRow(chunk: chunk)
+                    MemoryChunkRow(chunk: chunk, viewModel: viewModel, onChunkEdited: onChunkEdited)
                 }
             }
             .padding(.horizontal, MacSpacing.xxl)

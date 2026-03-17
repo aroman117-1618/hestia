@@ -81,4 +81,24 @@ class MacMemoryBrowserViewModel: ObservableObject {
         currentPage = 0
         await loadChunks()
     }
+
+    func updateChunk(
+        id: String,
+        content: String?,
+        chunkType: String?,
+        tags: [String]?
+    ) async {
+        do {
+            let request = MemoryChunkUpdateRequest(content: content, chunkType: chunkType, tags: tags)
+            let updated = try await APIClient.shared.updateChunk(id, request: request)
+            if let idx = chunks.firstIndex(where: { $0.id == updated.id }) {
+                chunks[idx] = updated
+            }
+        } catch {
+            errorMessage = "Failed to save changes."
+            #if DEBUG
+            print("[MacMemoryBrowserVM] Update failed: \(error)")
+            #endif
+        }
+    }
 }

@@ -18,4 +18,8 @@ extension APIClient {
         if let src = source { path += "&source=\(src)" }
         return try await get(path)
     }
+
+    func updateChunk(_ id: String, request: MemoryChunkUpdateRequest) async throws -> MemoryChunkItem {
+        return try await put("/memory/chunks/\(id)", body: request)
+    }
 }
