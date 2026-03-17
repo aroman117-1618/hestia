@@ -18,6 +18,8 @@ from hestia.api.schemas import (
     MemorySensitiveResponse,
     MemorySearchResponse,
     MemorySearchResult,
+    MemoryChunkUpdateRequest,
+    MemoryChunkUpdateResponse,
     ChunkTags,
     ChunkMetadata,
     ChunkTypeEnum,
@@ -522,6 +524,72 @@ async def set_memory_sensitivity(
                 "error": "internal_error",
                 "message": "Failed to update memory sensitivity.",
             }
+        )
+
+
+@router.put(
+    "/chunks/{chunk_id}",
+    response_model=MemoryChunkUpdateResponse,
+    responses={
+        404: {"model": ErrorResponse, "description": "Chunk not found"},
+        422: {"description": "No fields provided"},
+        500: {"model": ErrorResponse, "description": "Internal server error"},
+    },
+    summary="Update a memory chunk",
+    description="Update the content, type, and/or tags of a memory chunk. "
+                "Re-indexes the chunk in ChromaDB if content changes.",
+)
+async def update_memory_chunk(
+    chunk_id: str,
+    request: MemoryChunkUpdateRequest,
+    device_id: str = Depends(get_device_token),
+) -> MemoryChunkUpdateResponse:
+    try:
+        memory = await get_memory_manager()
+        chunk = await memory.update_chunk_content(
+            chunk_id=chunk_id,
+            content=request.content,
+            chunk_type=request.chunk_type,
+            tags=request.tags,
+        )
+
+        if chunk is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": "chunk_not_found", "message": f"Chunk '{chunk_id}' not found."},
+            )
+
+        logger.info(
+            "Memory chunk updated",
+            component=LogComponent.API,
+            data={"device_id": device_id, "chunk_id": chunk_id},
+        )
+
+        tags_list = chunk.tags.topics if chunk.tags else []
+        return MemoryChunkUpdateResponse(
+            chunk_id=chunk.id,
+            content=chunk.content,
+            chunk_type=chunk.chunk_type.value,
+            tags=tags_list,
+            updated_at=datetime.utcnow().isoformat(),
+        )
+
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"error": "invalid_chunk_type", "message": "Invalid chunk_type value."},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            f"Failed to update chunk: {sanitize_for_log(e)}",
+            component=LogComponent.API,
+            data={"chunk_id": chunk_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": "internal_error", "message": "Failed to update memory chunk."},
         )
 
 

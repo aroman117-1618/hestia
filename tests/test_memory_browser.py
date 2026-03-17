@@ -149,6 +149,68 @@ class TestListMemoryChunksEndpoint:
         )
 
 
+@pytest.mark.asyncio
+async def test_update_chunk_content_success():
+    """PUT /v1/memory/chunks/{id} returns updated chunk on success."""
+    from hestia.api.routes.memory import update_memory_chunk
+    from hestia.api.schemas.memory import MemoryChunkUpdateRequest
+    from hestia.memory.models import ConversationChunk, ChunkType
+    from unittest.mock import AsyncMock, patch, MagicMock
+
+    fake_chunk = MagicMock(spec=ConversationChunk)
+    fake_chunk.id = "chunk-123"
+    fake_chunk.content = "Updated content."
+    fake_chunk.chunk_type = ChunkType.FACT
+    fake_chunk.tags = None
+
+    mock_memory = AsyncMock()
+    mock_memory.update_chunk_content.return_value = fake_chunk
+
+    with patch("hestia.api.routes.memory.get_memory_manager", return_value=mock_memory):
+        result = await update_memory_chunk(
+            chunk_id="chunk-123",
+            request=MemoryChunkUpdateRequest(content="Updated content."),
+            device_id="test-device",
+        )
+
+    assert result.chunk_id == "chunk-123"
+    assert result.content == "Updated content."
+    mock_memory.update_chunk_content.assert_awaited_once_with(
+        chunk_id="chunk-123", content="Updated content.", chunk_type=None, tags=None
+    )
+
+
+@pytest.mark.asyncio
+async def test_update_chunk_not_found():
+    """PUT returns 404 HTTPException when manager returns None."""
+    from hestia.api.routes.memory import update_memory_chunk
+    from hestia.api.schemas.memory import MemoryChunkUpdateRequest
+    from fastapi import HTTPException
+    from unittest.mock import AsyncMock, patch
+
+    mock_memory = AsyncMock()
+    mock_memory.update_chunk_content.return_value = None
+
+    with patch("hestia.api.routes.memory.get_memory_manager", return_value=mock_memory):
+        with pytest.raises(HTTPException) as exc_info:
+            await update_memory_chunk(
+                chunk_id="missing-id",
+                request=MemoryChunkUpdateRequest(content="anything"),
+                device_id="test-device",
+            )
+    assert exc_info.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_update_chunk_empty_body_rejected():
+    """MemoryChunkUpdateRequest raises ValidationError when no fields provided."""
+    from hestia.api.schemas.memory import MemoryChunkUpdateRequest
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        MemoryChunkUpdateRequest()  # no content, chunk_type, or tags
+
+
 class TestMemoryDatabaseListChunks:
     """Tests for MemoryDatabase.list_chunks() method."""
 

@@ -5,7 +5,7 @@ Memory schemas: chunks, staged memory, search.
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .common import ChunkTypeEnum, MemoryScopeEnum, MemoryStatusEnum
 
@@ -106,3 +106,25 @@ class MemorySearchResponse(BaseModel):
     """Response from memory search."""
     results: List[MemorySearchResult] = Field(description="Search results")
     count: int = Field(description="Number of results")
+
+
+class MemoryChunkUpdateRequest(BaseModel):
+    """Request body for PUT /v1/memory/chunks/{chunk_id}."""
+    content: Optional[str] = None
+    chunk_type: Optional[str] = None
+    tags: Optional[List[str]] = None
+
+    @model_validator(mode="after")
+    def require_at_least_one_field(self) -> "MemoryChunkUpdateRequest":
+        if self.content is None and self.chunk_type is None and self.tags is None:
+            raise ValueError("At least one of content, chunk_type, or tags must be provided.")
+        return self
+
+
+class MemoryChunkUpdateResponse(BaseModel):
+    """Response for PUT /v1/memory/chunks/{chunk_id}."""
+    chunk_id: str
+    content: str
+    chunk_type: str
+    tags: List[str]
+    updated_at: str

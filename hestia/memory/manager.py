@@ -702,6 +702,57 @@ class MemoryManager:
 
         return "".join(context_parts), all_chunk_ids
 
+    async def build_context_with_score(
+        self,
+        query: str,
+        max_tokens: int = 4000,
+        include_recent: bool = True,
+        cloud_safe: bool = False,
+    ) -> tuple:
+        """Build context string AND return the top retrieval similarity score.
+
+        Same as build_context() but surfaces the highest cosine similarity score
+        from the memory search. Used by the hallucination guard (Sprint 18) to
+        inject a low-relevance warning when retrieved context is weakly matched.
+
+        Returns:
+            Tuple of (context_string, top_score: float).
+            top_score is 0.0 when no results were retrieved.
+        """
+        context_parts: list = []
+        estimated_tokens = 0
+        top_score = 0.0
+
+        results = await self.search(query, limit=5, semantic_threshold=0.6)
+        self._last_retrieved_chunk_ids = [r.chunk.id for r in results]
+
+        if results:
+            top_score = results[0].relevance_score
+            context_parts.append("## Relevant Memory\n")
+            for result in results:
+                if cloud_safe and result.chunk.metadata.is_sensitive:
+                    continue
+                if estimated_tokens > max_tokens * 0.6:
+                    break
+                chunk_text = f"- [{result.chunk.timestamp.strftime('%Y-%m-%d')}] {result.chunk.content[:500]}\n"
+                context_parts.append(chunk_text)
+                estimated_tokens += len(chunk_text.split()) * 1.3
+
+        if include_recent and estimated_tokens < max_tokens * 0.8:
+            recent = await self.get_recent(limit=10)
+            if recent:
+                context_parts.append("\n## Recent Conversation\n")
+                for chunk in reversed(recent):
+                    if cloud_safe and chunk.metadata.is_sensitive:
+                        continue
+                    if estimated_tokens > max_tokens:
+                        break
+                    chunk_text = f"{chunk.content[:300]}\n"
+                    context_parts.append(chunk_text)
+                    estimated_tokens += len(chunk_text.split()) * 1.3
+
+        return "".join(context_parts), top_score
+
     async def flag_sensitive(
         self,
         chunk_id: str,
@@ -729,6 +780,43 @@ class MemoryManager:
             f"Memory chunk sensitivity updated: is_sensitive={is_sensitive}",
             component=LogComponent.MEMORY,
             data={"chunk_id": chunk_id, "reason": reason},
+        )
+        return chunk
+
+    async def update_chunk_content(
+        self,
+        chunk_id: str,
+        content: Optional[str] = None,
+        chunk_type: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+    ) -> Optional[ConversationChunk]:
+        """
+        Update a chunk's content, type, and/or tags.
+
+        Calls database.update_chunk() then vector_store.update_chunk()
+        so the ChromaDB embedding stays in sync with content changes.
+        """
+        chunk = await self.database.get_chunk(chunk_id)
+        if chunk is None:
+            return None
+
+        if content is not None:
+            chunk.content = content
+        if chunk_type is not None:
+            chunk.chunk_type = ChunkType(chunk_type)
+        if tags is not None:
+            if chunk.tags is None:
+                chunk.tags = ChunkTags(topics=tags)
+            else:
+                chunk.tags.topics = tags
+
+        await self.database.update_chunk(chunk)
+        self.vector_store.update_chunk(chunk)
+
+        self.logger.info(
+            "Chunk updated by user",
+            component=LogComponent.MEMORY,
+            data={"chunk_id": chunk_id},
         )
         return chunk
 
