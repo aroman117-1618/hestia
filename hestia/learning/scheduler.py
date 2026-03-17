@@ -106,6 +106,11 @@ class LearningScheduler:
         )
 
         # Sprint 17: Learning closure components
+        # inference_client is required for LLM distillation — without it the
+        # weekly distillation loop runs but always no-ops (Gap 1 fix).
+        from hestia.inference import get_inference_client
+        inference_client = await get_inference_client()
+
         self._correction_classifier = CorrectionClassifier(
             learning_db=self._db,
             outcome_db=outcome_mgr._database,
@@ -114,6 +119,7 @@ class LearningScheduler:
             learning_db=self._db,
             outcome_db=outcome_mgr._database,
             principle_store=research_mgr._principle_store,
+            inference_client=inference_client,
         )
 
         # Start background loops
@@ -313,7 +319,7 @@ class LearningScheduler:
             await asyncio.sleep(21600)  # 6 hours
 
     async def _distillation_loop(self) -> None:
-        """Distill principles from outcomes weekly."""
+        """Distill principles from outcomes and corrections weekly."""
         await asyncio.sleep(420)  # 7 min after startup
         while self._running:
             try:
@@ -328,6 +334,22 @@ class LearningScheduler:
                     f"Outcome distillation failed: {type(e).__name__}",
                     component=LogComponent.LEARNING,
                 )
+
+            # Gap 2: also distill from classified corrections (Sprint 19)
+            try:
+                corr_result = await self._outcome_distiller.distill_from_corrections(DEFAULT_USER_ID)
+                if corr_result.get("corrections_processed", 0) > 0:
+                    logger.info(
+                        "Correction distillation complete",
+                        component=LogComponent.LEARNING,
+                        data=corr_result,
+                    )
+            except Exception as e:
+                logger.warning(
+                    f"Correction distillation failed: {type(e).__name__}",
+                    component=LogComponent.LEARNING,
+                )
+
             await asyncio.sleep(604800)  # 7 days
 
 

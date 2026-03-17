@@ -18,6 +18,19 @@ from hestia.research.models import Principle, PrincipleStatus
 
 logger = get_logger()
 
+CORRECTION_DISTILLATION_PROMPT = """A user has been correcting an AI assistant's responses.
+Below are the corrections, each showing what the user said was wrong.
+
+Corrections ({correction_type}):
+{corrections}
+
+Based on these corrections, write a single behavioral rule the assistant should follow.
+Format: [domain] <rule as a clear, actionable statement>
+Output only the rule, nothing else.
+
+Example:
+[communication] When asked about schedules, always confirm the timezone before giving times"""
+
 DISTILLATION_PROMPT = """Analyze these successful AI assistant interactions.
 The user gave positive feedback or spent significant time with these responses.
 
@@ -130,9 +143,17 @@ class OutcomeDistiller:
             principles = self._parse_principles(response.content, user_id)
             result["principles_generated"] = len(principles)
 
-            # Store principles
+            # Store principles — skip semantic duplicates (Gap 3)
             if self._principle_store and principles:
                 for principle in principles:
+                    duplicate = await self._principle_store.find_duplicate(principle.content)
+                    if duplicate is not None:
+                        logger.debug(
+                            f"Skipping duplicate principle (similar to {duplicate.id[:8]})",
+                            component=LogComponent.LEARNING,
+                        )
+                        result["principles_generated"] -= 1
+                        continue
                     await self._principle_store.store_principle(principle)
                     for outcome in outcomes:
                         await self._learning_db.link_outcome_to_principle(
@@ -157,6 +178,132 @@ class OutcomeDistiller:
             )
             logger.warning(
                 f"Distillation failed: {type(e).__name__}",
+                component=LogComponent.LEARNING,
+            )
+
+        return result
+
+    async def distill_from_corrections(
+        self,
+        user_id: str,
+        days: int = 30,
+        min_corrections: int = 2,
+    ) -> Dict[str, Any]:
+        """Distill principles from classified user corrections.
+
+        Each CorrectionType maps to a principle domain:
+          PREFERENCE   → communication
+          TOOL_USAGE   → tools
+          TIMEZONE     → communication
+          FACTUAL      → accuracy
+
+        Returns: {corrections_processed, principles_generated, error}
+        """
+        result: Dict[str, Any] = {
+            "corrections_processed": 0,
+            "principles_generated": 0,
+            "error": None,
+        }
+
+        if self._inference is None:
+            logger.info(
+                "No inference client — skipping correction distillation",
+                component=LogComponent.LEARNING,
+            )
+            return result
+
+        try:
+            corrections = await self._learning_db.list_corrections(
+                user_id=user_id, days=days
+            )
+            if len(corrections) < min_corrections:
+                return result
+
+            result["corrections_processed"] = len(corrections)
+
+            # Group by correction_type for focused prompts per domain
+            from collections import defaultdict
+            by_type: Dict[str, List[Any]] = defaultdict(list)
+            for correction in corrections:
+                by_type[correction.correction_type.value].append(correction)
+
+            _TYPE_TO_DOMAIN = {
+                "preference": "communication",
+                "tool_usage": "tools",
+                "timezone": "communication",
+                "factual": "accuracy",
+            }
+
+            for correction_type, group in by_type.items():
+                if not group:
+                    continue
+
+                # Fetch feedback notes from original outcomes
+                correction_lines = []
+                for c in group[:10]:  # Cap per-type
+                    try:
+                        outcome = await self._outcome_db.get_outcome(c.outcome_id, user_id)
+                        if outcome and outcome.get("feedback_note"):
+                            correction_lines.append(
+                                f"- {outcome['feedback_note']}"
+                            )
+                    except Exception:
+                        pass
+
+                if not correction_lines:
+                    continue
+
+                formatted = "\n".join(correction_lines)
+                prompt = CORRECTION_DISTILLATION_PROMPT.format(
+                    correction_type=correction_type,
+                    corrections=formatted,
+                )
+
+                try:
+                    response = await self._inference.chat(
+                        messages=[{"role": "user", "content": prompt}],
+                        system="You are a behavioral analysis assistant.",
+                        temperature=0.2,
+                        max_tokens=256,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Correction distillation LLM call failed ({correction_type}): {type(e).__name__}",
+                        component=LogComponent.LEARNING,
+                    )
+                    continue
+
+                domain = _TYPE_TO_DOMAIN.get(correction_type, "general")
+                principles = self._parse_principles(response.content, user_id)
+
+                if self._principle_store and principles:
+                    for principle in principles:
+                        # Override domain with correction-derived domain for consistency
+                        principle.domain = principle.domain or domain
+                        # Skip semantic duplicates (Gap 3)
+                        duplicate = await self._principle_store.find_duplicate(principle.content)
+                        if duplicate is not None:
+                            logger.debug(
+                                f"Skipping duplicate correction principle (similar to {duplicate.id[:8]})",
+                                component=LogComponent.LEARNING,
+                            )
+                            continue
+                        await self._principle_store.store_principle(principle)
+                        result["principles_generated"] += 1
+                        # Link corrections to the new principle
+                        for c in group:
+                            await self._learning_db.link_outcome_to_principle(
+                                user_id=user_id,
+                                outcome_id=c.outcome_id,
+                                principle_id=principle.id,
+                                confidence=principle.confidence,
+                                source="correction_distill",
+                            )
+
+        except Exception as e:
+            result["error"] = str(e)
+            logger.warning(
+                f"Correction distillation failed: {type(e).__name__}",
                 component=LogComponent.LEARNING,
             )
 

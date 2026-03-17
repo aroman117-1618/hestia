@@ -127,6 +127,42 @@ class PrincipleStore:
         )
         return principle
 
+    async def find_duplicate(
+        self, content: str, threshold: float = 0.85
+    ) -> Optional[Principle]:
+        """Check if a semantically similar principle already exists.
+
+        Uses ChromaDB cosine distance (1 - similarity). Returns the most similar
+        principle if distance < (1 - threshold), else None.
+
+        Prevents principle queue bloat from repeated corrections or outcomes that
+        trigger the same behavioral pattern across multiple weekly batches.
+        """
+        if self._collection is None or self._collection.count() == 0:
+            return None
+
+        results = self._collection.query(
+            query_texts=[content],
+            n_results=1,
+        )
+
+        if (
+            not results
+            or not results["ids"]
+            or not results["ids"][0]
+            or not results["distances"]
+            or not results["distances"][0]
+        ):
+            return None
+
+        distance = results["distances"][0][0]
+        # ChromaDB cosine space: distance = 1 - cosine_similarity
+        if distance < (1.0 - threshold):
+            principle_id = results["ids"][0][0]
+            return await self._database.get_principle(principle_id)
+
+        return None
+
     async def search_principles(
         self, query: str, limit: int = 10, min_confidence: float = 0.0
     ) -> List[Principle]:

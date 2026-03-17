@@ -20,6 +20,8 @@ class TestOutcomeDistillerSelection:
         outcome_db = AsyncMock()
         principle_store = AsyncMock()
         principle_store.store_principle = AsyncMock()
+        # find_duplicate must return None so principles are not silently dropped
+        principle_store.find_duplicate = AsyncMock(return_value=None)
         distiller = OutcomeDistiller(
             learning_db=learning_db,
             outcome_db=outcome_db,
@@ -189,3 +191,163 @@ class TestPrincipleQualityGate:
         assert "Hello world" in formatted
         assert "[feedback: positive]" in formatted
         assert "Note: Great!" in formatted
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Sprint 19: distill_from_corrections + semantic dedup (Gap 2 + Gap 3)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestDistillFromCorrections:
+    """Test the correction-to-principle distillation path (Gap 2)."""
+
+    @pytest.fixture
+    async def distiller(self, tmp_path):
+        learning_db = LearningDatabase(str(tmp_path / "test_learning.db"))
+        await learning_db.connect()
+        outcome_db = AsyncMock()
+        principle_store = AsyncMock()
+        principle_store.store_principle = AsyncMock()
+        principle_store.find_duplicate = AsyncMock(return_value=None)
+        inst = OutcomeDistiller(
+            learning_db=learning_db,
+            outcome_db=outcome_db,
+            principle_store=principle_store,
+        )
+        yield inst
+        await learning_db.close()
+
+    @pytest.mark.asyncio
+    async def test_no_corrections_returns_empty(self, distiller):
+        distiller._learning_db.list_corrections = AsyncMock(return_value=[])
+        result = await distiller.distill_from_corrections("user1")
+        assert result["corrections_processed"] == 0
+        assert result["principles_generated"] == 0
+
+    @pytest.mark.asyncio
+    async def test_insufficient_corrections_skips_llm(self, distiller):
+        from hestia.learning.models import Correction, CorrectionType
+        correction = Correction(
+            id="c1", user_id="user1", outcome_id="o1",
+            correction_type=CorrectionType.PREFERENCE,
+            analysis="test", confidence=0.75,
+        )
+        distiller._learning_db.list_corrections = AsyncMock(return_value=[correction])
+        result = await distiller.distill_from_corrections("user1", min_corrections=2)
+        assert result["corrections_processed"] == 0
+        assert result["principles_generated"] == 0
+
+    @pytest.mark.asyncio
+    async def test_no_inference_skips_gracefully(self, distiller):
+        from hestia.learning.models import Correction, CorrectionType
+        corrections = [
+            Correction(
+                id=f"c{i}", user_id="user1", outcome_id=f"o{i}",
+                correction_type=CorrectionType.PREFERENCE,
+                analysis="test", confidence=0.75,
+            )
+            for i in range(3)
+        ]
+        distiller._learning_db.list_corrections = AsyncMock(return_value=corrections)
+        # No inference client
+        result = await distiller.distill_from_corrections("user1")
+        assert result["corrections_processed"] == 0
+        assert result["principles_generated"] == 0
+
+    @pytest.mark.asyncio
+    async def test_with_corrections_creates_principle(self, distiller):
+        from hestia.learning.models import Correction, CorrectionType
+        corrections = [
+            Correction(
+                id=f"c{i}", user_id="user1", outcome_id=f"o{i}",
+                correction_type=CorrectionType.PREFERENCE,
+                analysis="test", confidence=0.75,
+            )
+            for i in range(3)
+        ]
+        distiller._learning_db.list_corrections = AsyncMock(return_value=corrections)
+        distiller._outcome_db.get_outcome = AsyncMock(
+            return_value={"feedback_note": "Please be more concise in your answers"}
+        )
+
+        mock_inference = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.content = (
+            "[communication] Provide concise answers without unnecessary preamble "
+            "and keep responses focused on what the user explicitly asked"
+        )
+        mock_inference.chat = AsyncMock(return_value=mock_response)
+        distiller._inference = mock_inference
+
+        result = await distiller.distill_from_corrections("user1")
+        assert result["principles_generated"] == 1
+        distiller._principle_store.store_principle.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_missing_feedback_note_skips_group(self, distiller):
+        """If outcome has no feedback_note, the correction group produces nothing."""
+        from hestia.learning.models import Correction, CorrectionType
+        corrections = [
+            Correction(
+                id=f"c{i}", user_id="user1", outcome_id=f"o{i}",
+                correction_type=CorrectionType.FACTUAL,
+                analysis="test", confidence=0.75,
+            )
+            for i in range(3)
+        ]
+        distiller._learning_db.list_corrections = AsyncMock(return_value=corrections)
+        # outcome has no feedback_note
+        distiller._outcome_db.get_outcome = AsyncMock(
+            return_value={"feedback_note": None}
+        )
+
+        mock_inference = AsyncMock()
+        distiller._inference = mock_inference
+
+        result = await distiller.distill_from_corrections("user1")
+        assert result["principles_generated"] == 0
+        mock_inference.chat.assert_not_called()
+
+
+class TestSemanticDedup:
+    """Test that find_duplicate prevents duplicate principles (Gap 3)."""
+
+    @pytest.mark.asyncio
+    async def test_dedup_blocks_similar_principle(self, tmp_path):
+        """A principle similar to an existing one is not stored."""
+        learning_db = LearningDatabase(str(tmp_path / "test_learning.db"))
+        await learning_db.connect()
+        outcome_db = AsyncMock()
+        principle_store = AsyncMock()
+        principle_store.store_principle = AsyncMock()
+        # Simulate duplicate found
+        duplicate_principle = MagicMock()
+        duplicate_principle.id = "existing-123"
+        principle_store.find_duplicate = AsyncMock(return_value=duplicate_principle)
+
+        distiller = OutcomeDistiller(
+            learning_db=learning_db,
+            outcome_db=outcome_db,
+            principle_store=principle_store,
+        )
+
+        mocks = [
+            MagicMock(id=f"o{i}", response_content=f"Response {i}", feedback="positive",
+                      feedback_note=None, timestamp="2026-01-01T00:00:00Z")
+            for i in range(5)
+        ]
+        distiller._outcome_db.get_high_signal_outcomes = AsyncMock(return_value=mocks)
+
+        mock_inference = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.content = (
+            "[communication] User prefers concise responses without lengthy preamble "
+            "or repeated context that they already know from the conversation"
+        )
+        mock_inference.chat = AsyncMock(return_value=mock_response)
+        distiller._inference = mock_inference
+
+        result = await distiller.distill_from_outcomes("user1")
+        # Duplicate detected — principle NOT stored
+        assert result["principles_generated"] == 0
+        principle_store.store_principle.assert_not_called()
+        await learning_db.close()
