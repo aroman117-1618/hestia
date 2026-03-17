@@ -67,6 +67,9 @@ class MemoryManager:
         # Current session tracking
         self._current_session_id: Optional[str] = None
 
+        # Retrieval feedback loop (Sprint 15): chunk IDs from last build_context()
+        self._last_retrieved_chunk_ids: list = []
+
     async def initialize(self, timeout: float = 30.0) -> None:
         """
         Initialize all storage backends.
@@ -612,6 +615,8 @@ class MemoryManager:
 
         # Include relevant memories from search
         results = await self.search(query, limit=5, semantic_threshold=0.6)
+        # Stash all retrieved chunk IDs for retrieval feedback loop (Sprint 15)
+        self._last_retrieved_chunk_ids = [r.chunk.id for r in results]
         if results:
             context_parts.append("## Relevant Memory\n")
             for result in results:
@@ -638,6 +643,59 @@ class MemoryManager:
                     estimated_tokens += len(chunk_text.split()) * 1.3
 
         return "".join(context_parts)
+
+    async def build_context_with_ids(
+        self,
+        query: str,
+        max_tokens: int = 4000,
+        include_recent: bool = True,
+        cloud_safe: bool = False,
+    ) -> tuple:
+        """Build context string AND return chunk IDs used.
+
+        Same as build_context() but also returns the list of chunk IDs
+        that were retrieved (including filtered ones). Used by the
+        retrieval feedback loop (Sprint 15) to correlate chunks with
+        outcome quality.
+
+        Returns:
+            Tuple of (context_string, list_of_chunk_ids).
+        """
+        context_parts: list = []
+        all_chunk_ids: list = []
+        estimated_tokens = 0
+
+        # Include relevant memories from search
+        results = await self.search(query, limit=5, semantic_threshold=0.6)
+        # Log ALL retrieved chunk IDs (even ones filtered by cloud_safe/token budget)
+        all_chunk_ids = [r.chunk.id for r in results]
+
+        if results:
+            context_parts.append("## Relevant Memory\n")
+            for result in results:
+                if cloud_safe and result.chunk.metadata.is_sensitive:
+                    continue
+                if estimated_tokens > max_tokens * 0.6:
+                    break
+                chunk_text = f"- [{result.chunk.timestamp.strftime('%Y-%m-%d')}] {result.chunk.content[:500]}\n"
+                context_parts.append(chunk_text)
+                estimated_tokens += len(chunk_text.split()) * 1.3
+
+        # Include recent conversation if space allows
+        if include_recent and estimated_tokens < max_tokens * 0.8:
+            recent = await self.get_recent(limit=10)
+            if recent:
+                context_parts.append("\n## Recent Conversation\n")
+                for chunk in reversed(recent):
+                    if cloud_safe and chunk.metadata.is_sensitive:
+                        continue
+                    if estimated_tokens > max_tokens:
+                        break
+                    chunk_text = f"{chunk.content[:300]}\n"
+                    context_parts.append(chunk_text)
+                    estimated_tokens += len(chunk_text.split()) * 1.3
+
+        return "".join(context_parts), all_chunk_ids
 
     async def flag_sensitive(
         self,

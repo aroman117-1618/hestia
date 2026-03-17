@@ -131,6 +131,9 @@ class Response:
     # Agent orchestrator bylines
     bylines: List["AgentByline"] = field(default_factory=list)
 
+    # Retrieval feedback loop — chunk IDs used in context (Sprint 15)
+    retrieved_chunk_ids: List[str] = field(default_factory=list)
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API response."""
         result = {
