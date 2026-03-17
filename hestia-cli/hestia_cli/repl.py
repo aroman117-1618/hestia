@@ -14,6 +14,7 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.document import Document
+from prompt_toolkit.formatted_text import ANSI
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.patch_stdout import patch_stdout
 from rich.console import Console
@@ -22,7 +23,7 @@ from hestia_cli.bootstrap import ensure_server_running, ensure_authenticated, en
 from hestia_cli.client import HestiaWSClient, ConnectionError, AuthenticationError
 from hestia_cli.commands import handle_slash_command, detect_mode_prefix
 from hestia_cli import __version__
-from hestia_cli.config import get_config_dir, has_seen_banner, load_config, mark_banner_seen
+from hestia_cli.config import get_config_dir, load_config
 from hestia_cli.context import get_repo_context
 from hestia_cli.models import ServerEventType
 from hestia_cli.renderer import HestiaRenderer
@@ -114,17 +115,13 @@ async def repl_loop(client: HestiaWSClient, console: Console) -> None:
         theme = await client.fetch_agent_theme()
         renderer.set_agent_theme(theme)
 
-        first_run = not has_seen_banner()
         await renderer.render_startup_banner(
             server_url=client.server_url,
             mode=client.mode,
             version=__version__,
-            first_run=first_run,
             device_id=client.device_id,
             trust_tiers=client.trust_tiers,
         )
-        if first_run:
-            mark_banner_seen()
     except AuthenticationError as e:
         console.print(f"[red]Authentication failed: {e}[/red]")
         console.print("[dim]Run 'hestia auth login' to authenticate.[/dim]")
@@ -144,8 +141,10 @@ async def repl_loop(client: HestiaWSClient, console: Console) -> None:
 
     while True:
         try:
-            # Build prompt string (agent-colored)
-            prompt_str = f"[@{client.mode}] > "  # Plain text for prompt_toolkit
+            # Build prompt string with agent color (matches banner @tia color)
+            color_hex = renderer.agent_color.lstrip("#")
+            r, g, b = int(color_hex[:2], 16), int(color_hex[2:4], 16), int(color_hex[4:6], 16)
+            prompt_str = ANSI(f"\033[38;2;{r};{g};{b}m[@{client.mode}]\033[0m > ")
 
             with patch_stdout():
                 user_input = await session.prompt_async(prompt_str)

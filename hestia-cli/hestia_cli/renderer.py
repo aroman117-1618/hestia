@@ -64,7 +64,7 @@ def _build_banner_frame(frame_idx: int, version: str) -> str:
         f"[#EBDFD1]{text_rows[0]}[/]"
     )
 
-    # Fire body (4 rows) + HESTIA text rows 1-4
+    # Fire body (5 rows) + HESTIA text rows 1-4
     for i in range(4):
         line = (
             f"[{BANNER_FIRE_COLORS[i]}]{BANNER_FIRE_BODY[i]}[/]"
@@ -73,6 +73,9 @@ def _build_banner_frame(frame_idx: int, version: str) -> str:
         if i == 3:
             line += f"  [dim]v{version}[/]"
         lines.append(line)
+
+    # Fire base row (layered inner base, no text beside it)
+    lines.append(f"[{BANNER_FIRE_COLORS[4]}]{BANNER_FIRE_BODY[4]}[/]")
 
     lines.append("")  # spacing
 
@@ -180,6 +183,8 @@ class HestiaRenderer:
             self._render_insight(event)
         elif event_type == "clear_stream":
             self._clear_streamed_content()
+        elif event_type == "reasoning":
+            self._render_reasoning(event)
         elif event_type == "pong":
             pass  # Silent
 
@@ -231,14 +236,12 @@ class HestiaRenderer:
         server_url: str,
         mode: str,
         version: str,
-        first_run: bool = True,
         device_id: Optional[str] = None,
         trust_tiers: Optional[Dict[str, str]] = None,
     ) -> None:
-        """Render the startup banner with optional animation.
+        """Render the startup banner with animated campfire.
 
-        First run: animated campfire with flickering embers (~1.5s).
-        Subsequent runs: static single frame.
+        Every launch: animated campfire with flickering embers (~5s).
         Narrow terminals (<60 cols): simple text fallback.
         """
         use_color = os.environ.get("HESTIA_NO_COLOR") is None
@@ -247,20 +250,16 @@ class HestiaRenderer:
         if narrow:
             # Narrow terminal: simple text fallback
             self.console.print(f"\n[bold]Hestia[/bold] v{version}\n")
-        elif use_color and first_run:
-            # First run: animated banner (6 frames at 250ms = 1.5s)
+        elif use_color:
+            # Animated banner every launch (20 frames at 250ms = ~5s)
             initial = Text.from_markup(_build_banner_frame(0, version))
             with Live(initial, console=self.console, auto_refresh=False) as live:
-                for i in range(6):
+                for i in range(20):
                     frame = _build_banner_frame(i, version)
                     live.update(Text.from_markup(frame))
                     live.refresh()
-                    if i < 5:
+                    if i < 19:
                         await asyncio.sleep(0.25)
-        elif use_color:
-            # Subsequent runs: static colored banner
-            frame = _build_banner_frame(0, version)
-            self.console.print(Text.from_markup(frame))
         else:
             # No color: plain text banner
             self._render_plain_banner(version)
@@ -318,6 +317,34 @@ class HestiaRenderer:
         _clear_line()
         self.console.print(f"  [dim]⟳ {label}...[/dim]", end="")
         self._status_visible = True
+
+    def _render_reasoning(self, event: Dict[str, Any]) -> None:
+        """Render reasoning as transient status line (Claude Code style).
+
+        Decision summaries show as ⟳ labels; thinking tokens show as 💭 lines.
+        All reasoning lines are transient — cleared when response tokens begin.
+        """
+        aspect = event.get("aspect", "")
+
+        if aspect == "thinking":
+            # DeepSeek R1 think tokens — show as thinking line
+            content = event.get("content", event.get("summary", ""))
+            _clear_line()
+            self.console.print(f"  [dim]💭 {content[:100]}[/dim]", end="")
+            self._status_visible = True
+        else:
+            # Decision summary — show as labeled status line
+            summary = event.get("summary", "")
+            labels = {
+                "intent": "Intent",
+                "agent": "Agent",
+                "memory": "Memory",
+                "model": "Model",
+            }
+            label = labels.get(aspect, aspect.title())
+            _clear_line()
+            self.console.print(f"  [dim]⟳ {label}: {summary}[/dim]", end="")
+            self._status_visible = True
 
     def _render_token(self, event: Dict[str, Any]) -> None:
         """Buffer streaming token and render in a transient Live display.

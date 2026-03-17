@@ -92,7 +92,6 @@ class TestRenderer:
                 server_url="https://localhost:8443",
                 mode="tia",
                 version="0.1.0",
-                first_run=False,  # Static banner for test
                 device_id="dev-123456789",
             )
         )

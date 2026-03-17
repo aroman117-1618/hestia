@@ -26,6 +26,7 @@ class ServerEventType(str, Enum):
     TOOL_START = "tool_start"
     AGENTIC_DONE = "agentic_done"
     VERIFICATION = "verification"
+    REASONING = "reasoning"
 
 
 class PipelineStage(str, Enum):
@@ -167,6 +168,10 @@ BANNER_EMBER_FRAMES: List[Tuple[str, str]] = [
     ("       ·   °  ", "      ·       "),
     ("     ·  °     ", "       ·      "),
     ("       °  ·   ", "     ·        "),
+    ("    ·    °    ", "       ·      "),
+    ("        ·  °  ", "     ·        "),
+    ("      °   ·   ", "        ·     "),
+    ("     ·   °    ", "      ·       "),
 ]
 
 # Flame tip color cycle (amber flicker)
@@ -178,13 +183,15 @@ BANNER_TIP_COLORS: List[str] = [
 BANNER_FIRE_TIP: str = "      /\\      "
 BANNER_FIRE_BODY: List[str] = [
     "     /  \\     ",
-    "    / /\\ \\    ",
-    "   / /  \\ \\   ",
-    "  /_/    \\_\\  ",
+    "    /./\\.\\    ",
+    "   /./  \\.\\   ",
+    "  /·/ /\\ \\·\\  ",
+    " /_/ /  \\ \\_\\ ",
 ]
 
 # Campfire body gradient colors (top to bottom)
 BANNER_FIRE_COLORS: List[str] = [
+    "#FFD700",  # bright gold (outer top)
     "#FFB900",  # bright amber
     "#FF8904",  # dark amber
     "#E0A050",  # amber accent
