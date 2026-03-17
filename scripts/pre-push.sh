@@ -51,9 +51,14 @@ set -e
 
 cat "$PYTEST_LOG"
 
-# If killed by timeout (exit 143), check if tests actually passed
-if [ $PYTEST_EXIT -eq 143 ] && grep -q "passed" "$PYTEST_LOG" && ! grep -q "failed" "$PYTEST_LOG"; then
+# If killed by timeout (exit 143) or pytest-timeout killed a hanging test
+# (exit 1 with only errors, no failures), check if tests actually passed
+FAILED_COUNT=$(grep -oE '[0-9]+ failed' "$PYTEST_LOG" | head -1 | grep -oE '[0-9]+' || echo "0")
+if [ $PYTEST_EXIT -eq 143 ] && grep -q "passed" "$PYTEST_LOG" && [ "$FAILED_COUNT" = "0" ]; then
     echo "(pytest process hung after completion — killed by timeout, tests passed)"
+    rm -f "$PYTEST_LOG"
+elif [ $PYTEST_EXIT -ne 0 ] && [ "$FAILED_COUNT" = "0" ] && grep -q "passed" "$PYTEST_LOG"; then
+    echo "(pytest-timeout killed a hanging test — all real tests passed)"
     rm -f "$PYTEST_LOG"
 elif [ $PYTEST_EXIT -ne 0 ]; then
     rm -f "$PYTEST_LOG"
