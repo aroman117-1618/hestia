@@ -111,6 +111,9 @@ class MemorySearchResponse(BaseModel):
 class MemoryChunkUpdateRequest(BaseModel):
     """Request body for PUT /v1/memory/chunks/{chunk_id}."""
     content: Optional[str] = None
+    # NOTE: Using str instead of ChunkTypeEnum because ChunkTypeEnum in schemas/common.py
+    # is missing the INSIGHT case (pre-existing gap). ChunkType validation happens in
+    # the manager via ChunkType(chunk_type) which raises ValueError → 422 if invalid.
     chunk_type: Optional[str] = None
     tags: Optional[List[str]] = None
 

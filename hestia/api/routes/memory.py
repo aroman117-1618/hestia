@@ -571,13 +571,18 @@ async def update_memory_chunk(
             content=chunk.content,
             chunk_type=chunk.chunk_type.value,
             tags=tags_list,
-            updated_at=datetime.utcnow().isoformat(),
+            updated_at=datetime.now(timezone.utc).isoformat(),
         )
 
-    except ValueError:
+    except ValueError as e:
+        logger.warning(
+            f"Invalid value in chunk update: {type(e).__name__}",
+            component=LogComponent.API,
+            data={"chunk_id": chunk_id},
+        )
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"error": "invalid_chunk_type", "message": "Invalid chunk_type value."},
+            detail={"error": "invalid_value", "message": "One or more fields contain an invalid value."},
         )
     except HTTPException:
         raise
