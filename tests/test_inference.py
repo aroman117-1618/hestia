@@ -188,22 +188,26 @@ class TestCodingTier:
         assert router.coding_model.enabled is True
         decision = router.route("write code for a REST endpoint")
         assert decision.tier == ModelTier.CODING
-        assert decision.model_config.name == "qwen2.5-coder:7b"
+        assert decision.model_config.name == "qwen3:8b"
 
     def test_coding_tier_fallback_when_disabled(self):
-        """Falls back to primary when coding model is disabled."""
+        """Falls back to complex (if enabled) or primary when coding model is disabled."""
         router = ModelRouter()
         router.coding_model.enabled = False
         decision = router.route("write code for a REST endpoint")
-        assert decision.tier == ModelTier.PRIMARY
-        assert decision.model_config.name == "qwen3.5:9b"
+        if router.complex_model.enabled:
+            # Complex model enabled (deepseek-r1:14b) — keyword match routes there
+            assert decision.tier == ModelTier.COMPLEX
+        else:
+            assert decision.tier == ModelTier.PRIMARY
+            assert decision.model_config.name == "qwen3.5:9b"
 
     def test_coding_tier_in_config_for_tier(self):
         """_get_config_for_tier returns coding model."""
         router = ModelRouter()
         config = router._get_config_for_tier(ModelTier.CODING)
         assert config is not None
-        assert config.name == "qwen2.5-coder:7b"
+        assert config.name == "qwen3:8b"
 
     def test_long_noncoding_prompt_routes_to_complex_not_coding(self):
         """Long prompts without coding keywords go to COMPLEX, not CODING."""
