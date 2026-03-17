@@ -92,7 +92,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | Hardware | Mac Mini M1 (16GB) |
 | Model | Qwen 3.5 9B (Hestia) + DeepSeek-R1-14B (Artemis) + Qwen 3 8B (Apollo) + cloud (Anthropic/OpenAI/Google) |
 | SLM | qwen2.5:0.5b (council intent classification, ~100ms) |
-| Backend | Python 3.9+, FastAPI, ~180 endpoints across 27 route modules |
+| Backend | Python 3.9+, FastAPI, ~186 endpoints across 27 route modules |
 | Storage | ChromaDB (vectors) + SQLite (structured) + macOS Keychain (credentials) |
 | App | Native Swift/SwiftUI (iOS 26.0+) |
 | API | REST on port 8443 with JWT auth, HTTPS with self-signed cert |
@@ -109,7 +109,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 **Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
 **Field Guide UI Restructure: COMPLETE.** 5 thematic tabs, native SwiftUI diagrams, structured roadmap with `/v1/wiki/roadmap` endpoint.
 
-2279 tests (2144 backend + 135 CLI), 64 test files (57 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
+2267 tests (2132 backend + 135 CLI), 66 test files (59 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -229,7 +229,7 @@ hestia/
 │   │   └── manager.py            # ResearchManager singleton (graph, facts, entities, principles)
 │   ├── investigate/                 # URL content analysis (web articles, YouTube), LLM analysis pipeline
 │   │   └── extractors/             # BaseExtractor ABC, WebArticleExtractor, YouTubeExtractor
-│   ├── api/                         # FastAPI — 180 endpoints, 27 route modules
+│   ├── api/                         # FastAPI — 186 endpoints, 27 route modules
 │   │   ├── errors.py                # sanitize_for_log(), safe_error_detail()
 │   │   ├── schemas/                  # Pydantic request/response models (16 domain modules)
 │   │   ├── server.py                # App lifecycle, manager initialization
@@ -259,7 +259,7 @@ hestia/
 │   │   ├── Services/                # APIClient+Wiki, APIClient+Tools, APIClient+Newsfeed, APIClient+Health, APIClient+Devices, APIClient+Investigate
 │   │   └── DesignSystem/            # MacColors, MacSpacing, MacTypography
 │   └── project.yml                  # xcodegen config (iOS 26.0, macOS 15.0, Swift 6.1)
-├── tests/                           # 1611 tests, 36 files
+├── tests/                           # 2132 tests, 59 files
 ├── scripts/                         # deploy, test-api, auto-test, validate-security, ollama
 ├── .claude/                         # agents/, output-styles/, settings
 ├── docs/                            # api-contract, decision-log, security-architecture
@@ -268,7 +268,7 @@ hestia/
 
 ---
 
-## API Summary (181 endpoints, 27 route modules)
+## API Summary (186 endpoints, 27 route modules)
 
 | Module | Endpoints | Key Routes |
 |--------|-----------|------------|

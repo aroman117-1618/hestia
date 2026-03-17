@@ -1,4 +1,25 @@
-# Current Sprint: Agent Model Specialization + Reasoning Streaming (Sprint 17) — COMPLETE
+# CI/CD Pipeline Fix + Codebase Audit Session (2026-03-17) — COMPLETE
+
+**Started:** 2026-03-17
+
+## What Was Done
+- Fixed all CI/CD pipeline failures (backports-asyncio-runner phantom dep, continue-on-error gate removal, claude action perms)
+- Recompiled requirements.txt for Python 3.11 via uv
+- Committed 3 missing Sprint 17 macOS files (LearningModels, APIClient+Learning, LearningMetricsPanel)
+- xcodebuild + GitHub Actions CI now fully green
+- Tailscale OAuth pinned for weekend (2026-03-22) — placeholder in deploy.yml ready to uncomment
+- Codebase audit completed: `docs/audits/codebase-audit-2026-03-17.md`
+- CLAUDE.md counts corrected (tests: 2267, endpoints: 186, files: 66)
+
+## Pinned: Tailscale OAuth Setup (Weekend 2026-03-22)
+1. Create OAuth client in Tailscale admin console with `tag:ci`
+2. Add `TS_OAUTH_CLIENT_ID` + `TS_OAUTH_SECRET` as GitHub secrets
+3. Add `tag:ci → Mac Mini :22` ACL rule
+4. Uncomment the Tailscale step in `.github/workflows/deploy.yml`
+
+---
+
+# Previous: Agent Model Specialization + Reasoning Streaming (Sprint 17) — COMPLETE
 
 **Started:** 2026-03-17
 **Plan:** `.claude/plans/parallel-baking-pebble.md`
