@@ -265,7 +265,11 @@ class RequestHandler:
             principles = result.get("principles", [])
             if not principles:
                 return ""
-            lines = [f"[{p['domain']}] {p['content']}" for p in principles]
+            lines = [
+                f"[{p.get('domain', 'general')}] {p['content']}"
+                for p in principles
+                if p.get('content')
+            ]
             return "\n".join(lines)
         except Exception as e:
             self.logger.warning(
@@ -584,7 +588,7 @@ class RequestHandler:
                 ),
                 self._load_user_profile_context(request, will_use_cloud),
                 council.classify_intent(request.content),
-                self._load_approved_principles(),
+                self._load_approved_principles() if not will_use_cloud else asyncio.sleep(0),
                 return_exceptions=True,
             )
             parallel_ms = (time.perf_counter() - parallel_start) * 1000
@@ -880,7 +884,7 @@ class RequestHandler:
                 ),
                 self._load_user_profile_context(request, will_use_cloud),
                 council.classify_intent(request.content),
-                self._load_approved_principles(),
+                self._load_approved_principles() if not will_use_cloud else asyncio.sleep(0),
                 return_exceptions=True,
             )
             parallel_ms = (time.perf_counter() - parallel_start) * 1000
