@@ -548,6 +548,49 @@ class ModelRouter:
         decision = self.route(prompt=prompt, token_count=token_count)
         return decision.model_config.default_agent
 
+    def route_for_agent(self, agent_name: str) -> Optional[ModelTier]:
+        """
+        Get the preferred model tier for a specific agent.
+
+        Looks up agent_model_preferences from orchestration config (if loaded).
+        Returns None if no preference is configured or tier is unavailable.
+        """
+        if not hasattr(self, "_agent_model_preferences"):
+            return None
+
+        pref = self._agent_model_preferences.get(agent_name.lower())
+        if not pref:
+            return None
+
+        # Map tier string to ModelTier enum
+        tier_map = {
+            "primary": ModelTier.PRIMARY,
+            "coding": ModelTier.CODING,
+            "complex": ModelTier.COMPLEX,
+            "cloud": ModelTier.CLOUD,
+        }
+        tier = tier_map.get(pref.preferred_tier)
+        if not tier:
+            return None
+
+        # Verify the tier's model is enabled
+        config = self._get_config_for_tier(tier)
+        if config and config.enabled:
+            return tier
+
+        self.logger.info(
+            f"Agent {agent_name} preferred tier {pref.preferred_tier} unavailable, falling back",
+            component=LogComponent.INFERENCE,
+        )
+        return None
+
+    def set_agent_model_preferences(
+        self,
+        preferences: Dict[str, Any],
+    ) -> None:
+        """Load agent model preferences from orchestrator config."""
+        self._agent_model_preferences = preferences
+
     def get_status(self) -> Dict[str, Any]:
         """Get current router status."""
         cloud_state = self.cloud_routing.state

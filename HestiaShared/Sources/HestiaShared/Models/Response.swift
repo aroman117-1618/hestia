@@ -132,6 +132,8 @@ public enum ChatStreamEvent: Sendable {
     case clearStream
     /// Metadata insight (cloud routing, synthesis info)
     case insight(content: String, key: String)
+    /// Reasoning/decision event — shows pipeline decisions in real-time
+    case reasoning(aspect: String, summary: String, content: String?)
     /// Final event — contains metrics, mode, session ID, optional bylines
     case done(requestId: String, metrics: ResponseMetrics?, mode: String, sessionId: String?, bylines: [AgentByline]?)
     /// Error during processing
@@ -171,6 +173,12 @@ public func parseChatStreamEvent(type: String, data: String) -> ChatStreamEvent?
         guard let content = dict["content"] as? String,
               let key = dict["insight_key"] as? String else { return nil }
         return .insight(content: content, key: key)
+
+    case "reasoning":
+        let aspect = dict["aspect"] as? String ?? ""
+        let summary = dict["summary"] as? String ?? ""
+        let content = dict["content"] as? String
+        return .reasoning(aspect: aspect, summary: summary, content: content)
 
     case "done":
         let requestId = dict["request_id"] as? String ?? ""

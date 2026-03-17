@@ -59,6 +59,12 @@ struct MacMessageBubble: View {
 
     private var aiBubble: some View {
         VStack(alignment: .leading, spacing: MacSpacing.sm) {
+            // Reasoning steps (collapsible, above message content)
+            if let steps = message.reasoningSteps, !steps.isEmpty {
+                ReasoningStepsSection(steps: steps)
+                    .padding(.leading, MacSpacing.sm)
+            }
+
             // Message bubble with markdown rendering
             MarkdownMessageView(content: message.content)
                 .padding(.horizontal, MacSpacing.lg)

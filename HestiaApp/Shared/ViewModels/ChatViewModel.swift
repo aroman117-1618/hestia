@@ -236,6 +236,14 @@ class ChatViewModel: ObservableObject {
                     messages[messageIndex].bylines = bylines
                 }
 
+            case .reasoning(let aspect, let summary, _):
+                if messages[messageIndex].reasoningSteps == nil {
+                    messages[messageIndex].reasoningSteps = []
+                }
+                messages[messageIndex].reasoningSteps?.append(
+                    ReasoningStep(aspect: aspect, summary: summary)
+                )
+
             case .insight(_, _):
                 break
 

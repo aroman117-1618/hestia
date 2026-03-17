@@ -37,6 +37,19 @@ orchestrator:
     - "investigate"
     - "deep dive"
 
+  # Per-agent model preferences — maps agents to their optimal model tier.
+  # Each agent routes to its preferred tier; falls back to primary if unavailable.
+  agent_model_preferences:
+    hestia:
+      preferred_model: "qwen3.5:9b"
+      preferred_tier: "primary"
+    artemis:
+      preferred_model: "deepseek-r1:14b"
+      preferred_tier: "complex"
+    apollo:
+      preferred_model: "qwen3:8b"
+      preferred_tier: "coding"
+
   # Keywords that trigger Apollo (execution) routing for CHAT intent
   execution_keywords:
     - "write"

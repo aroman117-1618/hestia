@@ -177,6 +177,21 @@ class RoutingAuditEntry:
 
 
 @dataclass
+class AgentModelPreference:
+    """Per-agent model tier preference."""
+
+    preferred_model: str = ""      # e.g. "deepseek-r1:14b"
+    preferred_tier: str = "primary"  # ModelTier value: "primary", "coding", "complex", "cloud"
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "AgentModelPreference":
+        return cls(
+            preferred_model=data.get("preferred_model", ""),
+            preferred_tier=data.get("preferred_tier", "primary"),
+        )
+
+
+@dataclass
 class OrchestratorConfig:
     """Configuration for the agent orchestrator, loaded from orchestration.yaml."""
 
@@ -187,6 +202,7 @@ class OrchestratorConfig:
     min_words_for_chain: int = 15
     max_hops_local: int = 2
     max_hops_cloud: int = 4
+    agent_model_preferences: Dict[str, AgentModelPreference] = field(default_factory=dict)
     analysis_keywords: List[str] = field(default_factory=lambda: [
         "analyze", "compare", "trade-off", "tradeoff", "pros and cons",
         "evaluate", "assess", "review", "explain why", "help me think",
@@ -205,6 +221,14 @@ class OrchestratorConfig:
         thresholds = data.get("confidence_thresholds", {})
         chain = data.get("chain_validation", {})
         fallback = data.get("fallback", {})
+
+        # Load per-agent model preferences
+        raw_prefs = data.get("agent_model_preferences", {})
+        agent_prefs = {
+            name: AgentModelPreference.from_dict(pref)
+            for name, pref in raw_prefs.items()
+        }
+
         return cls(
             enabled=data.get("enabled", True),
             full_dispatch_threshold=thresholds.get("full_dispatch", 0.8),
@@ -215,6 +239,7 @@ class OrchestratorConfig:
             min_words_for_chain=chain.get("min_words_for_chain", 15),
             max_hops_local=chain.get("max_hops_local", 2),
             max_hops_cloud=chain.get("max_hops_cloud", 4),
+            agent_model_preferences=agent_prefs,
             analysis_keywords=data.get("analysis_keywords", cls().analysis_keywords),
             execution_keywords=data.get("execution_keywords", cls().execution_keywords),
         )

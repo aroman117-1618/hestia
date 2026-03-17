@@ -33,28 +33,29 @@ primary_model:
   # Default agent persona when no explicit @agent prefix
   default_agent: "tia"
 
-# COMPLEX: Large local model for reasoning tasks (requires warm start)
-# - Slower responses (30-120s when warm, 5+ min cold)
-# - Good for: complex analysis, multi-step reasoning, code generation
-# NOTE: Disabled until 64GB RAM upgrade. Uncomment when hardware allows.
+# COMPLEX: Reasoning specialist for analysis tasks
+# - DeepSeek-R1-Distill-Qwen-14B: explicit chain-of-thought via <think> blocks
+# - 9GB VRAM, fits on M1 16GB (tight but workable)
+# - Good for: research, trade-off analysis, Socratic teaching, complex reasoning
+# - Future M5 Ultra: upgrade to QwQ-32B (~20GB)
 complex_model:
-  name: "mixtral:8x7b-instruct-v0.1-q4_K_M"
+  name: "deepseek-r1:14b"
   context_limit: 32768
   max_tokens: 4096
   temperature: 0.0
-  # Long timeout for complex operations
+  # Long timeout for reasoning chains (think blocks add latency)
   # Keep under iOS resource timeout (150-240s depending on environment)
   request_timeout: 120.0
-  # Currently disabled due to 16GB RAM constraint
-  enabled: false
+  enabled: true
   default_agent: "mira"
 
-# CODING: Code specialist for programming tasks
-# - Best-in-class code generation at 7B scale (88.4% HumanEval)
-# - Activated by routing.complex_patterns keyword matching
-# - Falls back to primary_model when disabled
+# CODING: Tool-calling + code specialist for execution tasks
+# - Qwen 3 8B: native Ollama tool calling + strong coding (LiveCodeBench 60.2)
+# - Replaces Qwen 2.5 Coder 7B — same RAM, adds structured output / function calling
+# - Good for: tool calls, coding, task implementation, structured JSON output
+# - Future M5 Ultra: upgrade to Qwen 2.5 Coder 32B (~20GB)
 coding_model:
-  name: "qwen2.5-coder:7b"
+  name: "qwen3:8b"
   context_limit: 32768
   max_tokens: 4096
   temperature: 0.0

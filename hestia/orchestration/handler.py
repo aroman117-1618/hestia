@@ -849,6 +849,40 @@ class RequestHandler:
                     "type": intent.primary_intent.value,
                     "confidence": intent.confidence,
                 }
+                # Reasoning: intent classification
+                yield {
+                    "type": "reasoning", "aspect": "intent",
+                    "summary": f"{intent.primary_intent.value} ({intent.confidence:.2f})",
+                }
+
+            # Reasoning: memory retrieval summary
+            if memory_context:
+                chunk_count = memory_context.count("\n---\n") + 1
+                yield {
+                    "type": "reasoning", "aspect": "memory",
+                    "summary": f"{chunk_count} chunk{'s' if chunk_count != 1 else ''} retrieved",
+                }
+
+            # Reasoning: agent routing decision
+            orch_config = self._get_orchestrator_config()
+            agent_route_summary = None
+            if orch_config.enabled and intent:
+                from hestia.orchestration.router import AgentRouter
+                agent_router = AgentRouter(orch_config)
+                route_decision, route_conf = agent_router.resolve(
+                    intent.primary_intent, request.content
+                )
+                if route_decision.involves_specialist:
+                    agent_name = route_decision.display_name
+                    # Look up the agent key: "artemis", "apollo", or compound
+                    agent_key = route_decision.value.split("_")[0]  # "artemis" from "artemis_apollo"
+                    pref = orch_config.agent_model_preferences.get(agent_key)
+                    model_hint = f" \u2192 {pref.preferred_model}" if pref else ""
+                    agent_route_summary = f"{agent_name}{model_hint}"
+                    yield {
+                        "type": "reasoning", "aspect": "agent",
+                        "summary": agent_route_summary,
+                    }
 
             # Build prompt
             tool_instructions = TOOL_INSTRUCTIONS
@@ -905,6 +939,15 @@ class RequestHandler:
                 )
 
             # Step 7: Streaming inference
+            # Reasoning: model selection
+            routing_decision = self.inference_client.router.route(
+                prompt=request.content, has_tools=True,
+            )
+            yield {
+                "type": "reasoning", "aspect": "model",
+                "summary": f"{routing_decision.model_config.name} ({routing_decision.reason})",
+            }
+
             yield {"type": "status", "stage": "inference", "detail": "Generating response"}
 
             temperature = self._mode_manager.get_temperature(request.mode)
@@ -915,6 +958,9 @@ class RequestHandler:
             # Stream tokens from inference
             content_buffer = ""
             inference_response = None
+            # Track <think> block state for DeepSeek R1 models
+            in_think_block = False
+            think_buffer = ""
 
             async for item in self.inference_client.chat_stream(
                 messages=messages,
@@ -925,6 +971,54 @@ class RequestHandler:
             ):
                 if isinstance(item, str):
                     content_buffer += item
+
+                    # Handle <think> blocks from DeepSeek R1 models
+                    if "<think>" in content_buffer and not in_think_block:
+                        in_think_block = True
+                        # Split: before <think> is regular content, after is thinking
+                        before_think = content_buffer.split("<think>")[0]
+                        if before_think.strip():
+                            yield {"type": "token", "content": before_think, "request_id": request.id}
+                        think_buffer = content_buffer.split("<think>", 1)[1]
+                        content_buffer = before_think
+                        continue
+
+                    if in_think_block:
+                        think_buffer += item
+                        if "</think>" in think_buffer:
+                            # End of think block — emit final thinking summary
+                            think_content = think_buffer.split("</think>")[0]
+                            after_think = think_buffer.split("</think>", 1)[1]
+                            # Emit last line of thinking as reasoning event
+                            think_lines = [l.strip() for l in think_content.strip().splitlines() if l.strip()]
+                            if think_lines:
+                                yield {
+                                    "type": "reasoning", "aspect": "thinking",
+                                    "summary": think_lines[-1][:120],
+                                    "content": think_lines[-1][:120],
+                                }
+                            in_think_block = False
+                            think_buffer = ""
+                            # Resume normal token streaming with content after </think>
+                            if after_think.strip():
+                                content_buffer += after_think
+                                yield {"type": "token", "content": after_think, "request_id": request.id}
+                        else:
+                            # Still inside think block — stream thinking lines as reasoning
+                            lines = think_buffer.split("\n")
+                            if len(lines) > 1:
+                                # Emit completed lines as thinking events
+                                for line in lines[:-1]:
+                                    stripped = line.strip()
+                                    if stripped:
+                                        yield {
+                                            "type": "reasoning", "aspect": "thinking",
+                                            "summary": stripped[:120],
+                                            "content": stripped[:120],
+                                        }
+                                think_buffer = lines[-1]  # Keep incomplete line
+                        continue
+
                     yield {"type": "token", "content": item, "request_id": request.id}
                 elif isinstance(item, InferenceResponse):
                     inference_response = item
@@ -1282,7 +1376,13 @@ class RequestHandler:
             if config_path.exists():
                 with open(config_path) as f:
                     data = yaml.safe_load(f)
-                return OrchestratorConfig.from_dict(data.get("orchestrator", {}))
+                config = OrchestratorConfig.from_dict(data.get("orchestrator", {}))
+                # Wire agent model preferences into the inference router
+                if config.agent_model_preferences:
+                    self.inference_client.router.set_agent_model_preferences(
+                        config.agent_model_preferences,
+                    )
+                return config
         except Exception:
             pass
         return OrchestratorConfig()

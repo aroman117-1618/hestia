@@ -11,6 +11,7 @@ from typing import List, Optional
 
 from hestia.logging import get_logger, LogComponent
 from hestia.orchestration.agent_models import (
+    AgentModelPreference,
     AgentResult,
     AgentRoute,
     AgentTask,
@@ -27,6 +28,13 @@ _ROUTE_TO_MODE = {
     AgentRoute.ARTEMIS: Mode.MIRA,
     AgentRoute.APOLLO: Mode.OLLY,
     AgentRoute.HESTIA_SOLO: Mode.TIA,
+}
+
+# Map AgentRoute to config key for model preferences
+_ROUTE_TO_AGENT_NAME = {
+    AgentRoute.ARTEMIS: "artemis",
+    AgentRoute.APOLLO: "apollo",
+    AgentRoute.HESTIA_SOLO: "hestia",
 }
 
 
@@ -125,13 +133,26 @@ class AgentExecutor:
 
             messages.append({"role": "user", "content": task.prompt})
 
-            # Call inference
+            # Resolve agent-preferred model tier
+            agent_name = _ROUTE_TO_AGENT_NAME.get(task.agent_id, "hestia")
+            force_tier = None
+            if hasattr(self._inference, "router"):
+                force_tier = self._inference.router.route_for_agent(agent_name)
+                if force_tier:
+                    logger.info(
+                        f"Agent {agent_name} using preferred tier: {force_tier.value}",
+                        component=LogComponent.ORCHESTRATION,
+                        data={"agent": agent_name, "tier": force_tier.value},
+                    )
+
+            # Call inference with agent-specific tier
             temperature = persona.temperature if persona else 0.0
             response = await self._inference.chat(
                 messages=messages,
                 system=system_prompt,
                 temperature=temperature,
                 max_tokens=2048,
+                force_tier=force_tier,
             )
 
             duration_ms = int((time.perf_counter() - start) * 1000)

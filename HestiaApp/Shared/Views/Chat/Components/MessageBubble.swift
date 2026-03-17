@@ -30,6 +30,11 @@ struct MessageBubble: View {
             }
 
             VStack(alignment: isUser ? .trailing : .leading, spacing: Spacing.xs) {
+                // Reasoning steps (collapsible, above AI message content)
+                if !isUser, let steps = message.reasoningSteps, !steps.isEmpty {
+                    ReasoningStepsSection(steps: steps)
+                }
+
                 // Message content
                 if isRawToolCall {
                     // Show tool execution indicator instead of raw JSON

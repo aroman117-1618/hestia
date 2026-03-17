@@ -1,5 +1,32 @@
 import Foundation
 
+// MARK: - Reasoning Step
+
+/// A single reasoning/decision step from the pipeline (intent, agent, memory, model, thinking).
+public struct ReasoningStep: Codable, Sendable, Equatable {
+    public let aspect: String   // "intent", "agent", "memory", "model", "thinking"
+    public let summary: String  // One-line description
+
+    public init(aspect: String, summary: String) {
+        self.aspect = aspect
+        self.summary = summary
+    }
+
+    /// Display icon for this reasoning aspect
+    public var icon: String {
+        switch aspect {
+        case "intent": return "\u{1F3AF}"   // 🎯
+        case "agent": return "\u{1F916}"    // 🤖
+        case "memory": return "\u{1F4DA}"   // 📚
+        case "model": return "\u{2699}"     // ⚙
+        case "thinking": return "\u{1F4AD}" // 💭
+        default: return "\u{2022}"          // •
+        }
+    }
+}
+
+// MARK: - Conversation Message
+
 /// A message in the conversation
 public struct ConversationMessage: Codable, Identifiable, Equatable, Sendable {
     public let id: String
@@ -8,14 +35,16 @@ public struct ConversationMessage: Codable, Identifiable, Equatable, Sendable {
     public let timestamp: Date
     public let mode: HestiaMode?
     public var bylines: [AgentByline]?
+    public var reasoningSteps: [ReasoningStep]?
 
-    public init(id: String, role: MessageRole, content: String, timestamp: Date, mode: HestiaMode?, bylines: [AgentByline]? = nil) {
+    public init(id: String, role: MessageRole, content: String, timestamp: Date, mode: HestiaMode?, bylines: [AgentByline]? = nil, reasoningSteps: [ReasoningStep]? = nil) {
         self.id = id
         self.role = role
         self.content = content
         self.timestamp = timestamp
         self.mode = mode
         self.bylines = bylines
+        self.reasoningSteps = reasoningSteps
     }
 
     public enum MessageRole: String, Codable, Sendable {
