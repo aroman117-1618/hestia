@@ -145,6 +145,10 @@ get_test_file() {
             echo "tests/test_outcomes.py" ;;
         *hestia/apple_cache/*)
             echo "tests/test_apple_cache.py" ;;
+        *hestia/learning/*)
+            echo "tests/test_learning_meta_monitor.py tests/test_learning_database.py" ;;
+        *hestia/api/routes/learning*)
+            echo "tests/test_learning_routes.py" ;;
 
         # No mapping found
         *)
