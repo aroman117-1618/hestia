@@ -62,7 +62,7 @@ When resuming work from a previous session, FIRST read `SESSION_HANDOFF.md` (if 
 This is a multi-session project (Hestia). Key references:
 - Project plans and workstreams are in `docs/`
 - Previous session context may be compacted — check docs and CLAUDE.md FIRST before searching transcripts
-- Current workstreams: Sprint 14 (Agent Orchestrator — coordinate/analyze/delegate model). Sprints 1-13 COMPLETE. See `SPRINT.md`.
+- Current workstreams: Sprint 15 (MetaMonitor + Memory Health + Trigger Metrics — self-awareness infrastructure). Sprints 1-14 COMPLETE. See `SPRINT.md`.
 - **2026-03-01:** Sprint 4 — audit remediation (proactive auth fix, auth dep standardization), macOS Wiki/Explorer Resources/Resources tab. 66 macOS files total.
 - **2026-02-28:** macOS app renamed to "Hestia" — UX polished: keyboard shortcuts (⌘1-6/\), sidebar, responsive layout, app icon. Both Xcode schemes build clean.
 - **2026-02-28:** Claude Code config refresh — new skills, CI/CD pipeline, sprint tracker. Direct API billing active.
@@ -92,7 +92,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | Hardware | Mac Mini M1 (16GB) |
 | Model | Qwen 3.5 9B primary + Qwen 2.5 Coder 7B specialist (Ollama, local) + cloud (Anthropic/OpenAI/Google) |
 | SLM | qwen2.5:0.5b (council intent classification, ~100ms) |
-| Backend | Python 3.9+, FastAPI, ~170 endpoints across 26 route modules |
+| Backend | Python 3.9+, FastAPI, ~175 endpoints across 27 route modules |
 | Storage | ChromaDB (vectors) + SQLite (structured) + macOS Keychain (credentials) |
 | App | Native Swift/SwiftUI (iOS 26.0+) |
 | API | REST on port 8443 with JWT auth, HTTPS with self-signed cert |
@@ -109,7 +109,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 **Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
 **Field Guide UI Restructure: COMPLETE.** 5 thematic tabs, native SwiftUI diagrams, structured roadmap with `/v1/wiki/roadmap` endpoint.
 
-2012 tests (2009 passing, 3 skipped), 58 test files (51 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
+2037 tests (2034 passing, 3 skipped), 59 test files (52 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -117,7 +117,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 - **Type hints**: Always. Every function signature.
 - **Async/await**: For all I/O (database, inference, network).
-- **Logging**: `logger = get_logger()` — no arguments. Never `HestiaLogger(component=...)` or `get_logger(component=...)`. Import: `from hestia.logging import get_logger`. LogComponent enum: ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED, INVESTIGATE, RESEARCH, FILE, INBOX, OUTCOMES, APPLE_CACHE. (19 components total)
+- **Logging**: `logger = get_logger()` — no arguments. Never `HestiaLogger(component=...)` or `get_logger(component=...)`. Import: `from hestia.logging import get_logger`. LogComponent enum: ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED, INVESTIGATE, RESEARCH, FILE, INBOX, OUTCOMES, APPLE_CACHE, LEARNING. (20 components total)
 - **Config**: YAML files, never hardcode.
 - **Error handling in routes**: `sanitize_for_log(e)` from `hestia.api.errors` in logs (never raw `{e}`). Generic messages in HTTP responses (never `detail=str(e)`).
 - **File naming**: `snake_case.py` (Python), UpperCamelCase.swift (iOS).
@@ -212,6 +212,12 @@ hestia/
 │   │   ├── database.py             # AppleCacheDatabase (FTS5 virtual table, sync tracking)
 │   │   ├── resolver.py             # SmartResolver (FTS5 candidates + rapidfuzz scoring)
 │   │   └── manager.py              # AppleCacheManager (TTL sync, write-through, singleton)
+│   ├── learning/                    # MetaMonitor, Memory Health, Trigger Metrics (Sprint 15)
+│   │   ├── models.py               # MetaMonitorReport, MemoryHealthSnapshot, TriggerAlert
+│   │   ├── database.py             # LearningDatabase (reports, snapshots, trigger_log)
+│   │   ├── meta_monitor.py         # MetaMonitorManager (hourly SQL analysis)
+│   │   ├── memory_health.py        # MemoryHealthMonitor (daily diagnostics)
+│   │   └── trigger_monitor.py      # TriggerMonitor (configurable thresholds)
 │   ├── research/                    # Knowledge graph + PrincipleStore + Temporal Facts + Episodic Nodes (ADR-041)
 │   │   ├── models.py              # Fact, Entity, Community, EpisodicNode, Principle dataclasses + graph types
 │   │   ├── database.py            # SQLite: facts, entities, communities, principles, episodic_nodes, graph_cache
@@ -222,13 +228,13 @@ hestia/
 │   │   └── manager.py            # ResearchManager singleton (graph, facts, entities, principles)
 │   ├── investigate/                 # URL content analysis (web articles, YouTube), LLM analysis pipeline
 │   │   └── extractors/             # BaseExtractor ABC, WebArticleExtractor, YouTubeExtractor
-│   ├── api/                         # FastAPI — 163 endpoints, 26 route modules
+│   ├── api/                         # FastAPI — 168 endpoints, 27 route modules
 │   │   ├── errors.py                # sanitize_for_log(), safe_error_detail()
-│   │   ├── schemas/                  # Pydantic request/response models (15 domain modules)
+│   │   ├── schemas/                  # Pydantic request/response models (16 domain modules)
 │   │   ├── server.py                # App lifecycle, manager initialization
 │   │   ├── middleware/auth.py        # JWT device authentication
 │   │   └── routes/                  # auth, health, chat, mode, memory, sessions, tools,
-│   │                                # tasks, cloud, voice, orders, agents, agents_v2, user, user_profile, proactive, health_data, wiki, explorer, newsfeed, investigate, research, files, inbox, outcomes
+│   │                                # tasks, cloud, voice, orders, agents, agents_v2, user, user_profile, proactive, health_data, wiki, explorer, newsfeed, investigate, research, files, inbox, outcomes, learning
 │   └── config/                      # inference.yaml, execution.yaml, memory.yaml, wiki.yaml
 ├── hestia-cli/                      # Python CLI package — 72 tests, 6 test files
 │   ├── hestia_cli/                  # CLI source (app, repl, client, auth, bootstrap, config, commands, context, renderer, models)
@@ -261,7 +267,7 @@ hestia/
 
 ---
 
-## API Summary (163 endpoints, 26 route modules)
+## API Summary (168 endpoints, 27 route modules)
 
 | Module | Endpoints | Key Routes |
 |--------|-----------|------------|
@@ -288,6 +294,7 @@ hestia/
 | Files | 9 | `/v1/files` (list, create), `/v1/files/content`, `/v1/files/metadata`, `/v1/files` (PUT, DELETE), `/v1/files/move`, `/v1/files/delete` (POST alias), `/v1/files/audit-log` |
 | Inbox | 7 | `/v1/inbox` (list), `/v1/inbox/unread-count`, `/v1/inbox/{id}`, `/v1/inbox/{id}/read`, `/v1/inbox/mark-all-read`, `/v1/inbox/{id}/archive`, `/v1/inbox/refresh` |
 | Outcomes | 5 | `/v1/outcomes` (list), `/v1/outcomes/stats`, `/v1/outcomes/{id}`, `/v1/outcomes/{id}/feedback`, `/v1/outcomes/track` |
+| Learning | 5 | `/v1/learning/report`, `memory-health`, `memory-health/history`, `alerts`, `alerts/{id}/acknowledge` |
 
 Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 
