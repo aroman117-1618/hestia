@@ -24,6 +24,89 @@ class CorrectionType(Enum):
     TOOL_USAGE = "tool_usage"
 
 
+@dataclass
+class Correction:
+    """A classified user correction linked to an outcome."""
+    id: str
+    user_id: str
+    outcome_id: str
+    correction_type: CorrectionType
+    analysis: str
+    confidence: float
+    principle_id: Optional[str] = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "outcome_id": self.outcome_id,
+            "correction_type": self.correction_type.value,
+            "analysis": self.analysis,
+            "confidence": self.confidence,
+            "principle_id": self.principle_id,
+            "created_at": self.created_at.isoformat(),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> Correction:
+        return cls(
+            id=data["id"],
+            user_id=data["user_id"],
+            outcome_id=data["outcome_id"],
+            correction_type=CorrectionType(data["correction_type"]),
+            analysis=data["analysis"],
+            confidence=data["confidence"],
+            principle_id=data.get("principle_id"),
+            created_at=datetime.fromisoformat(data["created_at"]),
+        )
+
+
+class DistillationStatus(Enum):
+    """Status of a distillation run."""
+    IN_PROGRESS = "in_progress"
+    COMPLETE = "complete"
+    FAILED = "failed"
+
+
+@dataclass
+class DistillationRun:
+    """Record of an outcome-to-principle distillation batch."""
+    id: str
+    user_id: str
+    run_timestamp: datetime
+    source: str  # "scheduled" | "manual"
+    outcomes_processed: int = 0
+    principles_generated: int = 0
+    status: DistillationStatus = DistillationStatus.IN_PROGRESS
+    error_message: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "run_timestamp": self.run_timestamp.isoformat(),
+            "source": self.source,
+            "outcomes_processed": self.outcomes_processed,
+            "principles_generated": self.principles_generated,
+            "status": self.status.value,
+            "error_message": self.error_message,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> DistillationRun:
+        return cls(
+            id=data["id"],
+            user_id=data["user_id"],
+            run_timestamp=datetime.fromisoformat(data["run_timestamp"]),
+            source=data["source"],
+            outcomes_processed=data.get("outcomes_processed", 0),
+            principles_generated=data.get("principles_generated", 0),
+            status=DistillationStatus(data["status"]),
+            error_message=data.get("error_message"),
+        )
+
+
 MIN_SAMPLE_SIZE = 20
 
 

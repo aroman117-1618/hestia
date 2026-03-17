@@ -1,6 +1,8 @@
-"""API routes for the learning module (Sprint 15)."""
+"""API routes for the learning module (Sprint 15 + Sprint 17)."""
 
 from __future__ import annotations
+
+from typing import Optional
 
 from fastapi import APIRouter, Query
 
@@ -64,3 +66,76 @@ async def acknowledge_alert(alert_id: str, user_id: str = Query(...)):
     db = await _get_learning_db()
     await db.acknowledge_alert(alert_id, user_id)
     return {"status": "acknowledged"}
+
+
+# ── Sprint 17: Correction + Distillation endpoints ────────
+
+
+@router.get("/corrections")
+async def list_corrections(
+    user_id: str = Query(...),
+    correction_type: Optional[str] = Query(None),
+    days: int = Query(default=30, ge=1, le=365),
+    limit: int = Query(default=100, ge=1, le=500),
+):
+    """List classified corrections with optional type filter."""
+    db = await _get_learning_db()
+    corrections = await db.list_corrections(
+        user_id, correction_type=correction_type, days=days, limit=limit,
+    )
+    return {"data": [c.to_dict() for c in corrections], "count": len(corrections)}
+
+
+@router.get("/corrections/stats")
+async def get_correction_stats(
+    user_id: str = Query(...),
+    days: int = Query(default=7, ge=1, le=365),
+):
+    """Get correction type distribution."""
+    db = await _get_learning_db()
+    stats = await db.get_correction_stats(user_id, days=days)
+    return {"data": stats}
+
+
+@router.get("/corrections/{outcome_id}")
+async def get_correction_for_outcome(
+    outcome_id: str,
+    user_id: str = Query(...),
+):
+    """Get correction classification for a specific outcome."""
+    db = await _get_learning_db()
+    correction = await db.get_correction(outcome_id, user_id)
+    return {"data": correction.to_dict() if correction else None}
+
+
+@router.post("/distill")
+async def trigger_distillation(
+    user_id: str = Query(...),
+    days: int = Query(default=30, ge=1, le=365),
+):
+    """Manually trigger outcome-to-principle distillation."""
+    from hestia.learning.outcome_distiller import OutcomeDistiller
+    from hestia.outcomes import get_outcome_manager
+    from hestia.research.manager import get_research_manager
+
+    db = await _get_learning_db()
+    outcome_mgr = await get_outcome_manager()
+    research_mgr = await get_research_manager()
+
+    distiller = OutcomeDistiller(
+        learning_db=db,
+        outcome_db=outcome_mgr._database,
+        principle_store=research_mgr._principle_store,
+    )
+    result = await distiller.distill_from_outcomes(user_id, days=days)
+    return {"data": result}
+
+
+@router.get("/distillation-runs")
+async def get_latest_distillation_run(
+    user_id: str = Query(...),
+):
+    """Get most recent distillation run."""
+    db = await _get_learning_db()
+    run = await db.get_latest_distillation_run(user_id)
+    return {"data": run.to_dict() if run else None}

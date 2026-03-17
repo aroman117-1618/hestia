@@ -289,6 +289,37 @@ class OutcomeDatabase(BaseDatabase):
         await self._connection.commit()
         return cursor.rowcount
 
+    async def list_outcomes_with_feedback(
+        self, user_id: str, feedback: str, limit: int = 50,
+    ) -> List[OutcomeRecord]:
+        """List outcomes with a specific feedback type (e.g., 'correction')."""
+        cursor = await self._connection.execute(
+            """SELECT * FROM outcomes
+               WHERE user_id = ? AND feedback = ?
+               ORDER BY timestamp DESC LIMIT ?""",
+            (user_id, feedback, limit),
+        )
+        rows = await cursor.fetchall()
+        return [OutcomeRecord.from_dict(dict(r)) for r in rows]
+
+    async def get_high_signal_outcomes(
+        self, user_id: str, days: int = 30, limit: int = 50,
+    ) -> List[OutcomeRecord]:
+        """Get outcomes with positive signal for principle distillation."""
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        cursor = await self._connection.execute(
+            """SELECT * FROM outcomes
+               WHERE user_id = ? AND timestamp > ?
+               AND (feedback = 'positive' OR implicit_signal = 'long_gap')
+               ORDER BY
+                 CASE WHEN feedback = 'positive' THEN 0 ELSE 1 END,
+                 timestamp DESC
+               LIMIT ?""",
+            (user_id, cutoff, limit),
+        )
+        rows = await cursor.fetchall()
+        return [OutcomeRecord.from_dict(dict(r)) for r in rows]
+
     # -- Internal -------------------------------------------------------------
 
     def _row_to_dict(self, row: aiosqlite.Row) -> Dict[str, Any]:

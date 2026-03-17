@@ -1,9 +1,14 @@
 """Learning module scheduler — periodic background analysis.
 
-Runs three monitors on independent schedules:
+Runs 8 monitors on independent schedules:
 - MetaMonitor: hourly behavioral analysis (outcomes + routing quality)
 - MemoryHealthMonitor: daily cross-system diagnostics (ChromaDB + knowledge graph)
 - TriggerMonitor: periodic threshold checking (configurable via triggers.yaml)
+- ImportanceScorer: nightly importance scoring (Sprint 16)
+- MemoryConsolidator: weekly dedup (Sprint 16)
+- MemoryPruner: weekly archive (Sprint 16)
+- CorrectionClassifier: 6-hourly correction classification (Sprint 17)
+- OutcomeDistiller: weekly principle distillation (Sprint 17)
 """
 
 import asyncio
@@ -20,6 +25,8 @@ from hestia.learning.trigger_monitor import TriggerMonitor
 from hestia.memory.importance import ImportanceScorer
 from hestia.memory.consolidator import MemoryConsolidator
 from hestia.memory.pruner import MemoryPruner
+from hestia.learning.correction_classifier import CorrectionClassifier
+from hestia.learning.outcome_distiller import OutcomeDistiller
 
 
 logger = get_logger()
@@ -38,6 +45,8 @@ class LearningScheduler:
         self._importance_scorer: Optional[ImportanceScorer] = None
         self._consolidator: Optional[MemoryConsolidator] = None
         self._pruner: Optional[MemoryPruner] = None
+        self._correction_classifier: Optional[CorrectionClassifier] = None
+        self._outcome_distiller: Optional[OutcomeDistiller] = None
         self._tasks: List[asyncio.Task] = []
         self._running = False
 
@@ -96,6 +105,17 @@ class LearningScheduler:
             config=memory_config,
         )
 
+        # Sprint 17: Learning closure components
+        self._correction_classifier = CorrectionClassifier(
+            learning_db=self._db,
+            outcome_db=outcome_mgr._database,
+        )
+        self._outcome_distiller = OutcomeDistiller(
+            learning_db=self._db,
+            outcome_db=outcome_mgr._database,
+            principle_store=research_mgr._principle_store,
+        )
+
         # Start background loops
         self._running = True
         self._tasks.append(asyncio.create_task(self._meta_monitor_loop()))
@@ -104,11 +124,13 @@ class LearningScheduler:
         self._tasks.append(asyncio.create_task(self._importance_scorer_loop()))
         self._tasks.append(asyncio.create_task(self._consolidation_loop()))
         self._tasks.append(asyncio.create_task(self._pruning_loop()))
+        self._tasks.append(asyncio.create_task(self._correction_loop()))
+        self._tasks.append(asyncio.create_task(self._distillation_loop()))
 
         logger.info(
             "Learning scheduler started",
             component=LogComponent.LEARNING,
-            data={"monitors": 6},
+            data={"monitors": 8},
         )
 
     async def close(self) -> None:
@@ -266,6 +288,45 @@ class LearningScheduler:
                 logger.warning(
                     f"Pruning failed: {type(e).__name__}",
                     component=LogComponent.MEMORY,
+                )
+            await asyncio.sleep(604800)  # 7 days
+
+    # ── Learning Closure Loops (Sprint 17) ─────────────────────
+
+    async def _correction_loop(self) -> None:
+        """Classify pending corrections every 6 hours."""
+        await asyncio.sleep(360)  # 6 min after startup
+        while self._running:
+            try:
+                stats = await self._correction_classifier.classify_all_pending(DEFAULT_USER_ID)
+                if stats.get("classified", 0) > 0:
+                    logger.info(
+                        "Correction classification complete",
+                        component=LogComponent.LEARNING,
+                        data=stats,
+                    )
+            except Exception as e:
+                logger.warning(
+                    f"Correction classification failed: {type(e).__name__}",
+                    component=LogComponent.LEARNING,
+                )
+            await asyncio.sleep(21600)  # 6 hours
+
+    async def _distillation_loop(self) -> None:
+        """Distill principles from outcomes weekly."""
+        await asyncio.sleep(420)  # 7 min after startup
+        while self._running:
+            try:
+                result = await self._outcome_distiller.distill_from_outcomes(DEFAULT_USER_ID)
+                logger.info(
+                    "Outcome distillation complete",
+                    component=LogComponent.LEARNING,
+                    data=result,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Outcome distillation failed: {type(e).__name__}",
+                    component=LogComponent.LEARNING,
                 )
             await asyncio.sleep(604800)  # 7 days
 
