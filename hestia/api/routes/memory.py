@@ -567,3 +567,198 @@ async def import_claude_history(
                 "message": "Claude history import failed.",
             }
         )
+
+
+# ── Memory Lifecycle (Sprint 16) ──────────────────────────────────
+
+
+def _load_memory_config() -> dict:
+    """Load memory config from YAML."""
+    from pathlib import Path
+    import yaml
+    config_path = Path(__file__).parent.parent.parent / "config" / "memory.yaml"
+    try:
+        with open(config_path) as f:
+            return yaml.safe_load(f) or {}
+    except FileNotFoundError:
+        return {}
+
+
+@router.get(
+    "/importance-stats",
+    summary="Get importance score distribution",
+    description="Run importance scoring on all active chunks and return statistics.",
+)
+async def get_importance_stats(
+    device_id: str = Depends(get_device_token),
+):
+    """Score all active chunks and return importance distribution stats."""
+    try:
+        from hestia.memory.importance import ImportanceScorer
+        from hestia.outcomes import get_outcome_manager
+
+        memory = await get_memory_manager()
+        outcome_mgr = await get_outcome_manager()
+        config = _load_memory_config()
+
+        scorer = ImportanceScorer(
+            memory_db=memory.database,
+            outcome_db=outcome_mgr,
+            config=config,
+        )
+        stats = await scorer.score_all(user_id="default")
+
+        return {"data": stats}
+
+    except Exception as e:
+        logger.error(
+            f"Importance scoring failed: {sanitize_for_log(e)}",
+            component=LogComponent.MEMORY,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": "internal_error", "message": "Importance scoring failed."},
+        )
+
+
+@router.post(
+    "/consolidation/preview",
+    summary="Preview consolidation candidates",
+    description="Dry-run: find near-duplicate chunk pairs without modifying anything.",
+)
+async def consolidation_preview(
+    device_id: str = Depends(get_device_token),
+):
+    """Find near-duplicate chunks above similarity threshold."""
+    try:
+        from hestia.memory.consolidator import MemoryConsolidator
+
+        memory = await get_memory_manager()
+        config = _load_memory_config()
+
+        consolidator = MemoryConsolidator(
+            memory_db=memory.database,
+            vector_store=memory.vector_store,
+            config=config,
+        )
+        result = await consolidator.preview()
+
+        return {"data": result}
+
+    except Exception as e:
+        logger.error(
+            f"Consolidation preview failed: {sanitize_for_log(e)}",
+            component=LogComponent.MEMORY,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": "internal_error", "message": "Consolidation preview failed."},
+        )
+
+
+@router.post(
+    "/consolidation/execute",
+    summary="Execute consolidation",
+    description="Merge near-duplicate chunks. Lower-importance duplicate gets SUPERSEDED.",
+)
+async def consolidation_execute(
+    dry_run: bool = Query(True, description="If true, preview only without modifying."),
+    device_id: str = Depends(get_device_token),
+):
+    """Run consolidation. Set dry_run=false to actually merge."""
+    try:
+        from hestia.memory.consolidator import MemoryConsolidator
+
+        memory = await get_memory_manager()
+        config = _load_memory_config()
+
+        consolidator = MemoryConsolidator(
+            memory_db=memory.database,
+            vector_store=memory.vector_store,
+            config=config,
+        )
+        result = await consolidator.execute(dry_run=dry_run)
+
+        return {"data": result}
+
+    except Exception as e:
+        logger.error(
+            f"Consolidation execute failed: {sanitize_for_log(e)}",
+            component=LogComponent.MEMORY,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": "internal_error", "message": "Consolidation failed."},
+        )
+
+
+@router.get(
+    "/pruning/preview",
+    summary="Preview pruning candidates",
+    description="List chunks eligible for pruning (old + low importance).",
+)
+async def pruning_preview(
+    device_id: str = Depends(get_device_token),
+):
+    """Find chunks eligible for archival."""
+    try:
+        from hestia.memory.pruner import MemoryPruner
+
+        memory = await get_memory_manager()
+        config = _load_memory_config()
+
+        pruner = MemoryPruner(
+            memory_db=memory.database,
+            vector_store=memory.vector_store,
+            learning_db=None,  # Audit logging optional
+            config=config,
+        )
+        result = await pruner.preview()
+
+        return {"data": result}
+
+    except Exception as e:
+        logger.error(
+            f"Pruning preview failed: {sanitize_for_log(e)}",
+            component=LogComponent.MEMORY,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": "internal_error", "message": "Pruning preview failed."},
+        )
+
+
+@router.post(
+    "/pruning/execute",
+    summary="Execute pruning",
+    description="Archive eligible chunks and remove from search index.",
+)
+async def pruning_execute(
+    device_id: str = Depends(get_device_token),
+):
+    """Run pruning. Archives old low-importance chunks."""
+    try:
+        from hestia.memory.pruner import MemoryPruner
+
+        memory = await get_memory_manager()
+        config = _load_memory_config()
+
+        pruner = MemoryPruner(
+            memory_db=memory.database,
+            vector_store=memory.vector_store,
+            learning_db=None,
+            config=config,
+        )
+        result = await pruner.execute()
+
+        return {"data": result}
+
+    except Exception as e:
+        logger.error(
+            f"Pruning execute failed: {sanitize_for_log(e)}",
+            component=LogComponent.MEMORY,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": "internal_error", "message": "Pruning failed."},
+        )
