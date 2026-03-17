@@ -90,7 +90,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | Component | Technology |
 |-----------|------------|
 | Hardware | Mac Mini M1 (16GB) |
-| Model | Qwen 3.5 9B primary + Qwen 2.5 Coder 7B specialist (Ollama, local) + cloud (Anthropic/OpenAI/Google) |
+| Model | Qwen 3.5 9B (Hestia) + DeepSeek-R1-14B (Artemis) + Qwen 3 8B (Apollo) + cloud (Anthropic/OpenAI/Google) |
 | SLM | qwen2.5:0.5b (council intent classification, ~100ms) |
 | Backend | Python 3.9+, FastAPI, ~180 endpoints across 27 route modules |
 | Storage | ChromaDB (vectors) + SQLite (structured) + macOS Keychain (credentials) |
@@ -109,7 +109,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 **Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
 **Field Guide UI Restructure: COMPLETE.** 5 thematic tabs, native SwiftUI diagrams, structured roadmap with `/v1/wiki/roadmap` endpoint.
 
-2219 tests (2084 backend + 135 CLI), 62 test files (55 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
+2267 tests (2132 backend + 135 CLI), 62 test files (55 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 

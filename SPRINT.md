@@ -1,4 +1,29 @@
-# Current Sprint: Memory Lifecycle (Sprint 16) — COMPLETE
+# Current Sprint: Agent Model Specialization + Reasoning Streaming (Sprint 17) — COMPLETE
+
+**Started:** 2026-03-17
+**Plan:** `.claude/plans/parallel-baking-pebble.md`
+
+## Sprint 17 Summary
+
+Per-agent model specialization (Artemis→DeepSeek-R1-14B, Apollo→Qwen 3 8B) and Claude Code-style reasoning streaming across all apps (CLI, iOS, macOS). Reasoning events show pipeline decisions in real-time: intent, agent routing, memory retrieval, model selection, and DeepSeek R1 `<think>` blocks.
+
+### What Was Built
+- **Per-agent model routing** — `AgentModelPreference` dataclass, `route_for_agent()` in ModelRouter, `force_tier` wired through executor
+- **Reasoning events** — 5 yield points in `handle_streaming()`: intent, agent, memory, model, thinking
+- **`<think>` block parser** — intercepts DeepSeek R1 reasoning tokens mid-stream, strips from stored content
+- **CLI rendering** — transient `⟳`/`💭` status lines (Claude Code style)
+- **iOS/macOS** — `ReasoningStep` model, `ReasoningStepsSection` collapsible view, `.reasoning` case in `ChatStreamEvent`
+
+### Key Commits
+- `220e709` feat: Sprint 17 — per-agent model specialization + reasoning streaming
+- `6bb97fb` fix: update test assertions for Sprint 17 model changes
+
+### Test Results
+- 2132 backend + 135 CLI = 2267 total, all passing
+
+---
+
+# Previous: Memory Lifecycle (Sprint 16) — COMPLETE
 
 **Started:** 2026-03-17
 **Discovery:** `docs/discoveries/memory-lifecycle-importance-consolidation-pruning-2026-03-17.md`

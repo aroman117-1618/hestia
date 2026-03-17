@@ -1,75 +1,117 @@
-# Session Handoff — 2026-03-17 (Session 4)
+# Session Handoff — 2026-03-17 (Session 5)
 
 ## Mission
-Complete Sprint 15 loose ends (scheduler wiring, briefing injection, deploy, live-test), then plan and implement Sprint 16 (Memory Lifecycle: importance scoring, consolidation, pruning).
+Sprint 17: assign specialized open-source local models to each agent (Artemis/Apollo/Hestia) and add Claude Code-style reasoning streaming across all Hestia apps (CLI, iOS, macOS).
 
 ## Completed
 
-### Sprint 15 Wiring (items 1-4 from previous handoff)
-- **Briefing injection** (`90352e6`) — `_add_system_alerts_section()` in `hestia/proactive/briefing.py`, priority 95, queries `LearningDatabase.get_unacknowledged_alerts()`
-- **Learning schedulers** (`90352e6`) — `hestia/learning/scheduler.py` with 3 async loops: MetaMonitor hourly (60s delay), MemoryHealth daily (120s), TriggerMonitor daily (180s). Wired into `server.py` Phase 3 + graceful shutdown
-- **Import fix** (`ba88757`) — `get_research_manager` import path corrected (`hestia.research.manager` not `hestia.research`)
-- **Live-test** — server starts clean, 5 learning endpoints verified (null/empty expected), 7/8 API smoke tests pass
-- **Deploy** — pushed to main, launchd reload confirmed, API readiness timed out (pre-import-fix code). Fix is now on main; CI/CD will deploy
+### Feature A — Per-Agent Model Specialization
+- **Artemis (Mira)** → `deepseek-r1:14b` (COMPLEX tier) — explicit chain-of-thought `<think>` blocks, 9GB VRAM, fits M1 16GB
+- **Apollo (Olly)** → `qwen3:8b` (CODING tier) — native Ollama tool calling + strong coding, replaces `qwen2.5-coder:7b`
+- **Hestia (Tia)** → `qwen3.5:9b` (PRIMARY) — unchanged, best sub-10B general model
+- Config: `config/orchestration.yaml` — new `agent_model_preferences` section
+- Config: `hestia/config/inference.yaml` — coding_model→qwen3:8b, complex_model→deepseek-r1:14b (enabled: true)
+- Code: `hestia/orchestration/agent_models.py` — `AgentModelPreference` dataclass + `OrchestratorConfig` update
+- Code: `hestia/inference/router.py` — `route_for_agent()`, `set_agent_model_preferences()`
+- Code: `hestia/orchestration/executor.py` — `force_tier` per agent in `_execute_task()`
+- Code: `hestia/orchestration/handler.py` — agent prefs wired via `_get_orchestrator_config()`
+- Models pulled locally: `deepseek-r1:14b` (9.0GB), `qwen3:8b` (5.2GB)
 
-### CLI Animated Banner (PR #1, merged)
-- **6-frame campfire animation** (`4ebc84e`) — pixel-font HESTIA + flickering embers + amber palette
-- First-run detection via `~/.hestia/banner_seen` sentinel
-- Fallback: static frame (subsequent runs), plain text (no-color), simple text (<60 cols)
-- Version auto-wired from `hestia_cli.__version__`
-- Files: `hestia-cli/hestia_cli/models.py`, `renderer.py`, `config.py`, `repl.py`, `tests/test_renderer.py`
-- 135/135 CLI tests pass
+### Feature B — Reasoning Streaming (Claude Code-style)
+- **Backend**: 5 new `reasoning` yield points in `handle_streaming()` — intent classification, agent routing, memory retrieval, model selection, `<think>` blocks
+- **`<think>` parser**: intercepts DeepSeek R1 thinking tokens mid-stream, routes as `reasoning` events, strips from stored content
+- **CLI**: `REASONING` enum in `models.py`, `_render_reasoning()` in `renderer.py` — transient `⟳`/`💭` status lines that clear on first response token
+- **Swift**: `.reasoning(aspect:summary:content?)` case in `ChatStreamEvent` + parser in `Response.swift`
+- **Models**: `ReasoningStep` struct + `reasoningSteps: [ReasoningStep]?` on `ConversationMessage` in `Message.swift`
+- **iOS/macOS ViewModels**: `.reasoning` handler appends steps to message during stream
+- **iOS/macOS Views**: `ReasoningStepsSection` collapsible component above AI message content
+- **Shared**: `HestiaShared/Sources/HestiaShared/Views/ReasoningStepsSection.swift` (new file)
 
-### Sprint 16: Memory Lifecycle (PR #2, merged)
-- **Discovery** (`docs/discoveries/memory-lifecycle-importance-consolidation-pruning-2026-03-17.md`)
-- **Plan audit** (`docs/plans/sprint-16-memory-lifecycle-audit-2026-03-17.md`) — APPROVE WITH CONDITIONS (6 conditions, all applied)
-- **Implementation plan** (`docs/superpowers/plans/2026-03-17-sprint-16-memory-lifecycle.md`)
-- **ImportanceScorer** (`hestia/memory/importance.py`) — composite score: 0.3 recency + 0.4 retrieval frequency + 0.3 type bonus. Reads outcome metadata for retrieval data. No LLM inference. 23 tests.
-- **MemoryConsolidator** (`hestia/memory/consolidator.py`) — embedding-similarity dedup (>0.90 threshold, 50-sample cap). Pluggable `MergeStrategy` protocol (ImportanceBasedMerge default). Dry-run default. 9 tests.
-- **MemoryPruner** (`hestia/memory/pruner.py`) — archives chunks >60 days old with importance <0.2. Soft-delete + ChromaDB removal. Undo capability. 13 tests.
-- **Search integration** (`hestia/memory/manager.py:415`) — importance multiplier between import penalty and temporal decay
-- **5 API endpoints** in `hestia/api/routes/memory.py`: importance-stats, consolidation/preview, consolidation/execute, pruning/preview, pruning/execute
-- **Scheduler loops** in `hestia/learning/scheduler.py`: importance nightly (240s delay), consolidation weekly (300s), pruning weekly (3900s)
-- **Config** — `hestia/config/memory.yaml` (importance/consolidation/pruning sections), `config/triggers.yaml` (+low_importance_ratio threshold)
-
-### GitHub CLI
-- Installed `gh` via Homebrew, authenticated via OAuth
+### Commits on main
+- `220e709` feat: Sprint 17 — per-agent model specialization + reasoning streaming (13 files, +351/-16)
+- `6bb97fb` fix: update test assertions for Sprint 17 model changes
+- Other commits (`b575296`, `c12c674`, `9c39967`, `7be950f`, `ff082a9`) from parallel session — CI/CD fixes + Sprint 17 learning closure (CorrectionClassifier, OutcomeDistiller)
 
 ## In Progress
-- None — all work committed and merged to main
+
+**Parallel worktree session (`awesome-nash`) left uncommitted changes on main working tree:**
+These are NOT from this session — they appear to be a macOS Memory Browser + Learning Metrics UI sprint:
+
+Modified (tracked):
+- `hestia/api/routes/memory.py` — new memory browser endpoints
+- `hestia/api/routes/research.py` — research graph changes
+- `hestia/memory/database.py` — new queries
+- `hestia/research/database.py` + `graph_builder.py` — graph changes
+- Multiple macOS view/viewmodel files (AppDelegate, IconSidebar, ResearchView, etc.)
+
+Untracked (new files):
+- `HestiaApp/macOS/Views/Memory/` — Memory Browser views
+- `HestiaApp/macOS/Models/MemoryBrowserModels.swift`
+- `HestiaApp/macOS/Services/APIClient+Memory.swift` + `APIClient+Learning.swift`
+- `HestiaApp/macOS/ViewModels/MacMemoryBrowserViewModel.swift`
+- `HestiaApp/macOS/Views/Command/LearningMetricsPanel.swift`
+- `HestiaApp/macOS/Models/LearningModels.swift`
+- `tests/test_memory_browser.py` + `tests/test_research_graph.py`
 
 ## Decisions Made
-- **Skip `access_count` migration** — compute retrieval frequency from outcome metadata instead (audit condition #1). Avoids schema changes on most-queried table.
-- **Fixed importance weights** — no adaptive rebalancing. 0.3/0.4/0.3 configurable in memory.yaml (audit conditions #2, #4)
-- **50-sample cap on consolidation** — prevents O(n*k) blowup on M1 (audit condition #3)
-- **Pluggable MergeStrategy** — non-LLM (ImportanceBasedMerge) for M1, LLM merge drops in for M5 Ultra (audit condition #6)
-- **Sentinel file for CLI banner** — `~/.hestia/banner_seen` instead of config YAML key. Atomic, no namespace pollution.
+- **Artemis model**: DeepSeek-R1-14B chosen over Phi-4-reasoning (32K context too small) and QwQ-32B (doesn't fit M1)
+- **Apollo model**: Qwen 3 8B chosen over Hermes 3 (weaker coding) and NexusRaven (13B overhead)
+- **M5 Ultra upgrade path**: Hestia→qwen3.5:27b, Artemis→QwQ-32B, Apollo→qwen2.5-coder:32b — all ~57GB, simultaneous load
+- **Reasoning verbosity**: Medium (intent+agent+memory+model+thinking), always on, all apps, show summaries
+- **`<think>` handling**: stream lines as `reasoning` events in real-time, strip tags from stored response
 
 ## Test Status
-- Backend: ~2080 tests (45 new from Sprint 16), all passing except 1 pre-existing Ollama flake
-- CLI: 135 passing
-- Pre-push hook: passes on main (both pytest and xcodebuild gates)
+- **Backend**: 2132 tests collected, all passing
+- **CLI**: 135 passing
+- **Pre-push gate**: passed (tests + macOS xcodebuild on main branch)
+- **iOS build**: clean
+- **macOS build**: clean (required `xcodegen generate` after new SPM `Views/` directory)
 
 ## Uncommitted Changes
-- **Swift/research files** (11 files) — from a PARALLEL session working on Neural Net graph view evolution. NOT from this session. Discovery doc exists at `docs/discoveries/neural-net-graph-view-evolution-2026-03-17.md`. Leave these for that session to commit.
+16 files modified/untracked from parallel session (Memory Browser + Learning Metrics UI). **Do not commit blindly** — review first.
 
 ## Known Issues / Landmines
-- **Mac Mini deploy needs re-run** — first deploy timed out at API readiness (pre-import-fix). The fix (`ba88757`) is on main but hasn't been deployed. Run `./scripts/deploy-to-mini.sh` or rely on CI/CD.
-- **Pruner worktree had Bash permission issue** — the subagent couldn't commit (Bash denied). Files were manually copied. The worktrees have been cleaned up.
-- **Python 3.9 type syntax** — subagents used `X | None` and `tuple[X]` syntax. Both were caught and fixed to `Optional[X]` / `Tuple[X]`. Future subagent prompts should emphasize Python 3.9 compatibility.
-- **Session create endpoint returns 500** — pre-existing, unrelated to our changes. Shows in API smoke tests (test 8).
-- **Parallel session uncommitted Swift changes** — 11 modified Swift/research files visible in `git status`. These are from a concurrent Neural Net graph view session. Do NOT commit or discard them.
+- **`test_simple_completion` (integration test)**: `@pytest.mark.integration`, requires live Ollama. Flaky in mock env — pre-existing, not Sprint 17. Pre-push hook handles it gracefully.
+- **`_get_orchestrator_config()` called twice in streaming path**: once to wire agent prefs into router, once for routing decision display. YAML parse is fast (~1ms) but worth caching eventually.
+- **xcodegen required after new SPM directories**: Adding `HestiaShared/Sources/HestiaShared/Views/` required `xcodegen generate` before macOS build. Not obvious — add to Swift change workflow.
+- **Models only pulled on dev Mac**: `deepseek-r1:14b` and `qwen3:8b` need to be pulled on Mac Mini after deploy. CI/CD won't auto-pull them. Run manually: `ollama pull deepseek-r1:14b && ollama pull qwen3:8b`
+- **Reasoning events in non-streaming path (`handle()`)**: only `handle_streaming()` emits reasoning events. The REST endpoint still uses the non-streaming handler — reasoning won't show for non-streaming iOS clients that fall back to REST. Low priority since streaming is the default.
 
 ## Process Learnings
-- **Config gap: Python version in subagent prompts.** Two subagents used Python 3.10+ syntax (`X | None`, `tuple[X]`). Root cause: prompts didn't mention Python 3.9 constraint. Fix: add "Python 3.9 — use `Optional[X]` not `X | None`, use `Tuple` not `tuple[]`" to all subagent prompts.
-- **Config gap: research module import path.** `get_research_manager` is in `hestia.research.manager`, not `hestia.research`. The `__init__.py` doesn't re-export it. This caught us at server startup. Fix: either add re-export to `__init__.py` or document the gotcha in CLAUDE.md.
-- **First-pass success: ~85%.** 7/8 tasks completed correctly on first try. One rework: Pruner's `async for` cursor pattern didn't match the test mocks — needed `fetchall()` instead. Prevention: standardize on `await execute() + fetchall()` in CLAUDE.md.
-- **Subagent parallelism worked well.** Three worktree subagents ran in parallel (~5 min each vs ~15 min sequential). Merge was clean. The Pruner agent's Bash permission issue was the only friction — workaround was manual file copy.
-- **Agent orchestration: good.** Explorer used for research (1 dispatch, comprehensive results). Three implementation subagents in parallel. No wasted turns.
+
+### Config Gaps
+- **Model name assertions in tests**: 3 tests hardcoded `qwen2.5-coder:7b` — broke when config changed. Tests should reference `router.coding_model.name` dynamically. Add to lessons.md.
+- **xcodegen after SPM directory creation**: Should be documented in CLAUDE.md under iOS Specifics as a required step after adding new `HestiaShared/Sources/` subdirectories.
+
+### First-Pass Success Rate: ~90%
+- Backend logic: first-pass correct
+- One fix: `intent.primary_intent` vs `intent` passed to `AgentRouter.resolve()`  — caught immediately
+- One env issue: xcodegen stale cache — 30s fix
+- Test fixture update: expected model name change — 3 lines
+
+### Agent Orchestration
+- Parallel @hestia-explorer agents (2 simultaneously) worked well for Phase 1 research
+- @hestia-build-validator caught macOS failure before push — high ROI
+- @hestia-tester ran targeted tests efficiently — avoided full suite overhead mid-sprint
+- Missed: `xcodegen generate` should be part of the standard post-Swift-change checklist
 
 ## Next Step
-1. **Re-deploy to Mac Mini** — `./scripts/deploy-to-mini.sh` (import fix is on main but not deployed)
-2. **Resolve parallel session's uncommitted Swift changes** — the Neural Net graph view work needs to be committed or stashed by that session
-3. **Update CLAUDE.md + SPRINT.md** — Sprint 16 status, test counts, endpoint counts, project structure
-4. **Validate retrieval data density** (audit condition #5) — run `SELECT COUNT(*) FROM outcomes WHERE json_extract(metadata, '$.retrieved_chunk_ids') IS NOT NULL` against the live DB. If <50, importance scoring is effectively type_bonus + recency only.
-5. **Begin Sprint 17 planning** — consider: Outcome-to-Principle pipeline, correction classifier, or memory UI browser
+
+**Immediate: clean up working tree first.**
+
+1. Review uncommitted parallel session work:
+   ```bash
+   git diff hestia/api/routes/memory.py hestia/api/routes/research.py | head -50
+   cat tests/test_memory_browser.py
+   ```
+2. Run new tests: `python -m pytest tests/test_memory_browser.py tests/test_research_graph.py -v`
+3. Run `xcodegen generate` in `HestiaApp/` and verify macOS build compiles
+4. Commit the parallel session's work with a meaningful message
+5. Then check `SPRINT.md` to identify what Sprint 18 looks like — the parallel session's Memory Browser work may already be it
+
+**Also needed on Mac Mini:**
+```bash
+ollama pull deepseek-r1:14b
+ollama pull qwen3:8b
+```
+(models are on dev Mac, not yet on the deployment target)
