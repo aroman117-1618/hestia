@@ -43,6 +43,7 @@ class TestAgenticHandler:
             # Mock memory
             mem = MagicMock()
             mem.build_context = AsyncMock(return_value="")
+            mem.build_context_with_score = AsyncMock(return_value=("", 0.0))
 
             # Mock inference
             inf = MagicMock()

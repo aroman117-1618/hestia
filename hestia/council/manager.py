@@ -237,6 +237,14 @@ class CouncilManager:
             )
         else:
             result = self._make_local_fallback_result(intent)
+            # Layer 3: SLM Validator — run locally when cloud is disabled.
+            # Purely additive: failure is logged and silently ignored.
+            validation = await self._validate_locally(
+                inference_response=inference_response,
+                user_message=user_message,
+            )
+            if validation is not None:
+                result.validation = validation
 
         result.total_duration_ms = (time.perf_counter() - start) * 1000
         return result
@@ -396,6 +404,67 @@ class CouncilManager:
                 council_result.validation = data
 
         return council_result
+
+    async def _validate_locally(
+        self,
+        inference_response: str,
+        user_message: str,
+    ) -> Optional[ValidationReport]:
+        """
+        Run the Validator role via local SLM (qwen2.5:0.5b) when cloud is disabled.
+
+        Uses a simplified binary prompt — not the full cloud Validator rubric —
+        because qwen2.5:0.5b is a discrimination model, not a generation model.
+        Question: "Does this response make factual claims not grounded in the
+        provided context? YES or NO"
+
+        Always fail-open: returns None on any error, never raises.
+        """
+        _BINARY_SYSTEM = (
+            "You are a grounding checker. Given a response and the context it was based on, "
+            "determine if the response makes specific factual claims (dates, numbers, statuses, "
+            "names, project details) that are NOT supported by the provided context.\n\n"
+            "Reply with exactly one word: YES (ungrounded claims found) or NO (response is grounded)."
+        )
+        prompt = (
+            f"User question: {user_message[:300]}\n\n"
+            f"Response to check: {inference_response[:800]}\n\n"
+            "Are there specific factual claims in the response NOT supported by context? YES or NO:"
+        )
+        try:
+            start = time.perf_counter()
+            response = await asyncio.wait_for(
+                self.inference_client._call_ollama(
+                    prompt="",
+                    model_name=self.config.local_slm_model,
+                    system=_BINARY_SYSTEM,
+                    messages=[Message(role="user", content=prompt)],
+                    temperature=0.0,
+                    max_tokens=5,
+                ),
+                timeout=self.config.local_slm_timeout,
+            )
+            duration_ms = (time.perf_counter() - start) * 1000
+            verdict = (response.content or "").strip().upper()
+            is_grounded = not verdict.startswith("YES")
+
+            self.logger.info(
+                f"Local SLM validation: {'GROUNDED' if is_grounded else 'UNGROUNDED'} ({duration_ms:.0f}ms)",
+                component=LogComponent.COUNCIL,
+                data={"verdict": verdict, "duration_ms": round(duration_ms)},
+            )
+            return ValidationReport.create(
+                is_safe=True,
+                is_high_quality=is_grounded,
+                quality_score=1.0 if is_grounded else 0.3,
+                issues=[] if is_grounded else ["SLM validator: ungrounded claims detected"],
+            )
+        except Exception as e:
+            self.logger.warning(
+                f"Local SLM validation failed: {type(e).__name__}",
+                component=LogComponent.COUNCIL,
+            )
+            return None
 
     def _make_local_fallback_result(
         self, intent: Optional[IntentClassification]

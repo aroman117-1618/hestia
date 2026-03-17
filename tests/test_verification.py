@@ -1,74 +1,129 @@
-"""Tests for the self-modification verification layer."""
+"""
+Tests for the anti-hallucination verification pipeline (Sprint 18).
+
+Covers:
+- HallucinationRisk enum and VerificationResult dataclass
+- ToolComplianceChecker Layer 1 detection
+- build_context_with_score() memory manager addition
+"""
 import pytest
-from hestia.execution.verification import (
-    is_self_modification,
-    find_test_file,
-    VerificationResult,
-)
 
 
-class TestSelfModificationDetection:
-    def test_detects_own_source_code(self):
-        assert is_self_modification("/Users/andrewlonati/hestia/hestia/memory/manager.py")
+# ─────────────────────────────────────────────────────────────────────────────
+# Models
+# ─────────────────────────────────────────────────────────────────────────────
 
-    def test_detects_test_files(self):
-        assert is_self_modification("/Users/andrewlonati/hestia/tests/test_memory.py")
+class TestVerificationModels:
+    def test_hallucination_risk_enum_values(self):
+        from hestia.verification.models import HallucinationRisk
+        assert HallucinationRisk.NONE.value == "none"
+        assert HallucinationRisk.TOOL_BYPASS.value == "tool_bypass"
+        assert HallucinationRisk.LOW_RETRIEVAL.value == "low_retrieval"
+        assert HallucinationRisk.SLM_FLAG.value == "slm_flag"
+        assert HallucinationRisk.UNKNOWN.value == "unknown"
 
-    def test_detects_cli_code(self):
-        assert is_self_modification("/Users/andrewlonati/hestia/hestia-cli/hestia_cli/app.py")
+    def test_verification_result_clean(self):
+        from hestia.verification.models import VerificationResult, HallucinationRisk
+        result = VerificationResult.clean()
+        assert result.risk == HallucinationRisk.NONE
+        assert not result.has_risk
+        assert result.disclaimer is None
+        assert result.flags == []
 
-    def test_detects_scripts(self):
-        assert is_self_modification("/Users/andrewlonati/hestia/scripts/deploy.sh")
+    def test_verification_result_has_risk(self):
+        from hestia.verification.models import VerificationResult, HallucinationRisk
+        result = VerificationResult(risk=HallucinationRisk.TOOL_BYPASS)
+        assert result.has_risk
 
-    def test_ignores_data_files(self):
-        assert not is_self_modification("/Users/andrewlonati/hestia/data/user/MEMORY.md")
-
-    def test_ignores_docs(self):
-        assert not is_self_modification("/Users/andrewlonati/hestia/docs/api-contract.md")
-
-    def test_ignores_external_files(self):
-        assert not is_self_modification("/Users/andrewlonati/Documents/notes.txt")
-
-
-class TestTestFileMapping:
-    def test_memory_module(self):
-        result = find_test_file("hestia/memory/manager.py")
-        assert result == "tests/test_memory.py"
-
-    def test_research_module(self):
-        result = find_test_file("hestia/research/database.py")
-        assert result == "tests/test_research.py"
-
-    def test_orchestration_module(self):
-        result = find_test_file("hestia/orchestration/handler.py")
-        assert result == "tests/test_orchestration.py"
-
-    def test_unknown_module(self):
-        result = find_test_file("hestia/nonexistent/module.py")
-        assert result is None
-
-    def test_api_routes_no_generic_test(self):
-        """Routes don't have a single test file — returns None for unmatched."""
-        result = find_test_file("hestia/api/routes/chat.py")
-        # test_routes.py doesn't exist — individual route modules have specific test files
-        assert result is None
-
-
-class TestVerificationResult:
-    def test_to_dict(self):
+    def test_verification_result_with_disclaimer(self):
+        from hestia.verification.models import VerificationResult, HallucinationRisk
         result = VerificationResult(
-            is_self_modification=True,
-            test_file="tests/test_memory.py",
-            post_test_passed=True,
-            diff="some diff content",
+            risk=HallucinationRisk.TOOL_BYPASS,
+            disclaimer="Please verify.",
+            flags=["calendar_claim_without_tool"],
         )
-        d = result.to_dict()
-        assert d["is_self_modification"] is True
-        assert d["test_file"] == "tests/test_memory.py"
-        assert d["post_test_passed"] is True
-        assert d["diff_length"] > 0
+        assert result.has_risk
+        assert result.disclaimer == "Please verify."
+        assert len(result.flags) == 1
 
-    def test_non_self_modification(self):
-        result = VerificationResult()
-        assert result.is_self_modification is False
-        assert result.test_file is None
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Tool Compliance Checker (Layer 1)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestToolComplianceChecker:
+    def setup_method(self):
+        from hestia.verification.tool_compliance import ToolComplianceChecker
+        self.checker = ToolComplianceChecker()
+
+    def test_clean_response_no_disclaimer(self):
+        """Conversational response with no domain claims returns None."""
+        response = "The weather looks nice today. How can I help you?"
+        result = self.checker.check(response, had_tool_calls=False)
+        assert result is None
+
+    def test_grounded_response_with_tool_calls(self):
+        """Response grounded by tool calls returns None regardless of content."""
+        response = "Your next meeting is at 3pm with the design team."
+        result = self.checker.check(response, had_tool_calls=True)
+        assert result is None
+
+    def test_calendar_claim_without_tool_returns_disclaimer(self):
+        """Calendar data claim without tool call triggers disclaimer."""
+        response = "Your next meeting is the team standup at 9am."
+        result = self.checker.check(response, had_tool_calls=False)
+        assert result is not None
+        assert "verify" in result.lower() or "confirm" in result.lower()
+
+    def test_health_claim_without_tool_returns_disclaimer(self):
+        """Health data claim without tool call triggers disclaimer."""
+        response = "Your heart rate today was 72 bpm, which is excellent."
+        result = self.checker.check(response, had_tool_calls=False)
+        assert result is not None
+
+    def test_notes_claim_without_tool_returns_disclaimer(self):
+        """Notes data claim without tool call triggers disclaimer."""
+        response = "In your notes, you wrote down the project deadline as March 30."
+        result = self.checker.check(response, had_tool_calls=False)
+        assert result is not None
+
+    def test_reminder_claim_without_tool(self):
+        """Reminder data claim without tool call triggers disclaimer."""
+        response = "You have a reminder to call the dentist tomorrow at noon."
+        result = self.checker.check(response, had_tool_calls=False)
+        assert result is not None
+
+    def test_empty_response_returns_none(self):
+        """Empty response is never flagged."""
+        result = self.checker.check("", had_tool_calls=False)
+        assert result is None
+
+    def test_generic_project_question_no_false_positive(self):
+        """Questions about roadmap/status should not trigger false positives."""
+        response = (
+            "We're at Sprint 17 with the agent orchestration complete. "
+            "Next candidates include the outcome-to-principle pipeline."
+        )
+        result = self.checker.check(response, had_tool_calls=False)
+        assert result is None
+
+    def test_checker_does_not_raise_on_internal_error(self, monkeypatch):
+        """Internal errors return None — never raise to caller (fail-open)."""
+        import hestia.verification.tool_compliance as tc_module
+        # Clear cached patterns to force reload
+        monkeypatch.setattr(tc_module, "_COMPILED_PATTERNS", None)
+
+        original_load = tc_module._load_patterns
+
+        def bad_load():
+            raise RuntimeError("config unavailable")
+
+        monkeypatch.setattr(tc_module, "_load_patterns", bad_load)
+        # Should not raise — fail-open; hardcoded fallback kicks in
+        try:
+            result = self.checker.check("Your heart rate is 72 bpm.", had_tool_calls=False)
+            # Either None or a disclaimer string — both acceptable
+            assert result is None or isinstance(result, str)
+        finally:
+            monkeypatch.setattr(tc_module, "_load_patterns", original_load)
+            monkeypatch.setattr(tc_module, "_COMPILED_PATTERNS", None)

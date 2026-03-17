@@ -63,3 +63,33 @@ pruning:
     - committed
   protected_types:
     - system
+
+# Hallucination Guard (Sprint 18)
+# Layer 1: domain patterns that indicate fabricated personal data
+# Layer 2: retrieval quality threshold — warn LLM when context is weak
+hallucination_guard:
+  enabled: true
+
+  # Layer 1: Tool Compliance Gate
+  # Patterns that suggest a response claims personal data (calendar, health, notes, etc.)
+  # Pair with fabricated-result indicators to reduce false positives.
+  domain_claim_patterns:
+    - "your next meeting"
+    - "you have an? (event|appointment|meeting)"
+    - "scheduled for"
+    - "on your calendar"
+    - "your heart rate"
+    - "you took .* steps"
+    - "your (weight|hrv|blood pressure|sleep)"
+    - "in your (note|notes)"
+    - "you wrote"
+    - "your note (says|contains|mentions)"
+    - "your reminder"
+    - "you have a (task|reminder)"
+    - "your email"
+    - "you received"
+
+  # Layer 2: Retrieval Quality Score Injection
+  # When top cosine similarity is below this threshold, inject a low-relevance warning
+  retrieval_quality_threshold: 0.6
+  retrieval_warning: "[Memory context relevance: LOW ({score:.2f}). Retrieved context may not match this query precisely. Acknowledge uncertainty rather than speculating.]"

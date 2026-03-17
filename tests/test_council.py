@@ -595,11 +595,11 @@ class TestValidator:
         assert len(result.issues) == 1
 
     def test_parse_invalid_json_fails_open(self):
-        """Invalid JSON fails open (passes validation)."""
+        """Invalid JSON fails open on safety but signals parse failure via is_high_quality=False."""
         result = self.validator.parse_response("not json")
-        assert result.is_safe is True
-        assert result.is_high_quality is True
-        assert len(result.issues) == 1  # Parse error noted
+        assert result.is_safe is True           # Fail-open: never block on parse error
+        assert result.is_high_quality is False  # Signals parse failure to callers (not a clean pass)
+        assert len(result.issues) == 1          # Parse error noted in issues
 
     def test_parse_with_code_fences(self):
         """JSON wrapped in code fences parses correctly."""
@@ -1572,6 +1572,7 @@ def _make_handler_with_mocks(
     # Mock memory manager
     mock_memory = AsyncMock()
     mock_memory.build_context = AsyncMock(return_value="")
+    mock_memory.build_context_with_score = AsyncMock(return_value=("", 0.0))
     mock_memory.store_exchange = AsyncMock()
     handler._memory_manager = mock_memory
 

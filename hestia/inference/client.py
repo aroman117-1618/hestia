@@ -515,7 +515,7 @@ class InferenceClient:
                 max_tokens=max_tokens,
                 timeout=routing.model_config.request_timeout,
                 tier=routing.tier,
-                tools=tools,
+                tools=tools if routing.model_config.supports_tools else None,
             )
         except LocalModelFailed as local_error:
             # Local failed — try cloud fallback if available
@@ -1185,7 +1185,7 @@ class InferenceClient:
                 max_tokens=max_tokens,
                 timeout=routing.model_config.request_timeout,
                 tier=routing.tier,
-                tools=tools,
+                tools=tools if routing.model_config.supports_tools else None,
             ):
                 yield item
         except (LocalModelFailed, httpx.ConnectError) as local_error:

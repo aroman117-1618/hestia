@@ -61,6 +61,7 @@ class LogComponent(Enum):
     OUTCOMES = "outcomes"
     APPLE_CACHE = "apple_cache"
     LEARNING = "learning"
+    VERIFICATION = "verification"
 
 
 class EventType(Enum):

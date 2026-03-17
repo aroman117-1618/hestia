@@ -181,15 +181,16 @@ class Validator(CouncilRole):
             )
         except (json.JSONDecodeError, KeyError, ValueError, TypeError) as e:
             self.logger.warning(
-                f"Validator parse failed: {type(e).__name__}",
+                f"Validator parse failed: {type(e).__name__} — verification_status=parse_error",
                 component=LogComponent.COUNCIL,
             )
-            # Fail open — don't block on parse error
+            # Fail open — don't block on parse error.
+            # is_high_quality=False signals parse failure to callers (not a clean pass).
             return ValidationReport.create(
                 is_safe=True,
-                is_high_quality=True,
-                quality_score=0.5,
-                issues=[f"Validation parse error: {type(e).__name__}"],
+                is_high_quality=False,
+                quality_score=0.0,
+                issues=[f"verification_status=parse_error: {type(e).__name__}"],
             )
 
 

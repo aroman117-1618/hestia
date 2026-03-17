@@ -48,6 +48,7 @@ complex_model:
   request_timeout: 120.0
   enabled: true
   default_agent: "mira"
+  supports_tools: false  # deepseek-r1 does not support Ollama native tool calling
 
 # CODING: Tool-calling + code specialist for execution tasks
 # - Qwen 3 8B: native Ollama tool calling + strong coding (LiveCodeBench 60.2)

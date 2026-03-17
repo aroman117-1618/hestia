@@ -40,6 +40,7 @@ from hestia.execution import (
 from hestia.council.manager import CouncilManager, get_council_manager
 from hestia.council.models import IntentClassification, IntentType
 from hestia.orchestration.cache import get_response_cache
+from hestia.verification import ToolComplianceChecker
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -250,6 +251,29 @@ class RequestHandler:
             )
         return user_profile_context, command_system_instructions, expanded_content
 
+    async def _load_approved_principles(self) -> str:
+        """
+        Load approved behavioral principles from ResearchManager.
+        Returns formatted string for system prompt injection.
+        Never raises — returns empty string on any failure.
+        """
+        try:
+            from hestia.research.manager import get_research_manager
+            from hestia.research.models import PrincipleStatus
+            research = await get_research_manager()
+            result = await research.list_principles(status=PrincipleStatus.APPROVED, limit=20)
+            principles = result.get("principles", [])
+            if not principles:
+                return ""
+            lines = [f"[{p['domain']}] {p['content']}" for p in principles]
+            return "\n".join(lines)
+        except Exception as e:
+            self.logger.warning(
+                f"Failed to load approved principles: {type(e).__name__}",
+                component=LogComponent.ORCHESTRATION,
+            )
+            return ""
+
     def _register_builtin_tools(self) -> None:
         """Register built-in tools with the registry."""
         try:
@@ -352,6 +376,40 @@ class RequestHandler:
             del self._conversations[sid]
 
         return len(expired_ids)
+
+    def _inject_retrieval_warning(self, memory_context: str, retrieval_score: float) -> str:
+        """Layer 2: Prepend a low-relevance warning to memory context when score is weak.
+
+        When the top cosine similarity is below the configured threshold, the model
+        is informed so it hedges instead of confabulating from weak grounding.
+        """
+        try:
+            import yaml
+            import os
+            cfg_path = os.path.join(
+                os.path.dirname(__file__), "..", "config", "memory.yaml"
+            )
+            with open(os.path.normpath(cfg_path)) as f:
+                cfg = yaml.safe_load(f)
+            guard = cfg.get("hallucination_guard", {})
+            threshold = guard.get("retrieval_quality_threshold", 0.6)
+            template = guard.get(
+                "retrieval_warning",
+                "[Memory context relevance: LOW ({score:.2f}). Be explicit about uncertainty.]"
+            )
+        except Exception:
+            threshold = 0.6
+            template = "[Memory context relevance: LOW ({score:.2f}). Be explicit about uncertainty.]"
+
+        if retrieval_score < threshold and memory_context:
+            warning = template.format(score=retrieval_score) + "\n\n"
+            self.logger.info(
+                f"Retrieval quality warning injected (score={retrieval_score:.2f})",
+                component=LogComponent.ORCHESTRATION,
+                data={"retrieval_score": round(retrieval_score, 3), "threshold": threshold},
+            )
+            return warning + memory_context
+        return memory_context
 
     def _will_route_to_cloud(self, content: str, force_local: bool = False) -> bool:
         """Predict whether this request will route to cloud.
@@ -518,7 +576,7 @@ class RequestHandler:
 
             parallel_start = time.perf_counter()
             results = await asyncio.gather(
-                memory.build_context(
+                memory.build_context_with_score(
                     query=request.content,
                     max_tokens=4000,
                     include_recent=True,
@@ -526,6 +584,7 @@ class RequestHandler:
                 ),
                 self._load_user_profile_context(request, will_use_cloud),
                 council.classify_intent(request.content),
+                self._load_approved_principles(),
                 return_exceptions=True,
             )
             parallel_ms = (time.perf_counter() - parallel_start) * 1000
@@ -535,7 +594,8 @@ class RequestHandler:
                 data={"request_id": request.id, "parallel_ms": round(parallel_ms)},
             )
 
-            # Unpack memory result
+            # Unpack memory result — now returns (context_str, top_score)
+            retrieval_score = 0.0
             if isinstance(results[0], Exception):
                 self.logger.warning(
                     f"Memory retrieval failed: {type(results[0]).__name__}",
@@ -544,7 +604,7 @@ class RequestHandler:
                 )
                 memory_context = ""
             else:
-                memory_context = results[0]
+                memory_context, retrieval_score = results[0]
 
             # Unpack profile result
             if isinstance(results[1], Exception):
@@ -576,6 +636,11 @@ class RequestHandler:
                     "confidence": intent.confidence,
                 }
 
+            # Unpack principles result (excluded from cloud-safe builds)
+            principles_context = ""
+            if not isinstance(results[3], Exception) and not will_use_cloud:
+                principles_context = results[3] or ""
+
             # Step 6.5: Agent orchestration (ADR-042)
             orchestrator_response = await self._try_orchestrated_response(
                 request=request,
@@ -593,6 +658,9 @@ class RequestHandler:
                 self.state_machine.complete(task, orchestrator_response)
                 return orchestrator_response
 
+            # Layer 2: Retrieval quality warning — inject into context when score is low
+            memory_context = self._inject_retrieval_warning(memory_context, retrieval_score)
+
             # Build prompt with tool behavior guidance
             tool_instructions = TOOL_INSTRUCTIONS
             combined_instructions = tool_instructions
@@ -606,6 +674,7 @@ class RequestHandler:
                 additional_system_instructions=combined_instructions,
                 cloud_safe=will_use_cloud,
                 user_profile_context=user_profile_context,
+                principles=principles_context,
             )
 
             # Check token budget
@@ -626,6 +695,16 @@ class RequestHandler:
                 intent=intent,
                 will_use_cloud=will_use_cloud,
             )
+
+            # Layer 1: Tool compliance gate — append disclaimer if domain data claimed without tool call
+            if response.content:
+                checker = ToolComplianceChecker()
+                disclaimer = checker.check(
+                    response_content=response.content,
+                    had_tool_calls=bool(response.tool_calls),
+                )
+                if disclaimer:
+                    response.content += disclaimer
 
             # Step 8: Store conversation in memory
             await self._store_conversation(request, response, memory)
@@ -793,7 +872,7 @@ class RequestHandler:
 
             parallel_start = time.perf_counter()
             results = await asyncio.gather(
-                memory.build_context(
+                memory.build_context_with_score(
                     query=request.content,
                     max_tokens=4000,
                     include_recent=True,
@@ -801,6 +880,7 @@ class RequestHandler:
                 ),
                 self._load_user_profile_context(request, will_use_cloud),
                 council.classify_intent(request.content),
+                self._load_approved_principles(),
                 return_exceptions=True,
             )
             parallel_ms = (time.perf_counter() - parallel_start) * 1000
@@ -810,7 +890,8 @@ class RequestHandler:
                 data={"request_id": request.id, "parallel_ms": round(parallel_ms)},
             )
 
-            # Unpack memory result
+            # Unpack memory result — now returns (context_str, top_score)
+            retrieval_score = 0.0
             if isinstance(results[0], Exception):
                 self.logger.warning(
                     f"Memory retrieval failed: {type(results[0]).__name__}",
@@ -819,7 +900,7 @@ class RequestHandler:
                 )
                 memory_context = ""
             else:
-                memory_context = results[0]
+                memory_context, retrieval_score = results[0]
 
             # Unpack profile result
             if isinstance(results[1], Exception):
@@ -855,6 +936,11 @@ class RequestHandler:
                     "summary": f"{intent.primary_intent.value} ({intent.confidence:.2f})",
                 }
 
+            # Unpack principles result (excluded from cloud-safe builds)
+            principles_context = ""
+            if not isinstance(results[3], Exception) and not will_use_cloud:
+                principles_context = results[3] or ""
+
             # Reasoning: memory retrieval summary
             if memory_context:
                 chunk_count = memory_context.count("\n---\n") + 1
@@ -883,6 +969,9 @@ class RequestHandler:
                         "type": "reasoning", "aspect": "agent",
                         "summary": agent_route_summary,
                     }
+
+            # Layer 2: Retrieval quality warning — inject into context when score is low
+            memory_context = self._inject_retrieval_warning(memory_context, retrieval_score)
 
             # Build prompt
             tool_instructions = TOOL_INSTRUCTIONS
@@ -927,6 +1016,7 @@ class RequestHandler:
                 additional_system_instructions=combined_instructions,
                 cloud_safe=will_use_cloud,
                 user_profile_context=user_profile_context,
+                principles=principles_context,
             )
 
             # Token budget check
@@ -1194,6 +1284,17 @@ class RequestHandler:
                     final_content = fallback_msg
                 else:
                     final_content = content
+
+            # Layer 1: Tool compliance gate (streaming path)
+            if final_content and not inference_response.tool_calls and tool_result is None:
+                checker = ToolComplianceChecker()
+                disclaimer = checker.check(
+                    response_content=final_content,
+                    had_tool_calls=False,
+                )
+                if disclaimer:
+                    yield {"type": "token", "content": disclaimer, "request_id": request.id}
+                    final_content += disclaimer
 
             # Step 8: Store conversation in memory
             response = Response(

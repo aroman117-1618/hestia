@@ -111,6 +111,7 @@ class TestHandleStreaming:
             # Mock memory
             mock_memory = MagicMock()
             mock_memory.build_context = AsyncMock(return_value="memory context")
+            mock_memory.build_context_with_score = AsyncMock(return_value=("memory context", 0.8))
             handler._get_memory_manager = AsyncMock(return_value=mock_memory)
 
             # Mock cloud routing check
@@ -288,6 +289,7 @@ class TestHandleStreaming:
 
             mock_memory = MagicMock()
             mock_memory.build_context = AsyncMock(return_value="")
+            mock_memory.build_context_with_score = AsyncMock(return_value=("", 0.0))
             handler._get_memory_manager = AsyncMock(return_value=mock_memory)
             handler._will_route_to_cloud = MagicMock(return_value=False)
 
@@ -405,6 +407,7 @@ class TestHandleStreaming:
 
             mock_memory = MagicMock()
             mock_memory.build_context = AsyncMock(return_value="")
+            mock_memory.build_context_with_score = AsyncMock(return_value=("", 0.0))
             handler._get_memory_manager = AsyncMock(return_value=mock_memory)
             handler._will_route_to_cloud = MagicMock(return_value=False)
 

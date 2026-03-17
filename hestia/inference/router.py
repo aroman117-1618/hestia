@@ -45,6 +45,7 @@ class ModelConfig:
     enabled: bool = True
     api_key_credential: Optional[str] = None  # For cloud models
     default_agent: Optional[str] = None  # Suggested agent persona for this tier
+    supports_tools: bool = True  # Whether this model supports Ollama native tool calling
 
 
 @dataclass
@@ -186,6 +187,7 @@ class ModelRouter:
             request_timeout=complex_data.get("request_timeout", 300.0),
             enabled=complex_data.get("enabled", False),
             default_agent=complex_data.get("default_agent"),
+            supports_tools=complex_data.get("supports_tools", True),
         )
 
         coding_data = data.get("coding_model", {})
