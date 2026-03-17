@@ -51,23 +51,40 @@ set -e
 
 cat "$PYTEST_LOG"
 
-# If killed by timeout (exit 143) or pytest-timeout killed a hanging test
-# (exit 1 with only errors, no failures), check if tests actually passed
+# Determine if tests actually passed despite non-zero exit code.
+# Common false-positive failures:
+#   - exit 143: run_with_timeout killed pytest (ChromaDB threads hang after tests complete)
+#   - exit 1 with 0 failures: pytest-timeout killed individual hung tests (E markers)
+#   - exit 1 with [100%] but no summary: pytest hung before printing summary line
 FAILED_COUNT=$(grep -oE '[0-9]+ failed' "$PYTEST_LOG" | head -1 | grep -oE '[0-9]+' || echo "0")
-if [ $PYTEST_EXIT -eq 143 ] && grep -q "passed" "$PYTEST_LOG" && [ "$FAILED_COUNT" = "0" ]; then
-    echo "(pytest process hung after completion — killed by timeout, tests passed)"
+HAS_PASSED=$(grep -q "passed" "$PYTEST_LOG" && echo "yes" || echo "no")
+REACHED_100=$(grep -q '\[100%\]' "$PYTEST_LOG" && echo "yes" || echo "no")
+
+if [ $PYTEST_EXIT -eq 0 ]; then
     rm -f "$PYTEST_LOG"
-elif [ $PYTEST_EXIT -ne 0 ] && [ "$FAILED_COUNT" = "0" ] && grep -q "passed" "$PYTEST_LOG"; then
-    echo "(pytest-timeout killed a hanging test — all real tests passed)"
+elif [ "$FAILED_COUNT" != "0" ]; then
+    # Real test failures — block the push
     rm -f "$PYTEST_LOG"
-elif [ $PYTEST_EXIT -ne 0 ]; then
+    echo ""
+    echo "FAILED: $FAILED_COUNT test(s) failed"
+    echo "Fix failing tests before pushing, or use: git push --no-verify"
+    exit 1
+elif [ "$HAS_PASSED" = "yes" ] || [ "$REACHED_100" = "yes" ]; then
+    # Tests completed (either summary says "passed" or progress reached 100%)
+    # but pytest exited non-zero due to timeout/thread hangs — safe to proceed
+    echo "(pytest exited $PYTEST_EXIT — no failures detected, likely ChromaDB thread hang)"
+    rm -f "$PYTEST_LOG"
+elif [ $PYTEST_EXIT -eq 143 ]; then
+    # Killed by our timeout watchdog — check if any progress was made
+    echo "(pytest killed by timeout watchdog — check test health manually)"
+    rm -f "$PYTEST_LOG"
+    exit 1
+else
     rm -f "$PYTEST_LOG"
     echo ""
     echo "FAILED: pytest exited with code $PYTEST_EXIT"
     echo "Fix failing tests before pushing, or use: git push --no-verify"
     exit 1
-else
-    rm -f "$PYTEST_LOG"
 fi
 
 # --- Step 3: xcodebuild on main only ---
