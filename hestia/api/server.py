@@ -50,6 +50,7 @@ from hestia.inbox import get_inbox_manager, close_inbox_manager
 from hestia.outcomes import get_outcome_manager, close_outcome_manager
 from hestia.apple_cache import get_apple_cache_manager, close_apple_cache_manager
 from hestia.orchestration.audit_db import get_routing_audit_db, close_routing_audit_db
+from hestia.learning import get_learning_scheduler, close_learning_scheduler
 
 # Import routers
 from hestia.api.routes import (
@@ -329,6 +330,7 @@ async def lifespan(app: FastAPI):
         # Schedulers depend on their managers from Phase 2
         order_scheduler = await get_order_scheduler()
         wiki_scheduler = await get_wiki_scheduler()
+        learning_scheduler = await get_learning_scheduler()
 
         # ── Phase 4: Fire-and-forget background tasks ────────────────
         async def _post_deploy_wiki_refresh() -> None:
@@ -364,7 +366,7 @@ async def lifespan(app: FastAPI):
             component=LogComponent.API,
             data={
                 "startup_ms": startup_ms,
-                "managers_initialized": 18,
+                "managers_initialized": 19,
             }
         )
 
@@ -385,7 +387,17 @@ async def lifespan(app: FastAPI):
 
         shutdown_errors = 0
 
-        # 21. routing_audit_db (newest -> first closed)
+        # 22. learning_scheduler (newest -> first closed)
+        try:
+            await close_learning_scheduler()
+        except Exception as e:
+            shutdown_errors += 1
+            logger.warning(
+                f"Learning scheduler cleanup error: {type(e).__name__}",
+                component=LogComponent.API,
+            )
+
+        # 21. routing_audit_db
         try:
             await close_routing_audit_db()
         except Exception as e:

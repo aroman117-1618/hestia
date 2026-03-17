@@ -169,6 +169,11 @@ class BriefingGenerator:
         if health_data:
             self._add_health_section(briefing, health_data)
 
+        # Add system alerts from learning module
+        alerts = await self._get_system_alerts()
+        if alerts:
+            self._add_system_alerts_section(briefing, alerts)
+
         # Add pattern-based suggestions
         if patterns:
             self._add_suggestions(briefing, patterns, now)
@@ -586,6 +591,42 @@ class BriefingGenerator:
             content=briefing.health_summary,
             priority=65,  # Between tasks (60) and reminders (70)
             icon="heart.fill",
+        ))
+
+    async def _get_system_alerts(self) -> Optional[List[Any]]:
+        """Get unacknowledged system alerts from the learning module."""
+        try:
+            from hestia.learning.database import LearningDatabase
+
+            db = LearningDatabase()
+            await db.connect()
+            try:
+                alerts = await db.get_unacknowledged_alerts("default")
+                return alerts if alerts else None
+            finally:
+                await db.close()
+        except Exception as e:
+            self.logger.debug(
+                f"Failed to get system alerts: {type(e).__name__}",
+                component=LogComponent.ORCHESTRATION,
+            )
+            return None
+
+    def _add_system_alerts_section(self, briefing: Briefing, alerts: List[Any]) -> None:
+        """Add system alerts section to briefing."""
+        lines = []
+        for alert in alerts[:5]:  # Cap at 5 alerts
+            lines.append(f"- {alert.message}")
+
+        content = "\n".join(lines)
+        if len(alerts) > 5:
+            content += f"\n...and {len(alerts) - 5} more alerts."
+
+        briefing.sections.append(BriefingSection(
+            title="System Alerts",
+            content=content,
+            priority=95,  # High priority — above calendar (90)
+            icon="exclamationmark.triangle",
         ))
 
     def _add_suggestions(
