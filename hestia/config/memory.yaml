@@ -23,3 +23,43 @@ temporal_decay:
   # Recency boost — memories within this window get a multiplier
   recency_boost_hours: 24
   recency_boost_factor: 1.2
+
+# Importance scoring (Sprint 16)
+# Composite score: weighted sum of recency, retrieval frequency, and chunk-type bonus
+# Stored in ChunkMetadata.confidence field (repurposed from static 1.0)
+importance:
+  enabled: true
+  weights:
+    recency: 0.3
+    retrieval: 0.4
+    type_bonus: 0.3
+  type_bonuses:
+    fact: 0.8
+    decision: 0.7
+    preference: 0.6
+    research: 0.5
+    insight: 0.8
+    action_item: 0.4
+    conversation: 0.3
+    system: 1.0
+  recency_max_days: 90
+  min_importance: 0.05
+  system_floor: 0.5      # System/fact chunks never drop below this
+
+# Consolidation — embedding-similarity dedup (Sprint 16)
+consolidation:
+  enabled: true
+  similarity_threshold: 0.90
+  sample_size: 50         # Max chunks to sample per run (audit condition: cap at 50)
+  max_merges_per_run: 100
+  require_same_type: true # Only merge chunks of the same chunk_type
+
+# Pruning — age+importance-gated soft-delete (Sprint 16)
+pruning:
+  enabled: true
+  max_age_days: 60
+  importance_threshold: 0.2
+  protected_statuses:
+    - committed
+  protected_types:
+    - system
