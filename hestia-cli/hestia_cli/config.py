@@ -135,6 +135,16 @@ def validate_config(config: Dict[str, Any]) -> List[str]:
     return warnings
 
 
+def has_seen_banner() -> bool:
+    """Check if the user has seen the animated startup banner."""
+    return (get_config_dir() / "banner_seen").exists()
+
+
+def mark_banner_seen() -> None:
+    """Mark that the user has seen the animated startup banner."""
+    (get_config_dir() / "banner_seen").touch()
+
+
 def _deep_merge(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
     """Deep merge two dicts, override takes precedence."""
     result = dict(base)
