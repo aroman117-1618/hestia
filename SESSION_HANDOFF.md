@@ -1,51 +1,75 @@
-# Session Handoff — 2026-03-16 (Session 3)
+# Session Handoff — 2026-03-17 (Session 4)
 
 ## Mission
-Build Sprint 15 — Hestia's first self-awareness infrastructure (MetaMonitor, Memory Health Monitor, Trigger Metrics). Full discovery, plan audit, implementation cycle.
+Complete Sprint 15 loose ends (scheduler wiring, briefing injection, deploy, live-test), then plan and implement Sprint 16 (Memory Lifecycle: importance scoring, consolidation, pruning).
 
 ## Completed
-- **Discovery report** (`docs/discoveries/metamonitor-memory-health-triggers-2026-03-16.md`) — SWOT, argue/refute, third-party evidence, architecture recommendation
-- **Plan audit** (`docs/plans/sprint-15-metamonitor-audit-2026-03-16.md`) — 9-phase review, CISO/CTO/CPO verdicts, devil's advocate, APPROVE WITH CONDITIONS
-- **Implementation plan** (`docs/superpowers/plans/2026-03-16-sprint-15-metamonitor.md`) — 7 chunks, 16 tasks
-- **handler.py decomposition** (`6c6020c`) — extracted AgenticHandler (~145 lines), added LEARNING LogComponent
-- **Retrieval feedback loop** (`fa7eb7d`) — `build_context()` stashes chunk IDs as `_last_retrieved_chunk_ids`, chat.py threads into outcome metadata
-- **Learning module** (`8eacb3e`) — full `hestia/learning/` module: models, database, MetaMonitor, MemoryHealth, TriggerMonitor, 5 API endpoints, config/triggers.yaml, 27 tests
-- **Planning docs** (`097f798`) — discovery, audit, implementation plan committed
+
+### Sprint 15 Wiring (items 1-4 from previous handoff)
+- **Briefing injection** (`90352e6`) — `_add_system_alerts_section()` in `hestia/proactive/briefing.py`, priority 95, queries `LearningDatabase.get_unacknowledged_alerts()`
+- **Learning schedulers** (`90352e6`) — `hestia/learning/scheduler.py` with 3 async loops: MetaMonitor hourly (60s delay), MemoryHealth daily (120s), TriggerMonitor daily (180s). Wired into `server.py` Phase 3 + graceful shutdown
+- **Import fix** (`ba88757`) — `get_research_manager` import path corrected (`hestia.research.manager` not `hestia.research`)
+- **Live-test** — server starts clean, 5 learning endpoints verified (null/empty expected), 7/8 API smoke tests pass
+- **Deploy** — pushed to main, launchd reload confirmed, API readiness timed out (pre-import-fix code). Fix is now on main; CI/CD will deploy
+
+### CLI Animated Banner (PR #1, merged)
+- **6-frame campfire animation** (`4ebc84e`) — pixel-font HESTIA + flickering embers + amber palette
+- First-run detection via `~/.hestia/banner_seen` sentinel
+- Fallback: static frame (subsequent runs), plain text (no-color), simple text (<60 cols)
+- Version auto-wired from `hestia_cli.__version__`
+- Files: `hestia-cli/hestia_cli/models.py`, `renderer.py`, `config.py`, `repl.py`, `tests/test_renderer.py`
+- 135/135 CLI tests pass
+
+### Sprint 16: Memory Lifecycle (PR #2, merged)
+- **Discovery** (`docs/discoveries/memory-lifecycle-importance-consolidation-pruning-2026-03-17.md`)
+- **Plan audit** (`docs/plans/sprint-16-memory-lifecycle-audit-2026-03-17.md`) — APPROVE WITH CONDITIONS (6 conditions, all applied)
+- **Implementation plan** (`docs/superpowers/plans/2026-03-17-sprint-16-memory-lifecycle.md`)
+- **ImportanceScorer** (`hestia/memory/importance.py`) — composite score: 0.3 recency + 0.4 retrieval frequency + 0.3 type bonus. Reads outcome metadata for retrieval data. No LLM inference. 23 tests.
+- **MemoryConsolidator** (`hestia/memory/consolidator.py`) — embedding-similarity dedup (>0.90 threshold, 50-sample cap). Pluggable `MergeStrategy` protocol (ImportanceBasedMerge default). Dry-run default. 9 tests.
+- **MemoryPruner** (`hestia/memory/pruner.py`) — archives chunks >60 days old with importance <0.2. Soft-delete + ChromaDB removal. Undo capability. 13 tests.
+- **Search integration** (`hestia/memory/manager.py:415`) — importance multiplier between import penalty and temporal decay
+- **5 API endpoints** in `hestia/api/routes/memory.py`: importance-stats, consolidation/preview, consolidation/execute, pruning/preview, pruning/execute
+- **Scheduler loops** in `hestia/learning/scheduler.py`: importance nightly (240s delay), consolidation weekly (300s), pruning weekly (3900s)
+- **Config** — `hestia/config/memory.yaml` (importance/consolidation/pruning sections), `config/triggers.yaml` (+low_importance_ratio threshold)
+
+### GitHub CLI
+- Installed `gh` via Homebrew, authenticated via OAuth
 
 ## In Progress
-- None — all work committed
+- None — all work committed and merged to main
 
 ## Decisions Made
-- **Side-effect pattern for chunk attribution:** `build_context()` stashes chunk IDs on `self._last_retrieved_chunk_ids` rather than changing the method signature. This avoids breaking AsyncMock contracts in 15+ existing tests that mock `build_context()`. The API layer reads chunk IDs from the memory manager directly.
-- **Deferred items (audit half-time cut list):** Outcome-to-Principle pipeline, correction classifier, read-only settings tools deferred to future sprints. Core value (chunk attribution + memory health + routing quality validation) delivered.
-- **API namespace:** `/v1/learning/` matches module name (audit condition #3)
-- **All learning.db tables user_id-scoped** from day one (audit condition #2)
+- **Skip `access_count` migration** — compute retrieval frequency from outcome metadata instead (audit condition #1). Avoids schema changes on most-queried table.
+- **Fixed importance weights** — no adaptive rebalancing. 0.3/0.4/0.3 configurable in memory.yaml (audit conditions #2, #4)
+- **50-sample cap on consolidation** — prevents O(n*k) blowup on M1 (audit condition #3)
+- **Pluggable MergeStrategy** — non-LLM (ImportanceBasedMerge) for M1, LLM merge drops in for M5 Ultra (audit condition #6)
+- **Sentinel file for CLI banner** — `~/.hestia/banner_seen` instead of config YAML key. Atomic, no namespace pollution.
 
 ## Test Status
-- Backend: 2034 passing, 1 pre-existing failure (Ollama integration flake: `test_simple_completion`), 3 skipped
-- CLI: 135 passing (unchanged)
-- 27 new learning tests, all passing
+- Backend: ~2080 tests (45 new from Sprint 16), all passing except 1 pre-existing Ollama flake
+- CLI: 135 passing
+- Pre-push hook: passes on main (both pytest and xcodebuild gates)
 
 ## Uncommitted Changes
-- CLAUDE.md and SPRINT.md updates (being committed now)
+- **Swift/research files** (11 files) — from a PARALLEL session working on Neural Net graph view evolution. NOT from this session. Discovery doc exists at `docs/discoveries/neural-net-graph-view-evolution-2026-03-17.md`. Leave these for that session to commit.
 
 ## Known Issues / Landmines
-- **AsyncMock + handler.py gather:** Changing `build_context()` return type in the asyncio.gather call causes test hangs. AsyncMock auto-generates attributes, and tuple unpacking on auto-generated mocks creates side effects that prevent aiosqlite cleanup. The side-effect pattern (`_last_retrieved_chunk_ids`) avoids this entirely.
-- **BaseDatabase API:** Uses `_init_schema()` (not `_create_tables`), `connect()` (not `initialize()`), `self.connection` (not `self.db`). Constructor: `__init__(db_name, db_path=None)`. Future modules must follow this pattern.
-- **handler.py still 2300 lines:** Chunk 0 reduced it from 2440 but it's still large. `_try_orchestrated_response` and surrounding code could be further extracted.
-- **Briefing injection not wired:** TriggerMonitor stores alerts; BriefingGenerator doesn't read them yet. Infrastructure ready, wiring deferred.
-- **Schedulers not registered:** MetaMonitor/MemoryHealth/TriggerMonitor are not yet registered as APScheduler jobs in server startup. They exist but don't run automatically.
-- **Pre-existing:** Anthropic API billing, agentic sandbox paths, HestiaShared on Mac Mini, 27+ commits ahead of remote
+- **Mac Mini deploy needs re-run** — first deploy timed out at API readiness (pre-import-fix). The fix (`ba88757`) is on main but hasn't been deployed. Run `./scripts/deploy-to-mini.sh` or rely on CI/CD.
+- **Pruner worktree had Bash permission issue** — the subagent couldn't commit (Bash denied). Files were manually copied. The worktrees have been cleaned up.
+- **Python 3.9 type syntax** — subagents used `X | None` and `tuple[X]` syntax. Both were caught and fixed to `Optional[X]` / `Tuple[X]`. Future subagent prompts should emphasize Python 3.9 compatibility.
+- **Session create endpoint returns 500** — pre-existing, unrelated to our changes. Shows in API smoke tests (test 8).
+- **Parallel session uncommitted Swift changes** — 11 modified Swift/research files visible in `git status`. These are from a concurrent Neural Net graph view session. Do NOT commit or discard them.
 
 ## Process Learnings
-- **Config gap: BaseDatabase API mismatch.** The plan used `_create_tables`, `initialize()`, `self.db` — all wrong. The explorer found the correct API but the plan wrote wrong method names. Future plans should cross-reference BaseDatabase directly.
-- **First-pass success: ~70%.** 7/10 tasks completed correctly on first try. Rework causes: (1) AsyncMock behavior in gather calls (~45 min), (2) BaseDatabase API mismatch (~5 min), (3) route lazy init using wrong method (~2 min).
-- **Top blocker: AsyncMock + tuple unpacking.** Prevention: when modifying methods called in `asyncio.gather`, prefer additive side-effects over changing return types. Test mock contracts are fragile.
-- **Agent orchestration: good but incomplete.** Two explorer passes were effective. Tester used at session start but pytest hang consumed its budget. Reviewer skipped due to session length — should have been run after the learning module commit.
+- **Config gap: Python version in subagent prompts.** Two subagents used Python 3.10+ syntax (`X | None`, `tuple[X]`). Root cause: prompts didn't mention Python 3.9 constraint. Fix: add "Python 3.9 — use `Optional[X]` not `X | None`, use `Tuple` not `tuple[]`" to all subagent prompts.
+- **Config gap: research module import path.** `get_research_manager` is in `hestia.research.manager`, not `hestia.research`. The `__init__.py` doesn't re-export it. This caught us at server startup. Fix: either add re-export to `__init__.py` or document the gotcha in CLAUDE.md.
+- **First-pass success: ~85%.** 7/8 tasks completed correctly on first try. One rework: Pruner's `async for` cursor pattern didn't match the test mocks — needed `fetchall()` instead. Prevention: standardize on `await execute() + fetchall()` in CLAUDE.md.
+- **Subagent parallelism worked well.** Three worktree subagents ran in parallel (~5 min each vs ~15 min sequential). Merge was clean. The Pruner agent's Bash permission issue was the only friction — workaround was manual file copy.
+- **Agent orchestration: good.** Explorer used for research (1 dispatch, comprehensive results). Three implementation subagents in parallel. No wasted turns.
 
 ## Next Step
-1. **Wire briefing injection** — Add `_add_system_alerts_section()` to `hestia/proactive/briefing.py` that queries `LearningDatabase.get_unacknowledged_alerts()` and appends a `BriefingSection(title="System Alerts", priority=95)`.
-2. **Schedule MetaMonitor + MemoryHealth + TriggerMonitor** — Register APScheduler jobs in server.py startup: MetaMonitor hourly, MemoryHealth daily, TriggerMonitor daily.
-3. **Deploy to Mac Mini** — 27+ commits ahead of remote. Run `./scripts/deploy-to-mini.sh`.
-4. **Live-test orchestrator** — Start server, verify bylines render, confirm routing works end-to-end (deferred from Sprint 14).
-5. **Begin Sprint 16 planning** — Memory Lifecycle (importance scoring, consolidation, pruning). Start with `/discovery`.
+1. **Re-deploy to Mac Mini** — `./scripts/deploy-to-mini.sh` (import fix is on main but not deployed)
+2. **Resolve parallel session's uncommitted Swift changes** — the Neural Net graph view work needs to be committed or stashed by that session
+3. **Update CLAUDE.md + SPRINT.md** — Sprint 16 status, test counts, endpoint counts, project structure
+4. **Validate retrieval data density** (audit condition #5) — run `SELECT COUNT(*) FROM outcomes WHERE json_extract(metadata, '$.retrieved_chunk_ids') IS NOT NULL` against the live DB. If <50, importance scoring is effectively type_bonus + recency only.
+5. **Begin Sprint 17 planning** — consider: Outcome-to-Principle pipeline, correction classifier, or memory UI browser

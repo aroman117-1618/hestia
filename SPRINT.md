@@ -1,4 +1,45 @@
-# Current Sprint: MetaMonitor + Memory Health + Trigger Metrics (Sprint 15)
+# Current Sprint: Memory Lifecycle (Sprint 16) — COMPLETE
+
+**Started:** 2026-03-17
+**Discovery:** `docs/discoveries/memory-lifecycle-importance-consolidation-pruning-2026-03-17.md`
+**Plan Audit:** `docs/plans/sprint-16-memory-lifecycle-audit-2026-03-17.md`
+**Implementation Plan:** `docs/superpowers/plans/2026-03-17-sprint-16-memory-lifecycle.md`
+
+## Sprint 16 Summary
+
+Memory lifecycle system: importance scoring, consolidation, and pruning. Zero-LLM — all SQL aggregation + embedding similarity. Closes the Sprint 15 feedback loop (observe → act).
+
+### What Was Built
+- **ImportanceScorer** (`hestia/memory/importance.py`) — composite score: 0.3 recency + 0.4 retrieval frequency (from outcome metadata) + 0.3 type bonus. Repurposes `ChunkMetadata.confidence`. Nightly batch via scheduler.
+- **MemoryConsolidator** (`hestia/memory/consolidator.py`) — embedding-similarity dedup (>0.90 threshold, 50-sample cap). Pluggable `MergeStrategy` protocol (ImportanceBasedMerge default, LLM merge for M5 Ultra future). Weekly via scheduler.
+- **MemoryPruner** (`hestia/memory/pruner.py`) — archives chunks >60 days old with importance <0.2. Soft-delete (ARCHIVED status) + ChromaDB removal. Undo capability. Weekly via scheduler.
+- **Search integration** (`hestia/memory/manager.py:415`) — importance multiplier between import penalty and temporal decay
+- **5 API endpoints** under `/v1/memory/`: importance-stats, consolidation/preview, consolidation/execute, pruning/preview, pruning/execute
+- **Scheduler loops** in `hestia/learning/scheduler.py`: 6 total (3 Sprint 15 + 3 Sprint 16)
+- **Config** — `hestia/config/memory.yaml` (importance/consolidation/pruning), `config/triggers.yaml` (+low_importance_ratio)
+
+### Also Completed (Sprint 15 wiring)
+- **Briefing injection** — system alerts section at priority 95 in daily briefing
+- **Learning schedulers** — MetaMonitor hourly, MemoryHealth daily, TriggerMonitor daily
+- **CLI animated banner** — campfire + pixel-font HESTIA, first-run animation
+
+### Key Commits
+- `4ebc84e` feat(cli): animated ASCII startup banner
+- `90352e6` feat: wire Sprint 15 learning schedulers + briefing injection
+- `ba88757` fix: correct research manager import path
+- `b4b23b2` feat: ImportanceScorer — retrieval-feedback composite scoring
+- `6dcddbe` feat: MemoryConsolidator — embedding-similarity dedup
+- `e4f9ba3` feat: MemoryConsolidator + MemoryPruner
+- `ea448f4` feat: 5 memory lifecycle API endpoints
+- `d9fa3ff` feat: schedule importance/consolidation/pruning in LearningScheduler
+
+### Test Results
+- 45 new tests across 3 test files (test_importance, test_consolidator, test_pruner)
+- Full suite: ~2080 passing, 1 pre-existing skip (Ollama integration)
+
+---
+
+# Previous: MetaMonitor + Memory Health + Trigger Metrics (Sprint 15) — COMPLETE
 
 **Started:** 2026-03-16
 **Discovery:** `docs/discoveries/metamonitor-memory-health-triggers-2026-03-16.md`
