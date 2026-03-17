@@ -1,62 +1,76 @@
-# Session Handoff — 2026-03-16
+# Session Handoff — 2026-03-16 (Session 2)
 
 ## Mission
-Design and implement the Agent Orchestrator (Sprint 14) — evolving Hestia from user-routed persona switching to a coordinator-delegate model. Then update the master roadmap with research brief integration, memory lifecycle components, and Graph RAG Lite planning.
+Assess Boris Cherny's Claude Code best practices thread against Hestia's existing setup, identify gaps, and implement high-impact optimizations — new agents, adversarial critique capabilities, verification automation, and permissions cleanup.
 
 ## Completed
-- **Agent Orchestrator (Sprint 14)** — Full implementation across 4 chunks:
-  - `cf9bf5b` Chunk 1: agent_models.py, router.py, audit_db.py, council extension, config/orchestration.yaml
-  - `548b9cc` Chunk 2: planner.py, executor.py, context_manager.py, synthesizer.py
-  - `fdd908b` Chunk 3: handler integration, ChatResponse.bylines, outcomes columns, mode patterns, server lifecycle
-  - `30dba79` Chunk 4: golden dataset (33 cases, 100% accuracy), ADR-042, SPRINT.md, CLAUDE.md
-- **Byline rendering** across iOS, macOS, and CLI (`1883da4`)
-  - HestiaShared: AgentByline model, HestiaResponse.bylines, ConversationMessage.bylines
-  - SSE done event: parses bylines array
-  - iOS MessageBubble: byline footer below assistant messages with VoiceOver
-  - macOS MacMessageBubble: byline row after sender label
-  - CLI renderer: byline lines in _render_done before metrics
-- **Master roadmap overhaul** (`6f07889`) — Three eras (Foundation/Intelligence Infrastructure/Anticipatory Autonomy), Sprints 15-22 planned
-- **Gate 2 marked PASSED** (`2f2b796`) — OutcomeTracker + multi-source memory confirmed operational
-- **Codebase audit** (`f9568da`) — Healthy. CLAUDE.md drift items fixed (test count, endpoint count, LogComponent list)
-- **Design spec + plan audit** (`2f63901`) — Full design doc and 9-section plan audit with CISO/CTO/CPO verdicts
+- **4 new sub-agents** created and smoke-tested:
+  - `.claude/agents/hestia-build-validator.md` — xcodebuild iOS + macOS verification (Sonnet)
+  - `.claude/agents/hestia-simplifier.md` — post-implementation dead code / complexity finder (Sonnet)
+  - `.claude/agents/hestia-preflight-checker.md` — fast 6-check health dashboard (Haiku)
+  - `.claude/agents/hestia-critic.md` — strategic adversarial critique of architectural decisions (Sonnet)
+- **Adversarial critique phases** added to existing skills:
+  - `/codebase-audit` — new Phase 7: premises challenge, time horizon analysis, counter-arguments, VALIDATED/WATCH/RECONSIDER/REVERSE verdicts
+  - `/plan-audit` — expanded Phase 9: sustained devil's advocate with counter-plan, future regret analysis, uncomfortable questions
+- **Swift auto-build hook** (`scripts/auto-build-swift.sh`) — PostToolUse hook fires on `.swift` edits, builds relevant Xcode target(s). Shared/ → both targets, macOS/ → macOS only. Fully smoke-tested.
+- **Permissions cleanup** — `settings.local.json` reduced from 92 ad-hoc entries to ~50 grouped entries (gitignored, local-only)
+- **Agent definition drift fixed** — endpoint counts (154→~170), test counts (~1709→~2012) in explorer + reviewer
+- **Time commitment updated** — 6 hrs/week → 12 hrs/week + autonomous acceleration (CLAUDE.md + output style)
+- **Worktree cleanup** — 7 prunable worktrees removed, 7 orphaned branches deleted
+- **Reference memory saved** — `boris-cherny-practices.md` documenting what was adopted, skipped, and why
+- Commits: `cefd153`, `fb3f932`, `7d9a2d3`
 
 ## In Progress
-- None — all work committed
+- **Nothing in progress** — all work committed
 
 ## Decisions Made
-- **ADR-042:** Agent Orchestrator — Hestia as single interface, Artemis (analysis) and Apollo (execution) as internal specialists. Council extended (not replaced). Deterministic intent-to-route heuristic as primary router. Confidence gating: >0.8 dispatch, 0.5-0.8 enriched solo, <0.5 pure solo.
-- **Gate 2 PASSED:** Data infrastructure is operational. MetaMonitor (Sprint 15) will analyze signal quality — that's a deliverable, not a prerequisite.
-- **Health/Whoop deferred to Sprint 21 (P3):** Intelligence infrastructure (Sprints 15-18) is higher leverage per hour. Feature breadth can wait.
-- **Graph RAG Lite (Sprint 17):** Dual-path retrieval — SYNTHESIS intent routes through knowledge graph + vector chunks; normal queries unchanged.
-- **Memory lifecycle (Sprint 16):** Importance scoring at ingest, nightly consolidation, monthly pruning.
-- **MoE opportunity closed:** ADR-042 addresses the same need with explicit routing instead of opaque learned routing.
+- **Commands (.claude/commands/) skipped**: Hestia's vision is learned autonomy — intelligence should be embedded via hooks and memory, not invoked via manual slash commands.
+- **Agent ecosystem expanded to 8**: explorer, tester, reviewer, deployer (existing) + build-validator, simplifier, preflight-checker, critic (new). Each has clear role separation: exploration, verification, quality, strategy, operations.
+- **Adversarial critique is now lifecycle-complete**: pre-build (plan-audit Phase 9), post-build (hestia-critic agent), periodic (codebase-audit Phase 7).
 
 ## Test Status
-- Backend: 2012 collected, 2009 passing, 3 skipped (Ollama integration)
-- CLI: 135 passing, 0 failures
-- 1 pre-existing failure: `test_inference.py::TestInferenceClientIntegration::test_simple_completion` — Ollama flakiness (empty response at 1.6 tok/s), not caused by this session's changes
-- count-check.sh: test file count shows "drift" because script doesn't scan hestia-cli/tests/ — actual count is correct (51 + 7 = 58)
+- 2012 collected, 2009 passing, 3 skipped (integration tests requiring Ollama)
+- iOS build: SUCCEEDED
+- macOS build: SUCCEEDED
+- No failures
 
 ## Uncommitted Changes
-- None — all committed
+- None from this session. 3 untracked files from parallel Sprint 15 session:
+  - `config/gws/` (Google Workspace CLI config)
+  - `docs/discoveries/metamonitor-memory-health-triggers-2026-03-16.md`
+  - `docs/plans/sprint-15-metamonitor-audit-2026-03-16.md`
 
 ## Known Issues / Landmines
-- **handler.py is 2510 lines** — Codebase audit's #1 tech debt item. The orchestrator added ~150 lines (`_try_orchestrated_response`, `_get_orchestrator_config`). Plan decomposition for a future sprint.
-- **Config directory split** — `hestia/config/` (6 YAML files) vs top-level `config/` (orchestration.yaml). Audit recommends moving orchestration.yaml into `hestia/config/` for consistency. Low priority.
-- **Orchestrator config loaded from disk on every request** — `_get_orchestrator_config()` reads `config/orchestration.yaml` each time. Should be cached at startup (like inference.yaml). Not a performance issue at current scale, but fix before production traffic.
-- **Byline rendering not tested on real specialist dispatch** — The orchestrator correctly routes to specialists and generates bylines in tests, but hasn't been live-tested with Ollama/cloud actually running two inference calls. Need a live test once server is restarted.
-- **Pre-existing:** Anthropic API billing — credits show "balance too low." CLI fallback masks this completely.
-- **Pre-existing:** Agentic sandbox paths — relative paths denied. Teaching absolute paths in system prompt would reduce iteration count.
-- **Pre-existing:** HestiaShared on Mac Mini — fresh deploy needs xcodegen regeneration.
-- **41+ commits ahead of remote** — Deploy to Mac Mini needed.
+- **New agents won't appear until session restart**: Claude Code loads agent definitions at startup. The 4 new agents are on disk but need a fresh session to register as `subagent_type` values.
+- **count-check.sh minor bug**: compares backend-only test file count (51) against CLAUDE.md's combined count (58 = 51 backend + 7 CLI). Reports false drift. CLAUDE.md is correct.
+- **Swift auto-build hook timeout**: 180s is generous for incremental builds (~10-20s typical). First build after Xcode update needs headroom. Lower to 120s if annoying.
+- **Parallel session**: Another session is working on Sprint 15 (MetaMonitor + Memory Health). Avoid: `hestia/orchestration/handler.py`, `hestia/outcomes/`, new `hestia/learning/` module, `SPRINT.md`, `docs/api-contract.md`.
+- **41+ commits ahead of remote** — deploy to Mac Mini still needed (from previous session).
 
 ## Process Learnings
-- **First-pass success: ~95%** — Only one test failure during implementation (chain test content was 13 words, below 15-word threshold). Fixed in <1 minute. The logger import pattern (`from hestia.logging.logger import LogComponent` → should be `from hestia.logging import get_logger, LogComponent`) was caught immediately from memory.
-- **Agent orchestration: excellent** — @hestia-explorer used for two deep research passes (current architecture + byline rendering). Both returned comprehensive results that saved significant exploration time. @hestia-tester launched in background for full suite while continuing work.
-- **Brainstorming skill value:** The structured brainstorming → plan audit → implementation pipeline caught the SLM routing accuracy risk early (audit recommendation #5: use heuristic, not SLM). This would have been a mid-implementation discovery without the audit.
-- **Config gap:** count-check.sh doesn't scan `hestia-cli/tests/` — always shows drift for test file count. Could be fixed by adding CLI path scanning.
+- **Agent definitions are code**: Preflight-checker had broken `python` command (should be venv-activated). Smoke-testing immediately caught this. Consider validation hook for agent `.md` files.
+- **Worktree branches accumulate silently**: 7 orphaned branches from sub-agent worktrees. Add periodic cleanup to `/handoff`.
+- **First-pass success rate**: ~95%. Only rework: preflight-checker python path fix.
+- **Agent orchestration**: @hestia-explorer and @hestia-tester not needed (infra/config work). Appropriate — don't force agent usage when direct tool calls suffice.
 
-## Next Step
-1. **Live-test orchestrator** — Start server (`python -m hestia.api.server`), send messages that should trigger Artemis/Apollo routing (e.g., "compare SQLite vs Postgres" for Artemis, "write a function that validates emails" for Apollo). Verify bylines appear in CLI and API responses.
-2. **Deploy to Mac Mini** — 41+ commits ahead. Run `./scripts/deploy-to-mini.sh`. Verify xcodegen regenerates with updated project.yml.
-3. **Begin Sprint 15 planning** — MetaMonitor + Memory Health + Trigger Metrics. Start with `/discovery` to research MetaMonitor design patterns, then `/plan-audit` before implementation.
+## Next Steps (PICK UP HERE)
+
+### Priority 1: GitHub Action Setup
+1. Explore Claude Code GitHub Action (`/install-github-action` or manual setup via `gh`)
+2. Configure `@claude` bot for automated PR review on the hestia repo
+3. Test with a small PR to verify CLAUDE.md auto-correction flow
+4. Document setup in CHEATSHEET.md
+
+### Priority 2: --teleport Documentation
+1. Add a section to `CHEATSHEET.md` about `claude --teleport` for handing off terminal sessions to the web UI
+2. Note use case: long-running tasks where you want to step away
+
+### Priority 3: Verify New Agents Work (requires fresh session)
+1. Run `@hestia-preflight-checker` to validate fixed venv commands
+2. Run `@hestia-critic` against ADR-042 (Agent Orchestrator) as real-world test
+3. Run `@hestia-simplifier` on recent Sprint 14 changes
+
+### After Sprint 15 Lands (other session)
+- Update CLAUDE.md with new `hestia/learning/` module
+- Add learning module to `scripts/auto-test.sh` source-to-test mapping
+- Update agent definitions with new endpoint/test counts
