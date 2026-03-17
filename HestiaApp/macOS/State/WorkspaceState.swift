@@ -8,6 +8,7 @@ enum WorkspaceView: String, CaseIterable {
     case health
     case research
     case explorer
+    case memory
     case settings
 }
 

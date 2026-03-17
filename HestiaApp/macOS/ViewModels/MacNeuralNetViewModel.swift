@@ -64,7 +64,7 @@ class MacNeuralNetViewModel: ObservableObject {
     @Published var nodeTypeFilter: Set<String> = GraphMode.legacy.defaultNodeTypes
     @Published var focusTopic: String = ""
     @Published var depthLimit: Int = 3
-    @Published var sourceFilter: String = ""
+    @Published var activeDataSources: Set<String> = Set(["conversation", "mail", "notes", "calendar", "reminders", "health"])
     @Published var centerEntity: String = ""
 
     // MARK: - Published State (Time Slider — facts mode)
@@ -198,7 +198,7 @@ class MacNeuralNetViewModel: ObservableObject {
         do {
             let nodeTypesParam = nodeTypeFilter.isEmpty ? nil : nodeTypeFilter.sorted().joined(separator: ",")
             let topicParam = focusTopic.isEmpty ? nil : focusTopic
-            let sourcesParam = sourceFilter.isEmpty ? nil : sourceFilter
+            let sourcesParam: String? = activeDataSources.count == 6 ? nil : activeDataSources.sorted().joined(separator: ",")
             let centerEntityParam = centerEntity.isEmpty ? nil : centerEntity
 
             // Bi-temporal time slider (facts mode only)
@@ -233,6 +233,22 @@ class MacNeuralNetViewModel: ObservableObject {
 
     private func applyGraphResponse(_ response: ResearchGraphResponse) {
         memoryCount = response.nodeCount
+
+        // Parse earliest_fact_date from metadata for time slider range
+        if let metaValue = response.metadata["earliest_fact_date"],
+           case .string(let dateStr) = metaValue {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = formatter.date(from: dateStr) {
+                earliestFactDate = date
+            } else {
+                // Try without fractional seconds
+                let basic = ISO8601DateFormatter()
+                if let date = basic.date(from: dateStr) {
+                    earliestFactDate = date
+                }
+            }
+        }
 
         nodes = response.nodes.map { apiNode in
             GraphNode(
@@ -290,6 +306,20 @@ class MacNeuralNetViewModel: ObservableObject {
         formatter.dateStyle = .medium
         formatter.timeStyle = .none
         return formatter.string(from: date)
+    }
+
+    // MARK: - Time Slider Debounce
+
+    private var timeSliderTask: Task<Void, Never>?
+
+    /// Debounced reload when the time slider changes (400ms delay).
+    func onTimeSliderChanged() {
+        timeSliderTask?.cancel()
+        timeSliderTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            guard !Task.isCancelled else { return }
+            await self?.loadGraph()
+        }
     }
 
     // MARK: - Filtered Access

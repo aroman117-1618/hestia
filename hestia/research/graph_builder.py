@@ -262,6 +262,9 @@ class GraphBuilder:
         # ── Clusters from communities ───────────────────
         clusters = self._build_community_clusters(communities, all_nodes)
 
+        # Query earliest fact date for time slider bounding
+        earliest = await db.get_earliest_fact_date()
+
         query_time_ms = int((time.time() - start_time) * 1000)
         pit_str = point_in_time.isoformat() if point_in_time else None
 
@@ -290,6 +293,7 @@ class GraphBuilder:
                 "total_communities": len(communities),
                 "total_episodes": len(episodes),
                 "point_in_time": pit_str,
+                "earliest_fact_date": earliest.isoformat() if earliest else None,
                 "node_count": len(all_nodes),
                 "edge_count": len(all_edges),
                 "query_time_ms": query_time_ms,

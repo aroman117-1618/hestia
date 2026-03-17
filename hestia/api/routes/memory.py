@@ -90,6 +90,80 @@ def _chunk_to_search_result(
 
 
 @router.get(
+    "/chunks",
+    summary="List memory chunks",
+    description="Paginated list of memory chunks with sort and filter options.",
+)
+async def list_memory_chunks(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    sort_by: str = Query(default="importance", description="importance, created, or updated"),
+    sort_order: str = Query(default="desc", description="asc or desc"),
+    chunk_type: Optional[str] = Query(default=None),
+    chunk_status: Optional[str] = Query(default=None, alias="status", description="active, archived, superseded"),
+    source: Optional[str] = Query(default=None, description="conversation, mail, calendar, etc."),
+    device_id: str = Depends(get_device_token),
+):
+    """List memory chunks with pagination, sorting, and filtering."""
+    try:
+        memory = await get_memory_manager()
+        chunks, total = await memory.database.list_chunks(
+            limit=limit,
+            offset=offset,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            chunk_type=chunk_type,
+            status=chunk_status,
+            source=source,
+        )
+
+        chunk_dicts = []
+        for chunk in chunks:
+            chunk_dicts.append({
+                "id": chunk.id,
+                "content": chunk.content[:200],
+                "chunk_type": chunk.chunk_type.value,
+                "importance": chunk.metadata.confidence,
+                "status": chunk.status.value,
+                "source": chunk.metadata.source,
+                "topics": chunk.tags.topics,
+                "entities": chunk.tags.entities,
+                "created_at": chunk.timestamp.isoformat(),
+                "updated_at": None,
+            })
+
+        logger.info(
+            "Memory chunks listed",
+            component=LogComponent.API,
+            data={
+                "device_id": device_id,
+                "total": total,
+                "returned": len(chunk_dicts),
+            }
+        )
+
+        return {
+            "chunks": chunk_dicts,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        }
+
+    except Exception as e:
+        logger.error(
+            f"Failed to list memory chunks: {sanitize_for_log(e)}",
+            component=LogComponent.API,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "internal_error",
+                "message": "Failed to list memory chunks.",
+            }
+        )
+
+
+@router.get(
     "/staged",
     response_model=StagedMemoryResponse,
     summary="Get staged memory updates",

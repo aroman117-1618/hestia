@@ -78,8 +78,14 @@ struct PaletteCommand: Identifiable {
             action: { switchView(.explorer) }
         ),
         PaletteCommand(
+            id: "nav.memory", title: "Go to Memory Browser",
+            icon: "brain.head.profile", shortcut: "⌘5",
+            keywords: ["memory", "chunks", "browser", "importance"],
+            action: { switchView(.memory) }
+        ),
+        PaletteCommand(
             id: "nav.settings", title: "Go to Settings",
-            icon: "gearshape", shortcut: "⌘5",
+            icon: "gearshape", shortcut: "⌘6",
             keywords: ["settings", "profile", "agents", "resources", "field guide", "wiki"],
             action: { switchView(.settings) }
         ),

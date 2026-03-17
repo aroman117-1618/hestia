@@ -69,8 +69,26 @@ async def get_graph(
                 )
 
         if mode == "facts":
+            # Resolve center_entity name to entity ID for BFS filtering
+            resolved_center = center_entity
+            if center_entity:
+                if manager._database:
+                    cursor = await manager._database._connection.execute(
+                        "SELECT id FROM entities WHERE LOWER(canonical_name) LIKE ? LIMIT 1",
+                        (f"%{center_entity.lower()}%",),
+                    )
+                    row = await cursor.fetchone()
+                    if row:
+                        resolved_center = row[0]
+                    else:
+                        logger.warning(
+                            "Center entity not found by name, passing as-is",
+                            component=LogComponent.RESEARCH,
+                            data={"center_entity": center_entity},
+                        )
+
             response = await manager.get_fact_graph(
-                center_entity=center_entity,
+                center_entity=resolved_center,
                 point_in_time=pit,
             )
             return response.to_dict()

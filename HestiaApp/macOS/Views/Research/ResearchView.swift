@@ -7,7 +7,7 @@ struct ResearchView: View {
     @State private var selectedMode: ResearchMode = .graph
     @State private var selectedTimeRange: TimeRange = .thirtyDays
     @State private var searchText: String = ""
-    @State private var activeFilters: Set<DataSource> = Set(DataSource.allCases)
+    // activeFilters derived from graphViewModel.activeDataSources
     @State private var hoveredNode: MacNeuralNetViewModel.GraphNode?
     @StateObject private var graphViewModel = MacNeuralNetViewModel()
 
@@ -447,14 +447,14 @@ struct ResearchView: View {
     }
 
     private func filterPill(_ source: DataSource, compact: Bool) -> some View {
-        let isActive = activeFilters.contains(source)
+        let isActive = graphViewModel.activeDataSources.contains(source.apiValue)
 
         return Button {
             withAnimation(.easeInOut(duration: 0.15)) {
                 if isActive {
-                    activeFilters.remove(source)
+                    graphViewModel.activeDataSources.remove(source.apiValue)
                 } else {
-                    activeFilters.insert(source)
+                    graphViewModel.activeDataSources.insert(source.apiValue)
                 }
             }
         } label: {
@@ -847,6 +847,18 @@ enum DataSource: CaseIterable {
         case .calendar: return Color(red: 176/255, green: 106/255, blue: 255/255)
         case .reminders: return Color(red: 255/255, green: 100/255, blue: 103/255)
         case .health: return Color(red: 44/255, green: 194/255, blue: 149/255)
+        }
+    }
+
+    /// API parameter value matching backend MemorySource enum.
+    var apiValue: String {
+        switch self {
+        case .chat: return "conversation"
+        case .email: return "mail"
+        case .notes: return "notes"
+        case .calendar: return "calendar"
+        case .reminders: return "reminders"
+        case .health: return "health"
         }
     }
 }

@@ -6,7 +6,7 @@ Vector embeddings stored separately in ChromaDB.
 """
 
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from hestia.database import BaseDatabase
 from hestia.logging import get_logger, LogComponent
@@ -387,6 +387,59 @@ class MemoryDatabase(BaseDatabase):
                 filtered.append(chunk)
 
         return filtered
+
+    async def list_chunks(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        sort_by: str = "importance",
+        sort_order: str = "desc",
+        chunk_type: Optional[str] = None,
+        status: Optional[str] = None,
+        source: Optional[str] = None,
+    ) -> Tuple[List[ConversationChunk], int]:
+        """List chunks with pagination and filtering.
+
+        Returns (chunks, total_count) tuple.
+        """
+        where_clauses: List[str] = []
+        params: List = []
+
+        if chunk_type:
+            where_clauses.append("chunk_type = ?")
+            params.append(chunk_type)
+        if status:
+            where_clauses.append("status = ?")
+            params.append(status)
+        if source:
+            where_clauses.append("json_extract(metadata, '$.source') = ?")
+            params.append(source)
+
+        where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
+
+        sort_column = {
+            "importance": "json_extract(metadata, '$.confidence')",
+            "created": "timestamp",
+            "updated": "updated_at",
+        }.get(sort_by, "json_extract(metadata, '$.confidence')")
+
+        order = "DESC" if sort_order == "desc" else "ASC"
+
+        # Count total
+        count_cursor = await self._connection.execute(
+            f"SELECT COUNT(*) FROM memory_chunks WHERE {where_sql}", params
+        )
+        total = (await count_cursor.fetchone())[0]
+
+        # Fetch page
+        cursor = await self._connection.execute(
+            f"SELECT * FROM memory_chunks WHERE {where_sql} ORDER BY {sort_column} {order} LIMIT ? OFFSET ?",
+            params + [limit, offset],
+        )
+        rows = await cursor.fetchall()
+        chunks = [ConversationChunk.from_sqlite_row(dict(row)) for row in rows]
+
+        return chunks, total
 
     async def get_session_chunks(
         self,

@@ -15,6 +15,9 @@ struct CommandView: View {
                 // Stat cards row
                 StatCardsRow(viewModel: viewModel)
 
+                // Learning metrics
+                LearningMetricsPanel(viewModel: viewModel)
+
                 // Calendar + Orders — side by side or stacked
                 if layoutMode.isCompact {
                     VStack(spacing: MacSpacing.lg) {

@@ -109,7 +109,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 **Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
 **Field Guide UI Restructure: COMPLETE.** 5 thematic tabs, native SwiftUI diagrams, structured roadmap with `/v1/wiki/roadmap` endpoint.
 
-2267 tests (2132 backend + 135 CLI), 62 test files (55 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
+2279 tests (2144 backend + 135 CLI), 64 test files (57 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -268,13 +268,13 @@ hestia/
 
 ---
 
-## API Summary (180 endpoints, 27 route modules)
+## API Summary (181 endpoints, 27 route modules)
 
 | Module | Endpoints | Key Routes |
 |--------|-----------|------------|
 | Health & Auth | 8 | `/v1/ping`, `/v1/health`, `/v1/ready`, `/v1/auth/register`, `/v1/auth/refresh`, `/v1/auth/invite`, `/v1/auth/register-with-invite`, `/v1/auth/re-invite` |
 | Chat & Mode | 6 | `/v1/chat`, `/v1/chat/stream` (SSE), `/v1/chat/agentic` (iterative tool loop), `/v1/mode/*` |
-| Memory | 12 | `/v1/memory/staged`, `approve`, `reject`, `search`, `sensitive`, `ingest`, `import/claude`, `importance-stats`, `consolidation/preview`, `consolidation/execute`, `pruning/preview`, `pruning/execute` |
+| Memory | 13 | `/v1/memory/chunks` (list+browse), `staged`, `approve`, `reject`, `search`, `sensitive`, `ingest`, `import/claude`, `importance-stats`, `consolidation/preview`, `consolidation/execute`, `pruning/preview`, `pruning/execute` |
 | Sessions | 3 | `/v1/sessions` CRUD |
 | Tools | 3 | `/v1/tools` list, details, schema |
 | Tasks | 6 | `/v1/tasks` CRUD + approve/cancel/retry |

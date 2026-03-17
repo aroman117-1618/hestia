@@ -801,6 +801,20 @@ class ResearchDatabase(BaseDatabase):
             created_at=created_at,
         )
 
+    # ── Earliest Fact Date ─────────────────────────────────
+
+    async def get_earliest_fact_date(self) -> Optional[datetime]:
+        """Get the earliest valid_at date across all active facts."""
+        if not self._connection:
+            return None
+        cursor = await self._connection.execute(
+            "SELECT MIN(valid_at) FROM facts WHERE status = 'active'"
+        )
+        row = await cursor.fetchone()
+        if row and row[0]:
+            return datetime.fromisoformat(row[0])
+        return None
+
     # ── Temporal Fact Queries ─────────────────────────────
 
     async def get_facts_at_time(

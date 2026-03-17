@@ -223,12 +223,19 @@ struct GraphControlPanel: View {
                     .tint(MacColors.amberAccent)
                     .onChange(of: viewModel.timeSliderValue) { _, newValue in
                         viewModel.timeSliderDate = viewModel.dateFromSliderValue(newValue)
+                        viewModel.onTimeSliderChanged()
                     }
 
-                Text(viewModel.timeSliderLabel)
-                    .font(.system(size: 10))
-                    .foregroundStyle(MacColors.textSecondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
+                HStack(spacing: MacSpacing.xs) {
+                    Text(viewModel.timeSliderLabel)
+                        .font(.system(size: 10))
+                        .foregroundStyle(MacColors.textSecondary)
+                    if viewModel.isLoading {
+                        ProgressView()
+                            .controlSize(.mini)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
             }
         }
     }

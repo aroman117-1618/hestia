@@ -16,11 +16,25 @@ class MacCommandCenterViewModel: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
 
+    // Learning metrics
+    @Published var metaMonitorReport: MetaMonitorReport?
+    @Published var memoryHealth: MemoryHealthSnapshot?
+    @Published var triggerAlerts: [TriggerAlert] = []
+
     // Derived stat counts
     var healthStatus: String { systemHealth?.status.displayText ?? "Unknown" }
     var pendingMemoryCount: Int { pendingMemories.count }
     var activeOrderCount: Int { orders.filter { $0.status == .active }.count }
     var todayEventCount: Int { calendarEvents.count }
+
+    // Learning derived
+    var positiveRatioPercent: Int {
+        guard let ratio = metaMonitorReport?.positiveRatio else { return 0 }
+        return Int(ratio * 100)
+    }
+    var unacknowledgedAlertCount: Int { triggerAlerts.filter { !$0.acknowledged }.count }
+    var memoryChunkCount: Int { memoryHealth?.chunkCount ?? 0 }
+    var memoryRedundancyPct: Double { memoryHealth?.redundancyEstimatePct ?? 0.0 }
 
     // MARK: - Private
 
@@ -37,8 +51,9 @@ class MacCommandCenterViewModel: ObservableObject {
         async let ordersTask: () = loadOrders()
         async let calendarTask: () = loadCalendarEvents()
         async let newsfeedTask: () = loadNewsfeed()
+        async let learningTask: () = loadLearningMetrics()
 
-        _ = await (healthTask, memoryTask, ordersTask, calendarTask, newsfeedTask)
+        _ = await (healthTask, memoryTask, ordersTask, calendarTask, newsfeedTask, learningTask)
         isLoading = false
     }
 
@@ -100,6 +115,35 @@ class MacCommandCenterViewModel: ObservableObject {
         } catch {
             #if DEBUG
             print("[MacCommandCenterVM] Newsfeed load failed: \(error)")
+            #endif
+        }
+    }
+
+    private func loadLearningMetrics() async {
+        do {
+            let reportResponse = try await APIClient.shared.getLatestMetaMonitorReport()
+            metaMonitorReport = reportResponse.data
+        } catch {
+            #if DEBUG
+            print("[MacCommandCenterVM] MetaMonitor load failed: \(error)")
+            #endif
+        }
+
+        do {
+            let healthResponse = try await APIClient.shared.getMemoryHealth()
+            memoryHealth = healthResponse.data
+        } catch {
+            #if DEBUG
+            print("[MacCommandCenterVM] Memory health load failed: \(error)")
+            #endif
+        }
+
+        do {
+            let alertsResponse = try await APIClient.shared.getTriggerAlerts()
+            triggerAlerts = alertsResponse.data
+        } catch {
+            #if DEBUG
+            print("[MacCommandCenterVM] Alerts load failed: \(error)")
             #endif
         }
     }
