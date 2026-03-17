@@ -7,13 +7,38 @@ private struct ResearchEmptyBody: Codable {}
 
 extension APIClient {
     /// Fetch the knowledge graph from the server.
-    func getResearchGraph(limit: Int = 200, nodeTypes: String? = nil, centerTopic: String? = nil) async throws -> ResearchGraphResponse {
-        var path = "../v1/research/graph?limit=\(limit)"
+    /// - Parameters:
+    ///   - limit: Max nodes to return.
+    ///   - nodeTypes: Comma-separated node types (memory,topic,entity,principle,fact,community,episode).
+    ///   - centerTopic: Focus graph on this topic (legacy mode).
+    ///   - mode: Graph mode — "legacy" (co-occurrence) or "facts" (entity-fact).
+    ///   - sources: Comma-separated MemorySource values (conversation,mail,calendar,reminders,notes,health).
+    ///   - centerEntity: Center entity ID for BFS filtering (facts mode).
+    ///   - pointInTime: ISO datetime for bi-temporal fact filtering (facts mode).
+    func getResearchGraph(
+        limit: Int = 200,
+        nodeTypes: String? = nil,
+        centerTopic: String? = nil,
+        mode: String = "legacy",
+        sources: String? = nil,
+        centerEntity: String? = nil,
+        pointInTime: String? = nil
+    ) async throws -> ResearchGraphResponse {
+        var path = "../v1/research/graph?limit=\(limit)&mode=\(mode)"
         if let types = nodeTypes {
             path += "&node_types=\(types)"
         }
         if let topic = centerTopic, !topic.isEmpty {
             path += "&center_topic=\(topic.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? topic)"
+        }
+        if let src = sources, !src.isEmpty {
+            path += "&sources=\(src)"
+        }
+        if let entity = centerEntity, !entity.isEmpty {
+            path += "&center_entity=\(entity.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? entity)"
+        }
+        if let pit = pointInTime, !pit.isEmpty {
+            path += "&point_in_time=\(pit.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? pit)"
         }
         return try await get(path)
     }

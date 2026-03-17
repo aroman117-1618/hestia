@@ -43,19 +43,36 @@ logger = get_logger()
 @router.get("/graph", response_model=GraphResponse)
 async def get_graph(
     limit: int = Query(default=200, ge=1, le=500),
-    node_types: Optional[str] = Query(default=None, description="Comma-separated: memory,topic,entity"),
+    node_types: Optional[str] = Query(default=None, description="Comma-separated: memory,topic,entity,principle,fact,community,episode"),
     center_topic: Optional[str] = Query(default=None, description="Focus graph on this topic"),
     sources: Optional[str] = Query(default=None, description="Comma-separated MemorySource values: conversation,mail,calendar,reminders,notes,health"),
     mode: str = Query(default="legacy", description="Graph mode: 'legacy' (co-occurrence) or 'facts' (entity-fact)"),
     center_entity: Optional[str] = Query(default=None, description="Center entity for mode=facts"),
+    point_in_time: Optional[str] = Query(default=None, description="ISO datetime for bi-temporal fact filtering (mode=facts only)"),
     device_token: str = Depends(get_device_token),
 ) -> Dict[str, Any]:
     """Get the knowledge graph with nodes, edges, and clusters."""
     try:
         manager = await get_research_manager()
 
+        # Parse optional point-in-time for bi-temporal filtering
+        pit: Optional[datetime] = None
+        if point_in_time:
+            try:
+                pit = datetime.fromisoformat(point_in_time)
+                if pit.tzinfo is None:
+                    pit = pit.replace(tzinfo=timezone.utc)
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid point_in_time format. Use ISO 8601.",
+                )
+
         if mode == "facts":
-            response = await manager.get_fact_graph(center_entity=center_entity)
+            response = await manager.get_fact_graph(
+                center_entity=center_entity,
+                point_in_time=pit,
+            )
             return response.to_dict()
 
         types_set: Optional[Set[str]] = None

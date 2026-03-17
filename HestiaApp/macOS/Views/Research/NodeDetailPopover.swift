@@ -2,7 +2,8 @@ import SwiftUI
 
 /// Type-appropriate detail panel for a selected graph node.
 /// Memory nodes show chunk content; topic/entity nodes show connected counts;
-/// principle nodes show approve/reject buttons.
+/// principle nodes show approve/reject buttons; community/episode/fact nodes
+/// show their specific metadata.
 struct NodeDetailPopover: View {
     let node: MacNeuralNetViewModel.GraphNode
     let connectedNodes: [MacNeuralNetViewModel.GraphNode]
@@ -16,6 +17,7 @@ struct NodeDetailPopover: View {
                 header
                 confidenceBar
                 contentSection
+                metadataSection
                 tagsSection
                 connectedSection
                 Spacer(minLength: MacSpacing.md)
@@ -46,7 +48,7 @@ struct NodeDetailPopover: View {
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(node.swiftUIColor)
 
-            if node.nodeType == "topic" || node.nodeType == "entity" {
+            if node.nodeType == "topic" || node.nodeType == "entity" || node.nodeType == "community" {
                 Text("(\(connectedNodes.count) connected)")
                     .font(.system(size: 11))
                     .foregroundStyle(MacColors.textFaint)
@@ -71,7 +73,7 @@ struct NodeDetailPopover: View {
 
     private var confidenceBar: some View {
         HStack(spacing: MacSpacing.xs) {
-            Text("Confidence")
+            Text(node.nodeType == "memory" ? "Importance" : "Confidence")
                 .font(.system(size: 11))
                 .foregroundStyle(MacColors.textFaint)
             Spacer()
@@ -98,7 +100,7 @@ struct NodeDetailPopover: View {
 
     private var contentSection: some View {
         VStack(alignment: .leading, spacing: MacSpacing.sm) {
-            if node.nodeType == "topic" || node.nodeType == "entity" {
+            if node.nodeType == "topic" || node.nodeType == "entity" || node.nodeType == "community" {
                 Text(node.label)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(MacColors.textPrimary)
@@ -113,6 +115,73 @@ struct NodeDetailPopover: View {
                     .textSelection(.enabled)
             }
         }
+    }
+
+    // MARK: - Type-specific metadata
+
+    @ViewBuilder
+    private var metadataSection: some View {
+        switch node.nodeType {
+        case "community":
+            communityMetadata
+        case "episode":
+            episodeMetadata
+        case "fact":
+            factMetadata
+        default:
+            EmptyView()
+        }
+    }
+
+    private var communityMetadata: some View {
+        VStack(alignment: .leading, spacing: MacSpacing.sm) {
+            Text("Community Details")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(MacColors.textFaint)
+
+            HStack(spacing: MacSpacing.md) {
+                metadataChip(icon: "person.3", label: "\(connectedNodes.count) members")
+            }
+        }
+    }
+
+    private var episodeMetadata: some View {
+        VStack(alignment: .leading, spacing: MacSpacing.sm) {
+            Text("Episode Details")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(MacColors.textFaint)
+
+            HStack(spacing: MacSpacing.md) {
+                metadataChip(icon: "person.text.rectangle", label: "\(connectedNodes.count) entities")
+            }
+        }
+    }
+
+    private var factMetadata: some View {
+        VStack(alignment: .leading, spacing: MacSpacing.sm) {
+            Text("Fact Details")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(MacColors.textFaint)
+
+            HStack(spacing: MacSpacing.md) {
+                metadataChip(icon: "link", label: "Relationship")
+                metadataChip(icon: "percent", label: "\(Int(node.confidence * 100))% conf.")
+            }
+        }
+    }
+
+    private func metadataChip(icon: String, label: String) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: icon)
+                .font(.system(size: 9))
+            Text(label)
+                .font(.system(size: 10))
+        }
+        .foregroundStyle(MacColors.textSecondary)
+        .padding(.horizontal, MacSpacing.sm)
+        .padding(.vertical, 3)
+        .background(MacColors.textPrimary.opacity(0.06))
+        .clipShape(RoundedRectangle(cornerRadius: 4))
     }
 
     // MARK: - Tags

@@ -6,11 +6,26 @@ struct GraphControlPanel: View {
     @ObservedObject var viewModel: MacNeuralNetViewModel
     @State private var isExpanded = false
 
-    private let nodeTypes: [(key: String, label: String, icon: String)] = [
-        ("memory", "Memories", "brain"),
-        ("topic", "Topics", "tag"),
-        ("entity", "Entities", "person.text.rectangle"),
+    /// All available node types with display metadata.
+    private static let allNodeTypes: [(key: String, label: String, icon: String)] = [
+        ("memory",    "Memories",    "brain"),
+        ("topic",     "Topics",      "tag"),
+        ("entity",    "Entities",    "person.text.rectangle"),
+        ("principle", "Principles",  "lightbulb"),
+        ("community", "Communities", "person.3"),
+        ("episode",   "Episodes",    "clock"),
+        ("fact",      "Facts",       "link"),
     ]
+
+    /// Node types relevant to the current graph mode.
+    private var visibleNodeTypes: [(key: String, label: String, icon: String)] {
+        switch viewModel.graphMode {
+        case .legacy:
+            return Self.allNodeTypes.filter { ["memory", "topic", "entity", "principle"].contains($0.key) }
+        case .facts:
+            return Self.allNodeTypes.filter { ["entity", "community", "episode", "fact"].contains($0.key) }
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -40,43 +55,23 @@ struct GraphControlPanel: View {
                     .padding(.horizontal, MacSpacing.sm)
 
                 VStack(alignment: .leading, spacing: MacSpacing.md) {
-                    // Node type toggles
-                    VStack(alignment: .leading, spacing: MacSpacing.sm) {
-                        Text("NODE TYPES")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(MacColors.textFaint)
-                            .tracking(1)
-
-                        ForEach(nodeTypes, id: \.key) { type in
-                            nodeTypeToggle(key: type.key, label: type.label, icon: type.icon)
-                        }
-                    }
+                    // Graph mode toggle
+                    graphModeSection
 
                     MacColors.divider.frame(height: 1)
 
-                    // Focus topic
-                    VStack(alignment: .leading, spacing: MacSpacing.sm) {
-                        Text("FOCUS TOPIC")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(MacColors.textFaint)
-                            .tracking(1)
+                    // Node type toggles
+                    nodeTypesSection
 
-                        HStack(spacing: MacSpacing.xs) {
-                            Image(systemName: "magnifyingglass")
-                                .font(.system(size: 11))
-                                .foregroundStyle(MacColors.textPlaceholder)
-                            TextField("Filter by topic...", text: $viewModel.focusTopic)
-                                .textFieldStyle(.plain)
-                                .font(.system(size: 12))
-                                .foregroundStyle(MacColors.textPrimary)
-                                .onSubmit {
-                                    Task { await viewModel.loadGraph() }
-                                }
-                        }
-                        .padding(.horizontal, MacSpacing.sm)
-                        .padding(.vertical, MacSpacing.xs + 1)
-                        .background(MacColors.searchInputBackground)
-                        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
+                    MacColors.divider.frame(height: 1)
+
+                    // Focus topic / center entity
+                    searchSection
+
+                    // Time slider (facts mode only)
+                    if viewModel.graphMode == .facts {
+                        MacColors.divider.frame(height: 1)
+                        timeSliderSection
                     }
 
                     // Apply button
@@ -96,7 +91,7 @@ struct GraphControlPanel: View {
                 .padding(MacSpacing.md)
             }
         }
-        .frame(width: 180)
+        .frame(width: 200)
         .background(
             RoundedRectangle(cornerRadius: MacCornerRadius.panel)
                 .fill(Color(red: 17/255, green: 11/255, blue: 3/255).opacity(0.92))
@@ -108,6 +103,137 @@ struct GraphControlPanel: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Graph filters")
     }
+
+    // MARK: - Graph Mode Toggle
+
+    private var graphModeSection: some View {
+        VStack(alignment: .leading, spacing: MacSpacing.sm) {
+            Text("GRAPH MODE")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(MacColors.textFaint)
+                .tracking(1)
+
+            HStack(spacing: 2) {
+                ForEach(GraphMode.allCases, id: \.rawValue) { mode in
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            viewModel.graphMode = mode
+                        }
+                    } label: {
+                        HStack(spacing: MacSpacing.xs) {
+                            Image(systemName: mode.icon)
+                                .font(.system(size: 11))
+                            Text(mode.label)
+                                .font(.system(size: 11, weight: .medium))
+                        }
+                        .foregroundStyle(viewModel.graphMode == mode ? MacColors.amberAccent : MacColors.textSecondary)
+                        .padding(.horizontal, MacSpacing.sm)
+                        .padding(.vertical, MacSpacing.xs + 1)
+                        .background(viewModel.graphMode == mode ? MacColors.amberAccent.opacity(0.15) : Color.clear)
+                        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.tab))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(mode.label) graph mode")
+                    .accessibilityAddTraits(viewModel.graphMode == mode ? .isSelected : [])
+                }
+            }
+            .padding(2)
+            .background(MacColors.textPrimary.opacity(0.04))
+            .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.tab))
+        }
+    }
+
+    // MARK: - Node Types
+
+    private var nodeTypesSection: some View {
+        VStack(alignment: .leading, spacing: MacSpacing.sm) {
+            Text("NODE TYPES")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(MacColors.textFaint)
+                .tracking(1)
+
+            ForEach(visibleNodeTypes, id: \.key) { type in
+                nodeTypeToggle(key: type.key, label: type.label, icon: type.icon)
+            }
+        }
+    }
+
+    // MARK: - Search / Focus
+
+    private var searchSection: some View {
+        VStack(alignment: .leading, spacing: MacSpacing.sm) {
+            if viewModel.graphMode == .legacy {
+                Text("FOCUS TOPIC")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(MacColors.textFaint)
+                    .tracking(1)
+
+                searchField(text: $viewModel.focusTopic, placeholder: "Filter by topic...")
+            } else {
+                Text("CENTER ENTITY")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(MacColors.textFaint)
+                    .tracking(1)
+
+                searchField(text: $viewModel.centerEntity, placeholder: "Center on entity...")
+            }
+        }
+    }
+
+    private func searchField(text: Binding<String>, placeholder: String) -> some View {
+        HStack(spacing: MacSpacing.xs) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 11))
+                .foregroundStyle(MacColors.textPlaceholder)
+            TextField(placeholder, text: text)
+                .textFieldStyle(.plain)
+                .font(.system(size: 12))
+                .foregroundStyle(MacColors.textPrimary)
+                .onSubmit {
+                    Task { await viewModel.loadGraph() }
+                }
+        }
+        .padding(.horizontal, MacSpacing.sm)
+        .padding(.vertical, MacSpacing.xs + 1)
+        .background(MacColors.searchInputBackground)
+        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
+    }
+
+    // MARK: - Time Slider (Facts Mode)
+
+    private var timeSliderSection: some View {
+        VStack(alignment: .leading, spacing: MacSpacing.sm) {
+            HStack {
+                Text("TIME TRAVEL")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(MacColors.textFaint)
+                    .tracking(1)
+
+                Spacer()
+
+                Toggle("", isOn: $viewModel.timeSliderEnabled)
+                    .toggleStyle(.switch)
+                    .controlSize(.mini)
+                    .labelsHidden()
+            }
+
+            if viewModel.timeSliderEnabled {
+                Slider(value: $viewModel.timeSliderValue, in: 0...1)
+                    .controlSize(.mini)
+                    .tint(MacColors.amberAccent)
+                    .onChange(of: viewModel.timeSliderValue) { _, newValue in
+                        viewModel.timeSliderDate = viewModel.dateFromSliderValue(newValue)
+                    }
+
+                Text(viewModel.timeSliderLabel)
+                    .font(.system(size: 10))
+                    .foregroundStyle(MacColors.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+        }
+    }
+
+    // MARK: - Helpers
 
     private func nodeTypeToggle(key: String, label: String, icon: String) -> some View {
         let isActive = viewModel.nodeTypeFilter.contains(key)

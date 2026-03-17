@@ -73,7 +73,7 @@ struct ResearchView: View {
                         hoveredNode: $hoveredNode
                     )
 
-                    // Legend overlay (bottom-left)
+                    // Legend overlay (bottom-left) — dynamic based on active node types
                     graphLegend
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
                         .padding(MacSpacing.lg)
@@ -91,6 +91,13 @@ struct ResearchView: View {
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                             .padding(.top, MacSpacing.xxxl)
                             .allowsHitTesting(false)
+                    }
+
+                    // Time slider indicator (bottom-center, facts mode with time travel)
+                    if graphViewModel.graphMode == .facts && graphViewModel.timeSliderEnabled && graphViewModel.timeSliderValue < 0.99 {
+                        timeIndicatorBadge
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                            .padding(.bottom, MacSpacing.lg)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -125,6 +132,28 @@ struct ResearchView: View {
         }
     }
 
+    // MARK: - Time Indicator Badge
+
+    private var timeIndicatorBadge: some View {
+        HStack(spacing: MacSpacing.sm) {
+            Image(systemName: "clock.arrow.circlepath")
+                .font(.system(size: 12))
+            Text("Viewing: \(graphViewModel.timeSliderLabel)")
+                .font(.system(size: 11, weight: .medium))
+        }
+        .foregroundStyle(MacColors.amberAccent)
+        .padding(.horizontal, MacSpacing.md)
+        .padding(.vertical, MacSpacing.sm)
+        .background(
+            RoundedRectangle(cornerRadius: MacCornerRadius.search)
+                .fill(Color(red: 17/255, green: 11/255, blue: 3/255).opacity(0.92))
+                .overlay(
+                    RoundedRectangle(cornerRadius: MacCornerRadius.search)
+                        .strokeBorder(MacColors.amberAccent.opacity(0.2), lineWidth: 1)
+                )
+        )
+    }
+
     // MARK: - Hover Tooltip
 
     private func hoverTooltip(_ node: MacNeuralNetViewModel.GraphNode) -> some View {
@@ -136,6 +165,9 @@ struct ResearchView: View {
                 .font(.system(size: 11))
                 .foregroundStyle(MacColors.textPrimary)
                 .lineLimit(1)
+            Text(node.displayName)
+                .font(.system(size: 9))
+                .foregroundStyle(MacColors.textFaint)
         }
         .padding(.horizontal, MacSpacing.md)
         .padding(.vertical, MacSpacing.sm)
@@ -147,203 +179,6 @@ struct ResearchView: View {
                         .strokeBorder(node.swiftUIColor.opacity(0.2), lineWidth: 1)
                 )
         )
-    }
-
-    // MARK: - Legacy Detail Panel (kept for reference, replaced by NodeDetailPopover)
-
-    @available(*, deprecated, message: "Use NodeDetailPopover instead")
-    private func detailPanel(_ node: MacNeuralNetViewModel.GraphNode) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: MacSpacing.lg) {
-                // Header: type badge + close button
-                HStack {
-                    Image(systemName: node.displayIcon)
-                        .font(.system(size: 14))
-                        .foregroundStyle(node.swiftUIColor)
-                    Text(node.displayName)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(node.swiftUIColor)
-                    Spacer()
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.15)) {
-                            graphViewModel.selectedNode = nil
-                        }
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(MacColors.textSecondary)
-                            .frame(width: 24, height: 24)
-                            .background(MacColors.textPrimary.opacity(0.06))
-                            .clipShape(Circle())
-                    }
-                    .buttonStyle(.hestia)
-                }
-
-                // Confidence
-                HStack(spacing: MacSpacing.xs) {
-                    Text("Confidence")
-                        .font(.system(size: 11))
-                        .foregroundStyle(MacColors.textFaint)
-                    Spacer()
-                    Text("\(Int(node.confidence * 100))%")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(MacColors.textSecondary)
-                }
-
-                // Content
-                Text(node.content)
-                    .font(.system(size: 13))
-                    .foregroundStyle(MacColors.textPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                // Tags section
-                if !node.topics.isEmpty || !node.entities.isEmpty {
-                    VStack(alignment: .leading, spacing: MacSpacing.sm) {
-                        Text("Tags")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(MacColors.textFaint)
-
-                        FlowLayout(spacing: MacSpacing.xs) {
-                            ForEach(node.topics, id: \.self) { topic in
-                                tagPill(topic, color: node.swiftUIColor)
-                            }
-                            ForEach(node.entities, id: \.self) { entity in
-                                tagPill(entity, color: MacColors.amberAccent)
-                            }
-                        }
-                    }
-                }
-
-                // Connected nodes section (pre-computed on selection change)
-                if !graphViewModel.selectedConnectedNodes.isEmpty {
-                    VStack(alignment: .leading, spacing: MacSpacing.sm) {
-                        Text("Connected")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(MacColors.textFaint)
-
-                        ForEach(graphViewModel.selectedConnectedNodes) { connectedNode in
-                            connectedNodeRow(connectedNode)
-                        }
-                    }
-                } else {
-                    HStack {
-                        Image(systemName: "circle.dotted")
-                            .font(.system(size: 12))
-                            .foregroundStyle(MacColors.textFaint)
-                        Text("No connections")
-                            .font(.system(size: 12))
-                            .foregroundStyle(MacColors.textFaint)
-                    }
-                    .padding(.vertical, MacSpacing.sm)
-                }
-
-                Spacer(minLength: MacSpacing.md)
-
-                // Action buttons
-                VStack(spacing: MacSpacing.sm) {
-                    Button {
-                        // Navigate to Explorer with this node's context
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            selectedMode = .explorer
-                        }
-                    } label: {
-                        HStack {
-                            Text("Investigate in Explorer")
-                            Spacer()
-                            Image(systemName: "arrow.right")
-                                .font(.system(size: 11))
-                        }
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Color(red: 17/255, green: 11/255, blue: 3/255))
-                        .padding(.horizontal, MacSpacing.md)
-                        .padding(.vertical, MacSpacing.sm + 2)
-                        .background(MacColors.amberAccent)
-                        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
-                    }
-                    .buttonStyle(.hestia)
-
-                    Button {} label: {
-                        HStack {
-                            Text("Open Source")
-                            Spacer()
-                            Image(systemName: "arrow.up.right")
-                                .font(.system(size: 11))
-                        }
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(MacColors.textSecondary.opacity(0.4))
-                        .padding(.horizontal, MacSpacing.md)
-                        .padding(.vertical, MacSpacing.sm + 2)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: MacCornerRadius.search)
-                                .strokeBorder(MacColors.textSecondary.opacity(0.1), lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(.hestia)
-                    .disabled(true)
-                }
-            }
-            .padding(MacSpacing.lg)
-        }
-        .background(
-            Rectangle()
-                .fill(Color(red: 17/255, green: 11/255, blue: 3/255).opacity(0.95))
-                .overlay(
-                    Rectangle()
-                        .fill(MacColors.amberAccent.opacity(0.04))
-                )
-        )
-        .overlay(alignment: .leading) {
-            Rectangle()
-                .fill(MacColors.amberAccent.opacity(0.1))
-                .frame(width: 1)
-        }
-    }
-
-    private func tagPill(_ text: String, color: Color) -> some View {
-        Text(text)
-            .font(.system(size: 10, weight: .medium))
-            .foregroundStyle(color)
-            .padding(.horizontal, MacSpacing.sm)
-            .padding(.vertical, 3)
-            .background(color.opacity(0.12))
-            .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
-    }
-
-    private func connectedNodeRow(_ node: MacNeuralNetViewModel.GraphNode) -> some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.15)) {
-                graphViewModel.selectedNode = node
-            }
-        } label: {
-            HStack(spacing: MacSpacing.sm) {
-                Image(systemName: node.displayIcon)
-                    .font(.system(size: 11))
-                    .foregroundStyle(node.swiftUIColor)
-                    .frame(width: 20)
-
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(node.content)
-                        .font(.system(size: 11))
-                        .foregroundStyle(MacColors.textPrimary)
-                        .lineLimit(1)
-                    Text(node.displayName)
-                        .font(.system(size: 10))
-                        .foregroundStyle(MacColors.textFaint)
-                }
-
-                Spacer()
-
-                // Weight indicator bar
-                RoundedRectangle(cornerRadius: 1.5)
-                    .fill(node.swiftUIColor.opacity(0.4))
-                    .frame(width: 24, height: 3)
-            }
-            .padding(.vertical, MacSpacing.xs)
-            .padding(.horizontal, MacSpacing.sm)
-            .background(MacColors.textPrimary.opacity(0.03))
-            .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.treeItem))
-        }
-        .buttonStyle(.hestia)
     }
 
     // MARK: - Loading & Empty States
@@ -372,19 +207,49 @@ struct ResearchView: View {
         }
     }
 
-    // MARK: - Legend & Badge
+    // MARK: - Dynamic Legend
+
+    /// Legend entry metadata for each node type.
+    private static let legendEntries: [String: (label: String, icon: String, color: Color)] = [
+        "memory":    ("Memory",    "brain",                   Color(red: 0.5, green: 0.5, blue: 0.5)),
+        "topic":     ("Topic",     "tag",                     Color(red: 1.0, green: 0.84, blue: 0.04)),
+        "entity":    ("Entity",    "person.text.rectangle",   Color(red: 0.19, green: 0.82, blue: 0.35)),
+        "principle": ("Principle", "lightbulb",               Color(red: 0.75, green: 0.35, blue: 0.95)),
+        "community": ("Community", "person.3",                Color(red: 1.0, green: 0.22, blue: 0.37)),
+        "episode":   ("Episode",   "clock",                   Color(red: 0.35, green: 0.78, blue: 0.98)),
+        "fact":      ("Fact",      "link",                    Color(red: 0.39, green: 0.82, blue: 1.0)),
+    ]
 
     private var graphLegend: some View {
         VStack(alignment: .leading, spacing: MacSpacing.xs) {
-            legendDot(color: Color(red: 0.6, green: 0.3, blue: 0.9), label: "Preference")
-            legendDot(color: Color(red: 0.2, green: 0.5, blue: 1.0), label: "Fact")
-            legendDot(color: Color(red: 1.0, green: 0.6, blue: 0.2), label: "Decision")
-            legendDot(color: Color(red: 1.0, green: 0.3, blue: 0.3), label: "Action")
-            legendDot(color: Color(red: 0.2, green: 0.8, blue: 0.6), label: "Research")
-            Text("Node size = confidence")
+            // Show entries for node types actually present in the graph
+            ForEach(graphViewModel.activeNodeTypes, id: \.self) { nodeType in
+                if let entry = Self.legendEntries[nodeType] {
+                    legendDot(color: entry.color, icon: entry.icon, label: entry.label)
+                }
+            }
+
+            // Also show memory chunk type breakdown when memory nodes are present
+            if graphViewModel.activeNodeTypes.contains("memory") {
+                MacColors.divider
+                    .frame(height: 1)
+                    .padding(.vertical, 2)
+                Text("Memory types:")
+                    .font(.system(size: 9).italic())
+                    .foregroundStyle(MacColors.textFaint)
+                legendColorDot(color: Color(red: 0.6, green: 0.3, blue: 0.9), label: "Preference")
+                legendColorDot(color: Color(red: 0.2, green: 0.5, blue: 1.0), label: "Fact")
+                legendColorDot(color: Color(red: 1.0, green: 0.6, blue: 0.2), label: "Decision")
+                legendColorDot(color: Color(red: 1.0, green: 0.3, blue: 0.3), label: "Action")
+                legendColorDot(color: Color(red: 0.2, green: 0.8, blue: 0.6), label: "Research")
+            }
+
+            MacColors.divider
+                .frame(height: 1)
+                .padding(.vertical, 2)
+            Text("Node size = importance")
                 .font(.system(size: 10).italic())
                 .foregroundStyle(MacColors.textFaint)
-                .padding(.top, MacSpacing.xs)
         }
         .padding(MacSpacing.md)
         .background(
@@ -397,19 +262,31 @@ struct ResearchView: View {
         )
     }
 
-    private func legendDot(color: Color, label: String) -> some View {
+    private func legendDot(color: Color, icon: String, label: String) -> some View {
         HStack(spacing: MacSpacing.sm) {
-            Circle()
-                .fill(color)
-                .frame(width: 8, height: 8)
+            Image(systemName: icon)
+                .font(.system(size: 9))
+                .foregroundStyle(color)
+                .frame(width: 12)
             Text(label)
                 .font(.system(size: 11))
                 .foregroundStyle(MacColors.textSecondary)
         }
     }
 
+    private func legendColorDot(color: Color, label: String) -> some View {
+        HStack(spacing: MacSpacing.sm) {
+            Circle()
+                .fill(color)
+                .frame(width: 8, height: 8)
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundStyle(MacColors.textSecondary)
+        }
+    }
+
     private var nodeCountBadge: some View {
-        Text("\(graphViewModel.nodes.count) nodes · \(graphViewModel.edges.count) edges")
+        Text("\(graphViewModel.nodes.count) nodes \u{00B7} \(graphViewModel.edges.count) edges")
             .font(.system(size: 10, weight: .medium))
             .foregroundStyle(MacColors.textSecondary)
             .padding(.horizontal, MacSpacing.sm)

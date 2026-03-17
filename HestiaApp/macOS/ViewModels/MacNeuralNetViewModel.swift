@@ -3,9 +3,40 @@ import AppKit
 import SceneKit
 import HestiaShared
 
+// MARK: - Graph Mode
+
+/// The two graph API modes: legacy co-occurrence vs. structured entity-fact.
+enum GraphMode: String, CaseIterable {
+    case legacy = "legacy"
+    case facts  = "facts"
+
+    var label: String {
+        switch self {
+        case .legacy: return "Memory"
+        case .facts:  return "Knowledge"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .legacy: return "brain"
+        case .facts:  return "point.3.connected.trianglepath.dotted"
+        }
+    }
+
+    /// Default visible node types per mode
+    var defaultNodeTypes: Set<String> {
+        switch self {
+        case .legacy: return ["memory", "topic", "entity"]
+        case .facts:  return ["entity", "community", "episode"]
+        }
+    }
+}
+
 /// macOS ViewModel for the Neural Net 3D graph visualization
 ///
 /// Fetches graph data from /v1/research/graph (server-side layout + edges).
+/// Supports legacy (co-occurrence) and facts (entity-relationship) modes.
 /// Falls back to mock data when server is unavailable.
 @MainActor
 class MacNeuralNetViewModel: ObservableObject {
@@ -21,11 +52,29 @@ class MacNeuralNetViewModel: ObservableObject {
     @Published var selectedConnectedNodes: [GraphNode] = []
     @Published var memoryCount: Int = 0
 
-    // MARK: - Published State (Filters)
+    // MARK: - Published State (Mode & Filters)
 
-    @Published var nodeTypeFilter: Set<String> = ["memory", "topic", "entity"]
+    @Published var graphMode: GraphMode = .legacy {
+        didSet {
+            if oldValue != graphMode {
+                nodeTypeFilter = graphMode.defaultNodeTypes
+            }
+        }
+    }
+    @Published var nodeTypeFilter: Set<String> = GraphMode.legacy.defaultNodeTypes
     @Published var focusTopic: String = ""
     @Published var depthLimit: Int = 3
+    @Published var sourceFilter: String = ""
+    @Published var centerEntity: String = ""
+
+    // MARK: - Published State (Time Slider — facts mode)
+
+    @Published var timeSliderEnabled: Bool = false
+    @Published var timeSliderValue: Double = 1.0  // 0.0 = oldest, 1.0 = now
+    @Published var timeSliderDate: Date = Date()
+
+    /// Earliest fact date from the server metadata (set after first facts load)
+    var earliestFactDate: Date = Calendar.current.date(byAdding: .year, value: -1, to: Date()) ?? Date()
 
     // MARK: - Published State (Principles)
 
@@ -39,8 +88,8 @@ class MacNeuralNetViewModel: ObservableObject {
     struct GraphNode: Identifiable, Equatable {
         let id: String
         let content: String
-        let nodeType: String       // "memory", "topic", "entity", "principle"
-        let category: String       // maps to ChunkType for memory nodes
+        let nodeType: String       // "memory", "topic", "entity", "principle", "fact", "community", "episode"
+        let category: String       // maps to ChunkType for memory nodes, EntityType for entity nodes
         let label: String
         let confidence: Double
         let weight: Double
@@ -48,6 +97,26 @@ class MacNeuralNetViewModel: ObservableObject {
         let entities: [String]
         var position: SIMD3<Float> = .zero
         let colorHex: String
+        let edgeType: String?      // populated on edges
+
+        init(id: String, content: String, nodeType: String, category: String,
+             label: String, confidence: Double, weight: Double,
+             topics: [String] = [], entities: [String] = [],
+             position: SIMD3<Float> = .zero, colorHex: String,
+             edgeType: String? = nil) {
+            self.id = id
+            self.content = content
+            self.nodeType = nodeType
+            self.category = category
+            self.label = label
+            self.confidence = confidence
+            self.weight = weight
+            self.topics = topics
+            self.entities = entities
+            self.position = position
+            self.colorHex = colorHex
+            self.edgeType = edgeType
+        }
 
         static func == (lhs: GraphNode, rhs: GraphNode) -> Bool {
             lhs.id == rhs.id
@@ -63,24 +132,31 @@ class MacNeuralNetViewModel: ObservableObject {
 
         var displayName: String {
             switch nodeType {
-            case "topic": return "Topic"
-            case "entity": return "Entity"
+            case "topic":     return "Topic"
+            case "entity":    return "Entity"
             case "principle": return "Principle"
-            default: return ChunkType(rawValue: category)?.displayName ?? category.capitalized
+            case "community": return "Community"
+            case "fact":      return "Fact"
+            case "episode":   return "Episode"
+            default:          return ChunkType(rawValue: category)?.displayName ?? category.capitalized
             }
         }
 
         var displayIcon: String {
             switch nodeType {
-            case "topic": return "tag"
-            case "entity": return "person.text.rectangle"
+            case "topic":     return "tag"
+            case "entity":    return "person.text.rectangle"
             case "principle": return "lightbulb"
-            default: return ChunkType(rawValue: category)?.displayIcon ?? "circle"
+            case "community": return "person.3"
+            case "fact":      return "link"
+            case "episode":   return "clock"
+            default:          return ChunkType(rawValue: category)?.displayIcon ?? "circle"
             }
         }
 
+        /// Node radius — based on weight (importance-blended for memory nodes)
         var radius: Float {
-            Float(0.15 + confidence * 0.15)
+            Float(0.12 + weight * 0.18) // Range: 0.12 - 0.30
         }
     }
 
@@ -89,12 +165,14 @@ class MacNeuralNetViewModel: ObservableObject {
         let fromId: String
         let toId: String
         let weight: Float
+        let edgeType: String
 
-        init(from: String, to: String, weight: Float) {
+        init(from: String, to: String, weight: Float, edgeType: String = "shared_topic") {
             self.id = "\(from)-\(to)"
             self.fromId = from
             self.toId = to
             self.weight = weight
+            self.edgeType = edgeType
         }
     }
 
@@ -120,11 +198,25 @@ class MacNeuralNetViewModel: ObservableObject {
         do {
             let nodeTypesParam = nodeTypeFilter.isEmpty ? nil : nodeTypeFilter.sorted().joined(separator: ",")
             let topicParam = focusTopic.isEmpty ? nil : focusTopic
+            let sourcesParam = sourceFilter.isEmpty ? nil : sourceFilter
+            let centerEntityParam = centerEntity.isEmpty ? nil : centerEntity
+
+            // Bi-temporal time slider (facts mode only)
+            var pointInTimeParam: String? = nil
+            if graphMode == .facts && timeSliderEnabled && timeSliderValue < 1.0 {
+                let date = dateFromSliderValue(timeSliderValue)
+                let formatter = ISO8601DateFormatter()
+                pointInTimeParam = formatter.string(from: date)
+            }
 
             let response = try await APIClient.shared.getResearchGraph(
                 limit: 200,
                 nodeTypes: nodeTypesParam,
-                centerTopic: topicParam
+                centerTopic: topicParam,
+                mode: graphMode.rawValue,
+                sources: sourcesParam,
+                centerEntity: centerEntityParam,
+                pointInTime: pointInTimeParam
             )
             applyGraphResponse(response)
             CacheManager.shared.cache(response, forKey: CacheKey.researchGraph, ttl: 300)
@@ -163,7 +255,12 @@ class MacNeuralNetViewModel: ObservableObject {
         }
 
         edges = response.edges.map { apiEdge in
-            GraphEdge(from: apiEdge.fromId, to: apiEdge.toId, weight: Float(apiEdge.weight))
+            GraphEdge(
+                from: apiEdge.fromId,
+                to: apiEdge.toId,
+                weight: Float(apiEdge.weight),
+                edgeType: apiEdge.edgeType
+            )
         }
 
         clusters = response.clusters.map { apiCluster in
@@ -174,6 +271,25 @@ class MacNeuralNetViewModel: ObservableObject {
                 color: Color(hex: apiCluster.color)
             )
         }
+    }
+
+    // MARK: - Time Slider Helpers
+
+    /// Convert slider value (0.0–1.0) to a date between earliestFactDate and now.
+    func dateFromSliderValue(_ value: Double) -> Date {
+        let now = Date()
+        let interval = now.timeIntervalSince(earliestFactDate)
+        return earliestFactDate.addingTimeInterval(interval * value)
+    }
+
+    /// Human-readable label for the current slider position.
+    var timeSliderLabel: String {
+        if timeSliderValue >= 0.99 { return "Now" }
+        let date = dateFromSliderValue(timeSliderValue)
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter.string(from: date)
     }
 
     // MARK: - Filtered Access
@@ -201,6 +317,11 @@ class MacNeuralNetViewModel: ObservableObject {
             return nil
         }
         return connectedIds.compactMap { id in nodes.first(where: { $0.id == id }) }
+    }
+
+    /// Unique set of node types currently in the graph (for dynamic legend)
+    var activeNodeTypes: [String] {
+        Array(Set(nodes.map(\.nodeType))).sorted()
     }
 
     // MARK: - Principles
@@ -236,7 +357,6 @@ class MacNeuralNetViewModel: ObservableObject {
             #if DEBUG
             print("[MacNeuralNetViewModel] Distilled \(result.principles_extracted) principles")
             #endif
-            // Reload principles to show new ones
             await loadPrinciples()
         } catch {
             #if DEBUG
@@ -248,8 +368,7 @@ class MacNeuralNetViewModel: ObservableObject {
     func approvePrinciple(_ id: String) async {
         do {
             _ = try await APIClient.shared.approvePrinciple(id)
-            // Update local state
-            if let idx = principles.firstIndex(where: { $0.id == id }) {
+            if let _ = principles.firstIndex(where: { $0.id == id }) {
                 await loadPrinciples()
             }
             CacheManager.shared.invalidate(forKey: CacheKey.researchPrinciples)
@@ -263,7 +382,7 @@ class MacNeuralNetViewModel: ObservableObject {
     func rejectPrinciple(_ id: String) async {
         do {
             _ = try await APIClient.shared.rejectPrinciple(id)
-            if let idx = principles.firstIndex(where: { $0.id == id }) {
+            if let _ = principles.firstIndex(where: { $0.id == id }) {
                 await loadPrinciples()
             }
             CacheManager.shared.invalidate(forKey: CacheKey.researchPrinciples)

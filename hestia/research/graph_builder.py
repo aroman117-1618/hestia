@@ -27,6 +27,7 @@ from .models import (
     CATEGORY_COLORS,
     EdgeType,
     Entity,
+    EpisodicNode,
     Fact,
     FactStatus,
     GraphCluster,
@@ -83,9 +84,10 @@ class GraphBuilder:
         self,
         center_entity: Optional[str] = None,
         max_depth: int = 3,
+        point_in_time: Optional[Any] = None,
     ) -> GraphResponse:
         """
-        Build a knowledge graph from entities, facts, and communities.
+        Build a knowledge graph from entities, facts, communities, and episodes.
 
         This is a separate entry point from build_graph(). Instead of
         memory chunks, it uses the structured entity/fact/community tables.
@@ -93,9 +95,11 @@ class GraphBuilder:
         Args:
             center_entity: Entity ID to center the graph on (BFS filtering).
             max_depth: Max hops from center_entity to include.
+            point_in_time: Optional datetime for bi-temporal fact filtering.
 
         Returns:
-            GraphResponse with entity nodes, relationship edges, and community clusters.
+            GraphResponse with entity nodes, relationship edges, community
+            clusters, and episodic timeline nodes.
         """
         start_time = time.time()
 
@@ -104,6 +108,7 @@ class GraphBuilder:
             entities = await db.list_entities(limit=200)
             facts = await db.list_facts(status=FactStatus.ACTIVE, limit=500)
             communities = await db.list_communities(limit=50)
+            episodes = await db.get_episodic_nodes(limit=50)
         except Exception as e:
             logger.warning(
                 "Fact graph builder: DB query failed, returning empty graph",
@@ -120,6 +125,11 @@ class GraphBuilder:
                 nodes=[], edges=[], clusters=[],
                 metadata={"total_entities": 0, "query_time_ms": 0},
             )
+
+        # Bi-temporal filtering: keep only facts valid at the given point in time
+        total_facts_before_filter = len(facts)
+        if point_in_time is not None:
+            facts = [f for f in facts if f.is_valid_at(point_in_time)]
 
         # ── Build entity nodes ──────────────────────────
         entity_id_set = {e.id for e in entities}
@@ -198,9 +208,43 @@ class GraphBuilder:
                         weight=0.3,
                     ))
 
+        # ── Build episodic nodes and edges ───────────────
+        episode_nodes: List[GraphNode] = []
+        episode_edges: List[GraphEdge] = []
+
+        for episode in episodes:
+            ep_node_id = f"episode:{episode.id}"
+            episode_nodes.append(GraphNode(
+                id=ep_node_id,
+                content=episode.summary[:200] if episode.summary else f"Session {episode.session_id}",
+                node_type=NodeType.EPISODE,
+                category="episode",
+                label=f"Episode: {episode.summary[:40]}..." if len(episode.summary) > 40 else f"Episode: {episode.summary}",
+                confidence=1.0,
+                weight=0.4,
+                entities=[],
+                last_active=episode.created_at,
+                metadata={
+                    "session_id": episode.session_id,
+                    "entity_count": len(episode.entity_ids),
+                    "fact_count": len(episode.fact_ids),
+                },
+            ))
+
+            # Link episode to its entities
+            for eid in episode.entity_ids:
+                entity_graph_id = f"entity:{eid}"
+                if entity_graph_id in node_id_set:
+                    episode_edges.append(GraphEdge(
+                        from_id=ep_node_id,
+                        to_id=entity_graph_id,
+                        edge_type=EdgeType.SEMANTIC,
+                        weight=0.3,
+                    ))
+
         # ── Assemble all nodes and edges ────────────────
-        all_nodes = entity_nodes + community_nodes
-        all_edges = relationship_edges + member_edges
+        all_nodes = entity_nodes + community_nodes + episode_nodes
+        all_edges = relationship_edges + member_edges + episode_edges
 
         # ── BFS filter by center_entity ─────────────────
         if center_entity:
@@ -219,6 +263,7 @@ class GraphBuilder:
         clusters = self._build_community_clusters(communities, all_nodes)
 
         query_time_ms = int((time.time() - start_time) * 1000)
+        pit_str = point_in_time.isoformat() if point_in_time else None
 
         logger.info(
             "Fact graph built",
@@ -227,6 +272,9 @@ class GraphBuilder:
                 "nodes": len(all_nodes),
                 "edges": len(all_edges),
                 "clusters": len(clusters),
+                "episodes": len(episode_nodes),
+                "point_in_time": pit_str,
+                "facts_filtered": total_facts_before_filter - len(facts) if point_in_time else 0,
                 "query_time_ms": query_time_ms,
             },
         )
@@ -238,7 +286,10 @@ class GraphBuilder:
             metadata={
                 "total_entities": len(entities),
                 "total_facts": len(facts),
+                "total_facts_unfiltered": total_facts_before_filter,
                 "total_communities": len(communities),
+                "total_episodes": len(episodes),
+                "point_in_time": pit_str,
                 "node_count": len(all_nodes),
                 "edge_count": len(all_edges),
                 "query_time_ms": query_time_ms,
@@ -444,18 +495,26 @@ class GraphBuilder:
     # ── Node Builders ───────────────────────────────────
 
     def _build_memory_nodes(self, results: List[Any]) -> List[GraphNode]:
-        """Build one GraphNode per memory chunk."""
+        """Build one GraphNode per memory chunk.
+
+        Weight uses the importance score (stored in metadata.confidence since
+        Sprint 16) blended with search relevance.  This means higher-importance
+        memories render as larger nodes in the graph.
+        """
         nodes = []
         for result in results:
             chunk = result.chunk
+            importance = chunk.metadata.confidence if chunk.metadata else 0.5
+            # Blend importance (70%) with search relevance (30%) for visual weight
+            blended_weight = importance * 0.7 + result.relevance_score * 0.3
             nodes.append(GraphNode(
                 id=chunk.id,
                 content=chunk.content[:200],
                 node_type=NodeType.MEMORY,
                 category=chunk.chunk_type.value,
                 label=chunk.content[:50].replace("\n", " "),
-                confidence=chunk.metadata.confidence if chunk.metadata else 0.5,
-                weight=result.relevance_score,
+                confidence=importance,
+                weight=max(blended_weight, 0.1),
                 topics=list(chunk.tags.topics) if chunk.tags else [],
                 entities=list(chunk.tags.entities) if chunk.tags else [],
                 last_active=chunk.timestamp,
@@ -463,6 +522,7 @@ class GraphBuilder:
                     "session_id": chunk.session_id,
                     "chunk_type": chunk.chunk_type.value,
                     "scope": chunk.scope.value if chunk.scope else "session",
+                    "importance": round(importance, 3),
                 },
             ))
         return nodes

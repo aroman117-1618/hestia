@@ -4,7 +4,7 @@ import SceneKit
 
 /// Interactive 3D Neural Net graph visualization using SceneKit
 ///
-/// Renders memory chunks as glowing spheres connected by translucent edges.
+/// Renders knowledge graph nodes as glowing shapes connected by styled edges.
 /// Supports pan, zoom, and rotate via SceneKit's camera controls.
 /// Tap a node to select it and see its details.
 struct NeuralNetView: View {
@@ -29,7 +29,7 @@ struct NeuralNetView: View {
                     )
                     .clipped()
 
-                    // Legend overlay (bottom-left)
+                    // Legend overlay (bottom-left) — dynamic
                     legendOverlay
 
                     // Node count badge (top-right)
@@ -68,7 +68,7 @@ struct NeuralNetView: View {
             Spacer()
 
             if viewModel.memoryCount > 0 {
-                Text("\(viewModel.memoryCount) memories")
+                Text("\(viewModel.memoryCount) nodes")
                     .font(.caption)
                     .foregroundColor(.white.opacity(0.5))
             }
@@ -109,15 +109,36 @@ struct NeuralNetView: View {
         }
     }
 
-    // MARK: - Legend Overlay
+    // MARK: - Dynamic Legend Overlay
+
+    /// All node types with their display metadata
+    private static let legendMap: [String: (label: String, color: Color)] = [
+        "memory":    ("Memory",    Color(red: 0.5, green: 0.5, blue: 0.5)),
+        "topic":     ("Topic",     Color(red: 1.0, green: 0.84, blue: 0.04)),
+        "entity":    ("Entity",    Color(red: 0.19, green: 0.82, blue: 0.35)),
+        "principle": ("Principle", Color(red: 0.75, green: 0.35, blue: 0.95)),
+        "community": ("Community", Color(red: 1.0, green: 0.22, blue: 0.37)),
+        "episode":   ("Episode",   Color(red: 0.35, green: 0.78, blue: 0.98)),
+        "fact":      ("Fact",      Color(red: 0.39, green: 0.82, blue: 1.0)),
+    ]
 
     private var legendOverlay: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            legendDot(color: Color(UIColor(red: 0.6, green: 0.3, blue: 0.9, alpha: 1)), label: "Preference")
-            legendDot(color: Color(UIColor(red: 0.2, green: 0.5, blue: 1.0, alpha: 1)), label: "Fact")
-            legendDot(color: Color(UIColor(red: 1.0, green: 0.6, blue: 0.2, alpha: 1)), label: "Decision")
-            legendDot(color: Color(UIColor(red: 1.0, green: 0.3, blue: 0.3, alpha: 1)), label: "Action")
-            legendDot(color: Color(UIColor(red: 0.2, green: 0.8, blue: 0.6, alpha: 1)), label: "Research")
+        let activeTypes = Array(Set(viewModel.nodes.map(\.nodeType))).sorted()
+
+        return VStack(alignment: .leading, spacing: 3) {
+            ForEach(activeTypes, id: \.self) { nodeType in
+                if let entry = Self.legendMap[nodeType] {
+                    legendDot(color: entry.color, label: entry.label)
+                }
+            }
+
+            if activeTypes.contains("memory") {
+                legendDot(color: Color(UIColor(red: 0.6, green: 0.3, blue: 0.9, alpha: 1)), label: "Preference")
+                legendDot(color: Color(UIColor(red: 0.2, green: 0.5, blue: 1.0, alpha: 1)), label: "Fact")
+                legendDot(color: Color(UIColor(red: 1.0, green: 0.6, blue: 0.2, alpha: 1)), label: "Decision")
+                legendDot(color: Color(UIColor(red: 1.0, green: 0.3, blue: 0.3, alpha: 1)), label: "Action")
+                legendDot(color: Color(UIColor(red: 0.2, green: 0.8, blue: 0.6, alpha: 1)), label: "Research")
+            }
         }
         .padding(Spacing.sm)
         .background(Color.black.opacity(0.5))
@@ -162,7 +183,7 @@ struct NeuralNetView: View {
                 .frame(width: 12, height: 12)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(node.chunkType.rawValue.capitalized)
+                Text(node.displayName)
                     .font(.caption.weight(.semibold))
                     .foregroundColor(.white.opacity(0.8))
 
@@ -293,24 +314,64 @@ struct SceneKitGraphView: UIViewRepresentable {
             guard let fromPos = nodePositions[edge.fromId],
                   let toPos = nodePositions[edge.toId] else { continue }
 
-            let edgeNode = createEdgeNode(from: fromPos, to: toPos, weight: edge.weight)
+            let edgeNode = createEdgeNode(from: fromPos, to: toPos, edge: edge)
             scene.rootNode.addChildNode(edgeNode)
         }
 
-        // Add nodes
+        // Add nodes with per-type geometry
         for node in nodes {
-            let sphereNode = createSphereNode(for: node)
-            scene.rootNode.addChildNode(sphereNode)
+            let sceneNode = createNodeGeometry(for: node)
+            scene.rootNode.addChildNode(sceneNode)
         }
 
         return scene
     }
 
-    // MARK: - Node Creation
+    // MARK: - Node Geometry (shape per nodeType)
 
-    private func createSphereNode(for graphNode: NeuralNetViewModel.GraphNode) -> SCNNode {
-        let sphere = SCNSphere(radius: CGFloat(graphNode.radius))
-        sphere.segmentCount = 24
+    private func createNodeGeometry(for graphNode: NeuralNetViewModel.GraphNode) -> SCNNode {
+        let r = CGFloat(graphNode.radius)
+        let geometry: SCNGeometry
+
+        switch graphNode.nodeType {
+        case "topic":
+            let sphere = SCNSphere(radius: r)
+            sphere.segmentCount = 4
+            geometry = sphere
+
+        case "entity":
+            let side = r * 1.6
+            geometry = SCNBox(width: side, height: side, length: side, chamferRadius: side * 0.1)
+
+        case "principle":
+            geometry = SCNTorus(ringRadius: r * 1.0, pipeRadius: r * 0.35)
+
+        case "community":
+            let sphere = SCNSphere(radius: r * 2.0)
+            sphere.segmentCount = 32
+            let material = SCNMaterial()
+            material.diffuse.contents = graphNode.color.withAlphaComponent(0.15)
+            material.emission.contents = graphNode.color.withAlphaComponent(0.08)
+            material.lightingModel = .constant
+            material.isDoubleSided = true
+            sphere.materials = [material]
+
+            let node = SCNNode(geometry: sphere)
+            node.position = SCNVector3(graphNode.position.x, graphNode.position.y, graphNode.position.z)
+            node.name = graphNode.id
+            return node
+
+        case "episode":
+            geometry = SCNCapsule(capRadius: r * 0.6, height: r * 2.5)
+
+        case "fact":
+            geometry = SCNCylinder(radius: r * 0.8, height: r * 0.4)
+
+        default:
+            let sphere = SCNSphere(radius: r)
+            sphere.segmentCount = 24
+            geometry = sphere
+        }
 
         // Material with glow effect
         let material = SCNMaterial()
@@ -319,9 +380,9 @@ struct SceneKitGraphView: UIViewRepresentable {
         material.lightingModel = .physicallyBased
         material.metalness.contents = 0.3
         material.roughness.contents = 0.6
-        sphere.materials = [material]
+        geometry.materials = [material]
 
-        let node = SCNNode(geometry: sphere)
+        let node = SCNNode(geometry: geometry)
         node.position = SCNVector3(
             graphNode.position.x,
             graphNode.position.y,
@@ -339,17 +400,18 @@ struct SceneKitGraphView: UIViewRepresentable {
         return node
     }
 
-    // MARK: - Edge Creation
+    // MARK: - Edge Creation (styled by edgeType)
 
-    private func createEdgeNode(from: SIMD3<Float>, to: SIMD3<Float>, weight: Float) -> SCNNode {
+    private func createEdgeNode(from: SIMD3<Float>, to: SIMD3<Float>, edge: NeuralNetViewModel.GraphEdge) -> SCNNode {
         let delta = to - from
         let distance = simd_length(delta)
         guard distance > 0.01 else { return SCNNode() }
 
-        // Cylinder along Y-axis, then rotated
-        let cylinder = SCNCylinder(radius: CGFloat(0.008 + weight * 0.012), height: CGFloat(distance))
+        let styling = edgeStyling(for: edge.edgeType, weight: edge.weight)
+
+        let cylinder = SCNCylinder(radius: CGFloat(styling.radius), height: CGFloat(distance))
         let material = SCNMaterial()
-        material.diffuse.contents = UIColor.white.withAlphaComponent(CGFloat(0.08 + weight * 0.15))
+        material.diffuse.contents = styling.color
         material.lightingModel = .constant
         cylinder.materials = [material]
 
@@ -363,7 +425,6 @@ struct SceneKitGraphView: UIViewRepresentable {
         let yAxis = SIMD3<Float>(0, 1, 0)
         let direction = simd_normalize(delta)
 
-        // Quaternion rotation from Y-axis to edge direction
         let cross = simd_cross(yAxis, direction)
         let crossLen = simd_length(cross)
         let dot = simd_dot(yAxis, direction)
@@ -373,11 +434,33 @@ struct SceneKitGraphView: UIViewRepresentable {
             let axis = simd_normalize(cross)
             edgeNode.rotation = SCNVector4(axis.x, axis.y, axis.z, angle)
         } else if dot < 0 {
-            // Anti-parallel: rotate 180 degrees around any perpendicular axis
             edgeNode.rotation = SCNVector4(1, 0, 0, Float.pi)
         }
 
         return edgeNode
+    }
+
+    private func edgeStyling(for edgeType: String, weight: Float) -> (radius: Float, color: UIColor) {
+        switch edgeType {
+        case "relationship":
+            let r = 0.012 + weight * 0.015
+            return (r, UIColor(red: 1.0, green: 0.6, blue: 0.2, alpha: CGFloat(0.15 + weight * 0.25)))
+        case "supersedes":
+            return (0.012, UIColor(red: 1.0, green: 0.2, blue: 0.2, alpha: 0.3))
+        case "principle_source":
+            return (0.010, UIColor(red: 0.75, green: 0.35, blue: 0.95, alpha: 0.25))
+        case "community_member":
+            return (0.005, UIColor(red: 1.0, green: 0.2, blue: 0.37, alpha: 0.15))
+        case "topic_membership":
+            return (0.005, UIColor(red: 1.0, green: 0.84, blue: 0.04, alpha: 0.15))
+        case "entity_membership":
+            return (0.005, UIColor(red: 0.19, green: 0.82, blue: 0.35, alpha: 0.15))
+        case "semantic":
+            return (0.008, UIColor(red: 0.35, green: 0.78, blue: 0.98, alpha: 0.20))
+        default:
+            let r = 0.008 + weight * 0.012
+            return (r, UIColor.white.withAlphaComponent(CGFloat(0.08 + weight * 0.15)))
+        }
     }
 
     // MARK: - Coordinator (Tap Handling)
@@ -397,14 +480,11 @@ struct SceneKitGraphView: UIViewRepresentable {
             guard let sceneView = sceneView else { return }
             let location = gesture.location(in: sceneView)
 
-            // Extract node names from hit results on the current thread
-            // to avoid sending non-Sendable SCNHitTestResult across boundaries
             let hitNodeNames: [String] = sceneView.hitTest(location, options: [
                 .searchMode: SCNHitTestSearchMode.closest.rawValue,
                 .boundingBoxOnly: true
             ]).compactMap { $0.node.name }
 
-            // Find the first hit node that matches a graph node
             for nodeName in hitNodeNames {
                 if let graphNode = nodes.first(where: { $0.id == nodeName }) {
                     withAnimation(.hestiaQuick) {
@@ -414,7 +494,6 @@ struct SceneKitGraphView: UIViewRepresentable {
                 }
             }
 
-            // Tapped empty space — deselect
             withAnimation(.hestiaQuick) {
                 self.parent.selectedNode = nil
             }

@@ -322,12 +322,16 @@ class ResearchManager:
     async def get_fact_graph(
         self,
         center_entity: Optional[str] = None,
+        point_in_time: Optional[datetime] = None,
     ) -> GraphResponse:
-        """Get the fact-based knowledge graph."""
+        """Get the fact-based knowledge graph, optionally filtered to a point in time."""
         if not self._graph_builder:
             return GraphResponse(nodes=[], edges=[], clusters=[], metadata={"error": "not_initialized"})
 
-        return await self._graph_builder.build_fact_graph(center_entity=center_entity)
+        return await self._graph_builder.build_fact_graph(
+            center_entity=center_entity,
+            point_in_time=point_in_time,
+        )
 
     async def list_communities(
         self,
