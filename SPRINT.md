@@ -275,20 +275,11 @@ Terminal-native interface. WebSocket streaming, prompt_toolkit REPL, Rich render
 
 ---
 
-## Next: Sprint 11B — Command Center + MetaMonitor (Deferred)
+## Next: Sprint 17 — TBD
 
-**Plan:** `docs/plans/sprint-11-command-center-plan.md`
-**Effort:** ~15 working days
-**Status:** Deferred — OutcomeTracker benefits from additional data collection time before Gate 2.
-
-### Decision Gate 2 (before Sprint 11B)
-- Is OutcomeTracker collecting meaningful signals?
-- Memory + CPU profile acceptable on M1?
-- Does multi-source memory (from 11.5) improve MetaMonitor input quality?
-- -> Go/No-Go on MetaMonitor
-
-### Sprint 11B Scope
-1. MetaMonitor: consumes OutcomeTracker data, detects behavioral patterns
-2. Command Center redesign: contextual metrics (Personal <-> System), calendar week grid
-3. Order creation wizard (multi-step)
-4. ~42 new tests
+Candidates:
+- Outcome-to-Principle pipeline (auto-distill principles from tracked outcomes)
+- Correction classifier (detect user corrections, feed into learning loop)
+- Memory UI browser (iOS/macOS visualization of importance scores, consolidation history)
+- Command Center redesign (contextual metrics, calendar week grid)
+- Neural Net graph view Phase 2 (time slider, bi-temporal exploration)

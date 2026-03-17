@@ -62,7 +62,7 @@ When resuming work from a previous session, FIRST read `SESSION_HANDOFF.md` (if 
 This is a multi-session project (Hestia). Key references:
 - Project plans and workstreams are in `docs/`
 - Previous session context may be compacted — check docs and CLAUDE.md FIRST before searching transcripts
-- Current workstreams: Sprint 15 (MetaMonitor + Memory Health + Trigger Metrics — self-awareness infrastructure). Sprints 1-14 COMPLETE. See `SPRINT.md`.
+- Current workstreams: Sprint 16 COMPLETE (Memory Lifecycle — importance, consolidation, pruning). Sprints 1-16 COMPLETE. See `SPRINT.md`.
 - **2026-03-01:** Sprint 4 — audit remediation (proactive auth fix, auth dep standardization), macOS Wiki/Explorer Resources/Resources tab. 66 macOS files total.
 - **2026-02-28:** macOS app renamed to "Hestia" — UX polished: keyboard shortcuts (⌘1-6/\), sidebar, responsive layout, app icon. Both Xcode schemes build clean.
 - **2026-02-28:** Claude Code config refresh — new skills, CI/CD pipeline, sprint tracker. Direct API billing active.
@@ -92,7 +92,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | Hardware | Mac Mini M1 (16GB) |
 | Model | Qwen 3.5 9B primary + Qwen 2.5 Coder 7B specialist (Ollama, local) + cloud (Anthropic/OpenAI/Google) |
 | SLM | qwen2.5:0.5b (council intent classification, ~100ms) |
-| Backend | Python 3.9+, FastAPI, ~175 endpoints across 27 route modules |
+| Backend | Python 3.9+, FastAPI, ~180 endpoints across 27 route modules |
 | Storage | ChromaDB (vectors) + SQLite (structured) + macOS Keychain (credentials) |
 | App | Native Swift/SwiftUI (iOS 26.0+) |
 | API | REST on port 8443 with JWT auth, HTTPS with self-signed cert |
@@ -109,7 +109,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 **Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
 **Field Guide UI Restructure: COMPLETE.** 5 thematic tabs, native SwiftUI diagrams, structured roadmap with `/v1/wiki/roadmap` endpoint.
 
-2037 tests (2034 passing, 3 skipped), 59 test files (52 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
+2219 tests (2084 backend + 135 CLI), 62 test files (55 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -184,7 +184,7 @@ hestia/
 │   ├── inference/                   # InferenceClient (Ollama + cloud), ModelRouter (3-state)
 │   ├── cloud/                       # CloudManager, CloudInferenceClient (Anthropic/OpenAI/Google)
 │   ├── council/                     # CouncilManager (4-role, dual-path), IntentType, prompts
-│   ├── memory/                      # MemoryManager, ChromaDB, SQLite, TemporalDecay, AutoTagger
+│   ├── memory/                      # MemoryManager, ChromaDB, SQLite, TemporalDecay, AutoTagger, ImportanceScorer, Consolidator, Pruner
 │   ├── orchestration/               # RequestHandler, StateMachine, ModeManager, PromptBuilder, AgentOrchestrator
 │   ├── execution/                   # ToolExecutor, ToolRegistry, Sandbox, CommGate
 │   ├── apple/                       # 20 tools (Calendar, Reminders, Notes, Mail)
@@ -212,12 +212,13 @@ hestia/
 │   │   ├── database.py             # AppleCacheDatabase (FTS5 virtual table, sync tracking)
 │   │   ├── resolver.py             # SmartResolver (FTS5 candidates + rapidfuzz scoring)
 │   │   └── manager.py              # AppleCacheManager (TTL sync, write-through, singleton)
-│   ├── learning/                    # MetaMonitor, Memory Health, Trigger Metrics (Sprint 15)
+│   ├── learning/                    # MetaMonitor, Memory Health, Trigger Metrics, Scheduling (Sprint 15-16)
 │   │   ├── models.py               # MetaMonitorReport, MemoryHealthSnapshot, TriggerAlert
 │   │   ├── database.py             # LearningDatabase (reports, snapshots, trigger_log)
 │   │   ├── meta_monitor.py         # MetaMonitorManager (hourly SQL analysis)
 │   │   ├── memory_health.py        # MemoryHealthMonitor (daily diagnostics)
-│   │   └── trigger_monitor.py      # TriggerMonitor (configurable thresholds)
+│   │   ├── trigger_monitor.py      # TriggerMonitor (configurable thresholds)
+│   │   └── scheduler.py            # LearningScheduler (6 async loops: monitor + lifecycle)
 │   ├── research/                    # Knowledge graph + PrincipleStore + Temporal Facts + Episodic Nodes (ADR-041)
 │   │   ├── models.py              # Fact, Entity, Community, EpisodicNode, Principle dataclasses + graph types
 │   │   ├── database.py            # SQLite: facts, entities, communities, principles, episodic_nodes, graph_cache
@@ -228,15 +229,15 @@ hestia/
 │   │   └── manager.py            # ResearchManager singleton (graph, facts, entities, principles)
 │   ├── investigate/                 # URL content analysis (web articles, YouTube), LLM analysis pipeline
 │   │   └── extractors/             # BaseExtractor ABC, WebArticleExtractor, YouTubeExtractor
-│   ├── api/                         # FastAPI — 168 endpoints, 27 route modules
+│   ├── api/                         # FastAPI — 180 endpoints, 27 route modules
 │   │   ├── errors.py                # sanitize_for_log(), safe_error_detail()
 │   │   ├── schemas/                  # Pydantic request/response models (16 domain modules)
 │   │   ├── server.py                # App lifecycle, manager initialization
 │   │   ├── middleware/auth.py        # JWT device authentication
 │   │   └── routes/                  # auth, health, chat, mode, memory, sessions, tools,
 │   │                                # tasks, cloud, voice, orders, agents, agents_v2, user, user_profile, proactive, health_data, wiki, explorer, newsfeed, investigate, research, files, inbox, outcomes, learning
-│   └── config/                      # inference.yaml, execution.yaml, memory.yaml, wiki.yaml
-├── hestia-cli/                      # Python CLI package — 72 tests, 6 test files
+│   └── config/                      # inference.yaml, execution.yaml, memory.yaml, triggers.yaml, wiki.yaml
+├── hestia-cli/                      # Python CLI package — 135 tests, 7 test files
 │   ├── hestia_cli/                  # CLI source (app, repl, client, auth, bootstrap, config, commands, context, renderer, models)
 │   └── tests/                       # CLI tests (bootstrap, client, config, context, renderer)
 ├── hestia-cli-tools/                # Swift CLIs (keychain, calendar, reminders, notes)
@@ -267,13 +268,13 @@ hestia/
 
 ---
 
-## API Summary (168 endpoints, 27 route modules)
+## API Summary (180 endpoints, 27 route modules)
 
 | Module | Endpoints | Key Routes |
 |--------|-----------|------------|
 | Health & Auth | 8 | `/v1/ping`, `/v1/health`, `/v1/ready`, `/v1/auth/register`, `/v1/auth/refresh`, `/v1/auth/invite`, `/v1/auth/register-with-invite`, `/v1/auth/re-invite` |
 | Chat & Mode | 6 | `/v1/chat`, `/v1/chat/stream` (SSE), `/v1/chat/agentic` (iterative tool loop), `/v1/mode/*` |
-| Memory | 7 | `/v1/memory/staged`, `approve`, `reject`, `search`, `ingest`, `import/claude` |
+| Memory | 12 | `/v1/memory/staged`, `approve`, `reject`, `search`, `sensitive`, `ingest`, `import/claude`, `importance-stats`, `consolidation/preview`, `consolidation/execute`, `pruning/preview`, `pruning/execute` |
 | Sessions | 3 | `/v1/sessions` CRUD |
 | Tools | 3 | `/v1/tools` list, details, schema |
 | Tasks | 6 | `/v1/tasks` CRUD + approve/cancel/retry |
@@ -315,6 +316,8 @@ Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 **Apple Metadata Cache:** FTS5 SQLite cache of Notes/Calendar/Reminders titles with rapidfuzz fuzzy resolution. TTL-based sync (6h notes, 2h calendar, 4h reminders). Write-through on create/update/delete. Eliminates multi-step tool chains — `read_note("sprint plan")` resolves + fetches in one call. 20 Apple tools (was 17).
 
 **Knowledge Graph (Sprint 9 — Graphiti-inspired):** Bi-temporal facts (`valid_at`, `invalid_at`, `expired_at`) on SQLite edges between entities. Entity resolution via canonical name dedup. Community detection via label propagation (no graph DB). LLM-powered triplet extraction + contradiction detection. Two graph modes: `mode=legacy` (co-occurrence) and `mode=facts` (entity-relationship). On-demand extraction (not per-chat) to avoid inference overhead.
+
+**Memory Lifecycle (Sprint 16):** ImportanceScorer (composite: 0.3 recency + 0.4 retrieval frequency + 0.3 type bonus), MemoryConsolidator (embedding-similarity dedup >0.90, 50-sample cap, pluggable MergeStrategy), MemoryPruner (archives >60d old + importance <0.2, soft-delete + undo). All zero-LLM. Scheduled via LearningScheduler (importance nightly, consolidation/pruning weekly). 5 new `/v1/memory/` endpoints. Config in `memory.yaml`.
 
 **Agent Orchestrator (ADR-042):** Hestia is the single user interface. Council coordinator classifies intent, then `AgentRouter` maps intent → `AgentRoute` (HESTIA_SOLO, ARTEMIS, APOLLO, ARTEMIS_THEN_APOLLO) via deterministic keyword heuristic. Confidence gating: >0.8 = full specialist dispatch, 0.5-0.8 = enriched solo, <0.5 = pure solo. Chains validated before execution. `asyncio.gather` for parallel groups (genuine on M5 Ultra, sequential on M1). Byline attribution in responses. Kill switch: `orchestration.yaml → enabled: false`.
 

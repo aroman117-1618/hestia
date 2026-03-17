@@ -597,6 +597,7 @@ class TestAgentExecutor:
     def setup_method(self):
         self.config = OrchestratorConfig()
         self.mock_inference = AsyncMock()
+        self.mock_inference.router.route_for_agent = MagicMock(return_value=None)
         self.mock_prompt_builder = MagicMock()
 
     def _make_executor(self):
