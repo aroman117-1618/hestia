@@ -33,11 +33,10 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run tests
-        run: python -m pytest tests/ --tb=short -q --timeout=30
-        # Per-test timeout of 30s. CI doesn't have Ollama or macOS Keychain,
-        # so tests depending on those will fail — that's expected.
-        # Full integration testing happens on Mac Mini during deploy.
-        continue-on-error: true
+        run: python -m pytest tests/ --tb=short -q --timeout=30 -m "not integration"
+        # Per-test timeout of 30s. Integration tests (Ollama, Keychain)
+        # are skipped — they run on Mac Mini during deploy.
+        # CI MUST fail on test failures — no continue-on-error.
 
       - name: Verify test collection
         run: python -m pytest tests/ --collect-only -q 2>&1 | tail -5
