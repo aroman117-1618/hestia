@@ -48,7 +48,7 @@ class LearningScheduler:
         from hestia.outcomes import get_outcome_manager
         from hestia.orchestration.audit_db import get_routing_audit_db
         from hestia.memory import get_memory_manager
-        from hestia.research import get_research_manager
+        from hestia.research.manager import get_research_manager
 
         outcome_mgr = await get_outcome_manager()
         routing_db = await get_routing_audit_db()
