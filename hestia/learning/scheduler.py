@@ -17,6 +17,9 @@ from hestia.learning.database import LearningDatabase
 from hestia.learning.meta_monitor import MetaMonitorManager
 from hestia.learning.memory_health import MemoryHealthMonitor
 from hestia.learning.trigger_monitor import TriggerMonitor
+from hestia.memory.importance import ImportanceScorer
+from hestia.memory.consolidator import MemoryConsolidator
+from hestia.memory.pruner import MemoryPruner
 
 
 logger = get_logger()
@@ -32,6 +35,9 @@ class LearningScheduler:
         self._meta_monitor: Optional[MetaMonitorManager] = None
         self._memory_health: Optional[MemoryHealthMonitor] = None
         self._trigger_monitor: Optional[TriggerMonitor] = None
+        self._importance_scorer: Optional[ImportanceScorer] = None
+        self._consolidator: Optional[MemoryConsolidator] = None
+        self._pruner: Optional[MemoryPruner] = None
         self._tasks: List[asyncio.Task] = []
         self._running = False
 
@@ -71,16 +77,38 @@ class LearningScheduler:
             config=config,
         )
 
+        # Memory lifecycle components (Sprint 16)
+        memory_config = self._load_memory_config()
+        self._importance_scorer = ImportanceScorer(
+            memory_db=memory_mgr.database,
+            outcome_db=outcome_mgr,
+            config=memory_config,
+        )
+        self._consolidator = MemoryConsolidator(
+            memory_db=memory_mgr.database,
+            vector_store=memory_mgr.vector_store,
+            config=memory_config,
+        )
+        self._pruner = MemoryPruner(
+            memory_db=memory_mgr.database,
+            vector_store=memory_mgr.vector_store,
+            learning_db=self._db,
+            config=memory_config,
+        )
+
         # Start background loops
         self._running = True
         self._tasks.append(asyncio.create_task(self._meta_monitor_loop()))
         self._tasks.append(asyncio.create_task(self._memory_health_loop()))
         self._tasks.append(asyncio.create_task(self._trigger_check_loop(config)))
+        self._tasks.append(asyncio.create_task(self._importance_scorer_loop()))
+        self._tasks.append(asyncio.create_task(self._consolidation_loop()))
+        self._tasks.append(asyncio.create_task(self._pruning_loop()))
 
         logger.info(
             "Learning scheduler started",
             component=LogComponent.LEARNING,
-            data={"monitors": 3},
+            data={"monitors": 6},
         )
 
     async def close(self) -> None:
@@ -98,6 +126,15 @@ class LearningScheduler:
             await self._db.close()
 
         logger.info("Learning scheduler stopped", component=LogComponent.LEARNING)
+
+    def _load_memory_config(self) -> Dict[str, Any]:
+        """Load memory configuration from YAML (for lifecycle components)."""
+        config_path = Path(__file__).parent.parent / "config" / "memory.yaml"
+        try:
+            with open(config_path) as f:
+                return yaml.safe_load(f) or {}
+        except FileNotFoundError:
+            return {}
 
     def _load_triggers_config(self) -> Dict[str, Any]:
         """Load triggers configuration from YAML."""
@@ -175,6 +212,62 @@ class LearningScheduler:
             pass
 
         return metrics
+
+    # ── Memory Lifecycle Loops (Sprint 16) ─────────────────────
+
+    async def _importance_scorer_loop(self) -> None:
+        """Run importance scoring nightly."""
+        await asyncio.sleep(240)  # 4 min after startup
+        while self._running:
+            try:
+                stats = await self._importance_scorer.score_all(DEFAULT_USER_ID)
+                logger.info(
+                    "Importance scoring complete",
+                    component=LogComponent.MEMORY,
+                    data=stats,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Importance scoring failed: {type(e).__name__}",
+                    component=LogComponent.MEMORY,
+                )
+            await asyncio.sleep(86400)  # 24 hours
+
+    async def _consolidation_loop(self) -> None:
+        """Run consolidation weekly."""
+        await asyncio.sleep(300)  # 5 min after startup
+        while self._running:
+            try:
+                result = await self._consolidator.execute(dry_run=False)
+                logger.info(
+                    "Consolidation complete",
+                    component=LogComponent.MEMORY,
+                    data=result,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Consolidation failed: {type(e).__name__}",
+                    component=LogComponent.MEMORY,
+                )
+            await asyncio.sleep(604800)  # 7 days
+
+    async def _pruning_loop(self) -> None:
+        """Run pruning weekly (1 hour after consolidation)."""
+        await asyncio.sleep(3900)  # 65 min after startup (after first consolidation)
+        while self._running:
+            try:
+                result = await self._pruner.execute()
+                logger.info(
+                    "Pruning complete",
+                    component=LogComponent.MEMORY,
+                    data=result,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Pruning failed: {type(e).__name__}",
+                    component=LogComponent.MEMORY,
+                )
+            await asyncio.sleep(604800)  # 7 days
 
 
 # ── Singleton ──────────────────────────────────────────────

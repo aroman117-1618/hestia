@@ -412,6 +412,11 @@ class MemoryManager:
             score = scores.get(chunk.id, 0.0)
             if chunk.metadata.source in _IMPORT_SOURCES:
                 score *= _IMPORT_PENALTY
+            # Importance scoring (Sprint 16): boost by chunk importance.
+            # confidence < 1.0 means it's been scored; default 1.0 = unscored (no effect).
+            importance = chunk.metadata.confidence
+            if importance < 1.0:
+                score *= importance
             if decay_applied:
                 score = self._temporal_decay.apply(
                     relevance_score=score,
