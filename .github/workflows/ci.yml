@@ -33,10 +33,11 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run tests
-        run: python -m pytest tests/ --tb=short -q --timeout=30 -m "not integration"
+        run: python -m pytest tests/ --tb=short --timeout=30 -m "not integration" -v 2>&1 | tail -100
         # Per-test timeout of 30s. Integration tests (Ollama, Keychain)
         # are skipped — they run on Mac Mini during deploy.
         # CI MUST fail on test failures — no continue-on-error.
+        # Using -v + tail to see failures while keeping log manageable.
 
       - name: Verify test collection
         run: python -m pytest tests/ --collect-only -q 2>&1 | tail -5
