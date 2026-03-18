@@ -1,82 +1,81 @@
-# Session Handoff — 2026-03-18
+# Session Handoff — 2026-03-18 (Session 2)
 
 ## Mission
-Debug and fix the macOS Research view (Graph + Memory tabs) that were completely non-functional after importing 988 chunks of Claude conversation history. All four bugs fixed and shipped; graph is now live with 200+ nodes.
+Implement Sprint 20A autonomously — all 4 workstreams of the Neural Net Graph Phase 2 quality framework.
 
 ## Completed
 
-- **Graph cache deserialization fix** (`hestia/research/manager.py`, commit `b4b918c`)
-  - `get_graph()` returned empty arrays on every cache hit — nodes/edges/clusters were never deserialized from the cached JSON
-  - Fixed: added `GraphNode.from_dict()`, `GraphEdge.from_dict()`, `GraphCluster.from_dict()` calls on cache read
-  - Root cause: comment "Cached response is already serialized" was wrong — the cache stores dicts, not `GraphResponse`
+### Sprint 20A: All 4 Workstreams COMPLETE
 
-- **Force-directed layout overflow fix** (`hestia/research/graph_builder.py`, commit `5c4e3a9`)
-  - 200+ nodes caused unbounded velocity accumulation → positions at 10^80 over 120 iterations
-  - Fixed: per-step velocity cap (`max_velocity = 2.0`) + final normalization to `target_radius = 6.0`
+**WS1: Insight Quality Framework** (13h planned)
+- DIKW 4-tier durability scoring: Ephemeral(0), Contextual(1), Durable(2), Principled(3)
+- 3-phase staged extraction pipeline: Entity ID → Significance Filter → PRISM Triple Extraction
+- `TemporalType` + `SourceCategory` enums added to `hestia/research/models.py`
+- Backward-compat ALTER TABLE migrations in `database.py` (with proper error logging)
+- Importance formula updated: `0.2R + 0.2F + 0.3T + 0.3D` (added durability weight)
+- Ephemeral fact filter in graph builder, durability-blended node/edge weights
+- Retroactive crystallization loop in scheduler (weekly promotion of clustered ephemerals)
 
-- **Memory browser decode failure fix** (`HestiaApp/macOS/Models/MemoryBrowserModels.swift`, commit `5c4e3a9`)
-  - `MemoryChunkItem` had explicit snake_case `CodingKeys` that conflicted with `APIClient`'s `convertFromSnakeCase` decoder
-  - Decoder converts `chunk_type` → `chunkType`, then looks for CodingKey with stringValue `"chunk_type"` → miss → throw → empty list
-  - Fixed: removed explicit `CodingKeys` entirely; decoder strategy handles conversion automatically
-  - Same fix applied to `MemoryChunkUpdateRequest`
+**WS2: Principles Pipeline Fix** (3h planned)
+- `_distillation_loop()` rewrite with bootstrap check (seeds from 30d memory if empty)
+- Config-driven intervals via `memory.yaml` `principle_distillation` section
+- 3-phase distillation: memory chunks → outcomes → corrections
+- ResearchView empty state: "tap" → "click", added auto-distillation note
 
-- **Camera distance fix** (`MacSceneKitGraphView.swift`, commit `94e746e`)
-  - Initial camera at z=8 with graph normalized to radius 6.0 meant nodes were 2–3 units from camera
-  - Fixed: camera moved to z=20, `zFar` extended to 200
+**WS3: Memory Tab UI Polish** (2h planned)
+- Sort picker: external label + `.labelsHidden()`
+- Filter pill spacing: `MacSpacing.sm` → `MacSpacing.md`
+- Pagination bar: added top Divider (`.overlay()` for consistency)
+- Type badge width: 80px → 60px
 
-- **Legend accuracy fix** (`ResearchView.swift`, commit `94e746e`)
-  - Missing Chat and Insight node types (the two types covering all imported Claude history)
-  - All 5 existing legend entries had wrong hex colors (didn't match backend `CATEGORY_COLORS`)
-  - Fixed: added Chat (#5AC8FA) and Insight (#8E8E93) entries; corrected all 7 legend colors to match backend
+**WS4: Graph Visual Weight System** (3h planned)
+- Node opacity maps to confidence (0.3–1.0)
+- Node emission glow maps to recency (fades over 90 days)
+- Durability filter UI (segmented picker: All/Contextual+/Durable+/Principled)
+- Client-side durability filtering with edge pruning
 
-- **Content prefix stripping** (`NodeDetailPopover.swift`, commit `94e746e`)
-  - Imported Claude history nodes prefixed with `[IMPORTED CLAUDE HISTORY — Foo]: [User]:` noise
-  - Fixed: `strippingBracketPrefixes()` regex helper applied to main content and connected node labels
+### Review Fixes
+- Fixed `"triples"` vs `"triplets"` key mismatch in Phase 3 parser (would have returned zero results)
+- Replaced bare `except: pass` in ALTER TABLE migrations with targeted duplicate-column check
+- Moved `Counter` import to module level in scheduler
+- Fixed pagination Divider `.background()` → `.overlay()` for consistency
+- Updated scheduler docstring monitor count 8 → 9
 
-- **macOS environment default** (`Configuration.swift`, commit `ae3f95a`)
-  - macOS app was defaulting to `.local` (localhost) — changed to `.tailscale` (Mac Mini)
-
-- **Claude history import** (78 conversations / 988 chunks)
-  - Done via SSH Python bypass on Mac Mini (CLI JWT token from local server was invalid on Mac Mini)
-  - `data-2026-03-15-22-44-27-batch-0000/` directory imported, stale graph cache cleared
-  - Chunks stored as `source="claude_history"`, `chunk_type="conversation"` or `"insight"`
-
-- **GitHub Project board + CLAUDE.md workflow** (commit `85f88a0`)
-  - Added board update steps to Phase 3/4 checklists in CLAUDE.md
-  - Added stop hook that blocks if sprint work isn't board-synced
-
-## In Progress
-- None — all bug fixes are committed and functional
-
-## Decisions Made
-- **Velocity cap for graph layout**: Chose `max_velocity = 2.0` + final normalization over reformulating the algorithm. Fast, no physics model change. Works for up to ~500 nodes before density degrades.
-- **Remove CodingKeys on MemoryBrowserModels**: `APIClient` uses `convertFromSnakeCase` globally — explicit snake_case keys always conflict. Rule: never mix explicit snake_case `CodingKeys` with `convertFromSnakeCase` decoder.
-- **claude_history MemorySource gap deferred**: `claude_history` is not in the `MemorySource` enum, so imported chunks can't be filtered by source in Memory Browser. Deferred to future sprint.
+## Key Commits
+- `714acac` feat: Sprint 20A — DIKW quality framework, principles pipeline, visual weights
+- `13330a4` fix: review fixes — triplets/triples key mismatch, migration logging, Counter import
 
 ## Test Status
-- `tests/test_research.py`: 70 tests — all passing (verified post-fix)
-- Full suite: 2142 backend + 135 CLI = 2277 total (no new tests added this session)
+- Backend: 2142+ tests, all passing (100%, no failures)
+- macOS build: BUILD SUCCEEDED, 0 errors, 0 warnings
+- Code review: completed, all critical/high items fixed
 
 ## Uncommitted Changes
-- `docs/discoveries/gemini-deep-research-prompt.md` — from previous session, untracked
-- `docs/discoveries/trading-module-research-and-plan.md` — trading module research, untracked
-- `scripts/gh-project-sync.sh` — GitHub board helper script, untracked (should be committed)
+- `CLAUDE.md` — roadmap-sync.sh rename (from previous session, not Sprint 20A)
+- `scripts/roadmap-sync.sh`, `scripts/create-sprint20-issues.sh`, `scripts/reconcile-sprint20.sh` — untracked scripts from previous session
 
 ## Known Issues / Landmines
-- **`gh-project-sync.sh status` command is broken**: Uses `--owner` flag not supported by `gh project item-edit`. Direct workaround: `gh project item-edit --id <id> --field-id <fid> --single-select-option-id <oid> --project-id PVT_kwHODI9jOM4BSG9c`. Should be fixed before next board update.
-- **Graph legend colors are hardcoded**: Colors in `ResearchView.swift` legend will drift if backend `CATEGORY_COLORS` changes. Future: source from an API endpoint.
-- **`claude_history` MemorySource gap**: 988 imported chunks can't be filtered by source in Memory Browser. Add `claude_history` to `MemorySource` enum in a future sprint.
-- **Server NOT running on Mac Mini**: Verify with `lsof -i :8443` via SSH before testing on device.
-- **Graph cache TTL**: 300s TTL. Force fresh build with `DELETE FROM graph_cache` on Mac Mini's `data/research.db` if graph looks stale after data changes.
+- **Phase 3 extraction depends on LLM quality**: 3-phase pipeline falls back to legacy single-prompt if Phase 1 fails. This is by design (9B local model may struggle with multi-step extraction). Monitor extraction quality on Mac Mini.
+- **Durability filter is apply-on-click**: Changing the segmented picker doesn't live-filter — user must click "Apply Filters". This is consistent with other filters but could be confusing.
+- **Cross-module `_connection` access in importance.py**: `_get_durability_scores()` accesses `ResearchDatabase._connection` directly. Works but bypasses the abstraction layer. Low priority tech debt.
+- **`find_entity_by_name` ignores user_id**: Single-user safe, but would need scoping for multi-user. Deferred.
+- **Server NOT running on Mac Mini**: Deploy needed after Sprint 20A to see changes on device.
 
-## Process Learnings
-- **CodingKeys/decoder conflict is a recurring trap**: Second time `convertFromSnakeCase` has silently broken a struct decode. Should add a warning comment in `APIClient.swift` and/or a note in iOS memory file.
-- **First-pass success rate**: 3 of 4 root causes found correctly on first hypothesis. Memory browser took 2 passes (wrong-shape assumption → CodingKeys conflict).
-- **Missed @hestia-explorer delegation**: Initial "why is graph empty" investigation was done manually with curl. Explorer agent would have been faster for tracing `get_graph()` → cache → deserialization path.
-- **Background pytest visibility**: Temp file paths are fragile. Prefer `@hestia-tester` or foreground runs for critical verification.
+## Reviewer Findings (deferred, low priority)
+- WARNING #5: Durability filter not "live" — intentional apply-on-click pattern
+- WARNING #6: Ephemeral filter inconsistency between live graph and time-slider — document or align
+- WARNING #7: Importance scorer cross-module DB access — add proper method to ResearchDatabase
+- GAP #11: `find_entity_by_name` needs user_id scope for multi-user
+- GAP #12: memory.yaml comment still says "three signals" (now four)
+
+## Architecture Decisions
+- **DIKW Hierarchy**: Data→Information→Knowledge→Wisdom mapped to 4-tier durability (0-3)
+- **Log-to-Graph Architecture**: Memory tab = full log (everything searchable), Graph = curated visualization (ephemeral excluded)
+- **Perceptual Visual Encoding**: Bertin's visual variables — diameter∝durability, opacity∝confidence, glow∝recency
+- **3-Phase Staged Extraction**: Decomposed for 9B local model constraints; Phase 1 failure → legacy fallback
 
 ## Next Steps
-1. **Commit untracked files**: At minimum `scripts/gh-project-sync.sh` — it's referenced in CLAUDE.md workflow
-2. **Fix `gh-project-sync.sh status` command**: Remove positional project number arg and `--owner` flag; add `--project-id PVT_kwHODI9jOM4BSG9c`
-3. **Sprint 20: Neural Net Graph Phase 2** — time slider, bi-temporal exploration — the natural next sprint now that graph is functional with real data
-4. **Verify on Mac Mini**: Open macOS app → Research tab → confirm graph loads with 988 chunks visible; confirm Memory tab shows all chunks with correct types
+1. **Deploy to Mac Mini**: Push and verify Sprint 20A on device
+2. **Sprint 20B**: Source Expansion (WS5: imported knowledge + external research) + /second-opinion skill (WS7: Gemini CLI)
+3. **Fix memory.yaml comment**: "three signals" → "four signals" (trivial)
+4. **Consider live durability filtering**: Add `onChange` to re-filter cached nodes without network call

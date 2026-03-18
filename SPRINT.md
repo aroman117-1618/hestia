@@ -54,9 +54,10 @@
   - Durability filter UI (segmented picker: All/Contextual+/Durable+/Principled)
   - Client-side durability filtering with edge pruning
 
-### Phase 20B (~22.25h): Source Expansion, /second-opinion Skill + Gemini CLI
-- WS5: Graph Source Expansion (18h) — imported knowledge + external research categories
-- WS7: Gemini CLI + /second-opinion skill (4.25h) — replaces /plan-audit
+### Phase 20B (Adapted — ~14.25h): Gemini CLI, /second-opinion Skill, Source Infrastructure
+- WS7: Gemini CLI + /second-opinion skill (4.25h) — replaces /plan-audit — **do first**
+- WS5: Graph Source Expansion — infrastructure only (10h) — SourceCategory enum, paste/ingest API, staging workflow, External Research pipeline
+  - Deferred: ChatGPT/Gemini provider-specific parsers (no sample files, speculative value)
 
 ### Phase 20C (~20h): Notification Relay (independent, can parallel with Sprint 21)
 - WS6: Intelligent Notification Relay (20h) — context-aware bumps to macOS or iPhone
@@ -79,6 +80,28 @@
 
 **Prerequisite:** Sprint 20C (Notification Relay) — the Notify action node wraps WS6.
 **Feeds into:** Sprint 21+ (Trading Module) — market condition triggers, portfolio workflows.
+
+---
+
+# Sprint 21: Trading Foundation (2026-03-18) — IN PROGRESS
+
+**Started:** 2026-03-18
+**Branch:** `feature/trading-foundation`
+**Plan:** `docs/discoveries/trading-module-research-and-plan.md`
+**Running concurrently with:** Sprint 20B (separate Claude Code session on main branch)
+
+### Capital & Parameters
+- Starting capital: $250 (Coinbase, Consumer Default Spot portfolio)
+- Performance-based scaling: $500-$1000 added based on demonstrated returns
+- Position sizing: Quarter-Kelly for months 1-3
+- API keys: macOS Keychain (`coinbase-api-key`, `coinbase-api-secret`)
+- SDK: `coinbase-advanced-py` (handles auth, signing, WebSocket reconnection)
+
+### Concurrent Session Guardrails
+- Trading work MUST stay on `feature/trading-foundation` branch
+- Do NOT edit: `SPRINT.md`, `CLAUDE.md`, `hestia/api/server.py` (defer to merge time)
+- DO create: `hestia/trading/`, `hestia/config/trading.yaml`, `tests/test_trading*.py`, `hestia/api/routes/trading.py`, `hestia/api/schemas/trading.py`
+- Merge to main only after Sprint 20B session confirms clean state
 
 ---
 

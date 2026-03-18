@@ -477,12 +477,17 @@ Wire Gemini as an inference backend in `CloudInferenceClient` (Google is already
 | 3 | WS1: Insight Quality Framework | 13 | None |
 | 4 | WS4: Graph Visual Weight System | 3 | WS1 (durability scores) |
 
-### Sprint 20B (~23.5 hours)
+### Sprint 20B (Adapted — ~14.25 hours)
 
 | Order | Workstream | Hours | Dependencies |
 |-------|-----------|-------|-------------|
-| 5 | WS5: Graph Source Expansion | 18 | WS1 (quality framework) |
-| 6 | WS7: Gemini CLI + /second-opinion (replaces /plan-audit) | 4.25 | None (can parallel) |
+| 5 | WS7: Gemini CLI + /second-opinion (replaces /plan-audit) | 4.25 | None — **do this first** |
+| 6 | WS5: Graph Source Expansion (infrastructure only) | 10 | WS1 (quality framework) |
+
+**WS5 scope change (per Claude Code review + Andrew's prioritization):**
+- **Build now:** SourceCategory enum, `source_category` column on facts, `import_sources` table, generic paste/ingest API endpoint, Memory tab staging workflow, External Research pipeline wiring
+- **Defer:** ChatGPT/Gemini provider-specific parsers (no sample export files, speculative value). Claude importer already works.
+- **Immediate priority within WS5:** Gemini CLI integration (installed in WS7) feeds into Artemis cross-model dispatch — this is the real near-term value, not bulk history imports
 
 ### Sprint 20C or Standalone (~20 hours)
 
@@ -498,10 +503,15 @@ Wire Gemini as an inference backend in `CloudInferenceClient` (Google is already
 | WS2: Principles Pipeline | 3 |
 | WS3: Memory Tab UI | 2 |
 | WS4: Visual Weight System | 3 |
-| WS5: Source Expansion | 18 |
+| WS5: Source Expansion (infrastructure only — parsers deferred) | 10 |
 | WS6: Notification Relay | 20 |
 | WS7: Gemini CLI + /second-opinion (replaces /plan-audit) | 4.25 |
-| **Total** | **63.25 hours (~5 sprint weeks)** |
+| **Total** | **55.25 hours (~4.5 sprint weeks)** |
+
+**Deferred (backlog — build when sample export files available):**
+- ChatGPT JSON parser (~4h)
+- Gemini export parser (~4h)
+- Provider-specific import UI in macOS (~2h)
 
 ---
 
