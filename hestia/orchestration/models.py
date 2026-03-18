@@ -134,6 +134,9 @@ class Response:
     # Retrieval feedback loop — chunk IDs used in context (Sprint 15)
     retrieved_chunk_ids: List[str] = field(default_factory=list)
 
+    # Hallucination risk from verification pipeline (Sprint 20)
+    hallucination_risk: Optional[str] = None
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API response."""
         result = {

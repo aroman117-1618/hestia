@@ -68,3 +68,11 @@ class ChatResponse(BaseModel):
         None,
         description="Agent attribution bylines (present when specialists contributed)"
     )
+    hallucination_risk: Optional[str] = Field(
+        None,
+        description=(
+            "Hallucination risk detected by the verification pipeline. "
+            "Enum string: 'tool_bypass' | 'low_retrieval' | 'slm_flag' | 'none'. "
+            "None means no risk detected or verifier did not run."
+        )
+    )

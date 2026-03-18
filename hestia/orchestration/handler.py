@@ -709,6 +709,21 @@ class RequestHandler:
                 )
                 if disclaimer:
                     response.content += disclaimer
+                    response.hallucination_risk = "tool_bypass"
+                    self.logger.info(
+                        "hallucination_risk=tool_bypass threaded into REST response",
+                        component=LogComponent.VERIFICATION,
+                        data={"request_id": request.id},
+                    )
+
+            # Layer 2: LOW_RETRIEVAL risk (retrieval_score already computed above)
+            if response.hallucination_risk is None and retrieval_score < 0.6 and memory_context:
+                response.hallucination_risk = "low_retrieval"
+                self.logger.info(
+                    "hallucination_risk=low_retrieval threaded into REST response",
+                    component=LogComponent.VERIFICATION,
+                    data={"request_id": request.id, "retrieval_score": round(retrieval_score, 3)},
+                )
 
             # Step 8: Store conversation in memory
             await self._store_conversation(request, response, memory)
@@ -1290,6 +1305,7 @@ class RequestHandler:
                     final_content = content
 
             # Layer 1: Tool compliance gate (streaming path)
+            hallucination_risk_value: Optional[str] = None
             if final_content and not inference_response.tool_calls and tool_result is None:
                 checker = ToolComplianceChecker()
                 disclaimer = checker.check(
@@ -1299,6 +1315,25 @@ class RequestHandler:
                 if disclaimer:
                     yield {"type": "token", "content": disclaimer, "request_id": request.id}
                     final_content += disclaimer
+                    hallucination_risk_value = "tool_bypass"
+                    self.logger.info(
+                        "hallucination_risk=tool_bypass detected in streaming path",
+                        component=LogComponent.VERIFICATION,
+                        data={"request_id": request.id},
+                    )
+
+            # Layer 2: LOW_RETRIEVAL risk (streaming path)
+            if hallucination_risk_value is None and retrieval_score < 0.6 and memory_context:
+                hallucination_risk_value = "low_retrieval"
+                self.logger.info(
+                    "hallucination_risk=low_retrieval detected in streaming path",
+                    component=LogComponent.VERIFICATION,
+                    data={"request_id": request.id, "retrieval_score": round(retrieval_score, 3)},
+                )
+
+            # Emit verification event BEFORE done (only if risk detected)
+            if hallucination_risk_value is not None:
+                yield {"type": "verification", "risk": hallucination_risk_value, "request_id": request.id}
 
             # Step 8: Store conversation in memory
             response = Response(

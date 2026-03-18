@@ -169,6 +169,7 @@ async def send_message(
                 )
                 for b in response.bylines
             ] if response.bylines else None,
+            hallucination_risk=response.hallucination_risk,
         )
 
         # Track outcome for Learning Cycle
