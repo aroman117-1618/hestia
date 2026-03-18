@@ -25,6 +25,25 @@
 
 ---
 
+# Sprint 19: Trading Module — Research & Planning (2026-03-18) — COMPLETE
+
+**Started:** 2026-03-18
+
+## What Was Done
+- Full research and architectural design for autonomous cryptocurrency trading module
+- 4-strategy suite designed: Grid Trading (geometric, 35%), Mean Reversion (crypto-optimized RSI-7/9, 20%), Signal-Enhanced DCA (25%), Bollinger Breakout (20%)
+- 8-layer safety architecture: API key scoping, position limits, Quarter-Kelly sizing, drawdown/daily/latency/price-divergence circuit breakers, reconciliation loop, kill switch
+- Gemini Deep Research adversarial review conducted — 11 critical/high-impact findings integrated (geometric grid spacing, Post-Only maker orders, 1099-DA tax lot tracking from day one, WAL mode SQLite, on-chain PiT ingestion)
+- Full sprint breakdown: S21 Foundation → S22 Strategy Engine → S23 Risk → S24 Backtesting → S25 Coinbase Live → S26 Dashboard → S27 Portfolio → S28 Sentiment → S29 On-Chain+ML → S30 Go-Live
+
+### Output
+- `docs/discoveries/trading-module-research-and-plan.md` — approved plan, ready for Sprint 21 build
+
+### Notes
+- Tailscale OAuth (originally co-labeled Sprint 19 on GitHub board) is a standalone 30-min maintenance task, not a sprint — moved to its own board item
+
+---
+
 # Research View Unification + Sprint 18 (2026-03-17) — COMPLETE
 
 **Started:** 2026-03-17

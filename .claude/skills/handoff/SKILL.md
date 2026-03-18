@@ -151,3 +151,4 @@ Before finishing, confirm:
 - [ ] CLAUDE.md status is accurate
 - [ ] Process learnings are captured (not just what happened, but how to improve)
 - [ ] The "Next Step" in handoff is specific enough that a fresh session could start immediately
+- [ ] **Sprint number consistency**: the sprint label in SPRINT.md matches the active GitHub board item title — run `scripts/gh-project-sync.sh list` and confirm

@@ -15,6 +15,7 @@
 - Confirm decisions with Andrew before implementing
 - Draft specific implementation plan (files, changes)
 - Pressure-test: What could go wrong? Edge cases? Iterate 3x before executing
+- **Add a SPRINT.md stub** at sprint start (title + date) so board and docs stay in sync from day one — don't wait until Phase 4
 
 ### Phase 3: Execute
 - Implement precisely. Run **@hestia-tester** (Sonnet) after each significant change
