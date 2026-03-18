@@ -131,6 +131,10 @@ class GraphBuilder:
         if point_in_time is not None:
             facts = [f for f in facts if f.is_valid_at(point_in_time)]
 
+        # Sprint 20A: Exclude ephemeral facts (durability=0) from graph
+        # They remain searchable in Memory tab only (Log-to-Graph architecture)
+        facts = [f for f in facts if f.durability_score > 0]
+
         # ── Build entity nodes ──────────────────────────
         entity_id_set = {e.id for e in entities}
         fact_counts: Counter = Counter()
@@ -142,10 +146,22 @@ class GraphBuilder:
 
         max_fact_count = max(fact_counts.values()) if fact_counts else 1
 
+        # Sprint 20A: Compute max durability per entity for visual weight
+        entity_max_durability: Dict[str, int] = {}
+        for fact in facts:
+            for eid in (fact.source_entity_id, fact.target_entity_id):
+                if eid in entity_id_set:
+                    current = entity_max_durability.get(eid, 0)
+                    entity_max_durability[eid] = max(current, fact.durability_score)
+
         entity_nodes: List[GraphNode] = []
         for entity in entities:
             count = fact_counts.get(entity.id, 0)
-            weight = (count / max_fact_count) if max_fact_count > 0 else 0.7
+            freq_weight = (count / max_fact_count) if max_fact_count > 0 else 0.7
+
+            # Blend frequency (60%) with durability (40%) for visual weight
+            durability_norm = entity_max_durability.get(entity.id, 1) / 3.0
+            weight = freq_weight * 0.6 + durability_norm * 0.4
             weight = max(weight, 0.2)  # minimum weight so isolated entities are visible
 
             entity_nodes.append(GraphNode(
@@ -162,6 +178,7 @@ class GraphBuilder:
                     "entity_type": entity.entity_type.value,
                     "canonical_name": entity.canonical_name,
                     "community_id": entity.community_id,
+                    "max_durability": entity_max_durability.get(entity.id, 1),
                 },
             ))
 
@@ -173,11 +190,15 @@ class GraphBuilder:
             from_id = f"entity:{fact.source_entity_id}"
             to_id = f"entity:{fact.target_entity_id}"
             if from_id in node_id_set and to_id in node_id_set:
+                # Blend confidence (60%) with durability (40%) for edge weight
+                conf = fact.confidence if fact.confidence else 0.5
+                dur_norm = fact.durability_score / 3.0
+                edge_weight = conf * 0.6 + dur_norm * 0.4
                 relationship_edges.append(GraphEdge(
                     from_id=from_id,
                     to_id=to_id,
                     edge_type=EdgeType.RELATIONSHIP,
-                    weight=fact.confidence if fact.confidence else 0.5,
+                    weight=edge_weight,
                     count=1,
                 ))
 

@@ -132,11 +132,12 @@ class LearningScheduler:
         self._tasks.append(asyncio.create_task(self._pruning_loop()))
         self._tasks.append(asyncio.create_task(self._correction_loop()))
         self._tasks.append(asyncio.create_task(self._distillation_loop()))
+        self._tasks.append(asyncio.create_task(self._crystallization_loop()))
 
         logger.info(
             "Learning scheduler started",
             component=LogComponent.LEARNING,
-            data={"monitors": 8},
+            data={"monitors": 9},
         )
 
     async def close(self) -> None:
@@ -319,9 +320,74 @@ class LearningScheduler:
             await asyncio.sleep(21600)  # 6 hours
 
     async def _distillation_loop(self) -> None:
-        """Distill principles from outcomes and corrections weekly."""
+        """Distill principles from memory chunks, outcomes, and corrections weekly.
+
+        On first run, if no principles exist yet, performs a bootstrap distillation
+        from the last 30 days of memory to seed the principles table.
+        """
         await asyncio.sleep(420)  # 7 min after startup
+
+        try:
+            # Import here to avoid circular deps at module level
+            from hestia.research.manager import get_research_manager
+            research_mgr = await get_research_manager()
+
+            # Bootstrap: if no principles exist, run immediately from memory chunks
+            memory_config = self._load_memory_config()
+            distill_config = memory_config.get("principle_distillation", {})
+            existing = await research_mgr.list_principles(limit=1)
+            if existing.get("total", 0) == 0:
+                bootstrap_days = distill_config.get("bootstrap_time_range_days", 30)
+                logger.info(
+                    "No principles found — running bootstrap distillation",
+                    component=LogComponent.LEARNING,
+                    data={"time_range_days": bootstrap_days},
+                )
+                try:
+                    result = await research_mgr.distill_principles(time_range_days=bootstrap_days)
+                    logger.info(
+                        "Bootstrap principle distillation complete",
+                        component=LogComponent.LEARNING,
+                        data=result,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Bootstrap distillation failed: {type(e).__name__}",
+                        component=LogComponent.LEARNING,
+                    )
+        except Exception as e:
+            logger.warning(
+                f"Distillation loop bootstrap setup failed: {type(e).__name__}",
+                component=LogComponent.LEARNING,
+            )
+            # Continue to the periodic loop even if bootstrap fails
+            research_mgr = None
+            distill_config = {}
+
+        interval_seconds = distill_config.get("interval_seconds", 604800)
+        time_range_days = distill_config.get("time_range_days", 14)
+
         while self._running:
+            await asyncio.sleep(interval_seconds)
+
+            # Phase 1: Distill from memory chunks via ResearchManager
+            if research_mgr is not None:
+                try:
+                    mem_result = await research_mgr.distill_principles(
+                        time_range_days=time_range_days,
+                    )
+                    logger.info(
+                        "Memory-based principle distillation complete",
+                        component=LogComponent.LEARNING,
+                        data=mem_result,
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Memory-based distillation failed: {type(e).__name__}",
+                        component=LogComponent.LEARNING,
+                    )
+
+            # Phase 2: Distill from outcomes
             try:
                 result = await self._outcome_distiller.distill_from_outcomes(DEFAULT_USER_ID)
                 logger.info(
@@ -335,7 +401,7 @@ class LearningScheduler:
                     component=LogComponent.LEARNING,
                 )
 
-            # Gap 2: also distill from classified corrections (Sprint 19)
+            # Phase 3: Distill from classified corrections
             try:
                 corr_result = await self._outcome_distiller.distill_from_corrections(DEFAULT_USER_ID)
                 if corr_result.get("corrections_processed", 0) > 0:
@@ -347,6 +413,86 @@ class LearningScheduler:
             except Exception as e:
                 logger.warning(
                     f"Correction distillation failed: {type(e).__name__}",
+                    component=LogComponent.LEARNING,
+                )
+
+    # ── Sprint 20A: Retroactive Crystallization ─────────────────
+
+    async def _crystallization_loop(self) -> None:
+        """Weekly: promote ephemeral facts that cluster into patterns.
+
+        Scans ephemeral facts (durability=0) older than 7 days.
+        If 3+ ephemeral facts cluster around the same entity pair,
+        auto-promote the cluster to durability=1 (contextual).
+        This catches 'weak ties' that individually seem throwaway
+        but collectively reveal something durable.
+        """
+        await asyncio.sleep(7200)  # 2 hours after startup (low priority)
+        while self._running:
+            try:
+                from hestia.research.database import get_research_database
+                db = await get_research_database()
+                if not db._connection:
+                    await asyncio.sleep(604800)
+                    continue
+
+                # Find ephemeral facts older than 7 days
+                cursor = await db._connection.execute(
+                    """SELECT id, source_entity_id, target_entity_id
+                       FROM facts
+                       WHERE durability_score = 0
+                         AND status = 'active'
+                         AND created_at < datetime('now', '-7 days')"""
+                )
+                rows = await cursor.fetchall()
+
+                if not rows:
+                    logger.debug(
+                        "Crystallization: no ephemeral facts to process",
+                        component=LogComponent.LEARNING,
+                    )
+                    await asyncio.sleep(604800)
+                    continue
+
+                # Count facts per entity pair
+                from collections import Counter
+                pair_counts: Counter = Counter()
+                pair_fact_ids: Dict[tuple, List[str]] = {}
+                for fact_id, src_id, tgt_id in rows:
+                    pair = (min(src_id, tgt_id), max(src_id, tgt_id))
+                    pair_counts[pair] += 1
+                    pair_fact_ids.setdefault(pair, []).append(fact_id)
+
+                # Promote clusters with 3+ ephemeral facts
+                promoted = 0
+                for pair, count in pair_counts.items():
+                    if count >= 3:
+                        fact_ids = pair_fact_ids[pair]
+                        placeholders = ",".join("?" for _ in fact_ids)
+                        await db._connection.execute(
+                            f"""UPDATE facts
+                                SET durability_score = 1, temporal_type = 'dynamic'
+                                WHERE id IN ({placeholders})""",
+                            fact_ids,
+                        )
+                        promoted += len(fact_ids)
+
+                if promoted > 0:
+                    await db._connection.commit()
+                    # Invalidate graph cache so promoted facts appear
+                    await db.invalidate_cache()
+                    logger.info(
+                        "Retroactive crystallization complete",
+                        component=LogComponent.LEARNING,
+                        data={
+                            "ephemeral_scanned": len(rows),
+                            "promoted_to_contextual": promoted,
+                        },
+                    )
+
+            except Exception as e:
+                logger.warning(
+                    f"Crystallization loop failed: {type(e).__name__}",
                     component=LogComponent.LEARNING,
                 )
 

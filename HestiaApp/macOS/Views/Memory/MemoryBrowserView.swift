@@ -49,11 +49,16 @@ struct MemoryBrowserView: View {
             Spacer()
 
             // Sort picker
-            Picker("Sort", selection: $viewModel.sortBy) {
+            Text("Sort:")
+                .font(MacTypography.caption)
+                .foregroundColor(MacColors.textSecondary)
+
+            Picker("", selection: $viewModel.sortBy) {
                 ForEach(MacMemoryBrowserViewModel.SortOption.allCases, id: \.self) { option in
                     Text(option.label).tag(option)
                 }
             }
+            .labelsHidden()
             .pickerStyle(.segmented)
             .frame(width: 240)
             .onChange(of: viewModel.sortBy) { _, _ in
@@ -79,7 +84,7 @@ struct MemoryBrowserView: View {
 
     private var filterBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: MacSpacing.sm) {
+            HStack(spacing: MacSpacing.md) {
                 Text("Type:")
                     .font(MacTypography.caption)
                     .foregroundStyle(MacColors.textSecondary)
@@ -162,50 +167,52 @@ struct MemoryBrowserView: View {
     // MARK: - Pagination
 
     private var paginationBar: some View {
-        HStack {
-            Button {
-                Task { await viewModel.previousPage() }
-            } label: {
-                HStack(spacing: MacSpacing.xs) {
-                    Image(systemName: "chevron.left")
-                    Text("Previous")
+        VStack(spacing: 0) {
+            Divider()
+                .background(MacColors.divider)
+
+            HStack {
+                Button {
+                    Task { await viewModel.previousPage() }
+                } label: {
+                    HStack(spacing: MacSpacing.xs) {
+                        Image(systemName: "chevron.left")
+                        Text("Previous")
+                    }
+                    .font(MacTypography.smallMedium)
                 }
-                .font(MacTypography.smallMedium)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(viewModel.hasPreviousPage ? MacColors.amberAccent : MacColors.textFaint)
-            .disabled(!viewModel.hasPreviousPage)
+                .buttonStyle(.plain)
+                .foregroundStyle(viewModel.hasPreviousPage ? MacColors.amberAccent : MacColors.textFaint)
+                .disabled(!viewModel.hasPreviousPage)
 
-            Spacer()
+                Spacer()
 
-            Text("Page \(viewModel.currentPage + 1) of \(viewModel.totalPages)")
-                .font(MacTypography.caption)
-                .foregroundStyle(MacColors.textSecondary)
+                Text("Page \(viewModel.currentPage + 1) of \(viewModel.totalPages)")
+                    .font(MacTypography.caption)
+                    .foregroundStyle(MacColors.textSecondary)
 
-            Text("\(viewModel.totalCount) chunks")
-                .font(MacTypography.caption)
-                .foregroundStyle(MacColors.textFaint)
+                Text("\(viewModel.totalCount) chunks")
+                    .font(MacTypography.caption)
+                    .foregroundStyle(MacColors.textFaint)
 
-            Spacer()
+                Spacer()
 
-            Button {
-                Task { await viewModel.nextPage() }
-            } label: {
-                HStack(spacing: MacSpacing.xs) {
-                    Text("Next")
-                    Image(systemName: "chevron.right")
+                Button {
+                    Task { await viewModel.nextPage() }
+                } label: {
+                    HStack(spacing: MacSpacing.xs) {
+                        Text("Next")
+                        Image(systemName: "chevron.right")
+                    }
+                    .font(MacTypography.smallMedium)
                 }
-                .font(MacTypography.smallMedium)
+                .buttonStyle(.plain)
+                .foregroundStyle(viewModel.hasNextPage ? MacColors.amberAccent : MacColors.textFaint)
+                .disabled(!viewModel.hasNextPage)
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(viewModel.hasNextPage ? MacColors.amberAccent : MacColors.textFaint)
-            .disabled(!viewModel.hasNextPage)
+            .padding(.horizontal, MacSpacing.xxl)
+            .padding(.vertical, MacSpacing.md)
         }
-        .padding(.horizontal, MacSpacing.xxl)
-        .padding(.vertical, MacSpacing.md)
         .background(MacColors.panelBackground)
-        .overlay(alignment: .top) {
-            MacColors.divider.frame(height: 1)
-        }
     }
 }

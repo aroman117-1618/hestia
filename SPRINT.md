@@ -25,6 +25,63 @@
 
 ---
 
+# Sprint 20: Neural Net Graph Phase 2 (2026-03-18) — IN PROGRESS
+
+**Started:** 2026-03-18
+**Plan:** `docs/plans/research-tab-development-plan.md`
+
+### Phase 20A (~21h): Quality Framework, Principles Fix, UI Polish, Visual Weights — COMPLETE
+- WS1: Insight Quality Framework — COMPLETE
+  - DIKW 4-tier durability scoring (Ephemeral/Contextual/Durable/Principled)
+  - 3-phase staged extraction pipeline (Entity ID → Significance Filter → PRISM Triple)
+  - TemporalType + SourceCategory enums, backward-compat ALTER TABLE migrations
+  - Importance formula: 0.2R + 0.2F + 0.3T + 0.3D (added durability weight)
+  - Ephemeral fact filter in graph builder, durability-blended node/edge weights
+  - Retroactive crystallization loop (weekly promotion of clustered ephemerals)
+- WS2: Principles Pipeline Fix — COMPLETE
+  - Distillation loop rewrite with bootstrap check (seeds from 30d memory if empty)
+  - Config-driven intervals via memory.yaml principle_distillation section
+  - 3-phase distillation: memory chunks → outcomes → corrections
+  - ResearchView empty state: "tap" → "click", added auto-distillation note
+- WS3: Memory Tab UI Polish — COMPLETE
+  - Sort picker: external label + .labelsHidden()
+  - Filter pill spacing: MacSpacing.sm → MacSpacing.md
+  - Pagination bar: added top Divider for visual separation
+  - Type badge width: 80px → 60px (tighter layout)
+- WS4: Graph Visual Weight System — COMPLETE
+  - Node opacity maps to confidence (0.3–1.0)
+  - Node emission glow maps to recency (fades over 90 days)
+  - Durability filter UI (segmented picker: All/Contextual+/Durable+/Principled)
+  - Client-side durability filtering with edge pruning
+
+### Phase 20B (~22.25h): Source Expansion, /second-opinion Skill + Gemini CLI
+- WS5: Graph Source Expansion (18h) — imported knowledge + external research categories
+- WS7: Gemini CLI + /second-opinion skill (4.25h) — replaces /plan-audit
+
+### Phase 20C (~20h): Notification Relay (independent, can parallel with Sprint 21)
+- WS6: Intelligent Notification Relay (20h) — context-aware bumps to macOS or iPhone
+
+### Plans (see `docs/plans/`)
+- `research-tab-development-plan.md` — v2, Gemini-reconciled (quality framework, source expansion, principles, notification relay, /second-opinion skill)
+- `visual-workflow-orchestrator-brainstorm.md` — v2, Gemini-reconciled (DAG engine, visual canvas, event triggers, 85h across 4 phases)
+
+---
+
+# Future: Visual Workflow Orchestrator (~85h, 4 phases)
+
+**Plan:** `docs/plans/visual-workflow-orchestrator-brainstorm.md`
+**Replaces:** Orders system (7 endpoints) + LearningScheduler (6 loops) → unified visual DAG engine
+
+- Phase 1 (35h): DAG engine + TaskGroup + checkpointing + linear canvas UI + Orders migration
+- Phase 2 (18h): Conditions + JMESPath interpolation + Pydantic schemas + keyed debouncing
+- Phase 3 (22h): EventKit/FSEvents triggers + HMAC webhooks + token budgets + advanced control
+- Phase 4 (10h): Templates + semantic zoom + Sugiyama auto-layout + execution replay
+
+**Prerequisite:** Sprint 20C (Notification Relay) — the Notify action node wraps WS6.
+**Feeds into:** Sprint 21+ (Trading Module) — market condition triggers, portfolio workflows.
+
+---
+
 # Sprint 19: Trading Module — Research & Planning (2026-03-18) — COMPLETE
 
 **Started:** 2026-03-18

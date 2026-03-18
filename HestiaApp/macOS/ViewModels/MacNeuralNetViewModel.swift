@@ -73,6 +73,9 @@ class MacNeuralNetViewModel: ObservableObject {
     @Published var timeSliderValue: Double = 1.0  // 0.0 = oldest, 1.0 = now
     @Published var timeSliderDate: Date = Date()
 
+    // MARK: - Published State (Durability Filter — Sprint 20A)
+    @Published var minDurabilityFilter: Int = 0  // 0=show all, 1=contextual+, 2=durable+, 3=principled only
+
     /// Earliest fact date from the server metadata (set after first facts load)
     var earliestFactDate: Date = Calendar.current.date(byAdding: .year, value: -1, to: Date()) ?? Date()
 
@@ -98,12 +101,15 @@ class MacNeuralNetViewModel: ObservableObject {
         var position: SIMD3<Float> = .zero
         let colorHex: String
         let edgeType: String?      // populated on edges
+        let lastActive: Date?      // Sprint 20A: for recency-based glow
+        let maxDurability: Int     // Sprint 20A: 0-3 DIKW tier (from metadata)
 
         init(id: String, content: String, nodeType: String, category: String,
              label: String, confidence: Double, weight: Double,
              topics: [String] = [], entities: [String] = [],
              position: SIMD3<Float> = .zero, colorHex: String,
-             edgeType: String? = nil) {
+             edgeType: String? = nil, lastActive: Date? = nil,
+             maxDurability: Int = 1) {
             self.id = id
             self.content = content
             self.nodeType = nodeType
@@ -116,6 +122,8 @@ class MacNeuralNetViewModel: ObservableObject {
             self.position = position
             self.colorHex = colorHex
             self.edgeType = edgeType
+            self.lastActive = lastActive
+            self.maxDurability = maxDurability
         }
 
         static func == (lhs: GraphNode, rhs: GraphNode) -> Bool {
@@ -154,9 +162,12 @@ class MacNeuralNetViewModel: ObservableObject {
             }
         }
 
-        /// Node radius — based on weight (importance-blended for memory nodes)
+        /// Node radius — blends weight with durability (Sprint 20A)
+        /// Higher durability = larger node (DIKW: principled > durable > contextual)
         var radius: Float {
-            Float(0.12 + weight * 0.18) // Range: 0.12 - 0.30
+            let baseRadius = Float(0.12 + weight * 0.14) // Range: 0.12 - 0.26
+            let durabilityBoost = Float(maxDurability) / 3.0 * 0.08 // 0.0 - 0.08
+            return baseRadius + durabilityBoost // Total range: 0.12 - 0.34
         }
     }
 
@@ -250,8 +261,29 @@ class MacNeuralNetViewModel: ObservableObject {
             }
         }
 
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let isoFallback = ISO8601DateFormatter()
+        isoFallback.formatOptions = [.withInternetDateTime]
+
         nodes = response.nodes.map { apiNode in
-            GraphNode(
+            // Parse lastActive date for recency glow
+            var lastActiveDate: Date?
+            if let dateStr = apiNode.lastActive {
+                lastActiveDate = isoFormatter.date(from: dateStr) ?? isoFallback.date(from: dateStr)
+            }
+
+            // Extract max_durability from metadata (set by graph_builder for entity nodes)
+            let maxDurability: Int
+            if let metaVal = apiNode.metadata?["max_durability"], case .int(let d) = metaVal {
+                maxDurability = d
+            } else if let metaVal = apiNode.metadata?["max_durability"], case .double(let d) = metaVal {
+                maxDurability = Int(d)
+            } else {
+                maxDurability = 1
+            }
+
+            return GraphNode(
                 id: apiNode.id,
                 content: apiNode.content,
                 nodeType: apiNode.nodeType,
@@ -266,12 +298,24 @@ class MacNeuralNetViewModel: ObservableObject {
                     Float(apiNode.position.y),
                     Float(apiNode.position.z)
                 ),
-                colorHex: apiNode.color
+                colorHex: apiNode.color,
+                lastActive: lastActiveDate,
+                maxDurability: maxDurability
             )
         }
 
-        edges = response.edges.map { apiEdge in
-            GraphEdge(
+        // Sprint 20A: Client-side durability filter
+        if minDurabilityFilter > 0 {
+            nodes = nodes.filter { $0.maxDurability >= minDurabilityFilter }
+        }
+
+        let nodeIdSet = Set(nodes.map(\.id))
+        edges = response.edges.compactMap { apiEdge in
+            // Only include edges where both endpoints survive filtering
+            guard nodeIdSet.contains(apiEdge.fromId) && nodeIdSet.contains(apiEdge.toId) else {
+                return nil
+            }
+            return GraphEdge(
                 from: apiEdge.fromId,
                 to: apiEdge.toId,
                 weight: Float(apiEdge.weight),

@@ -17,16 +17,53 @@ from hestia.logging import LogComponent, get_logger
 
 from .database import ResearchDatabase
 from .entity_registry import EntityRegistry
-from .models import EntityType, Fact, FactStatus
+from .models import EntityType, Fact, FactStatus, SourceCategory, TemporalType
 
 logger = get_logger()
 
 MAX_TEXT_LENGTH = 2000
 
+# Legacy single-stage prompt (kept for fallback)
 EXTRACTION_PROMPT = """\
 Extract entity-relationship-entity triplets from this text.
 Return JSON: {"triplets": [{"source": "...", "source_type": "person|tool|concept|place|project|organization", "relation": "SCREAMING_SNAKE_CASE", "target": "...", "target_type": "person|tool|concept|place|project|organization", "fact": "natural language sentence", "confidence": 0.0-1.0}]}
 Rules: only factual relationships, specific names not pronouns, max 5 per text."""
+
+# ── 3-Phase Staged Extraction (Sprint 20A) ─────────────────────
+
+PHASE1_ENTITY_PROMPT = """\
+List all named entities in this text. For each, classify as:
+- person, tool, concept, place, project, organization
+Return JSON: {"entities": [{"name": "...", "type": "person|tool|concept|place|project|organization"}]}
+Only include specific named entities, not pronouns or generic references. Max 10."""
+
+PHASE2_SIGNIFICANCE_PROMPT = """\
+For each entity, determine if it is a CORE ACTOR (directly relevant to the user's knowledge, decisions, or relationships) or BACKGROUND DETAIL (mentioned incidentally).
+Only CORE ACTORS proceed to triple extraction.
+Return JSON: {"core": ["Entity1", "Entity2"], "background": ["Entity3"]}"""
+
+PHASE3_PRISM_PROMPT = """\
+PERSONA: You are a rigorous knowledge librarian. Only extract facts that belong in a permanent knowledge base.
+
+REASONING: Before extracting, assess: Is this fact durable (true in 30 days)? Is it specific (names concrete entities)? Is it non-obvious?
+
+INPUTS: Core entities: {core_entities}. Current date: {date}.
+
+SECTIONS: Return exactly:
+{{
+  "triples": [{{
+    "source": "...", "source_type": "person|tool|concept|place|project|organization",
+    "relation": "SCREAMING_SNAKE_CASE",
+    "target": "...", "target_type": "person|tool|concept|place|project|organization",
+    "fact": "natural language sentence",
+    "confidence": 0.0-1.0,
+    "durability": 3,
+    "temporal_type": "atemporal|static|dynamic|ephemeral"
+  }}]
+}}
+
+METRICS: Assign confidence reflecting your certainty. Durability: 3=always true, 2=true for months/years, 1=true for weeks, 0=true only now.
+Skip entirely if text is procedural or thinking-out-loud. Max 5 triples."""
 
 CONTRADICTION_PROMPT = """\
 Given a new fact and existing facts between the same entities, determine if the new fact contradicts any existing fact.
@@ -55,29 +92,70 @@ class FactExtractor:
         text: str,
         source_chunk_id: Optional[str] = None,
         user_id: str = "default",
+        source_category: SourceCategory = SourceCategory.CONVERSATION,
     ) -> List[Fact]:
-        """Extract facts from text via LLM, resolve entities, check contradictions.
+        """Extract facts from text via 3-phase LLM pipeline.
+
+        Phase 1: Entity identification
+        Phase 2: Significance filtering (core vs background)
+        Phase 3: PRISM triple extraction with durability scoring
+
+        Falls back to legacy single-prompt on phase 1/2 failure.
 
         Args:
             text: The input text to extract facts from.
             source_chunk_id: Optional memory chunk ID for provenance.
             user_id: User scope for entity and fact storage.
+            source_category: Provenance of the text.
 
         Returns:
             List of newly created Fact objects. Empty on failure.
         """
         truncated = text[:MAX_TEXT_LENGTH]
-
+        client = None
         try:
             client = await _get_inference_client()
+        except Exception as e:
+            logger.error(
+                "Inference client unavailable",
+                component=LogComponent.RESEARCH,
+                data={"error": type(e).__name__},
+            )
+            return []
+
+        # ── Phase 1: Entity Identification ─────────────────
+        core_entities = await self._phase1_entities(client, truncated)
+        if core_entities is None:
+            # Phase 1 failed — fall back to legacy single-prompt
+            return await self._extract_legacy(client, truncated, source_chunk_id, user_id, source_category)
+
+        # ── Phase 2: Significance Filter ───────────────────
+        core_names = await self._phase2_significance(client, truncated, core_entities)
+        if not core_names:
+            logger.info(
+                "No core entities after significance filter",
+                component=LogComponent.RESEARCH,
+                data={"total_entities": len(core_entities)},
+            )
+            return []
+
+        # ── Phase 3: PRISM Triple Extraction ───────────────
+        from datetime import datetime, timezone
+        date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        system_prompt = PHASE3_PRISM_PROMPT.format(
+            core_entities=", ".join(core_names),
+            date=date_str,
+        )
+
+        try:
             response = await client.generate(
                 prompt=f"Text:\n{truncated}",
-                system=EXTRACTION_PROMPT,
+                system=system_prompt,
                 format="json",
             )
         except Exception as e:
             logger.error(
-                "LLM extraction failed",
+                "Phase 3 PRISM extraction failed",
                 component=LogComponent.RESEARCH,
                 data={"error": type(e).__name__},
             )
@@ -87,6 +165,98 @@ class FactExtractor:
         if not triplets:
             return []
 
+        return await self._process_triplets(
+            triplets, source_chunk_id, user_id, source_category
+        )
+
+    async def _phase1_entities(
+        self, client: Any, text: str
+    ) -> Optional[List[Dict[str, str]]]:
+        """Phase 1: Extract named entities from text. Returns None on failure."""
+        try:
+            response = await client.generate(
+                prompt=f"Text:\n{text}",
+                system=PHASE1_ENTITY_PROMPT,
+                format="json",
+            )
+            data = json.loads(response.content)
+            entities = data.get("entities", [])
+            if isinstance(entities, list) and entities:
+                return [e for e in entities if isinstance(e, dict) and "name" in e]
+        except Exception as e:
+            logger.warning(
+                "Phase 1 entity extraction failed",
+                component=LogComponent.RESEARCH,
+                data={"error": type(e).__name__},
+            )
+        return None
+
+    async def _phase2_significance(
+        self, client: Any, text: str, entities: List[Dict[str, str]]
+    ) -> List[str]:
+        """Phase 2: Filter to core actors. Returns list of core entity names."""
+        entity_list = ", ".join(e["name"] for e in entities)
+        prompt = f"Entities found: {entity_list}\n\nOriginal text:\n{text}"
+
+        try:
+            response = await client.generate(
+                prompt=prompt,
+                system=PHASE2_SIGNIFICANCE_PROMPT,
+                format="json",
+            )
+            data = json.loads(response.content)
+            core = data.get("core", [])
+            if isinstance(core, list):
+                return [str(name) for name in core]
+        except Exception as e:
+            logger.warning(
+                "Phase 2 significance filter failed, using all entities",
+                component=LogComponent.RESEARCH,
+                data={"error": type(e).__name__},
+            )
+            # Fall back to treating all entities as core
+            return [e["name"] for e in entities]
+        return []
+
+    async def _extract_legacy(
+        self,
+        client: Any,
+        text: str,
+        source_chunk_id: Optional[str],
+        user_id: str,
+        source_category: SourceCategory,
+    ) -> List[Fact]:
+        """Legacy single-prompt extraction (fallback when staged pipeline fails)."""
+        try:
+            response = await client.generate(
+                prompt=f"Text:\n{text}",
+                system=EXTRACTION_PROMPT,
+                format="json",
+            )
+        except Exception as e:
+            logger.error(
+                "Legacy LLM extraction failed",
+                component=LogComponent.RESEARCH,
+                data={"error": type(e).__name__},
+            )
+            return []
+
+        triplets = self._parse_extraction_response(response.content)
+        if not triplets:
+            return []
+
+        return await self._process_triplets(
+            triplets, source_chunk_id, user_id, source_category
+        )
+
+    async def _process_triplets(
+        self,
+        triplets: List[Dict[str, Any]],
+        source_chunk_id: Optional[str],
+        user_id: str,
+        source_category: SourceCategory,
+    ) -> List[Fact]:
+        """Resolve entities, check contradictions, store facts from parsed triplets."""
         created_facts: List[Fact] = []
 
         for triplet in triplets:
@@ -112,6 +282,16 @@ class FactExtractor:
                     confidence = 0.5
                 confidence = max(0.0, min(1.0, float(confidence)))
 
+                # Parse durability from Phase 3 output (defaults for legacy)
+                raw_durability = triplet.get("durability", 1)
+                durability = max(0, min(3, int(raw_durability) if isinstance(raw_durability, (int, float)) else 1))
+
+                raw_temporal = triplet.get("temporal_type", "dynamic")
+                try:
+                    temporal_type = TemporalType(raw_temporal)
+                except ValueError:
+                    temporal_type = TemporalType.DYNAMIC
+
                 fact = Fact.create(
                     source_entity_id=source_entity.id,
                     relation=triplet["relation"],
@@ -119,6 +299,9 @@ class FactExtractor:
                     fact_text=triplet.get("fact", f"{triplet['source']} {triplet['relation']} {triplet['target']}"),
                     source_chunk_id=source_chunk_id,
                     confidence=confidence,
+                    durability_score=durability,
+                    temporal_type=temporal_type,
+                    source_category=source_category,
                     user_id=user_id,
                 )
 

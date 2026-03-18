@@ -26,7 +26,7 @@ struct MemoryChunkRow: View {
         HStack(spacing: MacSpacing.md) {
             // Type badge
             chunkTypeBadge
-                .frame(width: 80)
+                .frame(width: 60)
 
             // Content + topics
             VStack(alignment: .leading, spacing: MacSpacing.xs) {

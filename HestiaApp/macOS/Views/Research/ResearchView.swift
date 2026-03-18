@@ -635,7 +635,7 @@ struct ResearchPrinciplesView: View {
             Text("No principles yet")
                 .font(.system(size: 18, weight: .medium))
                 .foregroundStyle(MacColors.textSecondary)
-            Text("Chat more to build your knowledge base,\nthen tap \"Distill New\" to extract patterns.")
+            Text("Chat more to build your knowledge base,\nthen click \"Distill New\" to extract patterns.\nPrinciples are also auto-distilled weekly.")
                 .font(.system(size: 13))
                 .foregroundStyle(MacColors.textFaint)
                 .multilineTextAlignment(.center)

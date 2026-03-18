@@ -30,9 +30,10 @@ temporal_decay:
 importance:
   enabled: true
   weights:
-    recency: 0.3
-    retrieval: 0.4
+    recency: 0.2
+    retrieval: 0.2
     type_bonus: 0.3
+    durability: 0.3
   type_bonuses:
     fact: 0.8
     decision: 0.7
@@ -93,3 +94,10 @@ hallucination_guard:
   # When top cosine similarity is below this threshold, inject a low-relevance warning
   retrieval_quality_threshold: 0.6
   retrieval_warning: "[Memory context relevance: LOW ({score:.2f}). Retrieved context may not match this query precisely. Acknowledge uncertainty rather than speculating.]"
+
+# Principle distillation schedule (Sprint 20A)
+principle_distillation:
+  enabled: true
+  interval_seconds: 604800  # 7 days
+  time_range_days: 14
+  bootstrap_time_range_days: 30

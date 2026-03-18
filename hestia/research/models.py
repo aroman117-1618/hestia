@@ -60,6 +60,23 @@ class FactStatus(str, Enum):
     RETRACTED = "retracted"
 
 
+class TemporalType(str, Enum):
+    """How long a fact is expected to remain true (DIKW-aligned)."""
+    EPHEMERAL = "ephemeral"      # Data — true only now (durability 0)
+    DYNAMIC = "dynamic"          # Information — true for weeks (durability 1)
+    STATIC = "static"            # Knowledge — true for months/years (durability 2)
+    ATEMPORAL = "atemporal"      # Wisdom — always true (durability 3)
+
+
+class SourceCategory(str, Enum):
+    """Provenance of a fact — where the information originated."""
+    CONVERSATION = "conversation"
+    IMPORTED = "imported"
+    WEB = "web"
+    TOOL = "tool"
+    USER_STATEMENT = "user_statement"
+
+
 # Category-to-color mapping for frontend rendering.
 # Matches ChunkType.nodeColor in MacNeuralNetViewModel.swift.
 CATEGORY_COLORS: Dict[str, str] = {
@@ -270,6 +287,9 @@ class Fact:
     expired_at: Optional[datetime] = None
     source_chunk_id: Optional[str] = None
     confidence: float = 0.5
+    durability_score: int = 1
+    temporal_type: TemporalType = TemporalType.DYNAMIC
+    source_category: SourceCategory = SourceCategory.CONVERSATION
     user_id: str = "default"
     created_at: Optional[datetime] = None
 
@@ -295,6 +315,9 @@ class Fact:
             "expiredAt": self.expired_at.isoformat() if self.expired_at else None,
             "sourceChunkId": self.source_chunk_id,
             "confidence": self.confidence,
+            "durabilityScore": self.durability_score,
+            "temporalType": self.temporal_type.value,
+            "sourceCategory": self.source_category.value,
             "createdAt": self.created_at.isoformat() if self.created_at else None,
         }
 
@@ -322,6 +345,9 @@ class Fact:
             expired_at=_parse_dt("expiredAt"),
             source_chunk_id=data.get("sourceChunkId"),
             confidence=data.get("confidence", 0.5),
+            durability_score=data.get("durabilityScore", 1),
+            temporal_type=TemporalType(data.get("temporalType", "dynamic")),
+            source_category=SourceCategory(data.get("sourceCategory", "conversation")),
             created_at=_parse_dt("createdAt"),
         )
 
@@ -334,6 +360,9 @@ class Fact:
         fact_text: str,
         source_chunk_id: Optional[str] = None,
         confidence: float = 0.5,
+        durability_score: int = 1,
+        temporal_type: "TemporalType" = None,
+        source_category: "SourceCategory" = None,
         valid_at: Optional[datetime] = None,
         user_id: str = "default",
     ) -> "Fact":
@@ -347,6 +376,9 @@ class Fact:
             fact_text=fact_text,
             source_chunk_id=source_chunk_id,
             confidence=confidence,
+            durability_score=durability_score,
+            temporal_type=temporal_type or TemporalType.DYNAMIC,
+            source_category=source_category or SourceCategory.CONVERSATION,
             valid_at=valid_at or now,
             user_id=user_id,
             created_at=now,

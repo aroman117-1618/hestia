@@ -24,6 +24,8 @@ from .models import (
     FactStatus,
     Principle,
     PrincipleStatus,
+    SourceCategory,
+    TemporalType,
 )
 
 _DB_DIR = Path("data")
@@ -128,6 +130,25 @@ class ResearchDatabase(BaseDatabase):
             CREATE INDEX IF NOT EXISTS idx_episodic_user ON episodic_nodes(user_id);
             CREATE INDEX IF NOT EXISTS idx_episodic_created ON episodic_nodes(created_at);
         """)
+
+        # Sprint 20A: Add durability/temporal/source columns to facts table
+        for col_sql in [
+            "ALTER TABLE facts ADD COLUMN durability_score INTEGER DEFAULT 1",
+            "ALTER TABLE facts ADD COLUMN temporal_type TEXT DEFAULT 'dynamic'",
+            "ALTER TABLE facts ADD COLUMN source_category TEXT DEFAULT 'conversation'",
+        ]:
+            try:
+                await self._connection.execute(col_sql)
+            except Exception:
+                pass  # Column already exists
+
+        # Sprint 20A: Add first_seen_source to entities table
+        try:
+            await self._connection.execute(
+                "ALTER TABLE entities ADD COLUMN first_seen_source TEXT DEFAULT 'conversation'"
+            )
+        except Exception:
+            pass  # Column already exists
 
     # ── Graph Cache ─────────────────────────────────────────
 
@@ -491,8 +512,9 @@ class ResearchDatabase(BaseDatabase):
             """INSERT INTO facts
                (id, source_entity_id, relation, target_entity_id, fact_text,
                 status, valid_at, invalid_at, expired_at, source_chunk_id,
-                confidence, user_id, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                confidence, user_id, created_at,
+                durability_score, temporal_type, source_category)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 fact.id,
                 fact.source_entity_id,
@@ -507,6 +529,9 @@ class ResearchDatabase(BaseDatabase):
                 fact.confidence,
                 fact.user_id,
                 fact.created_at.isoformat() if fact.created_at else datetime.now(timezone.utc).isoformat(),
+                fact.durability_score,
+                fact.temporal_type.value,
+                fact.source_category.value,
             ),
         )
         await self._connection.commit()
@@ -622,13 +647,28 @@ class ResearchDatabase(BaseDatabase):
         """Convert a database row to a Fact object."""
         # Columns: id, source_entity_id, relation, target_entity_id, fact_text,
         #          status, valid_at, invalid_at, expired_at, source_chunk_id,
-        #          confidence, user_id, created_at
+        #          confidence, user_id, created_at,
+        #          durability_score, temporal_type, source_category  (Sprint 20A)
         def _parse_dt(idx: int) -> Optional[datetime]:
             try:
                 val = row[idx]
                 return datetime.fromisoformat(val) if val else None
             except (ValueError, TypeError, IndexError):
                 return None
+
+        # New columns may not exist on old DBs — safe access
+        durability = 1
+        temporal_type = TemporalType.DYNAMIC
+        source_category = SourceCategory.CONVERSATION
+        try:
+            if len(row) > 13 and row[13] is not None:
+                durability = int(row[13])
+            if len(row) > 14 and row[14]:
+                temporal_type = TemporalType(row[14])
+            if len(row) > 15 and row[15]:
+                source_category = SourceCategory(row[15])
+        except (ValueError, IndexError):
+            pass
 
         return Fact(
             id=row[0],
@@ -642,6 +682,9 @@ class ResearchDatabase(BaseDatabase):
             expired_at=_parse_dt(8),
             source_chunk_id=row[9],
             confidence=row[10] if row[10] is not None else 0.5,
+            durability_score=durability,
+            temporal_type=temporal_type,
+            source_category=source_category,
             user_id=row[11],
             created_at=_parse_dt(12),
         )

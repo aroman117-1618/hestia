@@ -37,8 +37,12 @@ class ImportanceScorer:
     """
     Computes importance scores for memory chunks using retrieval feedback.
 
-    Formula: importance = w_r * recency + w_t * retrieval + w_b * type_bonus
+    Formula: importance = w_r * recency + w_t * retrieval + w_b * type_bonus + w_d * durability
     Where weights come from config/memory.yaml under the `importance` key.
+
+    Sprint 20A adds a 4th signal — durability (from knowledge graph fact scoring).
+    The durability weight defaults to 0.0 for backward compat (chunks without facts).
+    When durability data is available, weights rebalance to 0.2R + 0.2F + 0.3T + 0.3D.
     """
 
     def __init__(
@@ -55,6 +59,7 @@ class ImportanceScorer:
         self._w_recency: float = float(weights.get("recency", 0.3))
         self._w_retrieval: float = float(weights.get("retrieval", 0.4))
         self._w_type: float = float(weights.get("type_bonus", 0.3))
+        self._w_durability: float = float(weights.get("durability", 0.0))
 
         self._type_bonuses: Dict[str, float] = {
             k: float(v) for k, v in imp.get("type_bonuses", {}).items()
@@ -101,11 +106,17 @@ class ImportanceScorer:
         now = datetime.now(timezone.utc)
         scores: List[float] = []
 
+        # Pre-load durability scores from research DB if weight is configured
+        durability_map: Dict[str, float] = {}
+        if self._w_durability > 0:
+            durability_map = await self._get_durability_scores(chunk_ids)
+
         for chunk in chunks:
             recency = self._compute_recency_score(chunk.timestamp)
             retrieval = retrieval_scores.get(chunk.id, 0.0)
             type_bonus = self._get_type_bonus(chunk.chunk_type.value)
-            importance = self._compute_importance(recency, retrieval, type_bonus)
+            durability = durability_map.get(chunk.id, 0.0)
+            importance = self._compute_importance(recency, retrieval, type_bonus, durability)
 
             # Apply floor for system/fact chunks
             if chunk.chunk_type.value in _FLOORED_TYPES:
@@ -256,16 +267,56 @@ class ImportanceScorer:
         recency: float,
         retrieval: float,
         type_bonus: float,
+        durability: float = 0.0,
     ) -> float:
         """
         Weighted composite score, clamped to [min_importance, 1.0].
+
+        Formula (Sprint 20A): w_r*R + w_f*F + w_t*T + w_d*D
+        Default weights: 0.2R + 0.2F + 0.3T + 0.3D (when durability enabled)
+        Legacy weights: 0.3R + 0.4F + 0.3T + 0.0D (durability weight = 0)
         """
         raw = (
             self._w_recency * recency
             + self._w_retrieval * retrieval
             + self._w_type * type_bonus
+            + self._w_durability * durability
         )
         return max(self._min_importance, min(1.0, raw))
+
+    async def _get_durability_scores(
+        self, chunk_ids: List[str]
+    ) -> Dict[str, float]:
+        """
+        Look up max durability_score from facts linked to each chunk.
+
+        Returns normalized 0-1 score (raw 0-3 / 3.0) per chunk ID.
+        Chunks with no linked facts get 0.0.
+        """
+        try:
+            from hestia.research.database import get_research_database
+            db = await get_research_database()
+            if not db._connection:
+                return {}
+
+            # Batch query: get max durability per source_chunk_id
+            placeholders = ",".join("?" for _ in chunk_ids)
+            cursor = await db._connection.execute(
+                f"""SELECT source_chunk_id, MAX(durability_score)
+                    FROM facts
+                    WHERE source_chunk_id IN ({placeholders})
+                      AND status = 'active'
+                    GROUP BY source_chunk_id""",
+                chunk_ids,
+            )
+            rows = await cursor.fetchall()
+            return {
+                row[0]: (row[1] or 0) / 3.0
+                for row in rows
+                if row[0]
+            }
+        except Exception:
+            return {}
 
     # ── Internal Helpers ────────────────────────────────────────────────────
 

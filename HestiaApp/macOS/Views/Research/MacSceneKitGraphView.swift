@@ -207,10 +207,21 @@ struct MacSceneKitGraphView: NSViewRepresentable {
             geometry = sphere
         }
 
-        // Standard material with glow
+        // Sprint 20A: Visual weight system
+        // Opacity maps to confidence (0.3–1.0) — low-confidence nodes fade
+        let confidenceAlpha = CGFloat(0.3 + graphNode.confidence * 0.7)
+        // Glow maps to recency — recent nodes glow brighter
+        let recencyGlow: CGFloat
+        if let lastActive = graphNode.lastActive {
+            let ageDays = -lastActive.timeIntervalSinceNow / 86400.0
+            recencyGlow = CGFloat(max(0.1, min(0.8, 0.8 - ageDays / 90.0 * 0.7)))
+        } else {
+            recencyGlow = 0.3 // default for nodes without date
+        }
+
         let material = SCNMaterial()
-        material.diffuse.contents = graphNode.color
-        material.emission.contents = graphNode.color.withAlphaComponent(0.4)
+        material.diffuse.contents = graphNode.color.withAlphaComponent(confidenceAlpha)
+        material.emission.contents = graphNode.color.withAlphaComponent(recencyGlow)
         material.lightingModel = .physicallyBased
         material.metalness.contents = 0.3
         material.roughness.contents = 0.6

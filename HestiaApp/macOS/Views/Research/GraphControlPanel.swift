@@ -74,6 +74,12 @@ struct GraphControlPanel: View {
                         timeSliderSection
                     }
 
+                    // Durability filter (facts mode)
+                    if viewModel.graphMode == .facts {
+                        MacColors.divider.frame(height: 1)
+                        durabilitySection
+                    }
+
                     // Apply button
                     Button {
                         Task { await viewModel.loadGraph() }
@@ -237,6 +243,48 @@ struct GraphControlPanel: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
             }
+        }
+    }
+
+    // MARK: - Durability Filter (Sprint 20A)
+
+    private static let durabilityLabels = [
+        "All",          // 0
+        "Contextual+",  // 1 (DIKW: Information+)
+        "Durable+",     // 2 (DIKW: Knowledge+)
+        "Principled",   // 3 (DIKW: Wisdom)
+    ]
+
+    private var durabilitySection: some View {
+        VStack(alignment: .leading, spacing: MacSpacing.sm) {
+            Text("SIGNIFICANCE")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(MacColors.textFaint)
+                .tracking(1)
+
+            Picker("", selection: $viewModel.minDurabilityFilter) {
+                ForEach(0..<4, id: \.self) { level in
+                    Text(Self.durabilityLabels[level]).tag(level)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .controlSize(.small)
+
+            Text(durabilityDescription)
+                .font(.system(size: 10))
+                .foregroundStyle(MacColors.textFaint)
+                .lineLimit(2)
+        }
+    }
+
+    private var durabilityDescription: String {
+        switch viewModel.minDurabilityFilter {
+        case 0: return "Showing all non-ephemeral nodes"
+        case 1: return "Hiding ephemeral, showing contextual+"
+        case 2: return "Only durable and principled facts"
+        case 3: return "Only permanent principles"
+        default: return ""
         }
     }
 
