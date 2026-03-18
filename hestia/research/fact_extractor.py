@@ -398,7 +398,8 @@ class FactExtractor:
         except (json.JSONDecodeError, TypeError):
             return []
 
-        triplets = data.get("triplets")
+        # Accept both "triplets" (legacy prompt) and "triples" (Phase 3 PRISM prompt)
+        triplets = data.get("triplets") or data.get("triples")
         if not isinstance(triplets, list):
             return []
 

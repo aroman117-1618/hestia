@@ -14,6 +14,9 @@ from typing import Any, Dict, List, Optional
 import aiosqlite
 
 from hestia.database import BaseDatabase
+from hestia.logging import get_logger, LogComponent
+
+logger = get_logger()
 
 from .models import (
     Community,
@@ -139,16 +142,26 @@ class ResearchDatabase(BaseDatabase):
         ]:
             try:
                 await self._connection.execute(col_sql)
-            except Exception:
-                pass  # Column already exists
+            except Exception as e:
+                if "duplicate column name" not in str(e):
+                    logger.warning(
+                        "Schema migration issue",
+                        component=LogComponent.RESEARCH,
+                        data={"sql": col_sql, "error": type(e).__name__},
+                    )
 
         # Sprint 20A: Add first_seen_source to entities table
         try:
             await self._connection.execute(
                 "ALTER TABLE entities ADD COLUMN first_seen_source TEXT DEFAULT 'conversation'"
             )
-        except Exception:
-            pass  # Column already exists
+        except Exception as e:
+            if "duplicate column name" not in str(e):
+                logger.warning(
+                    "Schema migration issue",
+                    component=LogComponent.RESEARCH,
+                    data={"error": type(e).__name__},
+                )
 
     # ── Graph Cache ─────────────────────────────────────────
 

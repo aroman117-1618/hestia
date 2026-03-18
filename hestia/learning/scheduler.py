@@ -1,6 +1,6 @@
 """Learning module scheduler — periodic background analysis.
 
-Runs 8 monitors on independent schedules:
+Runs 9 monitors on independent schedules:
 - MetaMonitor: hourly behavioral analysis (outcomes + routing quality)
 - MemoryHealthMonitor: daily cross-system diagnostics (ChromaDB + knowledge graph)
 - TriggerMonitor: periodic threshold checking (configurable via triggers.yaml)
@@ -12,6 +12,7 @@ Runs 8 monitors on independent schedules:
 """
 
 import asyncio
+from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -455,7 +456,6 @@ class LearningScheduler:
                     continue
 
                 # Count facts per entity pair
-                from collections import Counter
                 pair_counts: Counter = Counter()
                 pair_fact_ids: Dict[tuple, List[str]] = {}
                 for fact_id, src_id, tgt_id in rows:

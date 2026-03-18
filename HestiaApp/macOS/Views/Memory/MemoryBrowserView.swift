@@ -169,7 +169,7 @@ struct MemoryBrowserView: View {
     private var paginationBar: some View {
         VStack(spacing: 0) {
             Divider()
-                .background(MacColors.divider)
+                .overlay(MacColors.divider)
 
             HStack {
                 Button {
