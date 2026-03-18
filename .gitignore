@@ -27,6 +27,7 @@ wheels/
 
 # Hestia data (never commit)
 data/
+data-*/
 logs/
 *.db
 *.sqlite
