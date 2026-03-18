@@ -118,7 +118,7 @@ public final class Configuration: ObservableObject {
             #if targetEnvironment(simulator)
             self.environment = .local
             #elseif os(macOS)
-            self.environment = .local  // macOS dev machine is local
+            self.environment = .tailscale  // macOS app connects to Mac Mini via Tailscale
             #else
             self.environment = .tailscale
             #endif
