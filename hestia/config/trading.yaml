@@ -1,0 +1,116 @@
+# Trading Module Configuration
+# Sprint 21: Foundation parameters
+# All values can be overridden per-bot via bot config
+
+# ── Capital & Allocation ──────────────────────────────────────
+capital:
+  starting_usd: 250.0
+  default_pair: "BTC-USD"
+  # Strategy allocation percentages (must sum to 1.0)
+  allocation:
+    grid: 0.35           # $87.50 — Grid Trading (geometric)
+    mean_reversion: 0.20 # $50.00 — Mean Reversion (RSI-7/9)
+    signal_dca: 0.25     # $62.50 — Signal-Enhanced DCA
+    bollinger: 0.20      # $50.00 — Bollinger Breakout
+
+# ── Risk Management ───────────────────────────────────────────
+risk:
+  position_limits:
+    max_single_trade_pct: 0.25   # Max 25% of fund per trade
+    max_total_deployed_pct: 0.80 # Always keep 20% cash reserve
+    max_correlated_pct: 0.50     # Max 50% in correlated positions
+
+  position_sizing:
+    kelly_fraction: 0.25         # Quarter-Kelly (months 1-3)
+    # Upgrade to 0.50 (Half-Kelly) after 3 months of validated data
+    default_win_rate: 0.50
+    default_win_loss_ratio: 1.5
+
+  circuit_breakers:
+    drawdown:
+      enabled: true
+      threshold: 0.15            # 15% from peak → emergency stop
+      auto_reset: false          # Manual restart only
+    daily_loss:
+      enabled: true
+      threshold: 0.05            # 5% daily loss → pause 24h
+      cooldown_hours: 24
+    weekly_loss:
+      enabled: true
+      threshold: 0.10            # 10% weekly loss → pause 72h
+      cooldown_hours: 72
+    single_trade:
+      enabled: true
+      threshold: 0.03            # 3% single trade loss
+      recovery_wins: 3           # Reset after 3 winning trades
+    latency:
+      enabled: true
+      threshold: 2000            # Pause if API > 2000ms
+      recovery_ms: 500           # Resume when < 500ms for 60s
+    price_divergence:
+      enabled: true
+      threshold: 0.02            # Halt if feeds diverge > 2%
+      auto_reset: false
+    volatility:
+      enabled: true
+      threshold: 2.0             # Reduce positions if ATR > 2x normal
+    connectivity:
+      enabled: true
+      threshold: 300             # Pause after 5min disconnect (seconds)
+
+# ── Exchange Settings ─────────────────────────────────────────
+exchange:
+  primary: "coinbase"
+  mode: "paper"                  # paper | live (start with paper)
+  coinbase:
+    # API keys stored in macOS Keychain (never in config)
+    keychain_api_key: "coinbase-api-key"
+    keychain_api_secret: "coinbase-api-secret"
+    portfolio: "Consumer Default Spot"  # CRITICAL: wrong scope = silent 401
+    default_order_type: "limit"
+    post_only: true              # Maker orders only (0.40% vs 0.60%)
+
+  paper:
+    initial_balance_usd: 250.0
+    maker_fee: 0.004             # 0.40% (Coinbase <$10K tier)
+    taker_fee: 0.006             # 0.60%
+    slippage: 0.001              # 0.10% realistic slippage
+
+# ── Tax Settings ──────────────────────────────────────────────
+tax:
+  default_method: "hifo"         # HIFO for tax optimization (FIFO available)
+  # 1099-DA compliance: cost-basis tracking from day one
+  track_wash_sales: false        # Future-proofing (not yet required for crypto)
+
+# ── Strategy Defaults (overridden per-bot) ────────────────────
+strategies:
+  grid:
+    spacing_type: "geometric"    # CRITICAL: not arithmetic
+    num_levels: 10
+    grid_width_atr_multiple: 2.0 # Grid width ≥ 2× ATR
+  mean_reversion:
+    rsi_period: 7                # Crypto-optimized (not 14)
+    rsi_oversold: 20             # Not 30 (equity default)
+    rsi_overbought: 80           # Not 70
+    volume_confirmation: 1.5     # ≥ 1.5× 20-period avg volume
+    trend_filter_period: 50      # SMA direction check
+  signal_dca:
+    rsi_period: 14
+    ma_period: 50
+    buy_interval_hours: 24       # Min time between DCA buys
+  bollinger:
+    period: 20
+    std_dev: 2.0                 # 2σ bands
+    volume_confirmation: 1.5     # ≥ 1.5× avg volume
+
+# ── Reconciliation ────────────────────────────────────────────
+reconciliation:
+  interval_seconds: 60           # Sync local ↔ exchange every 60s
+  alert_on_discrepancy: true
+  max_acceptable_discrepancy: 0.001  # Flag if > 0.1% off
+
+# ── Monitoring ────────────────────────────────────────────────
+monitoring:
+  daily_summary_time: "00:00"    # UTC midnight
+  log_every_trade: true
+  log_every_signal: true

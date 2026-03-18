@@ -149,6 +149,10 @@ get_test_file() {
             echo "tests/test_learning_meta_monitor.py tests/test_learning_database.py" ;;
         *hestia/api/routes/learning*)
             echo "tests/test_learning_routes.py" ;;
+        *hestia/trading/*)
+            echo "tests/test_trading_models.py tests/test_trading_database.py tests/test_trading_risk.py tests/test_trading_adapter.py" ;;
+        *hestia/api/routes/trading*|*hestia/api/schemas/trading*)
+            echo "tests/test_trading_models.py tests/test_trading_database.py tests/test_trading_risk.py tests/test_trading_adapter.py" ;;
 
         # No mapping found
         *)
