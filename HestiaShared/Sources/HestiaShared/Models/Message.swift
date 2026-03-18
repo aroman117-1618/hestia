@@ -36,8 +36,9 @@ public struct ConversationMessage: Codable, Identifiable, Equatable, Sendable {
     public let mode: HestiaMode?
     public var bylines: [AgentByline]?
     public var reasoningSteps: [ReasoningStep]?
+    public var hallucinationRisk: String?
 
-    public init(id: String, role: MessageRole, content: String, timestamp: Date, mode: HestiaMode?, bylines: [AgentByline]? = nil, reasoningSteps: [ReasoningStep]? = nil) {
+    public init(id: String, role: MessageRole, content: String, timestamp: Date, mode: HestiaMode?, bylines: [AgentByline]? = nil, reasoningSteps: [ReasoningStep]? = nil, hallucinationRisk: String? = nil) {
         self.id = id
         self.role = role
         self.content = content
@@ -45,6 +46,7 @@ public struct ConversationMessage: Codable, Identifiable, Equatable, Sendable {
         self.mode = mode
         self.bylines = bylines
         self.reasoningSteps = reasoningSteps
+        self.hallucinationRisk = hallucinationRisk
     }
 
     public enum MessageRole: String, Codable, Sendable {

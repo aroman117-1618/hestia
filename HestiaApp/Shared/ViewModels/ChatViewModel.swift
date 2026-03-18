@@ -244,6 +244,9 @@ class ChatViewModel: ObservableObject {
                     ReasoningStep(aspect: aspect, summary: summary)
                 )
 
+            case .verification(let risk):
+                messages[messageIndex].hallucinationRisk = risk
+
             case .insight(_, _):
                 break
 
@@ -281,17 +284,17 @@ class ChatViewModel: ObservableObject {
 
         switch response.responseType {
         case .text, .clarification:
-            await displayResponseWithTypewriter(response, mode: appState.currentMode, bylines: response.bylines)
+            await displayResponseWithTypewriter(response, mode: appState.currentMode, bylines: response.bylines, hallucinationRisk: response.hallucinationRisk)
         case .error:
             if let error = response.error {
                 throw HestiaError.from(responseError: error)
             }
         case .toolCall:
-            addAssistantMessage(response.content, mode: appState.currentMode, bylines: response.bylines)
+            addAssistantMessage(response.content, mode: appState.currentMode, bylines: response.bylines, hallucinationRisk: response.hallucinationRisk)
         }
     }
 
-    private func displayResponseWithTypewriter(_ response: HestiaResponse, mode: HestiaMode, bylines: [AgentByline]? = nil) async {
+    private func displayResponseWithTypewriter(_ response: HestiaResponse, mode: HestiaMode, bylines: [AgentByline]? = nil, hallucinationRisk: String? = nil) async {
         let content = response.content
 
         // Start typewriter
@@ -314,17 +317,18 @@ class ChatViewModel: ObservableObject {
         isTyping = false
         currentTypingText = nil
 
-        addAssistantMessage(content, mode: mode, bylines: bylines)
+        addAssistantMessage(content, mode: mode, bylines: bylines, hallucinationRisk: hallucinationRisk)
     }
 
-    private func addAssistantMessage(_ content: String, mode: HestiaMode, bylines: [AgentByline]? = nil) {
+    private func addAssistantMessage(_ content: String, mode: HestiaMode, bylines: [AgentByline]? = nil, hallucinationRisk: String? = nil) {
         let message = ConversationMessage(
             id: UUID().uuidString,
             role: .assistant,
             content: content,
             timestamp: Date(),
             mode: mode,
-            bylines: bylines
+            bylines: bylines,
+            hallucinationRisk: hallucinationRisk
         )
         messages.append(message)
 

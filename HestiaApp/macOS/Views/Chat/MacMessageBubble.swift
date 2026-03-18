@@ -103,6 +103,12 @@ struct MacMessageBubble: View {
                 .padding(.leading, MacSpacing.sm)
             }
 
+            // Verification risk indicator (always visible, not hover-gated)
+            if let risk = message.hallucinationRisk, risk == "tool_bypass" || risk == "low_retrieval" {
+                MacVerificationRiskDot(risk: risk)
+                    .padding(.leading, MacSpacing.sm)
+            }
+
             // Outcome feedback (visible on hover or when feedback already submitted)
             if isHovered || feedbackState != nil {
                 OutcomeFeedbackRow(
@@ -123,6 +129,49 @@ struct MacMessageBubble: View {
             withAnimation(.easeInOut(duration: 0.15)) {
                 isHovered = hovering
             }
+        }
+    }
+}
+
+// MARK: - Verification Risk Dot (macOS)
+
+private struct MacVerificationRiskDot: View {
+    let risk: String
+    @State private var showPopover = false
+
+    var body: some View {
+        Button {
+            showPopover = true
+        } label: {
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(MacColors.statusWarning)
+                    .frame(width: 7, height: 7)
+                Text("Unverified")
+                    .font(MacTypography.caption)
+                    .foregroundStyle(MacColors.statusWarning)
+            }
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $showPopover) {
+            Text(popoverText)
+                .font(.callout)
+                .foregroundColor(.primary)
+                .padding()
+                .frame(maxWidth: 280)
+        }
+        .accessibilityLabel("Response may be unverified. Tap for details.")
+        .accessibilityHint("Activate to learn more about this response's verification status")
+    }
+
+    private var popoverText: String {
+        switch risk {
+        case "tool_bypass":
+            return "Hestia described your calendar, health, or notes data without looking it up first. Verify with the original source before acting on it."
+        case "low_retrieval":
+            return "Hestia's memory search returned low-confidence results. This response may not reflect your actual stored data."
+        default:
+            return "This response may contain unverified information. Treat with caution."
         }
     }
 }

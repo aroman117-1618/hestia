@@ -13,8 +13,9 @@ public struct HestiaResponse: Codable, Sendable {
     public let toolCalls: [ToolCallInfo]?
     public let error: ResponseError?
     public let bylines: [AgentByline]?
+    public let hallucinationRisk: String?
 
-    public init(requestId: String, content: String, responseType: ResponseType, mode: String, sessionId: String?, timestamp: Date, metrics: ResponseMetrics, toolCalls: [ToolCallInfo]?, error: ResponseError?, bylines: [AgentByline]? = nil) {
+    public init(requestId: String, content: String, responseType: ResponseType, mode: String, sessionId: String?, timestamp: Date, metrics: ResponseMetrics, toolCalls: [ToolCallInfo]?, error: ResponseError?, bylines: [AgentByline]? = nil, hallucinationRisk: String? = nil) {
         self.requestId = requestId
         self.content = content
         self.responseType = responseType
@@ -25,6 +26,7 @@ public struct HestiaResponse: Codable, Sendable {
         self.toolCalls = toolCalls
         self.error = error
         self.bylines = bylines
+        self.hallucinationRisk = hallucinationRisk
     }
 }
 
@@ -134,6 +136,8 @@ public enum ChatStreamEvent: Sendable {
     case insight(content: String, key: String)
     /// Reasoning/decision event — shows pipeline decisions in real-time
     case reasoning(aspect: String, summary: String, content: String?)
+    /// Verification risk signal from the verifier pipeline
+    case verification(risk: String)
     /// Final event — contains metrics, mode, session ID, optional bylines
     case done(requestId: String, metrics: ResponseMetrics?, mode: String, sessionId: String?, bylines: [AgentByline]?)
     /// Error during processing
@@ -179,6 +183,10 @@ public func parseChatStreamEvent(type: String, data: String) -> ChatStreamEvent?
         let summary = dict["summary"] as? String ?? ""
         let content = dict["content"] as? String
         return .reasoning(aspect: aspect, summary: summary, content: content)
+
+    case "verification":
+        guard let risk = dict["risk"] as? String else { return nil }
+        return .verification(risk: risk)
 
     case "done":
         let requestId = dict["request_id"] as? String ?? ""

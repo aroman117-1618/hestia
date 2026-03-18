@@ -77,6 +77,12 @@ struct MessageBubble: View {
                     .font(.messageTimestamp)
                     .foregroundColor(.white.opacity(0.5))
                     .padding(.horizontal, Spacing.xs)
+
+                // Verification risk indicator (amber dot)
+                if !isUser, let risk = message.hallucinationRisk, risk == "tool_bypass" || risk == "low_retrieval" {
+                    VerificationRiskDot(risk: risk)
+                        .padding(.horizontal, Spacing.xs)
+                }
             }
 
             if !isUser {
@@ -103,6 +109,44 @@ struct MessageBubble: View {
             label += ". With contributions from \(attribution)"
         }
         return label
+    }
+}
+
+// MARK: - Verification Risk Dot
+
+private struct VerificationRiskDot: View {
+    let risk: String
+    @State private var showPopover = false
+
+    var body: some View {
+        Button {
+            showPopover = true
+        } label: {
+            Circle()
+                .fill(Color.orange)
+                .frame(width: 8, height: 8)
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $showPopover) {
+            Text(popoverText)
+                .font(.caption)
+                .foregroundColor(.primary)
+                .padding()
+                .frame(maxWidth: 260)
+        }
+        .accessibilityLabel("Response may be unverified. Tap for details.")
+        .accessibilityHint("Activate to learn more about this response's verification status")
+    }
+
+    private var popoverText: String {
+        switch risk {
+        case "tool_bypass":
+            return "Hestia described your calendar, health, or notes data without looking it up first. Verify with the original source before acting on it."
+        case "low_retrieval":
+            return "Hestia's memory search returned low-confidence results. This response may not reflect your actual stored data."
+        default:
+            return "This response may contain unverified information. Treat with caution."
+        }
     }
 }
 
