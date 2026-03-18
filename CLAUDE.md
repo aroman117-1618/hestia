@@ -22,14 +22,14 @@
 - Fix issues immediately — never accumulate tech debt
 - Commit after each logical unit of work (one feature, one fix, one refactor)
 - Never combine unrelated changes in a single commit — enables git bisect and code review
-- **Move the sprint item to "In Progress" on the GitHub Project board** (`scripts/gh-project-sync.sh status <item-id> in_progress`)
+- **Move the sprint item to "In Progress" on the GitHub Project board** (`scripts/roadmap-sync.sh status <item-id> in_progress`)
 
 ### Phase 4: Review
 - Run **@hestia-reviewer** (Sonnet) on all changed files — REQUIRED for any change touching >5 files
 - Not optional when velocity is high — that's exactly when regressions hide
 - Update affected docs (this file, `docs/api-contract.md`, `docs/hestia-decision-log.md`)
-- **Mark the sprint item "Done" on the GitHub Project board** (`scripts/gh-project-sync.sh status <item-id> done`)
-- If new work was identified during the session, **create project items** (`scripts/gh-project-sync.sh add "<title>"`)
+- **Mark the sprint item "Done" on the GitHub Project board** (`scripts/roadmap-sync.sh status <item-id> done`)
+- If new work was identified during the session, **create issues** via `scripts/roadmap-sync.sh issue` (see "Add to Roadmap" workflow below)
 
 ### Sub-Agents
 
@@ -52,14 +52,51 @@ Definitions: `.claude/agents/`. Read-only specialists — diagnose and report, n
 |--------|---------|---------|
 | `scripts/validate-security-edit.sh` | Before security file edits | Catches plaintext secrets, wildcard CORS, bare excepts |
 | `scripts/auto-test.sh` | After Python source edits | Runs matching test file automatically |
-| `scripts/gh-project-sync.sh` | Manual / Phase 3+4 | GitHub Project board helper (add, status, list) |
+| `scripts/roadmap-sync.sh` | Manual / Phase 2+3+4 | Full roadmap sync: issues, labels, dates, board (replaces gh-project-sync.sh) |
 
-### GitHub Project Board
-Hestia roadmap lives at **GitHub Project #1** (`aroman117-1618/hestia`, Projects tab). Always keep it current:
-- **Planning (Phase 2):** Create a board item for any new sprint work identified — `scripts/gh-project-sync.sh add "<title>"`
-- **Execution (Phase 3):** Move the item to In Progress — `scripts/gh-project-sync.sh status <id> in_progress`
-- **Review (Phase 4 / handoff):** Mark it Done — `scripts/gh-project-sync.sh status <id> done`
-- **At session start:** Run `scripts/gh-project-sync.sh list` to orient against current board state
+### GitHub Project Board & Roadmap Sync
+Hestia roadmap lives at **GitHub Project #1** (`aroman117-1618/hestia`, Projects tab). **Use `scripts/roadmap-sync.sh` for ALL project board operations** (supersedes `gh-project-sync.sh`).
+
+#### "Add to Roadmap" Workflow (MANDATORY)
+When Andrew says **"add it to the roadmap"** or **"let's put this on the roadmap"**, Claude MUST do ALL of the following automatically — no further prompting required:
+
+1. **SPRINT.md** — Add/update the sprint entry with workstream details, hours, and phase
+2. **Plan document** — Create or update the relevant `docs/plans/*.md` file with full scope, architecture, and acceptance criteria
+3. **GitHub Issues** — Create proper issues via `scripts/roadmap-sync.sh issue`:
+   ```bash
+   scripts/roadmap-sync.sh issue "<title>" \
+     --labels "sprint-XX,backend,macos" \
+     --hours N \
+     --sprint "Sprint XXA" \
+     --start "YYYY-MM-DD" \
+     --deadline "YYYY-MM-DD" \
+     --depends "WS1,WS3" \
+     --plan "docs/plans/plan-name.md"
+   ```
+4. **CLAUDE.md** — Update project structure, endpoint counts, test counts if they changed
+
+#### Date Estimation Rules
+- Andrew's availability: ~12 hours/week hands-on + autonomous Claude Code acceleration
+- Quick wins (<3h): Same day as start
+- Medium tasks (3-10h): 1-2 day span
+- Large tasks (10-20h): 3-5 day span
+- Multi-phase (20h+): 1-2 week spans with phase boundaries on Mondays
+
+#### Daily Operations
+- **At session start:** Run `scripts/roadmap-sync.sh list` to orient against current board state
+- **Execution (Phase 3):** Move the item to In Progress — `scripts/roadmap-sync.sh status <id> in_progress`
+- **Review (Phase 4 / handoff):** Mark it Done — `scripts/roadmap-sync.sh status <id> done`
+- **Reconciliation:** If board state looks stale, run `scripts/roadmap-sync.sh reconcile`
+
+#### Script Reference
+| Script | Purpose |
+|--------|---------|
+| `scripts/roadmap-sync.sh list` | List all project board items with status |
+| `scripts/roadmap-sync.sh issue "<title>" [opts]` | Create issue + add to board + set dates |
+| `scripts/roadmap-sync.sh status <id> <status>` | Update item status (todo/in_progress/done) |
+| `scripts/roadmap-sync.sh reconcile` | Audit board: find orphan drafts, missing issues |
+| `scripts/roadmap-sync.sh labels` | Ensure all standard labels exist |
+| `scripts/roadmap-sync.sh close <num>` | Close an issue |
 
 ---
 
@@ -104,7 +141,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | Hardware | Mac Mini M1 (16GB) |
 | Model | Qwen 3.5 9B (Hestia) + DeepSeek-R1-14B (Artemis) + Qwen 3 8B (Apollo) + cloud (Anthropic/OpenAI/Google) |
 | SLM | qwen2.5:0.5b (council intent classification, ~100ms) |
-| Backend | Python 3.9+, FastAPI, ~186 endpoints across 27 route modules |
+| Backend | Python 3.9+, FastAPI, ~188 endpoints across 27 route modules |
 | Storage | ChromaDB (vectors) + SQLite (structured) + macOS Keychain (credentials) |
 | App | Native Swift/SwiftUI (iOS 26.0+) |
 | API | REST on port 8443 with JWT auth, HTTPS with self-signed cert |
@@ -241,7 +278,7 @@ hestia/
 │   │   └── manager.py            # ResearchManager singleton (graph, facts, entities, principles)
 │   ├── investigate/                 # URL content analysis (web articles, YouTube), LLM analysis pipeline
 │   │   └── extractors/             # BaseExtractor ABC, WebArticleExtractor, YouTubeExtractor
-│   ├── api/                         # FastAPI — 186 endpoints, 27 route modules
+│   ├── api/                         # FastAPI — 188 endpoints, 27 route modules
 │   │   ├── errors.py                # sanitize_for_log(), safe_error_detail()
 │   │   ├── schemas/                  # Pydantic request/response models (16 domain modules)
 │   │   ├── server.py                # App lifecycle, manager initialization
@@ -280,7 +317,7 @@ hestia/
 
 ---
 
-## API Summary (186 endpoints, 27 route modules)
+## API Summary (188 endpoints, 27 route modules)
 
 | Module | Endpoints | Key Routes |
 |--------|-----------|------------|
@@ -303,7 +340,7 @@ hestia/
 | Explorer | 6 | `/v1/explorer/resources` list/detail/content, drafts CRUD |
 | Newsfeed | 5 | `/v1/newsfeed/timeline`, `unread-count`, `items/{id}/read`, `items/{id}/dismiss`, `refresh` |
 | Investigate | 5 | `/v1/investigate/url`, `history`, `compare`, `{id}` (GET), `{id}` (DELETE) |
-| Research | 18 | `/v1/research/graph` (legacy+facts mode), `facts/extract`, `facts` (list), `facts/timeline`, `facts/at-time`, `facts/{id}/invalidate`, `entities` (list), `entities/search`, `entities/communities`, `communities` (list), `episodes` (list), `episodes/for-entity/{id}`, `principles/distill`, `principles` (list), `principles/{id}/approve`, `principles/{id}/reject`, `principles/{id}` (PUT) |
+| Research | 20 | `/v1/research/graph` (legacy+facts mode), `facts/extract`, `facts` (list), `facts/timeline`, `facts/at-time`, `facts/{id}/invalidate`, `entities` (list), `entities/search`, `entities/communities`, `communities` (list), `episodes` (list), `episodes/for-entity/{id}`, `principles/distill`, `principles` (list), `principles/{id}/approve`, `principles/{id}/reject`, `principles/{id}` (PUT), `import/paste`, `import/sources` |
 | Files | 9 | `/v1/files` (list, create), `/v1/files/content`, `/v1/files/metadata`, `/v1/files` (PUT, DELETE), `/v1/files/move`, `/v1/files/delete` (POST alias), `/v1/files/audit-log` |
 | Inbox | 7 | `/v1/inbox` (list), `/v1/inbox/unread-count`, `/v1/inbox/{id}`, `/v1/inbox/{id}/read`, `/v1/inbox/mark-all-read`, `/v1/inbox/{id}/archive`, `/v1/inbox/refresh` |
 | Outcomes | 5 | `/v1/outcomes` (list), `/v1/outcomes/stats`, `/v1/outcomes/{id}`, `/v1/outcomes/{id}/feedback`, `/v1/outcomes/track` |
