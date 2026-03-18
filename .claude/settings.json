@@ -85,6 +85,14 @@
             "prompt": "Check if Python code was modified in this session. If Python files were edited but no test results appear in the conversation, return {\"decision\": \"block\", \"reason\": \"Tests not run after code changes — run pytest before stopping\"}. Otherwise return {\"decision\": \"approve\"}."
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Check if any sprint planning, execution, or completion occurred in this session (new features built, sprints started, sprints finished, new work items identified). If yes, verify the GitHub Project board was updated: items created for new work, moved to In Progress for started work, marked Done for completed work. Use `scripts/gh-project-sync.sh list` to check current board state if uncertain. If sprint work happened but the board was NOT updated, return {\"decision\": \"block\", \"reason\": \"GitHub Project board not updated — sync board state before stopping\"}. If no sprint work occurred this session, return {\"decision\": \"approve\"}."
+          }
+        ]
       }
     ]
   }

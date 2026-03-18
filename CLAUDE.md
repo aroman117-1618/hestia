@@ -21,11 +21,14 @@
 - Fix issues immediately — never accumulate tech debt
 - Commit after each logical unit of work (one feature, one fix, one refactor)
 - Never combine unrelated changes in a single commit — enables git bisect and code review
+- **Move the sprint item to "In Progress" on the GitHub Project board** (`scripts/gh-project-sync.sh status <item-id> in_progress`)
 
 ### Phase 4: Review
 - Run **@hestia-reviewer** (Sonnet) on all changed files — REQUIRED for any change touching >5 files
 - Not optional when velocity is high — that's exactly when regressions hide
 - Update affected docs (this file, `docs/api-contract.md`, `docs/hestia-decision-log.md`)
+- **Mark the sprint item "Done" on the GitHub Project board** (`scripts/gh-project-sync.sh status <item-id> done`)
+- If new work was identified during the session, **create project items** (`scripts/gh-project-sync.sh add "<title>"`)
 
 ### Sub-Agents
 
@@ -48,6 +51,14 @@ Definitions: `.claude/agents/`. Read-only specialists — diagnose and report, n
 |--------|---------|---------|
 | `scripts/validate-security-edit.sh` | Before security file edits | Catches plaintext secrets, wildcard CORS, bare excepts |
 | `scripts/auto-test.sh` | After Python source edits | Runs matching test file automatically |
+| `scripts/gh-project-sync.sh` | Manual / Phase 3+4 | GitHub Project board helper (add, status, list) |
+
+### GitHub Project Board
+Hestia roadmap lives at **GitHub Project #1** (`aroman117-1618/hestia`, Projects tab). Always keep it current:
+- **Planning (Phase 2):** Create a board item for any new sprint work identified — `scripts/gh-project-sync.sh add "<title>"`
+- **Execution (Phase 3):** Move the item to In Progress — `scripts/gh-project-sync.sh status <id> in_progress`
+- **Review (Phase 4 / handoff):** Mark it Done — `scripts/gh-project-sync.sh status <id> done`
+- **At session start:** Run `scripts/gh-project-sync.sh list` to orient against current board state
 
 ---
 
