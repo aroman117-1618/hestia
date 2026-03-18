@@ -1,26 +1,29 @@
 ---
-name: plan-audit
-description: Sprint/plan SWOT analysis with bottom-up review chain and executive critiques — validate before you build
+name: second-opinion
+description: Cross-model plan validation — 9-phase internal audit + Gemini CLI external critique, replaces /plan-audit
 user_invocable: true
-argument-hint: "<plan to audit or 'current sprint'>"
+argument-hint: "<plan to audit, file path, or 'current sprint'>"
 allowed_tools:
   - Bash
   - Read
   - Grep
   - Glob
-  - Task
+  - Write
+  - Agent
   - TaskCreate
   - TaskUpdate
   - TaskList
 ---
 
-# Plan Audit Skill
+# /second-opinion — Cross-Model Plan Validation
 
-Run a rigorous, multi-perspective audit of a proposed plan or sprint before execution begins. This is the gate between planning and building — catch the problems here, not in production.
+Run a rigorous, multi-perspective audit of a proposed plan or sprint, then cross-validate with Gemini for an independent second opinion. This is the gate between planning and building.
 
-The review chain is bottom-up: front-line engineers first, then leads, then executives. Each layer builds on findings from the previous.
+**Supersedes /plan-audit** — all 9 internal phases carried over, plus Phase 10 (Gemini cross-model validation).
 
 The user should provide the plan to audit (or point to relevant files/context). If not provided, read `SPRINT.md`, recent conversation history, and any plan documents in `docs/plans/`.
+
+---
 
 ## Phase 1: Consume the Plan
 
@@ -118,7 +121,7 @@ Three executives render verdicts based on all previous findings:
 
 ## Phase 9: Sustained Devil's Advocate
 
-This is not a checklist — it's a sustained adversarial argument against the plan. The previous phases identified risks and gaps. This phase builds the strongest possible case for NOT doing this plan.
+This is not a checklist — it's a sustained adversarial argument against the plan. Build the strongest possible case for NOT doing this plan.
 
 ### 9.1 The Counter-Plan
 
@@ -152,13 +155,121 @@ Three targeted critiques:
 2. **Critical assumption**: What assumption, if wrong, would invalidate the entire plan? How do we validate it early?
 3. **Half-time cut list**: If we had half the time, what would we cut? (reveals true priorities)
 
-## Output Format
+---
 
-Save the audit to `docs/plans/[plan-name]-audit-[date].md` and present it:
+## Phase 10: Cross-Model Validation (Gemini)
+
+This phase sends the plan and all internal findings to Gemini for an independent second opinion. The goal is to surface blind spots that Claude's reasoning may share systematically.
+
+### 10.1 Prompt Construction
+
+Build a structured prompt containing:
+1. The plan summary (2-3 paragraphs)
+2. Key architectural decisions and their rationale
+3. The internal audit's top 5 findings (risks, gaps, concerns)
+4. Specific questions where a second opinion would be most valuable
+5. The codebase context that matters (stack, constraints, patterns)
+
+**Prompt template:**
+
+```
+You are a senior software architect reviewing a development plan for a second opinion.
+
+## Project Context
+[Stack: Python/FastAPI backend, SwiftUI iOS/macOS, SQLite + ChromaDB, local Ollama inference]
+[Scale: Single-user personal AI assistant on Mac Mini M1]
+
+## Plan Under Review
+[Plan summary — what is being built, why, estimated effort]
+
+## Key Decisions
+[Numbered list of architectural decisions with rationale]
+
+## Internal Audit Findings
+[Top 5 concerns from Phases 1-9]
+
+## Specific Questions
+[2-3 targeted questions where a fresh perspective would be most valuable]
+
+Please provide:
+1. Your independent assessment of the plan's strengths and weaknesses
+2. Any risks or blind spots the internal audit missed
+3. Alternative approaches worth considering
+4. Your verdict: APPROVE, APPROVE WITH CONDITIONS, or REJECT
+```
+
+### 10.2 Gemini Dispatch
+
+Shell out to the Gemini CLI and capture the response:
+
+```bash
+# Write prompt to temp file (avoids shell escaping issues)
+PROMPT_FILE=$(mktemp /tmp/gemini-prompt-XXXXX.md)
+# [prompt content written to $PROMPT_FILE]
+
+# Dispatch to Gemini — non-interactive mode with prompt from file
+RESPONSE=$(cat "$PROMPT_FILE" | gemini --model gemini-2.5-pro 2>/dev/null)
+
+# Clean up
+rm -f "$PROMPT_FILE"
+```
+
+**If Gemini CLI fails** (not authenticated, network error, rate limit):
+- Log the error
+- Skip Phase 10 gracefully — the internal audit (Phases 1-9) is still valid
+- Note in the output: "Cross-model validation unavailable — Gemini CLI returned [error]"
+
+**If Gemini returns empty or garbled response:**
+- Retry once with a shorter prompt (just plan summary + top 3 questions)
+- If still fails, skip with a note
+
+### 10.3 Response Parsing
+
+Extract from Gemini's response:
+- **Agreements**: Where Gemini aligns with the internal audit
+- **Disagreements**: Where Gemini has a different assessment
+- **Novel insights**: Risks or suggestions NOT present in the internal audit
+- **Gemini's verdict**: Their overall recommendation
+
+### 10.4 Reconciliation Report
+
+Produce a side-by-side comparison:
 
 ```markdown
-# Plan Audit: [Plan Name]
+## Cross-Model Reconciliation
+
+### Where Both Models Agree
+[Bullet list of shared findings — these are high-confidence signals]
+
+### Where Models Diverge
+| Topic | Claude's View | Gemini's View | Resolution |
+|-------|--------------|---------------|------------|
+| ... | ... | ... | [which is right and why] |
+
+### Novel Insights from Gemini
+[Findings that Claude's audit did not surface]
+
+### Synthesis
+[2-3 paragraph unified assessment incorporating both perspectives]
+```
+
+### 10.5 Final Verdict
+
+Render a unified verdict that weighs both models' assessments:
+- If both agree: high confidence in that direction
+- If they disagree: examine the disagreement, explain which perspective is more applicable to Hestia's context, and recommend accordingly
+- The final verdict is always Claude's to make — Gemini informs but doesn't override
+
+---
+
+## Output Format
+
+Save the audit to `docs/plans/[plan-name]-second-opinion-[date].md` and present it:
+
+```markdown
+# Second Opinion: [Plan Name]
 **Date:** [date]
+**Models:** Claude Opus 4.6 (internal) + Gemini 2.5 Pro (external)
 **Verdict:** APPROVE | APPROVE WITH CONDITIONS | REJECT
 
 ## Plan Summary
@@ -203,6 +314,25 @@ Save the audit to `docs/plans/[plan-name]-audit-[date].md` and present it:
 1. **Most likely failure:** [what and mitigation]
 2. **Critical assumption:** [what and validation approach]
 3. **Half-time cut list:** [what gets cut]
+
+## Cross-Model Validation (Gemini 2.5 Pro)
+
+### Gemini's Independent Assessment
+[Summary of Gemini's response]
+
+### Where Both Models Agree
+[High-confidence shared findings]
+
+### Where Models Diverge
+| Topic | Claude | Gemini | Resolution |
+|-------|--------|--------|------------|
+| ... | ... | ... | ... |
+
+### Novel Insights from Gemini
+[Findings not present in internal audit]
+
+### Reconciliation
+[Unified assessment incorporating both perspectives]
 
 ## Conditions for Approval
 [If APPROVE WITH CONDITIONS — list the specific conditions]
