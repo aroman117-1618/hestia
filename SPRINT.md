@@ -25,7 +25,7 @@
 
 ---
 
-# Sprint 20: Neural Net Graph Phase 2 (2026-03-18) — IN PROGRESS
+# Sprint 20: Neural Net Graph Phase 2 (2026-03-18) — COMPLETE
 
 **Started:** 2026-03-18
 **Plan:** `docs/plans/research-tab-development-plan.md`
@@ -59,8 +59,15 @@
 - WS5: Graph Source Expansion — infrastructure only (10h) — SourceCategory enum, paste/ingest API, staging workflow, External Research pipeline
   - Deferred: ChatGPT/Gemini provider-specific parsers (no sample files, speculative value)
 
-### Phase 20C (~20h): Notification Relay (independent, can parallel with Sprint 21)
-- WS6: Intelligent Notification Relay (20h) — context-aware bumps to macOS or iPhone
+### Phase 20C (~20h): Notification Relay — COMPLETE
+- WS6: Intelligent Notification Relay (20h) — COMPLETE
+  - 7 source files in `hestia/notifications/` (models, database, idle_detector, macos_notifier, apns_client, router, manager)
+  - 5-check routing chain: rate limit → session cooldown → quiet hours → Focus mode → idle detection
+  - APNs HTTP/2 JWT auth (ES256, 50-min token cache, Keychain credentials)
+  - macOS local notifications via osascript
+  - Batch consolidation (3+ bumps in 60s → single summary)
+  - 6 API endpoints, Pydantic schemas, server lifecycle wiring
+  - 42 tests, all passing
 
 ### Plans (see `docs/plans/`)
 - `research-tab-development-plan.md` — v2, Gemini-reconciled (quality framework, source expansion, principles, notification relay, /second-opinion skill)
@@ -96,6 +103,7 @@
 - Position sizing: Quarter-Kelly for months 1-3
 - API keys: macOS Keychain (`coinbase-api-key`, `coinbase-api-secret`)
 - SDK: `coinbase-advanced-py` (handles auth, signing, WebSocket reconnection)
+- APNs credentials: Keychain (`apns-key-id`: URMG8N4HNT, `apns-team-id`: 563968AM8L, key file: `data/credentials/AuthKey_URMG8N4HNT.p8`)
 
 ### Concurrent Session Guardrails
 - Trading work MUST stay on `feature/trading-foundation` branch
@@ -462,11 +470,68 @@ Terminal-native interface. WebSocket streaming, prompt_toolkit REPL, Rich render
 
 ---
 
-## Next: Sprint 17 — TBD
+## Next: Trading Module — Sprints 21–30 (APPROVED 2026-03-18)
 
-Candidates:
-- Outcome-to-Principle pipeline (auto-distill principles from tracked outcomes)
-- Correction classifier (detect user corrections, feed into learning loop)
-- Memory UI browser (iOS/macOS visualization of importance scores, consolidation history)
-- Command Center redesign (contextual metrics, calendar week grid)
-- Neural Net graph view Phase 2 (time slider, bi-temporal exploration)
+**Workstream:** WS-TRADING — Autonomous Algorithmic Crypto Trading
+**Milestone:** Hestia v2.0 — Autonomous Trading
+**GitHub Label:** `workstream:trading`
+**Plan:** `docs/discoveries/trading-module-research-and-plan.md`
+**Capital:** $500–$2,000 | **Target:** 25–50% annualized | **Exchange:** Coinbase (Kraken expansion later)
+
+### Critical Path: S21 → S22 → S23 → S25 → S27 → S30
+
+| Sprint | Title | Size | Priority | Phase | Depends | Status |
+|--------|-------|------|----------|-------|---------|--------|
+| S21 | Trading Foundation — module, DB (WAL), paper adapter, tax lots | L | P0 | Engine | — | IN PROGRESS |
+| S22 | Strategy Engine — geometric grid, crypto RSI (7-9/20-80) | XL | P0 | Engine | S21 | TODO |
+| S23 | Risk Management — 8 circuit breakers, reconciliation, ¼-Kelly | L | P0 | Engine | S22 | TODO |
+| S24 | Backtesting — VectorBT, anti-overfit, walk-forward validation | XL | P0 | Engine | S22 | TODO |
+| S25 | Coinbase Live + MVM — WebSocket, Post-Only, Minimum Viable Monitor | XL | P0 | Exchange+UI | S23+S24 | TODO |
+| S25.5 | Activity Feed Restructure — Command Center → System/Internal/External tabs | L | P0 | UI | — | TODO |
+| S26 | Full Trading Dashboard — SSE streaming, decision trails, watchlist, satisfaction scores | XL | P1 | UI | S25+S25.5 | TODO |
+| S27 | Portfolio — Bollinger breakout, DCA, regime rotation, summary | XL | P1 | Strategies | S25 | TODO |
+| S28 | AI Sentiment — LLM regime filter, CryptoPanic, alpha decay | L | P2 | AI | S27 | TODO |
+| S29 | On-Chain + ML — Glassnode, walk-forward optimizer, guardrails | XL | P2 | AI | S28 | TODO |
+| S30 | Go-Live — security audit, soak test, capital deployment | L | P0 | Launch | S27 | TODO |
+
+### Frontend Architecture Decisions (locked 2026-03-18)
+- **Activity Feed restructure:** Command Center → 3 tabbed views (System / Internal / External)
+  - System: Workflows/Orders, Memory Activity, System Alerts
+  - Internal: Health Summary, Tasks/Reminders, Calendar Events
+  - External: Trading Monitor, News Feed, Investigations
+- **Trading Monitor location:** Full content area within External tab (~600-800px), NOT 320px inspector sidebar
+- **Figma reference:** `hestia` Figma file, node 352-51 (Trading Monitor) + node 294-3081 (Command Center)
+- **S25 Minimum Viable Monitor:** Portfolio snapshot + kill switch + basic trade feed + risk traffic light (embedded in Command Center until Activity Feed restructure lands in S25.5)
+- **S25.5 Activity Feed Restructure:** Prerequisite for full Trading Dashboard in S26. Can run in parallel with S25 backend work.
+- **S26 Full Dashboard (expanded scope):**
+  - Hestia satisfaction score per trade (circular gauge, 0-100%, compares actual vs predicted fill)
+  - User satisfaction feedback per trade (binary thumbs up/down, feeds into learning pipeline)
+  - Decision Trail (expandable reasoning chain per trade: signal, strategy params, risk check, market conditions, Hestia reasoning)
+  - Watchlist/Thesis view (pairs being monitored, bullish/bearish/neutral thesis, confidence bar, trigger conditions)
+  - News Feed migration into External tab
+  - Investigations migration into External tab
+  - Notifications routed through Hestia relay (no Discord — in-house via WS6/Sprint 20C)
+- **Design system:** All trading UI uses existing MacColors/MacSpacing/MacTypography tokens. SF Mono for prices, SF Pro for labels.
+
+### Key Decisions (locked 2026-03-18)
+- **4 strategies:** Grid 35% (geometric), Mean Reversion 20% (RSI-7/9, 20/80), DCA 25%, Bollinger Breakout 20%
+- **Execution:** Post-Only maker orders default (fee efficiency critical at small capital)
+- **Risk:** Quarter-Kelly months 1–3 → Half-Kelly after validation. 8 circuit breakers incl. API latency + price feed divergence
+- **Tax:** HIFO/FIFO cost-basis from day one (1099-DA mandatory)
+- **DB:** SQLite WAL mode + MMIO (concurrent WebSocket + trading writes)
+- **AI:** Cloud inference → local after hardware upgrade. Sentiment = regime filter, not trade signal
+- **Gemini review:** 11 critical findings incorporated (geometric grids, crypto RSI, Post-Only, tax lots, WAL, Bollinger strategy, ¼-Kelly, reconciliation, latency breaker, price validator, PiT data)
+
+### Prerequisites
+- [x] Coinbase API key (trade-only, no withdrawal, ECDSA, Consumer Default Spot) — stored in Keychain
+- [x] APNs auth key (Production, Team Scoped) — Key ID URMG8N4HNT, stored in `data/credentials/`
+- [x] Sign in with Apple capability registered (future auth upgrade path)
+- [ ] `pip install ccxt coinbase-advanced-py vectorbt pandas-ta scikit-optimize`
+- [x] Cost-basis method decision: HIFO (confirmed)
+- [x] Alert routing decision: In-house via Hestia notification relay (no Discord)
+- [ ] Figma designs finalized for Activity Feed + Trading Monitor (in progress)
+
+### Deferred Work
+- iOS Correction Feedback UI (was Sprint 21 candidate — deferred, backend endpoint exists)
+- Kraken/futures expansion (one-sprint effort when capital > $5K)
+- handler.py refactor (2500+ lines, no sprint planned yet)

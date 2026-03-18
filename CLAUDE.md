@@ -160,7 +160,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 **Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
 **Field Guide UI Restructure: COMPLETE.** 5 thematic tabs, native SwiftUI diagrams, structured roadmap with `/v1/wiki/roadmap` endpoint.
 
-2380 tests (2245 backend + 135 CLI), 71 test files (64 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
+2464 tests (2329 backend + 135 CLI), 74 test files (67 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -168,7 +168,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 - **Type hints**: Always. Every function signature.
 - **Async/await**: For all I/O (database, inference, network).
-- **Logging**: `logger = get_logger()` — no arguments. Never `HestiaLogger(component=...)` or `get_logger(component=...)`. Import: `from hestia.logging import get_logger`. LogComponent enum: ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED, INVESTIGATE, RESEARCH, FILE, INBOX, OUTCOMES, APPLE_CACHE, LEARNING, VERIFICATION, TRADING. (22 components total)
+- **Logging**: `logger = get_logger()` — no arguments. Never `HestiaLogger(component=...)` or `get_logger(component=...)`. Import: `from hestia.logging import get_logger`. LogComponent enum: ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED, INVESTIGATE, RESEARCH, FILE, INBOX, OUTCOMES, APPLE_CACHE, LEARNING, VERIFICATION, TRADING, NOTIFICATION. (23 components total)
 - **Config**: YAML files, never hardcode.
 - **Error handling in routes**: `sanitize_for_log(e)` from `hestia.api.errors` in logs (never raw `{e}`). Generic messages in HTTP responses (never `detail=str(e)`).
 - **File naming**: `snake_case.py` (Python), UpperCamelCase.swift (iOS).
@@ -249,6 +249,14 @@ hestia/
 │   ├── voice/                       # TranscriptQualityChecker, JournalAnalyzer (3-stage)
 │   ├── wiki/                        # Architecture field guide (AI-generated + static docs)
 │   ├── newsfeed/                    # Materialized timeline, source aggregation, per-user state
+│   ├── notifications/               # Intelligent notification relay (macOS + APNs)
+│   │   ├── models.py               # BumpRequest, BumpStatus, NotificationRoute, NotificationSettings
+│   │   ├── database.py             # NotificationDatabase (bump_requests, notification_settings)
+│   │   ├── idle_detector.py        # macOS idle time (ioreg) + Focus mode detection
+│   │   ├── macos_notifier.py       # Local macOS notifications via osascript
+│   │   ├── apns_client.py          # APNs HTTP/2 JWT client (ES256, Keychain creds)
+│   │   ├── router.py               # 5-check routing chain (rate limit, cooldown, quiet, focus, idle)
+│   │   └── manager.py              # NotificationManager singleton (route + deliver + lifecycle)
 │   ├── outcomes/                    # Chat outcome tracking for Learning Cycle
 │   │   ├── database.py             # OutcomeDatabase (user-scoped, implicit signal detection)
 │   │   └── manager.py              # OutcomeManager (track_response, detect_implicit_signal)
@@ -297,13 +305,13 @@ hestia/
 │   │   ├── tax/                   # HIFO/FIFO lot tracker, tax reporter, wash sale monitor
 │   │   ├── ai/                    # Sentiment regime filter, on-chain PiT data, walk-forward optimizer
 │   │   └── backtest/             # VectorBT engine, anti-overfit validation, report generator
-│   ├── api/                         # FastAPI — 188 endpoints (+~25 trading), 27 route modules (+1)
+│   ├── api/                         # FastAPI — 206 endpoints, 29 route modules
 │   │   ├── errors.py                # sanitize_for_log(), safe_error_detail()
 │   │   ├── schemas/                  # Pydantic request/response models (16 domain modules)
 │   │   ├── server.py                # App lifecycle, manager initialization
 │   │   ├── middleware/auth.py        # JWT device authentication
 │   │   └── routes/                  # auth, health, chat, mode, memory, sessions, tools,
-│   │                                # tasks, cloud, voice, orders, agents, agents_v2, user, user_profile, proactive, health_data, wiki, explorer, newsfeed, investigate, research, files, inbox, outcomes, learning, trading (planned)
+│   │                                # tasks, cloud, voice, orders, agents, agents_v2, user, user_profile, proactive, health_data, wiki, explorer, newsfeed, investigate, research, files, inbox, outcomes, learning, notifications, trading, ws_chat
 │   └── config/                      # inference.yaml, execution.yaml, memory.yaml, triggers.yaml, wiki.yaml
 ├── hestia-cli/                      # Python CLI package — 135 tests, 7 test files
 │   ├── hestia_cli/                  # CLI source (app, repl, client, auth, bootstrap, config, commands, context, renderer, models)
@@ -336,7 +344,7 @@ hestia/
 
 ---
 
-## API Summary (~200 endpoints, 28 route modules)
+## API Summary (206 endpoints, 29 route modules)
 
 | Module | Endpoints | Key Routes |
 |--------|-----------|------------|
@@ -364,6 +372,7 @@ hestia/
 | Inbox | 7 | `/v1/inbox` (list), `/v1/inbox/unread-count`, `/v1/inbox/{id}`, `/v1/inbox/{id}/read`, `/v1/inbox/mark-all-read`, `/v1/inbox/{id}/archive`, `/v1/inbox/refresh` |
 | Outcomes | 5 | `/v1/outcomes` (list), `/v1/outcomes/stats`, `/v1/outcomes/{id}`, `/v1/outcomes/{id}/feedback`, `/v1/outcomes/track` |
 | Learning | 5 | `/v1/learning/report`, `memory-health`, `memory-health/history`, `alerts`, `alerts/{id}/acknowledge` |
+| Notifications | 6 | `/v1/notifications/bump` (POST), `/v1/notifications/bump/{id}/status`, `/v1/notifications/bump/{id}/respond`, `/v1/notifications/history`, `/v1/notifications/settings` (GET/PUT) |
 | Trading | 12 | `/v1/trading/bots` (CRUD + start/stop), `/v1/trading/trades`, `/v1/trading/tax/lots`, `/v1/trading/daily-summary`, `/v1/trading/risk/status`, `/v1/trading/kill-switch` |
 
 Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
