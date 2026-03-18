@@ -1,3 +1,30 @@
+# Graph + Memory Browser Bug Fix Session (2026-03-18) — COMPLETE
+
+**Started:** 2026-03-18
+
+## What Was Done
+- Fixed graph view showing "No memories yet" — `get_graph()` in `manager.py` returned empty arrays on every cache hit (nodes never deserialized from cached JSON)
+- Fixed force-directed layout overflow with 200+ nodes (positions at 10^80) — per-step velocity cap + final normalization to target_radius=6.0
+- Fixed memory browser returning empty list despite 1008 server chunks — `MemoryChunkItem` explicit snake_case `CodingKeys` conflicted with `APIClient.convertFromSnakeCase` decoder
+- Fixed initial camera too zoomed in (z=8 → z=20) and `zFar` extended (100 → 200)
+- Fixed legend missing Chat/Insight types + all 7 legend colors corrected to match backend `CATEGORY_COLORS`
+- Added `strippingBracketPrefixes()` to `NodeDetailPopover` — strips `[IMPORTED CLAUDE HISTORY — Foo]: [User]:` noise from node content
+- Fixed macOS app defaulting to `.local` instead of `.tailscale` (Mac Mini)
+- Imported 78 conversations / 988 chunks of Claude history via SSH Python bypass on Mac Mini
+- Added GitHub Project board workflow to CLAUDE.md + stop hook in settings.json
+
+### Key Commits
+- `b4b918c` fix: deserialize graph nodes/edges from cache instead of returning empty arrays
+- `ae3f95a` fix: correct macOS environment default and research path prefixes
+- `5c4e3a9` fix: graph position overflow + memory browser decode failure
+- `94e746e` fix: graph camera distance, legend accuracy, and content prefix stripping
+- `85f88a0` docs: add GitHub Project board workflow instructions + stop hook
+
+### Test Results
+- 2142 backend + 135 CLI = 2277 total, all passing
+
+---
+
 # Research View Unification + Sprint 18 (2026-03-17) — COMPLETE
 
 **Started:** 2026-03-17
