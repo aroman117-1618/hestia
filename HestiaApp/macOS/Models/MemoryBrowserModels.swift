@@ -6,12 +6,7 @@ struct MemoryChunkUpdateRequest: Codable {
     let content: String?
     let chunkType: String?
     let tags: [String]?
-
-    enum CodingKeys: String, CodingKey {
-        case content
-        case chunkType = "chunk_type"
-        case tags
-    }
+    // APIClient uses convertToSnakeCase; chunkType encodes as chunk_type automatically.
 }
 
 struct MemoryChunkListResponse: Codable {
@@ -32,11 +27,7 @@ struct MemoryChunkItem: Codable, Identifiable {
     let entities: [String]
     let createdAt: String
     let updatedAt: String?
-
-    enum CodingKeys: String, CodingKey {
-        case id, content, importance, status, source, topics, entities
-        case chunkType = "chunk_type"
-        case createdAt = "created_at"
-        case updatedAt = "updated_at"
-    }
+    // No explicit CodingKeys — APIClient uses convertFromSnakeCase,
+    // which automatically maps chunk_type→chunkType, created_at→createdAt, etc.
+    // Explicit snake_case CodingKeys conflict with that strategy and cause silent decode failures.
 }

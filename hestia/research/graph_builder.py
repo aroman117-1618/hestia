@@ -772,6 +772,7 @@ class GraphBuilder:
         link_strength = 0.05
         link_distance = 2.0
         damping = 0.9
+        max_velocity = 2.0  # cap per step to prevent exponential blowup with many nodes
 
         velocities = [[0.0, 0.0, 0.0] for _ in range(count)]
 
@@ -814,18 +815,30 @@ class GraphBuilder:
                 velocities[to_idx][1] -= fy
                 velocities[to_idx][2] -= fz
 
-            # Apply velocity with damping
+            # Apply velocity with damping + per-node speed cap
             for i in range(count):
+                speed = math.sqrt(sum(v * v for v in velocities[i]))
+                if speed > max_velocity:
+                    scale = max_velocity / speed
+                    velocities[i] = [v * scale for v in velocities[i]]
                 for d in range(3):
                     velocities[i][d] *= damping
                     positions[i][d] += velocities[i][d]
 
+        # Normalize positions to target radius so camera always sees the graph.
+        # With many nodes the simulation can produce large values even with the cap.
+        max_dist = max(
+            math.sqrt(p[0] ** 2 + p[1] ** 2 + p[2] ** 2) for p in positions
+        ) if positions else 1.0
+        target_radius = 6.0
+        scale = target_radius / max(max_dist, target_radius)  # only shrink, never expand
+
         # Write positions back to nodes
         for i, node in enumerate(nodes):
             node.position = {
-                "x": round(positions[i][0], 4),
-                "y": round(positions[i][1], 4),
-                "z": round(positions[i][2], 4),
+                "x": round(positions[i][0] * scale, 4),
+                "y": round(positions[i][1] * scale, 4),
+                "z": round(positions[i][2] * scale, 4),
             }
 
     # ── Clustering ──────────────────────────────────────
