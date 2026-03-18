@@ -36,7 +36,7 @@ struct ResearchView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 case .memory:
-                    MemoryBrowserView()
+                    MemoryBrowserView(onChunkEdited: { graphNeedsRefresh = true })
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
