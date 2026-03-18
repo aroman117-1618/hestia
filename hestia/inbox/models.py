@@ -16,6 +16,7 @@ class InboxItemType(str, Enum):
     EMAIL = "email"
     REMINDER = "reminder"
     CALENDAR = "calendar"
+    NOTE = "note"
     NOTIFICATION = "notification"
 
 
@@ -24,6 +25,7 @@ class InboxItemSource(str, Enum):
     MAIL = "mail"
     REMINDERS = "reminders"
     CALENDAR = "calendar"
+    NOTES = "notes"
     PROACTIVE = "proactive"
 
 

@@ -147,7 +147,7 @@ class TradeExecutor:
 
         # Step 4: Update position tracker
         if result.is_filled:
-            pnl = self._positions.record_fill(
+            pnl = await self._positions.record_fill(
                 pair=signal.pair,
                 side=signal.signal_type.value,
                 quantity=result.filled_quantity,

@@ -62,7 +62,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         editMenuItem.submenu = editMenu
         mainMenu.addItem(editMenuItem)
 
-        // View menu — matches sidebar order (⌘1-4 + ⌘6 settings)
+        // View menu — matches sidebar order (⌘1-3 + ⌘5 settings)
+        // Health tab archived — data surfaces via Internal activity feed (Sprint 25.5)
         let viewMenuItem = NSMenuItem(title: "View", action: nil, keyEquivalent: "")
         let viewMenu = NSMenu(title: "View")
 
@@ -70,21 +71,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         cmdItem.target = self
         viewMenu.addItem(cmdItem)
 
-        let healthItem = NSMenuItem(title: "Vitals", action: #selector(showHealthView), keyEquivalent: "2")
-        healthItem.target = self
-        viewMenu.addItem(healthItem)
-
-        let researchItem = NSMenuItem(title: "Research", action: #selector(showResearchView), keyEquivalent: "3")
+        let researchItem = NSMenuItem(title: "Research", action: #selector(showResearchView), keyEquivalent: "2")
         researchItem.target = self
         viewMenu.addItem(researchItem)
 
-        let expItem = NSMenuItem(title: "Explorer", action: #selector(showExplorerView), keyEquivalent: "4")
+        let expItem = NSMenuItem(title: "Explorer", action: #selector(showExplorerView), keyEquivalent: "3")
         expItem.target = self
         viewMenu.addItem(expItem)
 
         viewMenu.addItem(.separator())
 
-        let settingsItem = NSMenuItem(title: "Settings", action: #selector(showSettingsView), keyEquivalent: "6")
+        let settingsItem = NSMenuItem(title: "Settings", action: #selector(showSettingsView), keyEquivalent: "5")
         settingsItem.target = self
         viewMenu.addItem(settingsItem)
 
@@ -114,16 +111,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             case "1":
                 self?.switchView(to: .command)
                 return nil
+            // ⌘2 was Health — archived (Sprint 25.5)
             case "2":
-                self?.switchView(to: .health)
-                return nil
-            case "3":
                 self?.switchView(to: .research)
                 return nil
-            case "4":
+            case "3":
                 self?.switchView(to: .explorer)
                 return nil
-            case "6":
+            case "5":
                 self?.switchView(to: .settings)
                 return nil
             case "\\":

@@ -19,11 +19,8 @@ struct ResearchView: View {
             VStack(spacing: 0) {
                 headerBar(compact: isCompact)
 
-                // Filter bar visible in graph and principles modes (not memory)
-                if selectedMode != .memory {
-                    filterBar(compact: isCompact)
-                        .padding(.top, MacSpacing.sm)
-                }
+                // DataSource filter bar removed (Sprint 25.5) — source filtering
+                // consolidated into GraphControlPanel's SourceCategory pills.
 
                 // Main content: graph (+ optional detail panel), principles, or memory
                 switch selectedMode {

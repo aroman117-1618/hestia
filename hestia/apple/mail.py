@@ -323,7 +323,10 @@ class MailClient:
 
         # Get sender info
         sender_email = row["sender_email"] or ""
-        sender_name = row.get("sender_name", "") or sender_email
+        try:
+            sender_name = row["sender_name"] or sender_email
+        except (IndexError, KeyError):
+            sender_name = sender_email
 
         return Email(
             message_id=row["message_id"] or str(row["rowid"]),

@@ -110,6 +110,12 @@ class TradingDatabase(BaseDatabase):
                 UNIQUE(date, user_id)
             );
 
+            CREATE TABLE IF NOT EXISTS risk_state (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS reconciliation_log (
                 id TEXT PRIMARY KEY,
                 timestamp TEXT NOT NULL,
@@ -315,6 +321,8 @@ class TradingDatabase(BaseDatabase):
         user_id: str = "user-default",
     ) -> List[Dict[str, Any]]:
         """Get open tax lots ordered by method (HIFO = highest cost first, FIFO = oldest first)."""
+        if method not in ("hifo", "fifo"):
+            raise ValueError(f"Invalid tax lot method: {method}. Must be 'hifo' or 'fifo'.")
         if method == "hifo":
             order = "cost_per_unit DESC"
         else:
@@ -454,6 +462,32 @@ class TradingDatabase(BaseDatabase):
         )
         rows = await cursor.fetchall()
         return [dict(r) for r in rows]
+
+    # ── Risk State Persistence ─────────────────────────────────────
+
+    async def save_risk_state(self, key: str, value: str) -> None:
+        """Save a risk state key-value pair (kill switch, breakers, tracking)."""
+        await self.connection.execute(
+            """INSERT INTO risk_state (key, value, updated_at)
+               VALUES (?, ?, ?)
+               ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at""",
+            (key, value, datetime.now(timezone.utc).isoformat()),
+        )
+        await self.connection.commit()
+
+    async def load_risk_state(self, key: str) -> Optional[str]:
+        """Load a risk state value by key."""
+        cursor = await self.connection.execute(
+            "SELECT value FROM risk_state WHERE key = ?", (key,)
+        )
+        row = await cursor.fetchone()
+        return row[0] if row else None
+
+    async def load_all_risk_state(self) -> Dict[str, str]:
+        """Load all risk state key-value pairs."""
+        cursor = await self.connection.execute("SELECT key, value FROM risk_state")
+        rows = await cursor.fetchall()
+        return {row[0]: row[1] for row in rows}
 
     # ── Row converters ────────────────────────────────────────────
 

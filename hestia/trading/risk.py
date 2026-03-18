@@ -13,9 +13,11 @@ Layer 8: Reconciliation loop (in manager.py)
 Plus: kill switch for immediate halt of all trading.
 """
 
+import asyncio
+import json
 import math
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from hestia.logging import get_logger, LogComponent
 from hestia.trading.models import (
@@ -23,6 +25,9 @@ from hestia.trading.models import (
     CircuitBreakerState,
     CircuitBreakerType,
 )
+
+if TYPE_CHECKING:
+    from hestia.trading.database import TradingDatabase
 
 logger = get_logger()
 
@@ -34,12 +39,18 @@ class RiskManager:
     No code path can place an order without passing through this manager.
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(
+        self,
+        config: Optional[Dict[str, Any]] = None,
+        database: Optional["TradingDatabase"] = None,
+    ) -> None:
         cfg = config or {}
         risk_cfg = cfg.get("risk", {})
         position_cfg = risk_cfg.get("position_limits", {})
         breaker_cfg = risk_cfg.get("circuit_breakers", {})
         sizing_cfg = risk_cfg.get("position_sizing", {})
+
+        self._database = database
 
         # Layer 2: Position limits
         self.max_single_trade_pct: float = position_cfg.get("max_single_trade_pct", 0.25)
@@ -65,6 +76,7 @@ class RiskManager:
         self._daily_pnl: float = 0.0
         self._weekly_pnl: float = 0.0
         self._daily_reset_date: Optional[str] = None
+        self._weekly_reset_date: Optional[str] = None
 
     def _init_breakers(self, cfg: Dict[str, Any]) -> None:
         """Initialize circuit breakers from config."""
@@ -88,6 +100,110 @@ class RiskManager:
                 threshold=threshold,
             )
 
+    # ── State Persistence ────────────────────────────────────────
+
+    def set_database(self, database: "TradingDatabase") -> None:
+        """Set database reference (called after manager init)."""
+        self._database = database
+
+    async def persist_state(self) -> None:
+        """Persist kill switch, breaker states, and tracking to database."""
+        if not self._database:
+            return
+        try:
+            state = {
+                "kill_switch_active": self._kill_switch_active,
+                "kill_switch_reason": self._kill_switch_reason,
+                "kill_switch_at": self._kill_switch_at.isoformat() if self._kill_switch_at else None,
+                "peak_portfolio_value": self._peak_portfolio_value,
+                "daily_pnl": self._daily_pnl,
+                "weekly_pnl": self._weekly_pnl,
+                "daily_reset_date": self._daily_reset_date,
+                "weekly_reset_date": self._weekly_reset_date,
+                "breakers": {
+                    bt.value: {
+                        "state": b.state.value,
+                        "current_value": b.current_value,
+                        "trigger_count": b.trigger_count,
+                        "triggered_at": b.triggered_at.isoformat() if b.triggered_at else None,
+                        "cooldown_until": b.cooldown_until.isoformat() if b.cooldown_until else None,
+                    }
+                    for bt, b in self._breakers.items()
+                },
+            }
+            await self._database.save_risk_state("risk_state", json.dumps(state))
+        except Exception as e:
+            logger.error(
+                f"Failed to persist risk state: {type(e).__name__}",
+                component=LogComponent.TRADING,
+            )
+
+    async def restore_state(self) -> None:
+        """Restore persisted risk state from database on startup."""
+        if not self._database:
+            return
+        try:
+            raw = await self._database.load_risk_state("risk_state")
+            if not raw:
+                return
+            state = json.loads(raw)
+
+            # Restore kill switch
+            self._kill_switch_active = state.get("kill_switch_active", False)
+            self._kill_switch_reason = state.get("kill_switch_reason")
+            ks_at = state.get("kill_switch_at")
+            self._kill_switch_at = datetime.fromisoformat(ks_at) if ks_at else None
+
+            # Restore tracking
+            self._peak_portfolio_value = state.get("peak_portfolio_value", 0.0)
+            self._daily_pnl = state.get("daily_pnl", 0.0)
+            self._weekly_pnl = state.get("weekly_pnl", 0.0)
+            self._daily_reset_date = state.get("daily_reset_date")
+            self._weekly_reset_date = state.get("weekly_reset_date")
+
+            # Restore breaker states
+            breakers_data = state.get("breakers", {})
+            for bt, b in self._breakers.items():
+                bd = breakers_data.get(bt.value)
+                if bd:
+                    try:
+                        b.state = CircuitBreakerState(bd["state"])
+                    except ValueError:
+                        pass
+                    b.current_value = bd.get("current_value", 0.0)
+                    b.trigger_count = bd.get("trigger_count", 0)
+                    ta = bd.get("triggered_at")
+                    b.triggered_at = datetime.fromisoformat(ta) if ta else None
+                    cu = bd.get("cooldown_until")
+                    b.cooldown_until = datetime.fromisoformat(cu) if cu else None
+
+            if self._kill_switch_active:
+                logger.warning(
+                    f"Kill switch restored from database: {self._kill_switch_reason}",
+                    component=LogComponent.TRADING,
+                )
+            triggered = [bt.value for bt, b in self._breakers.items() if b.is_blocking]
+            if triggered:
+                logger.warning(
+                    f"Circuit breakers restored from database: {triggered}",
+                    component=LogComponent.TRADING,
+                )
+        except Exception as e:
+            logger.error(
+                f"Failed to restore risk state: {type(e).__name__}",
+                component=LogComponent.TRADING,
+            )
+
+    def _schedule_persist(self) -> None:
+        """Fire-and-forget persistence after state changes."""
+        if not self._database:
+            return
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self.persist_state())
+        except RuntimeError:
+            pass  # No running loop (e.g., in tests)
+
     # ── Kill Switch ───────────────────────────────────────────────
 
     def activate_kill_switch(self, reason: str = "Manual activation") -> None:
@@ -99,6 +215,7 @@ class RiskManager:
             f"KILL SWITCH ACTIVATED: {reason}",
             component=LogComponent.TRADING,
         )
+        self._schedule_persist()
 
     def deactivate_kill_switch(self) -> None:
         """Re-enable trading after kill switch."""
@@ -108,6 +225,7 @@ class RiskManager:
             "Kill switch deactivated — trading re-enabled",
             component=LogComponent.TRADING,
         )
+        self._schedule_persist()
 
     @property
     def is_kill_switch_active(self) -> bool:
@@ -128,7 +246,8 @@ class RiskManager:
 
         Returns: {"approved": bool, "reasons": [str], "adjusted_quantity": float}
         """
-        reasons: List[str] = []
+        adjustments: List[str] = []
+        rejections: List[str] = []
 
         # Kill switch check
         if self._kill_switch_active:
@@ -141,13 +260,13 @@ class RiskManager:
         # Check all circuit breakers
         for breaker in self._breakers.values():
             if breaker.is_blocking:
-                reasons.append(
+                rejections.append(
                     f"Circuit breaker {breaker.breaker_type.value} triggered "
                     f"(value: {breaker.current_value:.4f}, threshold: {breaker.threshold:.4f})"
                 )
 
-        if reasons:
-            return {"approved": False, "reasons": reasons, "adjusted_quantity": 0.0}
+        if rejections:
+            return {"approved": False, "reasons": rejections, "adjusted_quantity": 0.0}
 
         trade_value = quantity * price
 
@@ -157,9 +276,9 @@ class RiskManager:
             if trade_pct > self.max_single_trade_pct:
                 max_value = portfolio_value * self.max_single_trade_pct
                 adjusted_qty = max_value / price if price > 0 else 0.0
-                reasons.append(
-                    f"Trade exceeds max single trade ({trade_pct:.1%} > {self.max_single_trade_pct:.1%}). "
-                    f"Adjusted to {adjusted_qty:.8f}"
+                adjustments.append(
+                    f"Trade adjusted: single trade {trade_pct:.1%} > {self.max_single_trade_pct:.1%}. "
+                    f"Reduced to {adjusted_qty:.8f}"
                 )
                 quantity = adjusted_qty
                 trade_value = quantity * price
@@ -168,23 +287,27 @@ class RiskManager:
             new_deployed = current_deployed + trade_value
             deployed_pct = new_deployed / portfolio_value
             if deployed_pct > self.max_total_deployed_pct:
-                reasons.append(
+                rejections.append(
                     f"Would exceed max deployed ({deployed_pct:.1%} > {self.max_total_deployed_pct:.1%})"
                 )
-                return {"approved": False, "reasons": reasons, "adjusted_quantity": 0.0}
+                return {
+                    "approved": False,
+                    "reasons": rejections + adjustments,
+                    "adjusted_quantity": 0.0,
+                }
 
         # Layer 3: Quarter-Kelly position sizing
         kelly_qty = self.calculate_kelly_size(portfolio_value, price)
         if quantity > kelly_qty > 0:
-            reasons.append(
+            adjustments.append(
                 f"Quantity reduced from {quantity:.8f} to {kelly_qty:.8f} (Quarter-Kelly)"
             )
             quantity = kelly_qty
 
-        approved = len([r for r in reasons if "exceeds" in r.lower() or "would exceed" in r.lower()]) == 0
+        approved = len(rejections) == 0
         return {
             "approved": approved,
-            "reasons": reasons,
+            "reasons": rejections + adjustments,
             "adjusted_quantity": quantity,
         }
 
@@ -245,6 +368,14 @@ class RiskManager:
             self._daily_pnl = 0.0
             self._daily_reset_date = today
 
+        # Weekly reset on Monday
+        import calendar
+        today_dt = datetime.now(timezone.utc)
+        monday = (today_dt - timedelta(days=today_dt.weekday())).strftime("%Y-%m-%d")
+        if self._weekly_reset_date != monday:
+            self._weekly_pnl = 0.0
+            self._weekly_reset_date = monday
+
         self._daily_pnl += pnl
         self._weekly_pnl += pnl
 
@@ -270,6 +401,8 @@ class RiskManager:
                     f"Weekly loss {weekly_loss_pct:.1%} exceeds {breaker.threshold:.1%}",
                     cooldown_hours=72,
                 )
+
+        self._schedule_persist()
 
     # ── Layer 6: Latency Circuit Breaker ──────────────────────────
 
@@ -335,6 +468,7 @@ class RiskManager:
             component=LogComponent.TRADING,
             data=breaker.to_dict(),
         )
+        self._schedule_persist()
 
     def _reset_breaker(self, breaker: CircuitBreaker) -> None:
         """Reset a circuit breaker to armed state."""
@@ -344,6 +478,7 @@ class RiskManager:
             f"Circuit breaker reset: {breaker.breaker_type.value}",
             component=LogComponent.TRADING,
         )
+        self._schedule_persist()
 
     def check_cooldowns(self) -> None:
         """Check and reset any expired cooldowns."""

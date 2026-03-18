@@ -31,14 +31,15 @@ _SOURCE_MAP = {
     "mail": MemorySource.MAIL,
     "calendar": MemorySource.CALENDAR,
     "reminders": MemorySource.REMINDERS,
+    "notes": MemorySource.NOTES,
 }
 
-# Maps InboxItemSource -> ChunkType
+# Maps InboxItemSource -> ChunkType (taxonomy updated Sprint 25.5)
 _CHUNK_TYPE_MAP = {
-    "mail": ChunkType.FACT,
-    "calendar": ChunkType.FACT,
-    "reminders": ChunkType.FACT,
-    "notes": ChunkType.INSIGHT,
+    "mail": ChunkType.OBSERVATION,
+    "calendar": ChunkType.SOURCE_STRUCTURED,
+    "reminders": ChunkType.SOURCE_STRUCTURED,
+    "notes": ChunkType.OBSERVATION,
 }
 
 # Email signature patterns to strip
@@ -116,9 +117,18 @@ class InboxMemoryBridge:
 
         await db.start_ingestion_batch(batch_id, source_filter or "all")
 
+        # Convert string source_filter to InboxItemSource enum for get_inbox()
+        from hestia.inbox.models import InboxItemSource
+        source_enum: Optional[InboxItemSource] = None
+        if source_filter:
+            try:
+                source_enum = InboxItemSource(source_filter)
+            except ValueError:
+                pass
+
         items = await self._inbox.get_inbox(
             user_id=user_id,
-            source=source_filter,
+            source=source_enum,
             include_archived=False,
             limit=MAX_CHUNKS_PER_SOURCE,
         )

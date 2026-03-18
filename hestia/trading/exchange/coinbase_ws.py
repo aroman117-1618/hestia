@@ -67,6 +67,9 @@ class CoinbaseWebSocketFeed:
         self._last_message_at: Optional[float] = None
         self._latencies: List[float] = []
 
+        # Event loop reference for cross-thread scheduling
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
+
     def on_ticker(self, callback: Callable) -> None:
         """Register callback for ticker updates."""
         self._on_ticker = callback
@@ -91,6 +94,9 @@ class CoinbaseWebSocketFeed:
         """
         try:
             from coinbase.websocket import WSClient
+
+            # Capture event loop for cross-thread callback scheduling
+            self._loop = asyncio.get_running_loop()
 
             self._client = WSClient(
                 api_key=self._api_key or "",
@@ -131,7 +137,7 @@ class CoinbaseWebSocketFeed:
                 component=LogComponent.TRADING,
             )
             if self._on_error:
-                self._on_error({"type": "connection_error", "error": str(e)})
+                self._on_error({"type": "connection_error", "error": type(e).__name__})
             return False
 
     async def disconnect(self) -> None:
@@ -221,14 +227,20 @@ class CoinbaseWebSocketFeed:
                         })
 
     def _handle_close(self) -> None:
-        """Handle WebSocket disconnect — trigger reconnection."""
+        """Handle WebSocket disconnect — trigger reconnection.
+
+        Called from the WSClient's background thread, not the asyncio event loop.
+        Uses call_soon_threadsafe to schedule reconnection on the correct loop.
+        """
         self._connected = False
         logger.warning(
             "Coinbase WebSocket disconnected",
             component=LogComponent.TRADING,
         )
-        if self._running:
-            asyncio.get_event_loop().create_task(self._reconnect())
+        if self._running and self._loop and not self._loop.is_closed():
+            self._loop.call_soon_threadsafe(
+                self._loop.create_task, self._reconnect()
+            )
 
     async def _reconnect(self) -> None:
         """

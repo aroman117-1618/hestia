@@ -134,11 +134,12 @@ class LearningScheduler:
         self._tasks.append(asyncio.create_task(self._correction_loop()))
         self._tasks.append(asyncio.create_task(self._distillation_loop()))
         self._tasks.append(asyncio.create_task(self._crystallization_loop()))
+        self._tasks.append(asyncio.create_task(self._apple_ingestion_loop()))
 
         logger.info(
             "Learning scheduler started",
             component=LogComponent.LEARNING,
-            data={"monitors": 9},
+            data={"monitors": 10},
         )
 
     async def close(self) -> None:
@@ -497,6 +498,49 @@ class LearningScheduler:
                 )
 
             await asyncio.sleep(604800)  # 7 days
+
+    async def _apple_ingestion_loop(self) -> None:
+        """Daily: ingest Apple ecosystem data (mail, calendar, reminders, notes).
+
+        Runs at ~3 AM via initial sleep calculation. Uses InboxMemoryBridge
+        with source_dedup to prevent re-ingestion. Added Sprint 25.5.
+        """
+        import time
+        from datetime import datetime, timedelta
+
+        # Calculate initial delay to target 3 AM
+        now = datetime.now()
+        target = now.replace(hour=3, minute=0, second=0, microsecond=0)
+        if target <= now:
+            target += timedelta(days=1)
+        initial_delay = (target - now).total_seconds()
+        await asyncio.sleep(initial_delay)
+
+        while self._running:
+            try:
+                from hestia.inbox import get_inbox_manager
+                from hestia.inbox.bridge import InboxMemoryBridge
+                from hestia.memory import get_memory_manager
+
+                inbox_mgr = await get_inbox_manager()
+                memory_mgr = await get_memory_manager()
+                bridge = InboxMemoryBridge(
+                    inbox_manager=inbox_mgr,
+                    memory_manager=memory_mgr,
+                )
+                result = await bridge.ingest_all()
+                logger.info(
+                    "Apple ingestion complete",
+                    component=LogComponent.LEARNING,
+                    data={"result": str(result)},
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Apple ingestion failed: {type(e).__name__}",
+                    component=LogComponent.LEARNING,
+                )
+
+            await asyncio.sleep(86400)  # 24 hours
 
 
 # ── Singleton ──────────────────────────────────────────────

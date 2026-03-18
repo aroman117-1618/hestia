@@ -524,17 +524,19 @@ Terminal-native interface. WebSocket streaming, prompt_toolkit REPL, Rich render
 
 | Sprint | Title | Size | Priority | Phase | Depends | Status |
 |--------|-------|------|----------|-------|---------|--------|
-| S21 | Trading Foundation — module, DB (WAL), paper adapter, tax lots | L | P0 | Engine | — | IN PROGRESS |
-| S22 | Strategy Engine — geometric grid, crypto RSI (7-9/20-80) | XL | P0 | Engine | S21 | TODO |
-| S23 | Risk Management — 8 circuit breakers, reconciliation, ¼-Kelly | L | P0 | Engine | S22 | TODO |
-| S24 | Backtesting — VectorBT, anti-overfit, walk-forward validation | XL | P0 | Engine | S22 | TODO |
-| S25 | Coinbase Live + MVM — WebSocket, Post-Only, Minimum Viable Monitor | XL | P0 | Exchange+UI | S23+S24 | TODO |
+| S21 | Trading Foundation — module, DB (WAL), paper adapter, tax lots | L | P0 | Engine | — | **COMPLETE** |
+| S22 | Strategy Engine — geometric grid, crypto RSI (7-9/20-80) | XL | P0 | Engine | S21 | **COMPLETE** |
+| S23 | Risk Management — 8 circuit breakers, reconciliation, ¼-Kelly | L | P0 | Engine | S22 | **COMPLETE** |
+| S24 | Backtesting — VectorBT, anti-overfit, walk-forward validation | XL | P0 | Engine | S22 | **COMPLETE** |
+| S25 | Coinbase Live — WebSocket, Post-Only orders, sequence check | XL | P0 | Exchange | S23+S24 | **COMPLETE** |
 | S25.5 | Activity Feed Restructure — Command Center → System/Internal/External tabs | L | P0 | UI | — | TODO |
-| S26 | Full Trading Dashboard — SSE streaming, decision trails, watchlist, satisfaction scores | XL | P1 | UI | S25+S25.5 | TODO |
+| S26 | Full Trading Dashboard — decision trails, watchlist, satisfaction scores, MVM | XL | P1 | UI | S25.5 | TODO |
 | S27 | Portfolio — Bollinger breakout, DCA, regime rotation, summary | XL | P1 | Strategies | S25 | TODO |
 | S28 | AI Sentiment — LLM regime filter, CryptoPanic, alpha decay | L | P2 | AI | S27 | TODO |
 | S29 | On-Chain + ML — Glassnode, walk-forward optimizer, guardrails | XL | P2 | AI | S28 | TODO |
 | S30 | Go-Live — security audit, soak test, capital deployment | L | P0 | Launch | S27 | TODO |
+| EXT-1 | External Storage Setup — Ollama offload, backups, log archival | S | P1 | Infra | — | COMPLETE |
+| DQ-1 | Research Data Quality — insight cleanup, Apple backfill, graph filters | L | P1 | Research | S20A | TODO |
 
 ### Frontend Architecture Decisions (locked 2026-03-18)
 - **Activity Feed restructure:** Command Center → 3 tabbed views (System / Internal / External)
@@ -568,7 +570,7 @@ Terminal-native interface. WebSocket streaming, prompt_toolkit REPL, Rich render
 - [x] Coinbase API key (trade-only, no withdrawal, ECDSA, Consumer Default Spot) — stored in Keychain
 - [x] APNs auth key (Production, Team Scoped) — Key ID URMG8N4HNT, stored in `data/credentials/`
 - [x] Sign in with Apple capability registered (future auth upgrade path)
-- [ ] `pip install ccxt coinbase-advanced-py vectorbt pandas-ta scikit-optimize`
+- [x] `pip install ccxt coinbase-advanced-py vectorbt pandas-ta scikit-optimize` — installed in S21
 - [x] Cost-basis method decision: HIFO (confirmed)
 - [x] Alert routing decision: In-house via Hestia notification relay (no Discord)
 - [ ] Figma designs finalized for Activity Feed + Trading Monitor (in progress)

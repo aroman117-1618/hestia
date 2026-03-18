@@ -95,7 +95,7 @@ class TestOrderValidation:
         )
         # Should adjust quantity down, not outright reject
         assert result["adjusted_quantity"] < 1.0
-        assert any("max single trade" in r.lower() for r in result["reasons"])
+        assert any("single trade" in r.lower() for r in result["reasons"])
 
     def test_reject_exceeds_max_deployed(self, risk_manager):
         """Can't deploy more than 80% of portfolio."""

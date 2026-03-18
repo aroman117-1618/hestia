@@ -108,7 +108,7 @@ struct NodeDetailPopover: View {
                     .font(.system(size: 12))
                     .foregroundStyle(MacColors.textSecondary)
             } else {
-                Text(strippingBracketPrefixes(node.content))
+                Text(node.content.strippingBracketPrefixes())
                     .font(.system(size: 13))
                     .foregroundStyle(MacColors.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -227,7 +227,7 @@ struct NodeDetailPopover: View {
                                 .frame(width: 20)
 
                             VStack(alignment: .leading, spacing: 1) {
-                                Text(strippingBracketPrefixes(connectedNode.label.isEmpty ? connectedNode.content : connectedNode.label))
+                                Text((connectedNode.label.isEmpty ? connectedNode.content : connectedNode.label).strippingBracketPrefixes())
                                     .font(.system(size: 11))
                                     .foregroundStyle(MacColors.textPrimary)
                                     .lineLimit(1)
@@ -333,16 +333,7 @@ struct NodeDetailPopover: View {
 
     // MARK: - Helpers
 
-    /// Strip leading [PREFIX]: patterns from imported content.
-    /// e.g. "[IMPORTED CLAUDE HISTORY — Foo]: [User]: Hello" → "Hello"
-    private func strippingBracketPrefixes(_ text: String) -> String {
-        var result = text
-        let pattern = #"^\[[^\]]+\]:\s*"#
-        while let range = result.range(of: pattern, options: .regularExpression) {
-            result.removeSubrange(range)
-        }
-        return result.isEmpty ? text : result
-    }
+    // strippingBracketPrefixes moved to String extension (StringExtensions.swift)
 
     private func tagPill(_ text: String, color: Color) -> some View {
         Text(text)

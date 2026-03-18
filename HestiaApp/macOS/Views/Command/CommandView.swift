@@ -7,36 +7,20 @@ struct CommandView: View {
     @Environment(\.layoutMode) private var layoutMode
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: MacSpacing.lg) {
-                // Hero greeting + progress rings
-                HeroSection(viewModel: viewModel)
+        VStack(spacing: 0) {
+            // Top section: hero greeting + progress rings
+            HeroSection(viewModel: viewModel)
+                .padding(.horizontal, MacSpacing.xxl)
+                .padding(.top, MacSpacing.xxl)
+                .padding(.bottom, MacSpacing.lg)
 
-                // Stat cards row
-                StatCardsRow(viewModel: viewModel)
+            MacColors.divider
+                .frame(height: 1)
 
-                // Learning metrics
-                LearningMetricsPanel(viewModel: viewModel)
-
-                // Calendar + Orders — side by side or stacked
-                if layoutMode.isCompact {
-                    VStack(spacing: MacSpacing.lg) {
-                        CalendarWeekStrip(events: viewModel.calendarEvents)
-                        OrdersPanel(orders: viewModel.orders)
-                    }
-                } else {
-                    HStack(alignment: .top, spacing: MacSpacing.lg) {
-                        CalendarWeekStrip(events: viewModel.calendarEvents)
-                            .frame(maxWidth: .infinity)
-                        OrdersPanel(orders: viewModel.orders)
-                            .frame(minWidth: 280, idealWidth: 320, maxWidth: 360)
-                    }
-                }
-
-                // Activity feed
-                ActivityFeed(orders: viewModel.orders, newsfeedItems: viewModel.newsfeedItems)
-            }
-            .padding(MacSpacing.xxl)
+            // Bottom section: tabbed activity feed
+            ActivityFeedView(viewModel: viewModel)
+                .padding(.horizontal, MacSpacing.xxl)
+                .padding(.bottom, MacSpacing.lg)
         }
         .background(MacColors.windowBackground)
         .task {

@@ -11,6 +11,8 @@ Order lifecycle: placed → open → partial → filled → settled / cancelled
 Partial fills accumulate — each fill creates its own tax lot entry.
 """
 
+import asyncio
+import functools
 import time
 import uuid
 from datetime import datetime, timezone
@@ -50,6 +52,11 @@ class CoinbaseAdapter(AbstractExchangeAdapter):
         self._api_secret: Optional[str] = None
         self._health = HealthMonitor()
         self._key_loaded_at: Optional[datetime] = None
+
+    async def _run_sync(self, func, *args, **kwargs):
+        """Run a synchronous SDK call in a thread pool to avoid blocking the event loop."""
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, functools.partial(func, *args, **kwargs))
 
     async def connect(self) -> None:
         """Load credentials from Keychain and initialize SDK client."""
@@ -120,13 +127,15 @@ class CoinbaseAdapter(AbstractExchangeAdapter):
         try:
             if request.order_type == "market":
                 if request.side == "buy":
-                    response = self._client.market_order_buy(
+                    response = await self._run_sync(
+                        self._client.market_order_buy,
                         client_order_id=client_oid,
                         product_id=request.pair,
                         base_size=str(request.quantity),
                     )
                 else:
-                    response = self._client.market_order_sell(
+                    response = await self._run_sync(
+                        self._client.market_order_sell,
                         client_order_id=client_oid,
                         product_id=request.pair,
                         base_size=str(request.quantity),
@@ -134,7 +143,8 @@ class CoinbaseAdapter(AbstractExchangeAdapter):
             else:
                 # Limit order — GTC (Good Till Cancelled), Post-Only default
                 if request.side == "buy":
-                    response = self._client.limit_order_gtc_buy(
+                    response = await self._run_sync(
+                        self._client.limit_order_gtc_buy,
                         client_order_id=client_oid,
                         product_id=request.pair,
                         base_size=str(request.quantity),
@@ -142,7 +152,8 @@ class CoinbaseAdapter(AbstractExchangeAdapter):
                         post_only=request.post_only,
                     )
                 else:
-                    response = self._client.limit_order_gtc_sell(
+                    response = await self._run_sync(
+                        self._client.limit_order_gtc_sell,
                         client_order_id=client_oid,
                         product_id=request.pair,
                         base_size=str(request.quantity),
@@ -201,7 +212,7 @@ class CoinbaseAdapter(AbstractExchangeAdapter):
             return False
         try:
             start = time.monotonic()
-            self._client.cancel_orders(order_ids=[order_id])
+            await self._run_sync(self._client.cancel_orders, order_ids=[order_id])
             self._health.record_latency((time.monotonic() - start) * 1000)
             self._health.record_heartbeat()
             return True
@@ -217,7 +228,7 @@ class CoinbaseAdapter(AbstractExchangeAdapter):
             return None
         try:
             start = time.monotonic()
-            response = self._client.get_order(order_id=order_id)
+            response = await self._run_sync(self._client.get_order, order_id=order_id)
             self._health.record_latency((time.monotonic() - start) * 1000)
             self._health.record_heartbeat()
 
@@ -249,7 +260,8 @@ class CoinbaseAdapter(AbstractExchangeAdapter):
         try:
             start = time.monotonic()
             kwargs = {"product_id": pair} if pair else {}
-            response = self._client.list_orders(
+            response = await self._run_sync(
+                self._client.list_orders,
                 order_status=["OPEN", "PENDING"],
                 **kwargs,
             )
@@ -281,7 +293,7 @@ class CoinbaseAdapter(AbstractExchangeAdapter):
             return {}
         try:
             start = time.monotonic()
-            response = self._client.get_accounts()
+            response = await self._run_sync(self._client.get_accounts)
             self._health.record_latency((time.monotonic() - start) * 1000)
             self._health.record_heartbeat()
 
@@ -309,7 +321,7 @@ class CoinbaseAdapter(AbstractExchangeAdapter):
             return {}
         try:
             start = time.monotonic()
-            response = self._client.get_best_bid_ask(product_ids=[pair])
+            response = await self._run_sync(self._client.get_best_bid_ask, product_ids=[pair])
             self._health.record_latency((time.monotonic() - start) * 1000)
             self._health.record_heartbeat()
 
@@ -340,7 +352,8 @@ class CoinbaseAdapter(AbstractExchangeAdapter):
             return {"pair": pair, "bids": [], "asks": []}
         try:
             start = time.monotonic()
-            response = self._client.get_product_book(
+            response = await self._run_sync(
+                self._client.get_product_book,
                 product_id=pair, limit=depth,
             )
             self._health.record_latency((time.monotonic() - start) * 1000)

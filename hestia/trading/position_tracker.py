@@ -96,27 +96,29 @@ class PositionTracker:
     ) -> None:
         self._exchange = exchange
         self._positions: Dict[str, Position] = {}
+        self._positions_lock = asyncio.Lock()
         self._reconciliation_interval = reconciliation_interval
         self._max_discrepancy = max_acceptable_discrepancy
         self._reconciliation_task: Optional[asyncio.Task] = None
         self._running = False
         self._reconciliation_results: List[ReconciliationResult] = []
 
-    def record_fill(
+    async def record_fill(
         self, pair: str, side: str, quantity: float, price: float, fee: float = 0.0
     ) -> float:
         """
         Record a fill and update position. Returns realized P&L (0 for buys).
         """
-        if pair not in self._positions:
-            self._positions[pair] = Position(pair)
+        async with self._positions_lock:
+            if pair not in self._positions:
+                self._positions[pair] = Position(pair)
 
-        pos = self._positions[pair]
-        if side == "buy":
-            pos.add(quantity, price, fee)
-            return 0.0
-        else:
-            return pos.reduce(quantity, price, fee)
+            pos = self._positions[pair]
+            if side == "buy":
+                pos.add(quantity, price, fee)
+                return 0.0
+            else:
+                return pos.reduce(quantity, price, fee)
 
     def get_position(self, pair: str) -> Optional[Position]:
         """Get position for a pair."""
@@ -184,50 +186,51 @@ class PositionTracker:
         try:
             balances = await self._exchange.get_balances()
 
-            for pair, pos in self._positions.items():
-                asset = pair.split("-")[0]  # "BTC" from "BTC-USD"
-                exchange_balance = balances.get(asset)
-                exchange_qty = exchange_balance.available + exchange_balance.hold if exchange_balance else 0.0
+            async with self._positions_lock:
+                for pair, pos in self._positions.items():
+                    asset = pair.split("-")[0]  # "BTC" from "BTC-USD"
+                    exchange_balance = balances.get(asset)
+                    exchange_qty = exchange_balance.available + exchange_balance.hold if exchange_balance else 0.0
 
-                discrepancy = abs(pos.quantity - exchange_qty)
-                result = ReconciliationResult(
-                    local_balance=pos.quantity,
-                    exchange_balance=exchange_qty,
-                    discrepancy=discrepancy,
-                    pair=pair,
-                    resolved=discrepancy <= self._max_discrepancy,
-                    notes="" if discrepancy <= self._max_discrepancy
-                    else f"Discrepancy: local={pos.quantity:.8f}, exchange={exchange_qty:.8f}",
-                )
-                results.append(result)
-
-                if result.has_discrepancy and discrepancy > self._max_discrepancy:
-                    logger.warning(
-                        f"Position discrepancy detected: {pair} "
-                        f"local={pos.quantity:.8f} exchange={exchange_qty:.8f}",
-                        component=LogComponent.TRADING,
-                        data=result.to_dict(),
-                    )
-
-            # Check for positions on exchange not tracked locally
-            for currency, balance in balances.items():
-                if currency == "USD":
-                    continue
-                pair = f"{currency}-USD"
-                if pair not in self._positions and balance.total > self._max_discrepancy:
+                    discrepancy = abs(pos.quantity - exchange_qty)
                     result = ReconciliationResult(
-                        local_balance=0.0,
-                        exchange_balance=balance.total,
-                        discrepancy=balance.total,
+                        local_balance=pos.quantity,
+                        exchange_balance=exchange_qty,
+                        discrepancy=discrepancy,
                         pair=pair,
-                        resolved=False,
-                        notes=f"Untracked position on exchange: {balance.total:.8f} {currency}",
+                        resolved=discrepancy <= self._max_discrepancy,
+                        notes="" if discrepancy <= self._max_discrepancy
+                        else f"Discrepancy: local={pos.quantity:.8f}, exchange={exchange_qty:.8f}",
                     )
                     results.append(result)
-                    logger.warning(
-                        f"Untracked exchange position: {balance.total:.8f} {currency}",
-                        component=LogComponent.TRADING,
-                    )
+
+                    if result.has_discrepancy and discrepancy > self._max_discrepancy:
+                        logger.warning(
+                            f"Position discrepancy detected: {pair} "
+                            f"local={pos.quantity:.8f} exchange={exchange_qty:.8f}",
+                            component=LogComponent.TRADING,
+                            data=result.to_dict(),
+                        )
+
+                # Check for positions on exchange not tracked locally
+                for currency, balance in balances.items():
+                    if currency == "USD":
+                        continue
+                    pair = f"{currency}-USD"
+                    if pair not in self._positions and balance.total > self._max_discrepancy:
+                        result = ReconciliationResult(
+                            local_balance=0.0,
+                            exchange_balance=balance.total,
+                            discrepancy=balance.total,
+                            pair=pair,
+                            resolved=False,
+                            notes=f"Untracked position on exchange: {balance.total:.8f} {currency}",
+                        )
+                        results.append(result)
+                        logger.warning(
+                            f"Untracked exchange position: {balance.total:.8f} {currency}",
+                            component=LogComponent.TRADING,
+                        )
 
         except Exception as e:
             logger.error(

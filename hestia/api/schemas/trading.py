@@ -2,7 +2,7 @@
 Pydantic request/response schemas for trading API endpoints.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -10,9 +10,15 @@ from pydantic import BaseModel, Field
 # ── Request Models ────────────────────────────────────────────
 
 class CreateBotRequest(BaseModel):
-    name: str = Field(..., description="Bot display name")
-    strategy: str = Field(..., description="Strategy type: grid, mean_reversion, signal_dca, bollinger_breakout")
-    pair: str = Field(default="BTC-USD", description="Trading pair")
+    name: str = Field(..., min_length=1, max_length=100, description="Bot display name")
+    strategy: Literal["grid", "mean_reversion", "signal_dca", "bollinger_breakout"] = Field(
+        ..., description="Strategy type"
+    )
+    pair: str = Field(
+        default="BTC-USD",
+        pattern=r"^[A-Z]{2,10}-[A-Z]{2,10}$",
+        description="Trading pair (e.g. BTC-USD)",
+    )
     capital_allocated: float = Field(default=0.0, ge=0, description="Capital allocated in USD")
     config: Dict[str, Any] = Field(default_factory=dict, description="Strategy-specific configuration")
 
@@ -26,7 +32,7 @@ class UpdateBotRequest(BaseModel):
 
 
 class KillSwitchRequest(BaseModel):
-    action: str = Field(..., description="'activate' or 'deactivate'")
+    action: Literal["activate", "deactivate"] = Field(..., description="'activate' or 'deactivate'")
     reason: str = Field(default="Manual activation", description="Reason for kill switch")
 
 

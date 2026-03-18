@@ -74,6 +74,10 @@ class TradingManager:
         if self._database is None:
             self._database = await get_trading_database()
 
+        # Wire risk manager to database for state persistence
+        self._risk_manager.set_database(self._database)
+        await self._risk_manager.restore_state()
+
         # Exchange adapter (default to paper)
         if self._exchange is None:
             mode = self._config.get("exchange", {}).get("mode", "paper")

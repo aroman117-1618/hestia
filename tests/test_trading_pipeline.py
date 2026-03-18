@@ -80,52 +80,59 @@ class TestPosition:
 # ── PositionTracker ───────────────────────────────────────────
 
 class TestPositionTracker:
-    def test_record_buy(self):
+    @pytest.mark.asyncio
+    async def test_record_buy(self):
         tracker = PositionTracker()
-        pnl = tracker.record_fill("BTC-USD", "buy", 0.001, 65000.0)
+        pnl = await tracker.record_fill("BTC-USD", "buy", 0.001, 65000.0)
         assert pnl == 0.0
         pos = tracker.get_position("BTC-USD")
         assert pos is not None
         assert pos.quantity == 0.001
 
-    def test_record_sell(self):
+    @pytest.mark.asyncio
+    async def test_record_sell(self):
         tracker = PositionTracker()
-        tracker.record_fill("BTC-USD", "buy", 0.001, 65000.0)
-        pnl = tracker.record_fill("BTC-USD", "sell", 0.001, 66000.0)
+        await tracker.record_fill("BTC-USD", "buy", 0.001, 65000.0)
+        pnl = await tracker.record_fill("BTC-USD", "sell", 0.001, 66000.0)
         assert pnl == pytest.approx(1.0, abs=0.01)
 
-    def test_total_exposure(self):
+    @pytest.mark.asyncio
+    async def test_total_exposure(self):
         tracker = PositionTracker()
-        tracker.record_fill("BTC-USD", "buy", 0.001, 65000.0)
-        tracker.record_fill("ETH-USD", "buy", 0.01, 3500.0)
+        await tracker.record_fill("BTC-USD", "buy", 0.001, 65000.0)
+        await tracker.record_fill("ETH-USD", "buy", 0.01, 3500.0)
         exposure = tracker.get_total_exposure()
         assert exposure == pytest.approx(100.0, abs=1.0)
 
-    def test_total_unrealized_pnl(self):
+    @pytest.mark.asyncio
+    async def test_total_unrealized_pnl(self):
         tracker = PositionTracker()
-        tracker.record_fill("BTC-USD", "buy", 0.001, 65000.0)
+        await tracker.record_fill("BTC-USD", "buy", 0.001, 65000.0)
         prices = {"BTC-USD": 66000.0}
         upnl = tracker.get_total_unrealized_pnl(prices)
         assert upnl == pytest.approx(1.0, abs=0.01)
 
-    def test_portfolio_summary(self):
+    @pytest.mark.asyncio
+    async def test_portfolio_summary(self):
         tracker = PositionTracker()
-        tracker.record_fill("BTC-USD", "buy", 0.001, 65000.0)
+        await tracker.record_fill("BTC-USD", "buy", 0.001, 65000.0)
         summary = tracker.get_portfolio_summary({"BTC-USD": 66000.0})
         assert summary["position_count"] == 1
         assert summary["total_unrealized_pnl"] == pytest.approx(1.0, abs=0.01)
 
-    def test_get_all_positions(self):
+    @pytest.mark.asyncio
+    async def test_get_all_positions(self):
         tracker = PositionTracker()
-        tracker.record_fill("BTC-USD", "buy", 0.001, 65000.0)
-        tracker.record_fill("ETH-USD", "buy", 0.01, 3500.0)
+        await tracker.record_fill("BTC-USD", "buy", 0.001, 65000.0)
+        await tracker.record_fill("ETH-USD", "buy", 0.01, 3500.0)
         positions = tracker.get_all_positions()
         assert len(positions) == 2
 
-    def test_closed_position_excluded(self):
+    @pytest.mark.asyncio
+    async def test_closed_position_excluded(self):
         tracker = PositionTracker()
-        tracker.record_fill("BTC-USD", "buy", 0.001, 65000.0)
-        tracker.record_fill("BTC-USD", "sell", 0.001, 66000.0)
+        await tracker.record_fill("BTC-USD", "buy", 0.001, 65000.0)
+        await tracker.record_fill("BTC-USD", "sell", 0.001, 66000.0)
         positions = tracker.get_all_positions()
         assert len(positions) == 0
 
@@ -144,7 +151,7 @@ class TestReconciliation:
         order = OrderRequest(pair="BTC-USD", side="buy", order_type="limit",
                             quantity=0.001, price=65000.0)
         await adapter.place_order(order)
-        tracker.record_fill("BTC-USD", "buy", 0.001, 65000.0)
+        await tracker.record_fill("BTC-USD", "buy", 0.001, 65000.0)
 
         results = await tracker.reconcile()
         assert len(results) >= 1
@@ -162,7 +169,7 @@ class TestReconciliation:
         tracker = PositionTracker(exchange=adapter)
 
         # Record locally but don't execute on exchange
-        tracker.record_fill("BTC-USD", "buy", 0.001, 65000.0)
+        await tracker.record_fill("BTC-USD", "buy", 0.001, 65000.0)
 
         results = await tracker.reconcile()
         btc_result = [r for r in results if r.pair == "BTC-USD"]
@@ -293,7 +300,7 @@ class TestTradeExecutor:
     async def test_execute_rejected_by_risk(self, executor):
         """Deploying > 80% should be rejected by risk manager."""
         # First deploy 85% of capital
-        executor._positions.record_fill("ETH-USD", "buy", 0.1, 8500.0)
+        await executor._positions.record_fill("ETH-USD", "buy", 0.1, 8500.0)
         signal = Signal(
             signal_type=SignalType.BUY,
             pair="BTC-USD",

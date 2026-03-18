@@ -90,6 +90,8 @@ CATEGORY_COLORS: Dict[str, str] = {
     "action_item": "#AF52DE",
     "research": "#007AFF",
     "system": "#8E8E93",
+    "observation": "#D4A050",       # Muted amber — raw captures
+    "source_structured": "#5AC8FA", # Blue — structured Apple data
     "topic": "#FFD60A",
     "entity": "#30D158",
     "principle": "#BF5AF2",

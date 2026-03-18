@@ -100,11 +100,21 @@ async def get_bot(
     bot_id: str,
     device_id: str = Depends(get_device_token),
 ):
-    manager = await get_trading_manager()
-    bot = await manager.get_bot(bot_id)
-    if bot is None:
-        raise HTTPException(status_code=404, detail="Bot not found")
-    return BotResponse(**bot.to_dict())
+    try:
+        manager = await get_trading_manager()
+        bot = await manager.get_bot(bot_id)
+        if bot is None:
+            raise HTTPException(status_code=404, detail="Bot not found")
+        return BotResponse(**bot.to_dict())
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Failed to get bot",
+            component=LogComponent.TRADING,
+            data={"error": sanitize_for_log(e), "bot_id": bot_id},
+        )
+        raise HTTPException(status_code=500, detail="Failed to get bot")
 
 
 @router.put(
@@ -117,12 +127,22 @@ async def update_bot(
     request: UpdateBotRequest,
     device_id: str = Depends(get_device_token),
 ):
-    manager = await get_trading_manager()
-    updates = request.model_dump(exclude_none=True)
-    bot = await manager.update_bot(bot_id, updates)
-    if bot is None:
-        raise HTTPException(status_code=404, detail="Bot not found")
-    return BotResponse(**bot.to_dict())
+    try:
+        manager = await get_trading_manager()
+        updates = request.model_dump(exclude_none=True)
+        bot = await manager.update_bot(bot_id, updates)
+        if bot is None:
+            raise HTTPException(status_code=404, detail="Bot not found")
+        return BotResponse(**bot.to_dict())
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Failed to update bot",
+            component=LogComponent.TRADING,
+            data={"error": sanitize_for_log(e), "bot_id": bot_id},
+        )
+        raise HTTPException(status_code=500, detail="Failed to update bot")
 
 
 @router.delete(
@@ -133,11 +153,21 @@ async def delete_bot(
     bot_id: str,
     device_id: str = Depends(get_device_token),
 ):
-    manager = await get_trading_manager()
-    success = await manager.delete_bot(bot_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Bot not found")
-    return {"success": True, "bot_id": bot_id}
+    try:
+        manager = await get_trading_manager()
+        success = await manager.delete_bot(bot_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Bot not found")
+        return {"success": True, "bot_id": bot_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Failed to delete bot",
+            component=LogComponent.TRADING,
+            data={"error": sanitize_for_log(e), "bot_id": bot_id},
+        )
+        raise HTTPException(status_code=500, detail="Failed to delete bot")
 
 
 @router.post(
@@ -149,11 +179,21 @@ async def start_bot(
     bot_id: str,
     device_id: str = Depends(get_device_token),
 ):
-    manager = await get_trading_manager()
-    bot = await manager.start_bot(bot_id)
-    if bot is None:
-        raise HTTPException(status_code=404, detail="Bot not found")
-    return BotResponse(**bot.to_dict())
+    try:
+        manager = await get_trading_manager()
+        bot = await manager.start_bot(bot_id)
+        if bot is None:
+            raise HTTPException(status_code=404, detail="Bot not found")
+        return BotResponse(**bot.to_dict())
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Failed to start bot",
+            component=LogComponent.TRADING,
+            data={"error": sanitize_for_log(e), "bot_id": bot_id},
+        )
+        raise HTTPException(status_code=500, detail="Failed to start bot")
 
 
 @router.post(
@@ -165,11 +205,21 @@ async def stop_bot(
     bot_id: str,
     device_id: str = Depends(get_device_token),
 ):
-    manager = await get_trading_manager()
-    bot = await manager.stop_bot(bot_id)
-    if bot is None:
-        raise HTTPException(status_code=404, detail="Bot not found")
-    return BotResponse(**bot.to_dict())
+    try:
+        manager = await get_trading_manager()
+        bot = await manager.stop_bot(bot_id)
+        if bot is None:
+            raise HTTPException(status_code=404, detail="Bot not found")
+        return BotResponse(**bot.to_dict())
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Failed to stop bot",
+            component=LogComponent.TRADING,
+            data={"error": sanitize_for_log(e), "bot_id": bot_id},
+        )
+        raise HTTPException(status_code=500, detail="Failed to stop bot")
 
 
 # ── Trade History ─────────────────────────────────────────────

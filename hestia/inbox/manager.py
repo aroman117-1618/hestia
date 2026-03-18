@@ -99,6 +99,13 @@ class InboxManager:
             self._calendar_client = CalendarClient()
         return self._calendar_client
 
+    def _get_notes_client(self):
+        """Lazy-initialize NotesClient."""
+        if not hasattr(self, "_notes_client") or self._notes_client is None:
+            from hestia.apple.notes import NotesClient
+            self._notes_client = NotesClient()
+        return self._notes_client
+
     # -- Public API -------------------------------------------------------
 
     async def get_inbox(
@@ -222,11 +229,12 @@ class InboxManager:
             self._aggregate_mail(),
             self._aggregate_reminders(),
             self._aggregate_calendar(),
+            self._aggregate_notes(),
             return_exceptions=True,
         )
 
         all_items: List[InboxItem] = []
-        source_names = ["mail", "reminders", "calendar"]
+        source_names = ["mail", "reminders", "calendar", "notes"]
         for i, result in enumerate(results):
             if isinstance(result, Exception):
                 logger.warning(
@@ -343,6 +351,37 @@ class InboxManager:
                     "is_all_day": event.is_all_day,
                     "start": event.start.isoformat() if event.start else None,
                     "end": event.end.isoformat() if event.end else None,
+                },
+            ))
+        return items
+
+    async def _aggregate_notes(self) -> List[InboxItem]:
+        """Aggregate recent notes (modified in last 30 days)."""
+        notes_client = self._get_notes_client()
+        notes = await notes_client.list_notes()
+
+        items = []
+        for note in notes:
+            # Skip empty/stub notes
+            if not note.title or len(note.title.strip()) < 3:
+                continue
+            items.append(InboxItem(
+                id=f"notes:{note.id}",
+                item_type=InboxItemType.NOTE,
+                source=InboxItemSource.NOTES,
+                title=note.title,
+                body=note.body[:200] if note.body else None,
+                timestamp=datetime.fromisoformat(note.modified_at.replace("Z", "+00:00")) if note.modified_at else None,
+                priority=InboxItemPriority.NORMAL,
+                sender=None,
+                sender_detail=None,
+                has_attachments=False,
+                icon="note.text",
+                color="#FFD60A",
+                metadata={
+                    "folder": note.folder,
+                    "created_at": note.created_at,
+                    "modified_at": note.modified_at,
                 },
             ))
         return items

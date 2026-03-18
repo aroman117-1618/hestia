@@ -30,7 +30,7 @@ struct MemoryChunkRow: View {
 
             // Content + topics
             VStack(alignment: .leading, spacing: MacSpacing.xs) {
-                Text(chunk.content)
+                Text(chunk.content.strippingBracketPrefixes())
                     .font(MacTypography.smallBody)
                     .foregroundStyle(MacColors.textPrimary)
                     .lineLimit(2)
@@ -78,7 +78,8 @@ struct MemoryChunkRow: View {
             let chunkTypes: [(String, String)] = [
                 ("fact", "Fact"), ("preference", "Preference"), ("decision", "Decision"),
                 ("action_item", "Action Item"), ("research", "Research"),
-                ("system", "System"), ("insight", "Insight")
+                ("system", "System"), ("insight", "Insight"),
+                ("observation", "Observation"), ("source_structured", "Source Data")
             ]
             Picker("Type", selection: $editChunkType) {
                 ForEach(chunkTypes, id: \.0) { value, label in
@@ -185,6 +186,8 @@ struct MemoryChunkRow: View {
         case "research": return MacColors.diagramCloud
         case "system": return MacColors.textSecondary
         case "insight": return MacColors.amberAccent
+        case "observation": return MacColors.amberAccent.opacity(0.7)
+        case "source_structured": return MacColors.diagramCloud
         default: return MacColors.textSecondary
         }
     }

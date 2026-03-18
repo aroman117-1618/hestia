@@ -30,15 +30,30 @@ class MemoryStatus(Enum):
 
 
 class ChunkType(Enum):
-    """Type of memory chunk."""
-    CONVERSATION = "conversation"  # User-assistant exchange
-    FACT = "fact"                  # Extracted factual information
-    PREFERENCE = "preference"       # User preference
-    DECISION = "decision"           # Architectural or user decision
-    ACTION_ITEM = "action_item"     # Task to be done
-    RESEARCH = "research"           # Research findings
-    SYSTEM = "system"               # System-generated notes
-    INSIGHT = "insight"             # Distilled insight (from notes, principles)
+    """Type of memory chunk.
+
+    Taxonomy (Sprint 25.5 data quality plan):
+    - CONVERSATION: Direct user-assistant exchanges
+    - FACT: Extracted knowledge graph atoms (from fact_extractor pipeline only)
+    - PREFERENCE: User stated preferences and working style
+    - DECISION: Architecture/personal decisions with rationale
+    - ACTION_ITEM: Tasks identified in conversation
+    - RESEARCH: URL investigation and research session findings
+    - SYSTEM: System-generated (config, audit, internal)
+    - INSIGHT: Legacy — kept for backward compat, replaced by OBSERVATION for new data
+    - OBSERVATION: Raw captured content from imports/notes (quality varies, score with durability)
+    - SOURCE_STRUCTURED: Structured Apple data (calendar events, reminders) where value is in metadata
+    """
+    CONVERSATION = "conversation"
+    FACT = "fact"
+    PREFERENCE = "preference"
+    DECISION = "decision"
+    ACTION_ITEM = "action_item"
+    RESEARCH = "research"
+    SYSTEM = "system"
+    INSIGHT = "insight"              # Legacy — see OBSERVATION
+    OBSERVATION = "observation"      # Raw captures from imports, notes, history
+    SOURCE_STRUCTURED = "source_structured"  # Calendar events, reminders (structured metadata)
 
 
 class MemorySource(str, Enum):
