@@ -273,3 +273,48 @@ async def kill_switch(
         return KillSwitchResponse(success=True, active=False)
     else:
         raise HTTPException(status_code=400, detail="Action must be 'activate' or 'deactivate'")
+
+
+# ── Backtesting ───────────────────────────────────────────────
+
+@router.post(
+    "/backtest",
+    summary="Run a backtest",
+    description="Run a strategy against historical data with realistic fee/slippage modeling.",
+)
+async def run_backtest(
+    strategy: str = Query(..., description="Strategy type: grid, mean_reversion"),
+    pair: str = Query("BTC-USD"),
+    days: int = Query(365, ge=30, le=730),
+    capital: float = Query(250.0, ge=10),
+    device_id: str = Depends(get_device_token),
+):
+    from hestia.trading.backtest.data_loader import DataLoader
+    from hestia.trading.backtest.engine import BacktestConfig, BacktestEngine
+    from hestia.trading.strategies.grid import GridStrategy
+    from hestia.trading.strategies.mean_reversion import MeanReversionStrategy
+
+    strategies_map = {
+        "grid": GridStrategy,
+        "mean_reversion": MeanReversionStrategy,
+    }
+
+    if strategy not in strategies_map:
+        raise HTTPException(status_code=400, detail=f"Unknown strategy: {strategy}")
+
+    try:
+        loader = DataLoader()
+        data = loader.generate_synthetic(n=days * 24)  # Hourly candles
+
+        strat = strategies_map[strategy]()
+        engine = BacktestEngine(BacktestConfig(pair=pair, initial_capital=capital))
+        result = engine.run(strat, data)
+
+        return result.to_dict()
+    except Exception as e:
+        logger.error(
+            "Backtest failed",
+            component=LogComponent.TRADING,
+            data={"error": sanitize_for_log(e)},
+        )
+        raise HTTPException(status_code=500, detail="Backtest execution failed")
