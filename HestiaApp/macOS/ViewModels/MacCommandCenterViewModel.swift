@@ -13,6 +13,8 @@ class MacCommandCenterViewModel: ObservableObject {
     @Published var calendarEvents: [EKEvent] = []
     @Published var newsfeedItems: [NewsfeedItem] = []
     @Published var unreadCount: Int = 0
+    @Published var investigations: [Investigation] = []
+    @Published var healthSummary: MacHealthSummaryResponse?
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
 
@@ -52,8 +54,10 @@ class MacCommandCenterViewModel: ObservableObject {
         async let calendarTask: () = loadCalendarEvents()
         async let newsfeedTask: () = loadNewsfeed()
         async let learningTask: () = loadLearningMetrics()
+        async let investigateTask: () = loadInvestigations()
+        async let healthSummaryTask: () = loadHealthSummary()
 
-        _ = await (healthTask, memoryTask, ordersTask, calendarTask, newsfeedTask, learningTask)
+        _ = await (healthTask, memoryTask, ordersTask, calendarTask, newsfeedTask, learningTask, investigateTask, healthSummaryTask)
         isLoading = false
     }
 
@@ -144,6 +148,27 @@ class MacCommandCenterViewModel: ObservableObject {
         } catch {
             #if DEBUG
             print("[MacCommandCenterVM] Alerts load failed: \(error)")
+            #endif
+        }
+    }
+
+    private func loadInvestigations() async {
+        do {
+            let response = try await APIClient.shared.getInvestigationHistory(limit: 20)
+            investigations = response.investigations
+        } catch {
+            #if DEBUG
+            print("[MacCommandCenterVM] Investigations load failed: \(error)")
+            #endif
+        }
+    }
+
+    private func loadHealthSummary() async {
+        do {
+            healthSummary = try await APIClient.shared.getHealthSummary()
+        } catch {
+            #if DEBUG
+            print("[MacCommandCenterVM] Health summary load failed: \(error)")
             #endif
         }
     }
