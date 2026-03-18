@@ -149,6 +149,10 @@ get_test_file() {
             echo "tests/test_learning_meta_monitor.py tests/test_learning_database.py" ;;
         *hestia/api/routes/learning*)
             echo "tests/test_learning_routes.py" ;;
+        *hestia/notifications/*)
+            echo "tests/test_notifications.py" ;;
+        *hestia/api/routes/notifications*)
+            echo "tests/test_notifications.py" ;;
         *hestia/trading/strategies/*|*hestia/trading/data/*)
             echo "tests/test_trading_strategies.py tests/test_trading_indicators.py" ;;
         *hestia/trading/*)

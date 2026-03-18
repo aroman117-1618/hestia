@@ -49,6 +49,7 @@ from hestia.files import get_file_manager, close_file_manager
 from hestia.inbox import get_inbox_manager, close_inbox_manager
 from hestia.outcomes import get_outcome_manager, close_outcome_manager
 from hestia.apple_cache import get_apple_cache_manager, close_apple_cache_manager
+from hestia.notifications import get_notification_manager, close_notification_manager
 from hestia.orchestration.audit_db import get_routing_audit_db, close_routing_audit_db
 from hestia.learning import get_learning_scheduler, close_learning_scheduler
 
@@ -83,6 +84,7 @@ from hestia.api.routes import (
 from hestia.api.routes.agents_v2 import router as agents_v2_router
 from hestia.api.routes.learning import router as learning_router
 from hestia.api.routes.trading import router as trading_router
+from hestia.api.routes.notifications import router as notifications_router
 
 logger = get_logger()
 
@@ -241,6 +243,7 @@ async def lifespan(app: FastAPI):
             "invite_store", "explorer_manager", "newsfeed_manager",
             "investigate_manager", "research_manager", "file_manager",
             "inbox_manager", "outcome_manager", "apple_cache_manager",
+            "notification_manager",
         ]
         phase2_coroutines = [
             get_task_manager(), get_order_manager(), get_agent_manager(),
@@ -250,6 +253,7 @@ async def lifespan(app: FastAPI):
             get_investigate_manager(), get_research_manager(),
             get_file_manager(), get_inbox_manager(),
             get_outcome_manager(), get_apple_cache_manager(),
+            get_notification_manager(),
         ]
 
         try:
@@ -325,6 +329,7 @@ async def lifespan(app: FastAPI):
             await get_inbox_manager()
             await get_outcome_manager()
             await get_apple_cache_manager()
+            await get_notification_manager()
             await get_routing_audit_db()
 
         # ── Phase 3: Sequential dependents ───────────────────────────
@@ -395,6 +400,16 @@ async def lifespan(app: FastAPI):
             shutdown_errors += 1
             logger.warning(
                 f"Learning scheduler cleanup error: {type(e).__name__}",
+                component=LogComponent.API,
+            )
+
+        # 22. notification_manager
+        try:
+            await close_notification_manager()
+        except Exception as e:
+            shutdown_errors += 1
+            logger.warning(
+                f"Notification manager cleanup error: {type(e).__name__}",
                 component=LogComponent.API,
             )
 
@@ -778,6 +793,7 @@ app.include_router(inbox_router)
 app.include_router(outcomes_router)
 app.include_router(learning_router)
 app.include_router(trading_router)
+app.include_router(notifications_router)
 app.include_router(ws_chat_router)
 
 
