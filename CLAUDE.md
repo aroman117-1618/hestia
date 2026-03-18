@@ -143,7 +143,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | Hardware | Mac Mini M1 (16GB) |
 | Model | Qwen 3.5 9B (Hestia) + DeepSeek-R1-14B (Artemis) + Qwen 3 8B (Apollo) + cloud (Anthropic/OpenAI/Google) |
 | SLM | qwen2.5:0.5b (council intent classification, ~100ms) |
-| Backend | Python 3.9+, FastAPI, ~200 endpoints across 28 route modules |
+| Backend | Python 3.9+, FastAPI, ~208 endpoints across 29 route modules |
 | Storage | ChromaDB (vectors) + SQLite (structured) + macOS Keychain (credentials) |
 | App | Native Swift/SwiftUI (iOS 26.0+) |
 | API | REST on port 8443 with JWT auth, HTTPS with self-signed cert |
@@ -160,7 +160,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 **Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
 **Field Guide UI Restructure: COMPLETE.** 5 thematic tabs, native SwiftUI diagrams, structured roadmap with `/v1/wiki/roadmap` endpoint.
 
-2465 tests (2330 backend + 135 CLI), 74 test files (67 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
+2500 tests (2365 backend + 135 CLI), 75 test files (68 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -228,7 +228,7 @@ Use Python 3.12 (not 3.13+). Pin version in pyproject.toml with `requires-python
 
 ```
 hestia/
-├── hestia/                          # Python backend — 26 modules (+1 trading planned)
+├── hestia/                          # Python backend — 30 modules
 │   ├── database.py                  # BaseDatabase ABC (shared by all 11 SQLite modules)
 │   ├── security/                    # CredentialManager (Keychain + Fernet)
 │   ├── logging/                     # HestiaLogger, AuditLogger, LogComponent enum
@@ -278,6 +278,7 @@ hestia/
 │   │   ├── memory_health.py        # MemoryHealthMonitor (daily diagnostics)
 │   │   ├── trigger_monitor.py      # TriggerMonitor (configurable thresholds)
 │   │   └── scheduler.py            # LearningScheduler (6 async loops: monitor + lifecycle)
+│   ├── verification/                # Response verification module
 │   ├── trading/                     # Autonomous crypto trading (Sprint 21+)
 │   │   ├── models.py               # Bot, Trade, TaxLot, DailySummary, CircuitBreaker
 │   │   ├── database.py             # TradingDatabase (WAL mode, 5 tables, HIFO/FIFO tax lots)
@@ -294,18 +295,7 @@ hestia/
 │   │   └── manager.py            # ResearchManager singleton (graph, facts, entities, principles)
 │   ├── investigate/                 # URL content analysis (web articles, YouTube), LLM analysis pipeline
 │   │   └── extractors/             # BaseExtractor ABC, WebArticleExtractor, YouTubeExtractor
-│   ├── trading/                     # Autonomous crypto trading (Sprint 21–30, PLANNED)
-│   │   ├── models.py              # Trade, Order, Position, BotConfig, TaxLot
-│   │   ├── database.py            # TradingDatabase (SQLite WAL mode, tax_lots table)
-│   │   ├── manager.py             # TradingManager singleton
-│   │   ├── strategies/            # BaseStrategy ABC, grid (geometric), mean_reversion (RSI-7/9), dca_signal, bollinger
-│   │   ├── risk/                  # RiskManager (¼-Kelly), CircuitBreaker (8 triggers), PositionTracker (60s reconciliation)
-│   │   ├── exchange/              # ExchangeAdapter ABC (CCXT-ready), CoinbaseAdapter, PaperAdapter
-│   │   ├── data/                  # MarketDataFeed (WebSocket), OHLCVCache, indicators (pandas-ta)
-│   │   ├── tax/                   # HIFO/FIFO lot tracker, tax reporter, wash sale monitor
-│   │   ├── ai/                    # Sentiment regime filter, on-chain PiT data, walk-forward optimizer
-│   │   └── backtest/             # VectorBT engine, anti-overfit validation, report generator
-│   ├── api/                         # FastAPI — 206 endpoints, 29 route modules
+│   ├── api/                         # FastAPI — 208 endpoints, 29 route modules
 │   │   ├── errors.py                # sanitize_for_log(), safe_error_detail()
 │   │   ├── schemas/                  # Pydantic request/response models (16 domain modules)
 │   │   ├── server.py                # App lifecycle, manager initialization
@@ -335,7 +325,7 @@ hestia/
 │   │   ├── Services/                # APIClient+Wiki, APIClient+Tools, APIClient+Newsfeed, APIClient+Health, APIClient+Devices, APIClient+Investigate
 │   │   └── DesignSystem/            # MacColors, MacSpacing, MacTypography
 │   └── project.yml                  # xcodegen config (iOS 26.0, macOS 15.0, Swift 6.1)
-├── tests/                           # 2245 tests, 64 files
+├── tests/                           # 2365 tests, 68 files
 ├── scripts/                         # deploy, test-api, auto-test, validate-security, ollama
 ├── .claude/                         # agents/, output-styles/, settings
 ├── docs/                            # api-contract, decision-log, security-architecture
@@ -344,7 +334,7 @@ hestia/
 
 ---
 
-## API Summary (206 endpoints, 29 route modules)
+## API Summary (208 endpoints, 29 route modules)
 
 | Module | Endpoints | Key Routes |
 |--------|-----------|------------|

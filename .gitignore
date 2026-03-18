@@ -77,6 +77,9 @@ htmlcov/
 .nox/
 .hypothesis/
 
+# Figma mirror (local dev tool, not committed)
+figma-mirror/
+
 # Misc
 *.bak
 *.tmp
