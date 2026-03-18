@@ -53,8 +53,16 @@ if [ "$ACTUAL_TESTS" = "0" ]; then
     echo "[COUNT-CHECK] WARNING: Could not collect test count from pytest"
     DRIFT=1
 else
-    # Extract declared test count from CLAUDE.md (first occurrence of "NNNN tests (")
-    DECLARED_TESTS=$(grep -oE '^[0-9]+ tests \(' "$CLAUDE_MD" | head -1 | grep -oE '^[0-9]+' || echo "")
+    # Extract declared test count from CLAUDE.md.
+    # Handles two formats:
+    #   "NNNN tests (NNNN backend + NNN CLI)" — extract the backend count from parenthetical
+    #   "NNNN tests (NNNN passing, ...)"       — extract the leading total
+    RAW_TESTS_LINE=$(grep -oE '^[0-9]+ tests \([^)]+\)' "$CLAUDE_MD" | head -1 || echo "")
+    DECLARED_TESTS=$(echo "$RAW_TESTS_LINE" | grep -oE '\(([0-9]+) backend' | grep -oE '[0-9]+' || echo "")
+    if [ -z "$DECLARED_TESTS" ]; then
+        # Fallback: use the leading number (legacy format)
+        DECLARED_TESTS=$(echo "$RAW_TESTS_LINE" | grep -oE '^[0-9]+' || echo "")
+    fi
     if [ -z "$DECLARED_TESTS" ]; then
         echo "[COUNT-CHECK] WARNING: Could not find test count pattern in CLAUDE.md"
         DRIFT=1
@@ -67,9 +75,10 @@ else
 fi
 
 # --- 2. Test file count ---
-ACTUAL_TEST_FILES=$(ls "$PROJECT_ROOT"/tests/test_*.py 2>/dev/null | wc -l | tr -d ' ')
+# Count all test files (backend + CLI) to match the total in CLAUDE.md
+ACTUAL_TEST_FILES=$(( $(ls "$PROJECT_ROOT"/tests/test_*.py 2>/dev/null | wc -l | tr -d ' ') + $(ls "$PROJECT_ROOT"/hestia-cli/tests/test_*.py 2>/dev/null | wc -l | tr -d ' ') ))
 
-# Extract from "NN test files" pattern
+# Extract declared total (first number before "test files")
 DECLARED_TEST_FILES=$(grep -oE '[0-9]+ test files' "$CLAUDE_MD" | head -1 | grep -oE '^[0-9]+' || echo "")
 if [ -z "$DECLARED_TEST_FILES" ]; then
     echo "[COUNT-CHECK] WARNING: Could not find test file count pattern in CLAUDE.md"

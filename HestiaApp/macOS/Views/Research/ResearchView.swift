@@ -111,13 +111,13 @@ struct ResearchView: View {
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                             .padding(.bottom, MacSpacing.lg)
                     }
+
+                    // Graph control panel (top-left overlay — must be inside ZStack, not HStack sibling)
+                    GraphControlPanel(viewModel: graphViewModel)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .padding(MacSpacing.lg)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                // Graph control panel (top-left overlay)
-                GraphControlPanel(viewModel: graphViewModel)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .padding(MacSpacing.lg)
 
                 // Right: Detail panel (slides in when node selected)
                 if let selected = graphViewModel.selectedNode {
