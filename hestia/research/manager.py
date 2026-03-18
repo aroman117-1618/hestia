@@ -16,7 +16,7 @@ from .database import ResearchDatabase, get_research_database, close_research_da
 from .entity_registry import EntityRegistry
 from .fact_extractor import FactExtractor
 from .graph_builder import GraphBuilder
-from .models import GraphResponse, Principle, PrincipleStatus
+from .models import GraphCluster, GraphEdge, GraphNode, GraphResponse, Principle, PrincipleStatus
 from .principle_store import PrincipleStore
 
 logger = get_logger()
@@ -103,9 +103,9 @@ class ResearchManager:
         cached = await self._database.get_cached_graph(cache_key)
         if cached:
             return GraphResponse(
-                nodes=[],  # Cached response is already serialized
-                edges=[],
-                clusters=[],
+                nodes=[GraphNode.from_dict(n) for n in cached.get("nodes", [])],
+                edges=[GraphEdge.from_dict(e) for e in cached.get("edges", [])],
+                clusters=[GraphCluster.from_dict(c) for c in cached.get("clusters", [])],
                 metadata={"cached": True, **cached.get("metadata", {})},
             )
 
