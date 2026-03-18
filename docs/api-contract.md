@@ -1,14 +1,14 @@
 # Hestia API Contract
 
 **Status**: Complete — All Workstreams Implemented
-**Last Updated**: 2026-03-03
+**Last Updated**: 2026-03-17
 
 ## Executive Summary
 
-The FastAPI REST API provides HTTP access to all Hestia backend capabilities including chat, memory management, mode switching, cloud LLM routing, voice journaling, proactive intelligence, scheduled orders, agent profiles (V1 slot-based + V2 markdown-based), user settings, user profile configuration, background task management, health data management, resource exploration, wiki/architecture docs, newsfeed timeline, knowledge graph, and principle distillation.
+The FastAPI REST API provides HTTP access to all Hestia backend capabilities including chat, memory management, mode switching, cloud LLM routing, voice journaling, proactive intelligence, scheduled orders, agent profiles (V1 slot-based + V2 markdown-based), user settings, user profile configuration, background task management, health data management, resource exploration, wiki/architecture docs, newsfeed timeline, knowledge graph, principle distillation, inbox aggregation, secure file management, chat outcome tracking, and learning metrics.
 
-**Endpoints**: 132 across 22 route modules
-**Test Coverage**: 1312 tests (1309 passing, 3 skipped)
+**Endpoints**: 186 across 27 route modules
+**Test Coverage**: 2277 tests (2142 backend + 135 CLI)
 **Server**: HTTPS on port 8443 (self-signed cert)
 **Documentation**: https://localhost:8443/docs (Swagger UI)
 
@@ -138,7 +138,7 @@ X-Hestia-Device-Token: <your-token>
 
 ## API Endpoints
 
-### Health & Status (2 endpoints)
+### Health & Status (3 endpoints)
 
 #### GET /v1/ping
 
@@ -200,7 +200,7 @@ System health check (no auth). Returns component-level status for inference, mem
 
 ---
 
-### Core Chat (1 endpoint)
+### Core Chat (3 endpoints)
 
 #### POST /v1/chat
 
@@ -216,7 +216,7 @@ Main conversation endpoint. Processes messages through validation, mode detectio
 }
 ```
 
-**Response:**
+**Response (`ChatResponse`):**
 ```json
 {
   "request_id": "req-xyz789",
@@ -231,11 +231,59 @@ Main conversation endpoint. Processes messages through validation, mode detectio
     "duration_ms": 1850
   },
   "tool_calls": null,
+  "hallucination_risk": null,
   "error": null
 }
 ```
 
+**`ChatResponse` schema fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `request_id` | string | Unique request identifier |
+| `content` | string | Response text |
+| `response_type` | string | `text` \| `error` \| `tool_call` \| `clarification` |
+| `mode` | string | Active agent mode |
+| `session_id` | string | Conversation session |
+| `timestamp` | string | ISO 8601 timestamp |
+| `metrics` | object | Token counts + duration_ms |
+| `tool_calls` | array \| null | Tool calls made during response |
+| `hallucination_risk` | string \| null | `"tool_bypass"` \| `"low_retrieval"` \| null — risk enum from verification pipeline; null means no risk detected |
+| `error` | string \| null | Error detail if response_type is error |
+
+> **ADR note (Sprint 22+):** `hallucination_risk` is the current surface-level exposure of the verification pipeline. A future upgrade path is a structured `verification: Optional[VerificationSummary]` object containing layer-by-layer results, confidence scores, and remediation hints.
+
 **Response Types:** `text`, `error`, `tool_call`, `clarification`
+
+---
+
+#### POST /v1/chat/stream
+
+SSE streaming endpoint. Returns the same pipeline as `/v1/chat` but emits events incrementally as tokens are generated.
+
+**Request:** Same body as `POST /v1/chat`.
+
+**Response:** `Content-Type: text/event-stream`. Each event is a JSON object on a `data:` line.
+
+**SSE Event Types:**
+
+| Event type | Description |
+|-----------|-------------|
+| `preparing` | Pipeline started (memory + profile loading) |
+| `token` | Single token fragment; payload: `{"type": "token", "content": "..."}` |
+| `verification` | Emitted before `done` when verifier detects risk; payload: `{"type": "verification", "risk": "tool_bypass"\|"low_retrieval", "request_id": "..."}` |
+| `done` | Stream complete; payload: full `ChatResponse` JSON |
+| `error` | Pipeline error; payload: `{"type": "error", "message": "..."}` |
+
+---
+
+#### POST /v1/chat/agentic
+
+Iterative tool-loop endpoint. Runs the full agentic pipeline — model selects tools, executes them, and iterates until a final answer is produced or the step limit is reached.
+
+**Request:** Same body as `POST /v1/chat` plus optional `max_steps` (int, default 5).
+
+**Response:** Same `ChatResponse` schema, with `tool_calls` populated with the full tool execution trace.
 
 ---
 
@@ -283,9 +331,9 @@ Get details about a specific mode.
 
 ---
 
-### Memory Management (6 endpoints)
+### Memory Management (14 endpoints)
 
-Implements ADR-002: Governed Memory with human-in-the-loop review.
+Implements ADR-002: Governed Memory with human-in-the-loop review. Includes Sprint 16 Memory Lifecycle endpoints (importance scoring, consolidation, pruning).
 
 #### GET /v1/memory/staged
 
@@ -410,6 +458,100 @@ At least one of `content`, `chunk_type`, or `tags` must be provided.
 ```
 
 **Errors:** `404` chunk not found, `422` invalid value or no fields provided
+
+#### GET /v1/memory/chunks
+
+List and browse all committed memory chunks with optional filtering.
+
+**Query Parameters:**
+- `chunk_type` (optional): Filter by type — `preference`, `fact`, `decision`, `context`, `system`
+- `topics`: Filter by topic tags (array)
+- `limit` (int, default 50, max 200): Max results
+- `offset` (int, default 0): Pagination offset
+- `include_sensitive` (bool, default false): Include sensitive chunks
+
+**Response:**
+```json
+{"chunks": [...], "count": 12, "total": 45}
+```
+
+#### POST /v1/memory/ingest
+
+Directly ingest a memory chunk, bypassing the staged review flow. For system-level writes only.
+
+**Request:**
+```json
+{"content": "...", "chunk_type": "fact", "tags": {"topics": ["career"]}}
+```
+
+#### POST /v1/memory/import/claude
+
+Bulk-import memory from a Claude conversation export JSON file. Parses messages, extracts candidate memory chunks, and stages them for review.
+
+**Request:** `multipart/form-data` with `file` field (Claude export JSON).
+
+**Response:**
+```json
+{"staged_count": 14, "skipped": 2, "request_id": "req-..."}
+```
+
+#### GET /v1/memory/importance-stats
+
+Return aggregate importance score statistics across all memory chunks. Used by the Learning dashboard.
+
+**Response:**
+```json
+{"mean": 0.62, "p50": 0.58, "p90": 0.89, "below_threshold": 23, "total": 412}
+```
+
+#### GET /v1/memory/consolidation/preview
+
+Preview memory consolidation candidates — pairs of chunks with embedding similarity > 0.90.
+
+**Query Parameters:**
+- `limit` (int, default 50): Max pairs to analyze (capped at 50 for safety)
+
+**Response:**
+```json
+{"candidates": [{"chunk_a": "...", "chunk_b": "...", "similarity": 0.93}], "count": 8}
+```
+
+#### POST /v1/memory/consolidation/execute
+
+Execute memory consolidation: merge duplicate/near-duplicate chunks identified by the preview step.
+
+**Request:**
+```json
+{"dry_run": false}
+```
+
+**Response:**
+```json
+{"merged": 6, "archived": 6, "skipped": 2}
+```
+
+#### GET /v1/memory/pruning/preview
+
+Preview memory chunks eligible for pruning — older than 60 days AND importance < 0.2.
+
+**Response:**
+```json
+{"candidates": [...], "count": 19, "estimated_freed_mb": 0.4}
+```
+
+#### POST /v1/memory/pruning/execute
+
+Execute memory pruning: soft-delete (archive) eligible chunks. Reversible via restore.
+
+**Request:**
+```json
+{"dry_run": false, "confirm": true}
+```
+
+**Response:**
+```json
+{"pruned": 19, "archived_ids": [...]}
+```
 
 ---
 
@@ -1839,95 +1981,96 @@ Append to today's daily note (creates if doesn't exist).
 
 ---
 
-### Newsfeed (5 endpoints)
+### Files (9 endpoints)
 
-Unified Command Center timeline. Aggregates items from orders, tasks, proactive briefings, and other sources into a single feed. Route prefix: `/v1/newsfeed`.
+Secure filesystem CRUD with audit trail. `PathValidator` enforces an allowlist (configured in `execution.yaml`), TOCTOU-safe resolution, and null-byte protection. All writes are logged to `FileAuditDatabase`.
 
-#### GET /v1/newsfeed/timeline
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/v1/files` | List files in an allowed directory. Query params: `path`, `include_hidden` |
+| POST | `/v1/files` | Create a new file. Body: `{ "path": "...", "content": "..." }` |
+| GET | `/v1/files/content` | Read file content. Query param: `path` |
+| GET | `/v1/files/metadata` | File metadata (size, modified_at, mime type). Query param: `path` |
+| PUT | `/v1/files` | Update file content. Body: `{ "path": "...", "content": "..." }` |
+| DELETE | `/v1/files` | Delete a file. Query param: `path` |
+| POST | `/v1/files/move` | Move or rename a file. Body: `{ "src": "...", "dst": "..." }` |
+| POST | `/v1/files/delete` | POST alias for DELETE (client compatibility). Body: `{ "path": "..." }` |
+| GET | `/v1/files/audit-log` | Recent file operation audit log. Query params: `path`, `limit` |
 
-Get unified timeline items with optional filters.
+---
 
-**Query Parameters:**
-- `type` (optional): Filter by item type
-- `source` (optional): Filter by source
-- `include_dismissed` (bool, default false): Include dismissed items
-- `limit` (int, default 50, max 200): Max items
-- `offset` (int, default 0): Pagination offset
+### Inbox (7 endpoints)
 
-**Response:**
-```json
-{
-  "items": [
-    {
-      "id": "nf-abc123",
-      "item_type": "briefing",
-      "source": "proactive",
-      "title": "Morning Briefing",
-      "body": "Here's your morning summary...",
-      "timestamp": "2026-03-01T07:30:00Z",
-      "priority": "normal",
-      "icon": "sun.max",
-      "color": "#FFD700",
-      "action_type": null,
-      "action_id": null,
-      "metadata": {},
-      "is_read": false,
-      "is_dismissed": false
-    }
-  ],
-  "count": 1,
-  "unread_count": 3
-}
-```
+Unified inbox aggregating mail, reminders, and calendar items into a single feed. 30s TTL cache per device. Per-user read/archive state.
 
-#### GET /v1/newsfeed/unread-count
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/v1/inbox` | List inbox items. Query params: `include_archived`, `limit`, `offset` |
+| GET | `/v1/inbox/unread-count` | Unread item count |
+| GET | `/v1/inbox/{id}` | Get single inbox item |
+| POST | `/v1/inbox/{id}/read` | Mark item as read |
+| POST | `/v1/inbox/mark-all-read` | Mark all items read |
+| POST | `/v1/inbox/{id}/archive` | Archive an item |
+| POST | `/v1/inbox/refresh` | Force re-aggregate from Apple clients. Rate limited: 1 per 10s |
 
-Get unread item counts, optionally broken down by type.
+---
 
-**Response:**
-```json
-{
-  "total": 5,
-  "by_type": {
-    "briefing": 1,
-    "order_result": 3,
-    "alert": 1
-  }
-}
-```
+### Outcomes (5 endpoints)
 
-#### POST /v1/newsfeed/items/{item_id}/read
+Chat outcome tracking for the Learning Cycle. Records implicit signals (regenerations, truncations, follow-ups, reactions) to build a quality history used by MetaMonitor.
 
-Mark a newsfeed item as read.
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/v1/outcomes` | List tracked outcomes. Query params: `limit`, `offset`, `signal_type` |
+| GET | `/v1/outcomes/stats` | Aggregate outcome statistics (signal rates, quality trends) |
+| GET | `/v1/outcomes/{id}` | Get single outcome record |
+| POST | `/v1/outcomes/{id}/feedback` | Submit explicit user feedback on a response. Body: `{ "rating": 1\|-1, "note": "..." }` |
+| POST | `/v1/outcomes/track` | Manually track an outcome event. Body: `{ "request_id": "...", "signal_type": "..." }` |
 
-**Path params:** `item_id` — newsfeed item identifier
+---
 
-**Response:**
-```json
-{"success": true, "item_id": "nf-abc123"}
-```
+### Learning (5 endpoints)
 
-#### POST /v1/newsfeed/items/{item_id}/dismiss
+MetaMonitor reports, Memory Health diagnostics, and configurable trigger alerts. All data is read-only from the API — the LearningScheduler populates these via 6 async background loops.
 
-Dismiss a newsfeed item (hides from timeline unless `include_dismissed` is set).
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/v1/learning/report` | Latest MetaMonitor report (hourly SQL analysis of memory + inference quality) |
+| GET | `/v1/learning/memory-health` | Latest Memory Health snapshot (daily diagnostics) |
+| GET | `/v1/learning/memory-health/history` | Historical snapshots. Query params: `limit`, `days` |
+| GET | `/v1/learning/alerts` | Active trigger alerts (configurable thresholds from `triggers.yaml`) |
+| POST | `/v1/learning/alerts/{id}/acknowledge` | Acknowledge an alert (clears from active list) |
 
-**Path params:** `item_id` — newsfeed item identifier
+---
 
-**Response:**
-```json
-{"success": true, "item_id": "nf-abc123"}
-```
+### WebSocket Chat (1 endpoint)
 
-#### POST /v1/newsfeed/refresh
+#### WS /v1/ws/chat
 
-Force re-aggregate timeline from all sources. Rate limited to 1 request per 10 seconds per device.
+WebSocket streaming endpoint for CLI and real-time clients. Supports the full chat pipeline with token-by-token streaming, authentication handshake, and tool execution events.
 
-**Response:**
-```json
-{"items_refreshed": 12}
-```
+**Handshake:** Client sends `{ "token": "<JWT>" }` immediately after connect. Server responds `{ "status": "authenticated" }` or closes with code 4001.
 
-**Errors:** `429` if rate limit exceeded.
+**Message format:** Client sends `{ "message": "...", "session_id": "..." }`. Server streams `{ "type": "token"|"done"|"error", "content": "..." }` frames.
+
+---
+
+### Verification Pipeline
+
+The hallucination-detection pipeline runs transparently after inference, before the response is returned. It is exposed via the `hallucination_risk` field on `ChatResponse` and the `verification` SSE event.
+
+**Layers (zero-LLM cost unless Layer 3 is triggered):**
+
+| Layer | Component | Method | Triggers |
+|-------|-----------|--------|----------|
+| 1 | `ToolComplianceChecker` | Pattern-based domain claim detection | Factual domain phrases without a preceding tool call |
+| 2 | Retrieval quality gate | Cosine similarity threshold (default 0.6) | Low memory retrieval score for knowledge-based responses |
+| 3 | SLM Validator | Binary grounding check via `qwen2.5:0.5b` | Only when Layer 1 or 2 flags a risk |
+
+**Risk values:**
+- `"tool_bypass"` — Layer 1: model made a factual claim without using the expected tool
+- `"low_retrieval"` — Layer 2: response appears knowledge-dependent but retrieved memory scored below threshold
+- `null` — no risk detected
 
 ---
 
@@ -1943,16 +2086,31 @@ Force re-aggregate timeline from all sources. Rate limited to 1 request per 10 s
 
 ---
 
-### Research (6 endpoints)
+### Research (18 endpoints)
+
+Graphiti-inspired knowledge graph with bi-temporal facts, entity resolution, community detection, episodic memory nodes, and LLM-distilled behavioral principles (ADR-041).
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/v1/research/graph` | Knowledge graph (nodes, edges, clusters). Query params: `limit`, `node_types`, `center_topic` |
+| GET | `/v1/research/graph` | Knowledge graph (nodes, edges, clusters). Query params: `limit`, `node_types`, `center_topic`, `mode` (`legacy`\|`facts`) |
+| POST | `/v1/research/facts/extract` | Trigger LLM triplet extraction from recent memory. Body: `{ "time_range_days": 7 }` |
+| GET | `/v1/research/facts` | List bi-temporal facts. Query params: `entity_id`, `status`, `limit`, `offset` |
+| GET | `/v1/research/facts/timeline` | All facts ordered by `valid_at` timestamp |
+| GET | `/v1/research/facts/at-time` | Facts valid at a specific point in time. Query param: `timestamp` |
+| POST | `/v1/research/facts/{id}/invalidate` | Invalidate a fact (set `invalid_at`). Body: `{ "reason": "..." }` |
+| GET | `/v1/research/entities` | List known entities. Query params: `limit`, `offset` |
+| GET | `/v1/research/entities/search` | Search entities by name/type. Query param: `q` |
+| GET | `/v1/research/entities/communities` | Entities grouped by community (label propagation) |
+| GET | `/v1/research/communities` | List detected communities |
+| GET | `/v1/research/episodes` | List episodic memory nodes |
+| GET | `/v1/research/episodes/for-entity/{id}` | Episodes linked to a specific entity |
 | POST | `/v1/research/principles/distill` | Trigger LLM distillation from recent memory. Body: `{ "time_range_days": 7 }` |
 | GET | `/v1/research/principles` | List principles. Query params: `status` (pending/approved/rejected), `domain`, `limit`, `offset` |
 | POST | `/v1/research/principles/{id}/approve` | Approve a pending principle |
 | POST | `/v1/research/principles/{id}/reject` | Reject a pending principle |
 | PUT | `/v1/research/principles/{id}` | Update principle content. Body: `{ "content": "..." }` |
+
+> **Approved principles injection:** Approved principles are injected into every system prompt as a `## Behavioral Principles` section. Excluded from cloud-safe context (same as PII). Skipped entirely when `will_use_cloud=True`.
 
 ---
 
@@ -2005,10 +2163,10 @@ hestia/api/
 └── routes/
     ├── __init__.py
     ├── auth.py              # /v1/auth/* (5 endpoints)
-    ├── health.py            # /v1/health, /v1/ping (2 endpoints)
-    ├── chat.py              # /v1/chat (1 endpoint)
+    ├── health.py            # /v1/health, /v1/ping, /v1/ready (3 endpoints)
+    ├── chat.py              # /v1/chat, /v1/chat/stream, /v1/chat/agentic (3 endpoints)
     ├── mode.py              # /v1/mode/* (3 endpoints)
-    ├── memory.py            # /v1/memory/* (5 endpoints)
+    ├── memory.py            # /v1/memory/* (14 endpoints)
     ├── sessions.py          # /v1/sessions/* (3 endpoints)
     ├── tools.py             # /v1/tools/* (3 endpoints)
     ├── tasks.py             # /v1/tasks/* (6 endpoints)
@@ -2019,11 +2177,18 @@ hestia/api/
     ├── user.py              # /v1/user/* (10 endpoints)
     ├── proactive.py         # /v1/proactive/* (6 endpoints)
     ├── health_data.py       # /v1/health_data/* (7 endpoints)
-    ├── wiki.py              # /v1/wiki/* (5 endpoints)
+    ├── wiki.py              # /v1/wiki/* (6 endpoints)
     ├── agents_v2.py         # /v2/agents/* (10 endpoints)
     ├── user_profile.py      # /v1/user-profile/* (11 endpoints)
     ├── explorer.py          # /v1/explorer/* (6 endpoints)
-    └── newsfeed.py          # /v1/newsfeed/* (5 endpoints)
+    ├── newsfeed.py          # /v1/newsfeed/* (5 endpoints)
+    ├── investigate.py       # /v1/investigate/* (5 endpoints)
+    ├── research.py          # /v1/research/* (18 endpoints)
+    ├── files.py             # /v1/files/* (9 endpoints)
+    ├── inbox.py             # /v1/inbox/* (7 endpoints)
+    ├── outcomes.py          # /v1/outcomes/* (5 endpoints)
+    ├── learning.py          # /v1/learning/* (5 endpoints)
+    └── ws_chat.py           # /v1/ws/chat (1 WebSocket endpoint)
 ```
 
 ### Dependencies
@@ -2039,7 +2204,7 @@ hestia/api/
 ### Testing
 
 ```bash
-# Run full test suite (1018 tests)
+# Run full test suite (2142 backend tests + 135 CLI tests)
 python -m pytest tests/ -v --timeout=30
 
 # Run API smoke tests (14 standard + 5 opt-in cloud)
