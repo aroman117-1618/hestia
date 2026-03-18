@@ -26,7 +26,8 @@ wheels/
 *.egg
 
 # Hestia data (never commit)
-data/
+/data/
+!hestia/trading/data/
 data-*/
 logs/
 *.db
@@ -80,3 +81,4 @@ htmlcov/
 *.bak
 *.tmp
 .cache/
+data/credentials/
