@@ -125,9 +125,9 @@ struct MacSceneKitGraphView: NSViewRepresentable {
         let cameraNode = SCNNode()
         cameraNode.camera = SCNCamera()
         cameraNode.camera?.zNear = 0.1
-        cameraNode.camera?.zFar = 100
+        cameraNode.camera?.zFar = 200
         cameraNode.camera?.fieldOfView = 50
-        cameraNode.position = SCNVector3(0, 0, 8)
+        cameraNode.position = SCNVector3(0, 0, 20)
         cameraNode.look(at: SCNVector3Zero)
         scene.rootNode.addChildNode(cameraNode)
 

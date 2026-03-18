@@ -249,11 +249,13 @@ struct ResearchView: View {
                 Text("Memory types:")
                     .font(.system(size: 9).italic())
                     .foregroundStyle(MacColors.textFaint)
-                legendColorDot(color: Color(red: 0.6, green: 0.3, blue: 0.9), label: "Preference")
-                legendColorDot(color: Color(red: 0.2, green: 0.5, blue: 1.0), label: "Fact")
-                legendColorDot(color: Color(red: 1.0, green: 0.6, blue: 0.2), label: "Decision")
-                legendColorDot(color: Color(red: 1.0, green: 0.3, blue: 0.3), label: "Action")
-                legendColorDot(color: Color(red: 0.2, green: 0.8, blue: 0.6), label: "Research")
+                legendColorDot(color: Color(red: 0.353, green: 0.784, blue: 0.980), label: "Chat")
+                legendColorDot(color: Color(red: 0.557, green: 0.557, blue: 0.576), label: "Insight")
+                legendColorDot(color: Color(red: 1.0, green: 0.584, blue: 0.0), label: "Preference")
+                legendColorDot(color: Color(red: 0.298, green: 0.851, blue: 0.392), label: "Fact")
+                legendColorDot(color: Color(red: 1.0, green: 0.231, blue: 0.188), label: "Decision")
+                legendColorDot(color: Color(red: 0.686, green: 0.322, blue: 0.871), label: "Action")
+                legendColorDot(color: Color(red: 0.0, green: 0.478, blue: 1.0), label: "Research")
             }
 
             MacColors.divider
