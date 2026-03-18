@@ -1,6 +1,21 @@
-# CI/CD Pipeline Fix + Codebase Audit Session (2026-03-17) — COMPLETE
+# Research View Unification + Sprint 18 (2026-03-17) — COMPLETE
 
 **Started:** 2026-03-17
+
+## What Was Done
+- Executed Research View Unification plan (5 tasks): PUT memory chunk endpoint, principles injection, macOS structural refactor, chunk editing UI, docs
+- Memory Browser moved from sidebar into Research view as third toggle (Graph | Principles | Memory)
+- Inline chunk editing with hover pencil, TextEditor, type Picker, Save/Cancel, graph refresh on mode switch
+- Approved principles now injected into every system prompt (cloud-safe excluded)
+- Sprint 18 anti-hallucination verifier stack (3 layers: tool compliance gate, retrieval quality score, SLM validator)
+- Outcome-to-principle pipeline: distills high-signal outcomes into ResearchManager principles
+- Tests: 2277 (2142 backend + 135 CLI). macOS: BUILD SUCCEEDED
+
+---
+
+
+
+# CI/CD Pipeline Fix + Codebase Audit Session (2026-03-17) — COMPLETE
 
 ## What Was Done
 - Fixed all CI/CD pipeline failures (backports-asyncio-runner phantom dep, continue-on-error gate removal, claude action perms)
