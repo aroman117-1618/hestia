@@ -82,6 +82,7 @@ from hestia.api.routes import (
 )
 from hestia.api.routes.agents_v2 import router as agents_v2_router
 from hestia.api.routes.learning import router as learning_router
+from hestia.api.routes.trading import router as trading_router
 
 logger = get_logger()
 
@@ -776,6 +777,7 @@ app.include_router(files_router)
 app.include_router(inbox_router)
 app.include_router(outcomes_router)
 app.include_router(learning_router)
+app.include_router(trading_router)
 app.include_router(ws_chat_router)
 
 

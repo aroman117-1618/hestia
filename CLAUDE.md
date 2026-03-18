@@ -30,6 +30,7 @@
 - Update affected docs (this file, `docs/api-contract.md`, `docs/hestia-decision-log.md`)
 - **Mark the sprint item "Done" on the GitHub Project board** (`scripts/roadmap-sync.sh status <item-id> done`)
 - If new work was identified during the session, **create issues** via `scripts/roadmap-sync.sh issue` (see "Add to Roadmap" workflow below)
+- **REQUIRED: Run `scripts/sync-board-from-sprint.sh` before session end. This is not optional.**
 
 ### Sub-Agents
 
@@ -53,6 +54,7 @@ Definitions: `.claude/agents/`. Read-only specialists — diagnose and report, n
 | `scripts/validate-security-edit.sh` | Before security file edits | Catches plaintext secrets, wildcard CORS, bare excepts |
 | `scripts/auto-test.sh` | After Python source edits | Runs matching test file automatically |
 | `scripts/roadmap-sync.sh` | Manual / Phase 2+3+4 | Full roadmap sync: issues, labels, dates, board (replaces gh-project-sync.sh) |
+| `scripts/sync-board-from-sprint.sh` | Phase 4 / /handoff | Reconcile board state from SPRINT.md (dry run by default, `--apply` to execute) |
 
 ### GitHub Project Board & Roadmap Sync
 Hestia roadmap lives at **GitHub Project #1** (`aroman117-1618/hestia`, Projects tab). **Use `scripts/roadmap-sync.sh` for ALL project board operations** (supersedes `gh-project-sync.sh`).
@@ -111,7 +113,7 @@ When resuming work from a previous session, FIRST read `SESSION_HANDOFF.md` (if 
 This is a multi-session project (Hestia). Key references:
 - Project plans and workstreams are in `docs/`
 - Previous session context may be compacted — check docs and CLAUDE.md FIRST before searching transcripts
-- Current workstreams: Sprint 16 COMPLETE (Memory Lifecycle — importance, consolidation, pruning). Sprints 1-16 COMPLETE. See `SPRINT.md`.
+- Current workstreams: Sprints 1–20 COMPLETE. **Next: Trading Module (Sprints 21–30)** — autonomous crypto trading. Plan: `docs/discoveries/trading-module-research-and-plan.md`. See `SPRINT.md`.
 - **2026-03-01:** Sprint 4 — audit remediation (proactive auth fix, auth dep standardization), macOS Wiki/Explorer Resources/Resources tab. 66 macOS files total.
 - **2026-02-28:** macOS app renamed to "Hestia" — UX polished: keyboard shortcuts (⌘1-6/\), sidebar, responsive layout, app icon. Both Xcode schemes build clean.
 - **2026-02-28:** Claude Code config refresh — new skills, CI/CD pipeline, sprint tracker. Direct API billing active.
@@ -141,7 +143,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | Hardware | Mac Mini M1 (16GB) |
 | Model | Qwen 3.5 9B (Hestia) + DeepSeek-R1-14B (Artemis) + Qwen 3 8B (Apollo) + cloud (Anthropic/OpenAI/Google) |
 | SLM | qwen2.5:0.5b (council intent classification, ~100ms) |
-| Backend | Python 3.9+, FastAPI, ~188 endpoints across 27 route modules |
+| Backend | Python 3.9+, FastAPI, ~200 endpoints across 28 route modules |
 | Storage | ChromaDB (vectors) + SQLite (structured) + macOS Keychain (credentials) |
 | App | Native Swift/SwiftUI (iOS 26.0+) |
 | API | REST on port 8443 with JWT auth, HTTPS with self-signed cert |
@@ -158,7 +160,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 **Apple HealthKit Integration: COMPLETE.** 28 metric types, daily sync, coaching preferences, briefing integration, 5 chat tools.
 **Field Guide UI Restructure: COMPLETE.** 5 thematic tabs, native SwiftUI diagrams, structured roadmap with `/v1/wiki/roadmap` endpoint.
 
-2277 tests (2142 backend + 135 CLI), 67 test files (60 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
+2380 tests (2245 backend + 135 CLI), 71 test files (64 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -166,7 +168,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 - **Type hints**: Always. Every function signature.
 - **Async/await**: For all I/O (database, inference, network).
-- **Logging**: `logger = get_logger()` — no arguments. Never `HestiaLogger(component=...)` or `get_logger(component=...)`. Import: `from hestia.logging import get_logger`. LogComponent enum: ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED, INVESTIGATE, RESEARCH, FILE, INBOX, OUTCOMES, APPLE_CACHE, LEARNING. (20 components total)
+- **Logging**: `logger = get_logger()` — no arguments. Never `HestiaLogger(component=...)` or `get_logger(component=...)`. Import: `from hestia.logging import get_logger`. LogComponent enum: ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED, INVESTIGATE, RESEARCH, FILE, INBOX, OUTCOMES, APPLE_CACHE, LEARNING, VERIFICATION, TRADING. (22 components total)
 - **Config**: YAML files, never hardcode.
 - **Error handling in routes**: `sanitize_for_log(e)` from `hestia.api.errors` in logs (never raw `{e}`). Generic messages in HTTP responses (never `detail=str(e)`).
 - **File naming**: `snake_case.py` (Python), UpperCamelCase.swift (iOS).
@@ -226,7 +228,7 @@ Use Python 3.12 (not 3.13+). Pin version in pyproject.toml with `requires-python
 
 ```
 hestia/
-├── hestia/                          # Python backend — 26 modules
+├── hestia/                          # Python backend — 26 modules (+1 trading planned)
 │   ├── database.py                  # BaseDatabase ABC (shared by all 11 SQLite modules)
 │   ├── security/                    # CredentialManager (Keychain + Fernet)
 │   ├── logging/                     # HestiaLogger, AuditLogger, LogComponent enum
@@ -268,6 +270,12 @@ hestia/
 │   │   ├── memory_health.py        # MemoryHealthMonitor (daily diagnostics)
 │   │   ├── trigger_monitor.py      # TriggerMonitor (configurable thresholds)
 │   │   └── scheduler.py            # LearningScheduler (6 async loops: monitor + lifecycle)
+│   ├── trading/                     # Autonomous crypto trading (Sprint 21+)
+│   │   ├── models.py               # Bot, Trade, TaxLot, DailySummary, CircuitBreaker
+│   │   ├── database.py             # TradingDatabase (WAL mode, 5 tables, HIFO/FIFO tax lots)
+│   │   ├── manager.py              # TradingManager (bot CRUD, trade recording, tax lot management)
+│   │   ├── risk.py                 # RiskManager (8-layer safety, Quarter-Kelly, kill switch)
+│   │   └── exchange/               # AbstractExchangeAdapter, PaperAdapter, CoinbaseAdapter
 │   ├── research/                    # Knowledge graph + PrincipleStore + Temporal Facts + Episodic Nodes (ADR-041)
 │   │   ├── models.py              # Fact, Entity, Community, EpisodicNode, Principle dataclasses + graph types
 │   │   ├── database.py            # SQLite: facts, entities, communities, principles, episodic_nodes, graph_cache
@@ -278,13 +286,24 @@ hestia/
 │   │   └── manager.py            # ResearchManager singleton (graph, facts, entities, principles)
 │   ├── investigate/                 # URL content analysis (web articles, YouTube), LLM analysis pipeline
 │   │   └── extractors/             # BaseExtractor ABC, WebArticleExtractor, YouTubeExtractor
-│   ├── api/                         # FastAPI — 188 endpoints, 27 route modules
+│   ├── trading/                     # Autonomous crypto trading (Sprint 21–30, PLANNED)
+│   │   ├── models.py              # Trade, Order, Position, BotConfig, TaxLot
+│   │   ├── database.py            # TradingDatabase (SQLite WAL mode, tax_lots table)
+│   │   ├── manager.py             # TradingManager singleton
+│   │   ├── strategies/            # BaseStrategy ABC, grid (geometric), mean_reversion (RSI-7/9), dca_signal, bollinger
+│   │   ├── risk/                  # RiskManager (¼-Kelly), CircuitBreaker (8 triggers), PositionTracker (60s reconciliation)
+│   │   ├── exchange/              # ExchangeAdapter ABC (CCXT-ready), CoinbaseAdapter, PaperAdapter
+│   │   ├── data/                  # MarketDataFeed (WebSocket), OHLCVCache, indicators (pandas-ta)
+│   │   ├── tax/                   # HIFO/FIFO lot tracker, tax reporter, wash sale monitor
+│   │   ├── ai/                    # Sentiment regime filter, on-chain PiT data, walk-forward optimizer
+│   │   └── backtest/             # VectorBT engine, anti-overfit validation, report generator
+│   ├── api/                         # FastAPI — 188 endpoints (+~25 trading), 27 route modules (+1)
 │   │   ├── errors.py                # sanitize_for_log(), safe_error_detail()
 │   │   ├── schemas/                  # Pydantic request/response models (16 domain modules)
 │   │   ├── server.py                # App lifecycle, manager initialization
 │   │   ├── middleware/auth.py        # JWT device authentication
 │   │   └── routes/                  # auth, health, chat, mode, memory, sessions, tools,
-│   │                                # tasks, cloud, voice, orders, agents, agents_v2, user, user_profile, proactive, health_data, wiki, explorer, newsfeed, investigate, research, files, inbox, outcomes, learning
+│   │                                # tasks, cloud, voice, orders, agents, agents_v2, user, user_profile, proactive, health_data, wiki, explorer, newsfeed, investigate, research, files, inbox, outcomes, learning, trading (planned)
 │   └── config/                      # inference.yaml, execution.yaml, memory.yaml, triggers.yaml, wiki.yaml
 ├── hestia-cli/                      # Python CLI package — 135 tests, 7 test files
 │   ├── hestia_cli/                  # CLI source (app, repl, client, auth, bootstrap, config, commands, context, renderer, models)
@@ -308,7 +327,7 @@ hestia/
 │   │   ├── Services/                # APIClient+Wiki, APIClient+Tools, APIClient+Newsfeed, APIClient+Health, APIClient+Devices, APIClient+Investigate
 │   │   └── DesignSystem/            # MacColors, MacSpacing, MacTypography
 │   └── project.yml                  # xcodegen config (iOS 26.0, macOS 15.0, Swift 6.1)
-├── tests/                           # 2142 tests, 60 files
+├── tests/                           # 2245 tests, 64 files
 ├── scripts/                         # deploy, test-api, auto-test, validate-security, ollama
 ├── .claude/                         # agents/, output-styles/, settings
 ├── docs/                            # api-contract, decision-log, security-architecture
@@ -317,7 +336,7 @@ hestia/
 
 ---
 
-## API Summary (188 endpoints, 27 route modules)
+## API Summary (~200 endpoints, 28 route modules)
 
 | Module | Endpoints | Key Routes |
 |--------|-----------|------------|
@@ -345,6 +364,7 @@ hestia/
 | Inbox | 7 | `/v1/inbox` (list), `/v1/inbox/unread-count`, `/v1/inbox/{id}`, `/v1/inbox/{id}/read`, `/v1/inbox/mark-all-read`, `/v1/inbox/{id}/archive`, `/v1/inbox/refresh` |
 | Outcomes | 5 | `/v1/outcomes` (list), `/v1/outcomes/stats`, `/v1/outcomes/{id}`, `/v1/outcomes/{id}/feedback`, `/v1/outcomes/track` |
 | Learning | 5 | `/v1/learning/report`, `memory-health`, `memory-health/history`, `alerts`, `alerts/{id}/acknowledge` |
+| Trading | 12 | `/v1/trading/bots` (CRUD + start/stop), `/v1/trading/trades`, `/v1/trading/tax/lots`, `/v1/trading/daily-summary`, `/v1/trading/risk/status`, `/v1/trading/kill-switch` |
 
 Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 
@@ -430,6 +450,23 @@ Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 | CLI Sprint 4: Repo Context | COMPLETE | Git state injection, project file snippets, agentic coding context |
 | CLI Sprint 5: Polish | COMPLETE | Error logging, /memory /config /trust commands, HESTIA_NO_COLOR |
 | CLI Bootstrap | COMPLETE | Zero-friction cold start: auto-server-start (launchd/subprocess), auto-register (localhost), `hestia setup` |
+
+### Autonomous Trading Module — Sprints 21–30 (APPROVED 2026-03-18)
+| Sprint | Status | Scope |
+|--------|--------|-------|
+| Sprint 21: Trading Foundation | TODO | Module structure, SQLite WAL DB, paper adapter, tax lot tracker (1099-DA) |
+| Sprint 22: Strategy Engine | TODO | Geometric grid trading + crypto-optimized mean reversion (RSI-7/9, 20/80) |
+| Sprint 23: Risk Management | TODO | 8 circuit breakers, 60-sec exchange reconciliation, Quarter-Kelly sizing |
+| Sprint 24: Backtesting | TODO | VectorBT, maker/taker fee modeling, walk-forward validation, overfit detection |
+| Sprint 25: Coinbase Live | TODO | WebSocket + sequence checking, Post-Only orders, Keychain API keys |
+| Sprint 26: Dashboard | TODO | SSE streaming, iOS/macOS Trading tab, Discord alerts, daily summary |
+| Sprint 27: Portfolio | TODO | Bollinger breakout, signal DCA, regime rotation, CCXT abstraction for Kraken |
+| Sprint 28: AI Sentiment | TODO | LLM regime filter (cloud → local), CryptoPanic, alpha decay measurement |
+| Sprint 29: On-Chain + ML | TODO | Glassnode PiT data, Bayesian optimizer, walk-forward, overfit guardrails |
+| Sprint 30: Go-Live | TODO | Security audit, 72h soak test, gradual capital deployment (10→25→50→100%) |
+
+**Plan:** `docs/discoveries/trading-module-research-and-plan.md`
+**Critical path:** S21 → S22 → S23 → S25 → S27 → S30 (6 sprints minimum to live trading)
 
 ### Known Issues (Mac Mini)
 - Council needs `qwen2.5:0.5b` pulled on Mac Mini
