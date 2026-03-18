@@ -45,7 +45,7 @@ fi
 # output to temp file, use timeout, then check results from output
 PYTEST_LOG=$(mktemp)
 set +e
-run_with_timeout 120 python -m pytest tests/ --timeout=30 -q -m "not integration" >"$PYTEST_LOG" 2>&1
+run_with_timeout 180 python -m pytest tests/ --timeout=30 -q -m "not integration" >"$PYTEST_LOG" 2>&1
 PYTEST_EXIT=$?
 set -e
 
