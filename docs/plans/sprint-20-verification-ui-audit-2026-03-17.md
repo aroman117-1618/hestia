@@ -199,3 +199,25 @@ The plan is approved conditional on resolving these four items **before writing 
 
 **Recommended macOS color token:** `MacColors.statusWarning` (`#FF9800`) for the risk dot.
 **Recommended iOS color token:** Match the iOS design system warning color — confirm via `HestiaColors` before build.
+
+---
+
+## Condition Resolutions (Pre-Build)
+
+**Condition 1 — Streaming scope: INCLUDE SSE `verification` event**
+`handle_streaming()` will yield a `{"type": "verification", "risk": "<value>"}` event after `final_content` is assembled. iOS/macOS SSE parsers get a new `.verification(String)` case. This is required — streaming is the default chat path.
+
+**Condition 2 — Trigger rate: VALIDATED LOW, verify post-deploy**
+Production sample on Mac Mini (12 outcomes) is pre-Sprint 17. In current architecture, calendar/reminder requests always trigger tool calls (`had_tool_calls=True`), so TOOL_BYPASS rarely fires in normal use. Post-deploy: monitor for 48h, tighten `memory.yaml` patterns if >5%.
+
+**Condition 3 — Disclaimer: Option A (keep both for Sprint 20)**
+Server keeps text disclaimer in `response.content` for all clients. iOS/macOS amber dot is additive. No client-side stripping — fragile and premature. Revisit in Sprint 21 during correction UI metadata row redesign.
+
+**Condition 4 — Popover copy:**
+- TOOL_BYPASS: "Hestia described your calendar, health, or notes data without looking it up first. Verify with the original source before acting on it."
+- LOW_RETRIEVAL: "Hestia's memory search returned low-confidence results. This response may not reflect your actual stored data."
+- SLM_FLAG: "Hestia's local validator flagged potential factual claims. Treat with caution."
+
+**Architecture: `hallucination_risk: Optional[str]`** — as proposed. Future `VerificationSummary` object upgrade documented as ADR note in api-contract.md.
+
+**Status: ALL CONDITIONS RESOLVED — APPROVED TO BUILD**
