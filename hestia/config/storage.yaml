@@ -1,0 +1,18 @@
+external_storage:
+  mount_point: /Volumes/HestiaStorage
+  ollama_models: /Volumes/HestiaStorage/ollama-models
+  backtest_data: /Volumes/HestiaStorage/backtest-data
+  log_archive: /Volumes/HestiaStorage/logs-archive
+  backup_dir: /Volumes/HestiaStorage/backups
+  apple_cache: /Volumes/HestiaStorage/apple-backfill-cache
+
+backup:
+  enabled: true
+  retention_days: 30
+  schedule: "30 3 * * *"  # 3:30am daily
+
+log_archive:
+  enabled: true
+  age_days: 7
+  compress: true
+  schedule: "0 2 * * 0"  # Sunday 2am
