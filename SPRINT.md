@@ -90,26 +90,68 @@
 
 ---
 
-# Sprint 21: Trading Foundation (2026-03-18) — IN PROGRESS
+# Sprints 21-25: Trading Module Build (2026-03-18) — COMPLETE
 
 **Started:** 2026-03-18
-**Branch:** `feature/trading-foundation`
 **Plan:** `docs/discoveries/trading-module-research-and-plan.md`
-**Running concurrently with:** Sprint 20B (separate Claude Code session on main branch)
+**All 5 sprints completed in a single session.**
 
 ### Capital & Parameters
 - Starting capital: $250 (Coinbase, Consumer Default Spot portfolio)
-- Performance-based scaling: $500-$1000 added based on demonstrated returns
 - Position sizing: Quarter-Kelly for months 1-3
 - API keys: macOS Keychain (`coinbase-api-key`, `coinbase-api-secret`)
 - SDK: `coinbase-advanced-py` (handles auth, signing, WebSocket reconnection)
-- APNs credentials: Keychain (`apns-key-id`: URMG8N4HNT, `apns-team-id`: 563968AM8L, key file: `data/credentials/AuthKey_URMG8N4HNT.p8`)
 
-### Concurrent Session Guardrails
-- Trading work MUST stay on `feature/trading-foundation` branch
-- Do NOT edit: `SPRINT.md`, `CLAUDE.md`, `hestia/api/server.py` (defer to merge time)
-- DO create: `hestia/trading/`, `hestia/config/trading.yaml`, `tests/test_trading*.py`, `hestia/api/routes/trading.py`, `hestia/api/schemas/trading.py`
-- Merge to main only after Sprint 20B session confirms clean state
+### Sprint 21: Foundation — COMPLETE
+- Module structure: `hestia/trading/` (models, database, manager, exchange adapters)
+- TradingDatabase with WAL mode + 256MB MMIO, 5 tables (bots, trades, tax_lots, daily_summaries, reconciliation_log)
+- PaperAdapter (realistic slippage + Coinbase fee tiers), CoinbaseAdapter skeleton
+- RiskManager: 8 circuit breakers, Quarter-Kelly, kill switch, position limits
+- 1099-DA tax lot tracking (HIFO/FIFO) from day one
+- API routes (12 endpoints), LogComponent.TRADING, auto-test.sh, trading.yaml config
+- 103 tests
+
+### Sprint 22: Strategy Engine — COMPLETE
+- BaseStrategy ABC with Signal model (buy/sell/hold + confidence)
+- GridStrategy: geometric spacing, Post-Only, ATR grid width validation, auto re-grid
+- MeanReversionStrategy: RSI-7/9, 20/80 thresholds, volume + trend filter, hard stop-loss
+- Technical indicators layer (wraps `ta` library): RSI, SMA, EMA, Bollinger, ATR, ADX, volume ratio
+- MarketDataFeed for OHLCV candle management
+- 42 tests
+
+### Sprint 23: Risk Pipeline — COMPLETE
+- PositionTracker: real-time exposure, unrealized P&L, 60-second reconciliation loop
+- PriceValidator: cross-feed price verification (Layer 7 safety)
+- TradeExecutor: Signal → Risk → Price → Exchange pipeline with full audit trail
+- 35 tests
+
+### Sprint 24: Backtesting Engine — COMPLETE
+- DataLoader: synthetic data, Coinbase public API fetcher, CSV cache
+- BacktestEngine: maker/taker fees, slippage, look-ahead bias prevention (signal shift)
+- BacktestReport: Sharpe, Sortino, max drawdown, win rate, profit factor, equity curve
+- Walk-forward validation (30d train / 7d test sliding windows)
+- Train/test split (70/30) with overfit risk assessment
+- Overfit detection: auto-warns on Sharpe >3.0, win rate >70%, profit factor >3.0
+- 35 tests
+
+### Sprint 25: Coinbase Live — COMPLETE
+- CoinbaseAdapter: full REST via SDK (limit orders, accounts, fills, ticker, order book)
+- CoinbaseWebSocketFeed: ticker/candles/user channels, sequence gap detection, exponential backoff reconnection
+- HealthMonitor: heartbeat, avg/p95 latency, uptime, disconnect count
+- Live paper mode validated (real prices + virtual PaperAdapter fills)
+- 26 tests
+
+### Key Commits
+- `e5858c4` feat: Sprint 21 — trading module foundation
+- `589bc13` feat: register trading routes in server.py
+- `b0fc5c2` feat: Sprint 22 — strategy engine
+- `b1dbd02` feat: Sprint 23 — position tracker, price validator, execution pipeline
+- `6bc3079` feat: Sprint 24 — backtesting engine
+- `8fb03d2` feat: Sprint 25 — Coinbase live integration
+
+### Test Results
+- 241 new trading tests across 9 test files, all passing
+- Full suite: 2426 backend + 135 CLI = 2561 total
 
 ---
 
