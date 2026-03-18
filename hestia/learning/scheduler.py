@@ -109,7 +109,7 @@ class LearningScheduler:
         # inference_client is required for LLM distillation — without it the
         # weekly distillation loop runs but always no-ops (Gap 1 fix).
         from hestia.inference import get_inference_client
-        inference_client = await get_inference_client()
+        inference_client = get_inference_client()
 
         self._correction_classifier = CorrectionClassifier(
             learning_db=self._db,
