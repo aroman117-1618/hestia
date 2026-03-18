@@ -475,6 +475,20 @@ class TestNotificationManager:
         assert response2["error"] == "already_responded"
 
     @pytest.mark.asyncio
+    async def test_respond_invalid_action(self, manager: NotificationManager) -> None:
+        with patch("hestia.notifications.router.get_idle_seconds", return_value=5.0):
+            with patch("hestia.notifications.router.is_focus_mode_active", return_value=False):
+                with patch("hestia.notifications.manager.send_macos_notification", return_value=True):
+                    result = await manager.create_bump(title="Invalid action test")
+
+        response = await manager.respond_to_bump(result["callbackId"], "snooze")
+        assert response["error"] == "invalid_action"
+
+        # Bump should still be pending
+        status = await manager.get_bump_status(result["callbackId"])
+        assert status["status"] == "pending"
+
+    @pytest.mark.asyncio
     async def test_list_bumps(self, manager: NotificationManager) -> None:
         with patch("hestia.notifications.router.get_idle_seconds", return_value=5.0):
             with patch("hestia.notifications.router.is_focus_mode_active", return_value=False):

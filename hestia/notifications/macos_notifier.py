@@ -58,7 +58,7 @@ async def send_macos_notification(
             component=LogComponent.NOTIFICATION,
             data={
                 "returncode": proc.returncode,
-                "stderr": stderr.decode()[:200],
+                "stderr": stderr.decode("utf-8", errors="replace")[:200],
             },
         )
         return False

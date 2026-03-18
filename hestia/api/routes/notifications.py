@@ -27,7 +27,7 @@ from hestia.notifications.manager import get_notification_manager
 
 logger = get_logger()
 
-router = APIRouter(prefix="/notifications", tags=["notifications"])
+router = APIRouter(prefix="/v1/notifications", tags=["notifications"])
 
 
 @router.post("/bump", response_model=BumpCreateResponse)

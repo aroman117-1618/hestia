@@ -204,6 +204,14 @@ class NotificationManager:
                 "error": "already_responded",
             }
 
+        # Validate action against bump's declared actions
+        if action not in bump.actions:
+            return {
+                "callbackId": callback_id,
+                "status": bump.status.value,
+                "error": "invalid_action",
+            }
+
         # Map action to status
         status = BumpStatus.APPROVED if action == "approve" else BumpStatus.DENIED
         await self._database.update_bump_status(

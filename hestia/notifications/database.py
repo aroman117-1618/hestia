@@ -8,15 +8,6 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-
-def _utc_iso(dt: datetime) -> str:
-    """Format datetime as bare UTC string for SQLite datetime() compatibility.
-
-    SQLite's datetime() function returns 'YYYY-MM-DD HH:MM:SS' (space separator).
-    We use the same format so comparisons work correctly.
-    """
-    return dt.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-
 import aiosqlite
 
 from hestia.database import BaseDatabase
@@ -30,6 +21,15 @@ from hestia.notifications.models import (
 )
 
 logger = get_logger()
+
+
+def _utc_iso(dt: datetime) -> str:
+    """Format datetime as bare UTC string for SQLite datetime() compatibility.
+
+    SQLite's datetime() function returns 'YYYY-MM-DD HH:MM:SS' (space separator).
+    We use the same format so comparisons work correctly.
+    """
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 
 class NotificationDatabase(BaseDatabase):

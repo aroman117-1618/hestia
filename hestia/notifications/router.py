@@ -55,10 +55,10 @@ class NotificationRouter:
                 bump.session_id
             )
             if last_response and last_response.responded_at:
-                now = datetime.now(timezone.utc).replace(tzinfo=None)
+                now = datetime.now(timezone.utc)
                 responded = last_response.responded_at
-                if responded.tzinfo is not None:
-                    responded = responded.replace(tzinfo=None)
+                if responded.tzinfo is None:
+                    responded = responded.replace(tzinfo=timezone.utc)
                 elapsed = (now - responded).total_seconds()
                 if elapsed < settings.session_cooldown_seconds:
                     return NotificationRoute.SUPPRESSED, "session_cooldown"
