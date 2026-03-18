@@ -426,7 +426,7 @@ async def backfill_email(days_back: int, verbose: bool) -> None:
             deduped += 1
             continue
 
-        sender_display = email.sender_name or email.sender_email or "Unknown"
+        sender_display = email.sender or email.sender_email or "Unknown"
         content_parts = [f"Email from {sender_display}: {email.subject}"]
         if email.snippet:
             content_parts.append(str(email.snippet)[:1500])
@@ -455,8 +455,8 @@ async def backfill_email(days_back: int, verbose: bool) -> None:
 
         await conn.execute(
             """INSERT OR IGNORE INTO memory_chunks
-               (id, session_id, content, chunk_type, scope, status, timestamp, metadata, tags)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               (id, session_id, content, chunk_type, scope, status, timestamp, metadata, tags, chunk_refs)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '[]')""",
             (chunk_id, batch_id, content, "observation", "long_term", "active", now, metadata, tags),
         )
         await conn.execute(

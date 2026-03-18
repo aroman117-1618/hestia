@@ -1,0 +1,31 @@
+# Trigger Monitor Configuration
+# Thresholds checked periodically by LearningScheduler.
+# Alerts fire when metrics cross thresholds (respecting cooldown).
+
+triggers:
+  enabled: true
+
+  thresholds:
+    chunk_count:
+      value: 5000
+      direction: above
+      cooldown_days: 30
+      description: "Memory chunk count exceeding expected growth"
+
+    redundancy_ratio:
+      value: 0.30
+      direction: above
+      cooldown_days: 14
+      description: "High duplicate content ratio in memory"
+
+    entity_count:
+      value: 1000
+      direction: above
+      cooldown_days: 30
+      description: "Entity count exceeding expected growth"
+
+    avg_latency_ms:
+      value: 5000
+      direction: above
+      cooldown_days: 7
+      description: "Average inference latency exceeding threshold"

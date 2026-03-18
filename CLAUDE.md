@@ -143,7 +143,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | Hardware | Mac Mini M1 (16GB) |
 | Model | Qwen 3.5 9B (Hestia) + DeepSeek-R1-14B (Artemis) + Qwen 3 8B (Apollo) + cloud (Anthropic/OpenAI/Google) |
 | SLM | qwen2.5:0.5b (council intent classification, ~100ms) |
-| Backend | Python 3.9+, FastAPI, ~208 endpoints across 29 route modules |
+| Backend | Python 3.9+, FastAPI, ~209 endpoints across 29 route modules |
 | Storage | ChromaDB (vectors) + SQLite (structured) + macOS Keychain (credentials) |
 | App | Native Swift/SwiftUI (iOS 26.0+) |
 | API | REST on port 8443 with JWT auth, HTTPS with self-signed cert |
@@ -295,7 +295,7 @@ hestia/
 │   │   └── manager.py            # ResearchManager singleton (graph, facts, entities, principles)
 │   ├── investigate/                 # URL content analysis (web articles, YouTube), LLM analysis pipeline
 │   │   └── extractors/             # BaseExtractor ABC, WebArticleExtractor, YouTubeExtractor
-│   ├── api/                         # FastAPI — 208 endpoints, 29 route modules
+│   ├── api/                         # FastAPI — 209 endpoints, 29 route modules
 │   │   ├── errors.py                # sanitize_for_log(), safe_error_detail()
 │   │   ├── schemas/                  # Pydantic request/response models (16 domain modules)
 │   │   ├── server.py                # App lifecycle, manager initialization
@@ -334,7 +334,7 @@ hestia/
 
 ---
 
-## API Summary (208 endpoints, 29 route modules)
+## API Summary (209 endpoints, 29 route modules)
 
 | Module | Endpoints | Key Routes |
 |--------|-----------|------------|
@@ -361,7 +361,7 @@ hestia/
 | Files | 9 | `/v1/files` (list, create), `/v1/files/content`, `/v1/files/metadata`, `/v1/files` (PUT, DELETE), `/v1/files/move`, `/v1/files/delete` (POST alias), `/v1/files/audit-log` |
 | Inbox | 7 | `/v1/inbox` (list), `/v1/inbox/unread-count`, `/v1/inbox/{id}`, `/v1/inbox/{id}/read`, `/v1/inbox/mark-all-read`, `/v1/inbox/{id}/archive`, `/v1/inbox/refresh` |
 | Outcomes | 5 | `/v1/outcomes` (list), `/v1/outcomes/stats`, `/v1/outcomes/{id}`, `/v1/outcomes/{id}/feedback`, `/v1/outcomes/track` |
-| Learning | 5 | `/v1/learning/report`, `memory-health`, `memory-health/history`, `alerts`, `alerts/{id}/acknowledge` |
+| Learning | 10 | `/v1/learning/report`, `memory-health`, `memory-health/history`, `alerts`, `alerts/{id}/acknowledge`, `corrections` (list), `corrections/stats`, `corrections/{outcome_id}`, `distill`, `distillation-runs` |
 | Notifications | 6 | `/v1/notifications/bump` (POST), `/v1/notifications/bump/{id}/status`, `/v1/notifications/bump/{id}/respond`, `/v1/notifications/history`, `/v1/notifications/settings` (GET/PUT) |
 | Trading | 12 | `/v1/trading/bots` (CRUD + start/stop), `/v1/trading/trades`, `/v1/trading/tax/lots`, `/v1/trading/daily-summary`, `/v1/trading/risk/status`, `/v1/trading/kill-switch` |
 

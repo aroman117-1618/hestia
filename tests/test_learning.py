@@ -466,9 +466,11 @@ class TestLearningRoutes:
     @pytest.fixture
     def app(self):
         from fastapi import FastAPI
+        from hestia.api.middleware.auth import get_device_token
         from hestia.api.routes.learning import router
         app = FastAPI()
         app.include_router(router)
+        app.dependency_overrides[get_device_token] = lambda: "test-device-id"
         return app
 
     @pytest.fixture
@@ -491,7 +493,7 @@ class TestLearningRoutes:
         )
         with patch("hestia.api.routes.learning._get_learning_db") as mock:
             mock.return_value = AsyncMock(get_latest_report=AsyncMock(return_value=report))
-            resp = await client.get("/v1/learning/report?user_id=u1")
+            resp = await client.get("/v1/learning/report")
         assert resp.status_code == 200
         assert resp.json()["data"]["positive_ratio"] == 0.72
 
@@ -499,7 +501,7 @@ class TestLearningRoutes:
     async def test_get_report_empty(self, client):
         with patch("hestia.api.routes.learning._get_learning_db") as mock:
             mock.return_value = AsyncMock(get_latest_report=AsyncMock(return_value=None))
-            resp = await client.get("/v1/learning/report?user_id=u1")
+            resp = await client.get("/v1/learning/report")
         assert resp.status_code == 200
         assert resp.json()["data"] is None
 
@@ -518,7 +520,7 @@ class TestLearningRoutes:
             mock.return_value = AsyncMock(
                 get_latest_health_snapshot=AsyncMock(return_value=snap)
             )
-            resp = await client.get("/v1/learning/memory-health?user_id=u1")
+            resp = await client.get("/v1/learning/memory-health")
         assert resp.status_code == 200
         assert resp.json()["data"]["chunk_count"] == 1200
 
@@ -534,6 +536,6 @@ class TestLearningRoutes:
             mock.return_value = AsyncMock(
                 get_unacknowledged_alerts=AsyncMock(return_value=[alert])
             )
-            resp = await client.get("/v1/learning/alerts?user_id=u1")
+            resp = await client.get("/v1/learning/alerts")
         assert resp.status_code == 200
         assert len(resp.json()["data"]) == 1

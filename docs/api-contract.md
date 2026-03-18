@@ -1,14 +1,14 @@
 # Hestia API Contract
 
 **Status**: Complete — All Workstreams Implemented
-**Last Updated**: 2026-03-17
+**Last Updated**: 2026-03-18
 
 ## Executive Summary
 
-The FastAPI REST API provides HTTP access to all Hestia backend capabilities including chat, memory management, mode switching, cloud LLM routing, voice journaling, proactive intelligence, scheduled orders, agent profiles (V1 slot-based + V2 markdown-based), user settings, user profile configuration, background task management, health data management, resource exploration, wiki/architecture docs, newsfeed timeline, knowledge graph, principle distillation, inbox aggregation, secure file management, chat outcome tracking, and learning metrics.
+The FastAPI REST API provides HTTP access to all Hestia backend capabilities including chat, memory management, mode switching, cloud LLM routing, voice journaling, proactive intelligence, scheduled orders, agent profiles (V1 slot-based + V2 markdown-based), user settings, user profile configuration, background task management, health data management, resource exploration, wiki/architecture docs, newsfeed timeline, knowledge graph, principle distillation, inbox aggregation, secure file management, chat outcome tracking, learning metrics, notifications, and autonomous trading.
 
-**Endpoints**: 186 across 27 route modules
-**Test Coverage**: 2277 tests (2142 backend + 135 CLI)
+**Endpoints**: 209 across 29 route modules
+**Test Coverage**: 2561 tests (2426 backend + 135 CLI)
 **Server**: HTTPS on port 8443 (self-signed cert)
 **Documentation**: https://localhost:8443/docs (Swagger UI)
 
