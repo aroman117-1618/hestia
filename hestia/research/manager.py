@@ -395,6 +395,9 @@ class ResearchManager:
         )
         await self._database.create_import_source(import_source)
 
+        # Count entities before extraction to compute delta
+        entities_before = await self._database.count_entities()
+
         # Extract facts from the pasted text
         facts = await self._fact_extractor.extract_from_text(
             text=text,
@@ -403,8 +406,9 @@ class ResearchManager:
             import_source_id=import_source.id,
         )
 
-        # Count entities created (approximate: count all entities)
-        entity_count = await self._database.count_entities()
+        # Count entities created during this import
+        entities_after = await self._database.count_entities()
+        entity_count = entities_after - entities_before
 
         # Update import source counts
         await self._database.update_import_source_counts(

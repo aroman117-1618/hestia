@@ -75,21 +75,16 @@ async def get_graph(
         if mode == "facts":
             # Resolve center_entity name to entity ID for BFS filtering
             resolved_center = center_entity
-            if center_entity:
-                if manager._database:
-                    cursor = await manager._database._connection.execute(
-                        "SELECT id FROM entities WHERE LOWER(canonical_name) LIKE ? LIMIT 1",
-                        (f"%{center_entity.lower()}%",),
+            if center_entity and manager._database:
+                entity = await manager._database.find_entity_by_name_like(center_entity)
+                if entity:
+                    resolved_center = entity.id
+                else:
+                    logger.warning(
+                        "Center entity not found by name, passing as-is",
+                        component=LogComponent.RESEARCH,
+                        data={"center_entity": center_entity},
                     )
-                    row = await cursor.fetchone()
-                    if row:
-                        resolved_center = row[0]
-                    else:
-                        logger.warning(
-                            "Center entity not found by name, passing as-is",
-                            component=LogComponent.RESEARCH,
-                            data={"center_entity": center_entity},
-                        )
 
             # Parse source_categories filter
             sc_list: Optional[List[SourceCategory]] = None
@@ -501,13 +496,7 @@ async def search_entities(
         if not manager._database:
             return {"entities": [], "count": 0}
 
-        # Search using canonical name LIKE query
-        cursor = await manager._database._connection.execute(
-            "SELECT * FROM entities WHERE canonical_name LIKE ? ORDER BY updated_at DESC LIMIT ?",
-            (f"%{q.lower()}%", limit),
-        )
-        rows = await cursor.fetchall()
-        entities = [manager._database._row_to_entity(row) for row in rows]
+        entities = await manager._database.search_entities_by_name(q, limit=limit)
 
         return {
             "entities": [e.to_dict() for e in entities],
@@ -690,11 +679,12 @@ async def import_paste(
     try:
         # Validate source_category
         try:
-            sc = SourceCategory(request.source_category)
+            source_cat = SourceCategory(request.source_category)
         except ValueError:
+            valid = ", ".join(c.value for c in SourceCategory)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid source_category. Use: {', '.join(sc.value for sc in SourceCategory)}",
+                detail=f"Invalid source_category. Use: {valid}",
             )
 
         manager = await get_research_manager()
@@ -702,7 +692,7 @@ async def import_paste(
             text=request.text,
             provider=request.provider,
             description=request.description,
-            source_category=sc,
+            source_category=source_cat,
         )
         return result
 

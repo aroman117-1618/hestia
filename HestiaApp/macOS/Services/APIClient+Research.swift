@@ -42,7 +42,7 @@ extension APIClient {
             path += "&point_in_time=\(pit.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? pit)"
         }
         if let sc = sourceCategories, !sc.isEmpty {
-            path += "&source_categories=\(sc)"
+            path += "&source_categories=\(sc.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? sc)"
         }
         return try await get(path)
     }

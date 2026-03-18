@@ -492,6 +492,28 @@ class ResearchDatabase(BaseDatabase):
         )
         await self._connection.commit()
 
+    async def search_entities_by_name(self, pattern: str, limit: int = 20) -> List[Entity]:
+        """Search entities by canonical_name LIKE pattern."""
+        if not self._connection:
+            return []
+        cursor = await self._connection.execute(
+            "SELECT * FROM entities WHERE canonical_name LIKE ? ORDER BY updated_at DESC LIMIT ?",
+            (f"%{pattern.lower()}%", limit),
+        )
+        rows = await cursor.fetchall()
+        return [self._row_to_entity(row) for row in rows]
+
+    async def find_entity_by_name_like(self, pattern: str) -> Optional[Entity]:
+        """Find the first entity whose canonical_name matches a LIKE pattern."""
+        if not self._connection:
+            return None
+        cursor = await self._connection.execute(
+            "SELECT * FROM entities WHERE LOWER(canonical_name) LIKE ? LIMIT 1",
+            (f"%{pattern.lower()}%",),
+        )
+        row = await cursor.fetchone()
+        return self._row_to_entity(row) if row else None
+
     async def count_entities(self, entity_type: Optional[EntityType] = None) -> int:
         """Count entities with optional type filter."""
         if not self._connection:
