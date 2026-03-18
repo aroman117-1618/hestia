@@ -1,86 +1,96 @@
-# Session Handoff — 2026-03-17 (Sprint 18 + Research View Unification)
+# Session Handoff — 2026-03-17 (Sprint 20 — Verification UI Indicators)
 
 ## Mission
-Execute the Research View Unification plan: consolidate the standalone Memory Browser sidebar tab into the Research view as a third toggle (Graph | Principles | Memory), add inline chunk editing, and wire approved principles into every system prompt.
+Implement Sprint 20: surface the 3-layer hallucination verifier as a user-visible amber dot in iOS and macOS chat UIs, and catch up api-contract.md (54 stale endpoints, 5 missing modules).
 
 ## Completed
 
-### Research View Unification (5-task plan — all done)
-- **Task 1** (`d173dd0`) — `PUT /v1/memory/chunks/{chunk_id}` backend endpoint. New `update_chunk_content()` in `MemoryManager`, re-indexes ChromaDB on content change. 3 new tests in `tests/test_memory_browser.py`.
-- **Task 2** (`2f7fb12`, `19dfb60`) — Approved principles injected into every system prompt as `## Behavioral Principles` section. `_load_approved_principles()` added to both `handle()` + `handle_streaming()` asyncio.gather as 4th coroutine. Cloud-safe excluded, skips DB query entirely when `will_use_cloud=True`. 2 new tests in `tests/test_prompt_builder.py`.
-- **Task 3** (`0507a0d`) — macOS structural refactor: `WorkspaceView.memory` case removed from 6 files (WorkspaceState, IconSidebar, WorkspaceRootView, AppDelegate, Accessibility, CommandPaletteState). `ResearchMode.explorer` → `.principles`, added `.memory`. ResearchView now has 3-button toggle, filterBar hidden in Memory mode, headerBar explicit per-mode, `graphNeedsRefresh` flag + `.onChange` reload.
-- **Task 4** (`72caeb7`, `7d25d7f`) — macOS chunk editing UI: `MemoryChunkUpdateRequest` Swift struct, `APIClient+Memory.updateChunk()`, `MacMemoryBrowserViewModel.updateChunk()` async method, `onChunkEdited` closure on `MemoryBrowserView`, hover pencil + inline TextEditor + type Picker + Save/Cancel in `MemoryChunkRow`. DesignSystem tokens enforced (MacColors, MacCornerRadius).
-- **Task 5** (`83b0e8e`) — CLAUDE.md API count (13→14), api-contract.md updated with PUT endpoint spec.
+### Sprint 20 — All tasks done
 
-### Bonus: Sprint 18 (committed by Task 2 subagent — kept after review)
-- **Anti-hallucination verifier stack** (`b307ebd`) — 3 layers:
-  - Layer 1: `hestia/verification/` — ToolComplianceChecker, pattern-matches domain claims without tool calls, appends disclaimer
-  - Layer 2: `build_context_with_score()` in memory manager — low-relevance retrieval warning
-  - Layer 3: `_validate_locally()` in council — binary qwen2.5:0.5b grounding check, local path only
-  - 13 new tests in `tests/test_verification.py`
-- **Outcome-to-principle pipeline** (`1b42627`) — `OutcomeDistiller` distills high-signal outcomes into ResearchManager principles, wired into `LearningScheduler`
+- **Task 1 — Backend Python** (`75e4a9a`)
+  - `hestia/orchestration/models.py` — `hallucination_risk: Optional[str] = None` on `Response`
+  - `hestia/api/schemas/chat.py` — `hallucination_risk: Optional[str]` on `ChatResponse` Pydantic model
+  - `hestia/orchestration/handler.py` — REST path: derives `"tool_bypass"` from ToolComplianceChecker, `"low_retrieval"` from retrieval_score < 0.6; streaming path: same + yields `{"type": "verification", "risk": ..., "request_id": ...}` SSE event BEFORE `done`
+  - `hestia/api/routes/chat.py` — threads `hallucination_risk` into `ChatResponse` constructor
 
-### Fixes
-- `375822d` — ValueError handling tightened in PUT chunk route; `datetime.utcnow()` → `datetime.now(timezone.utc)`
-- `076ba25` — Removed erroneous `await` from `get_inference_client()` in `LearningScheduler.__init__`
+- **Task 2 — Swift client** (`197c82a`)
+  - `HestiaShared/Sources/HestiaShared/Models/Response.swift` — `hallucinationRisk: String?` on `HestiaResponse`; `.verification(risk: String)` case on `ChatStreamEvent`; `parseChatStreamEvent()` handles `"verification"` type
+  - `HestiaShared/Sources/HestiaShared/Models/Message.swift` — `hallucinationRisk: String?` on `ConversationMessage`
+  - `HestiaApp/Shared/ViewModels/ChatViewModel.swift` — handles `.verification` in streaming loop; passes `hallucinationRisk` in REST path
+  - `HestiaApp/macOS/ViewModels/MacChatViewModel.swift` — same
+  - `HestiaApp/Shared/Views/Chat/Components/MessageBubble.swift` — `VerificationRiskDot` amber dot (`.orange`, popover, accessibility label)
+  - `HestiaApp/macOS/Views/Chat/MacMessageBubble.swift` — `MacVerificationRiskDot` using `MacColors.statusWarning` (#FF9800), always visible (not hover-gated), after bylines, before `OutcomeFeedbackRow`
+
+- **Task 3 — api-contract.md** (`85b8cf5`)
+  - Endpoint count: 132 → 186, module count: 22 → 27
+  - 5 missing modules added: files, inbox, outcomes, learning, ws_chat
+  - `ChatResponse.hallucination_risk` field + enum values documented
+  - SSE `verification` event type documented
+  - Verification Pipeline section added (3-layer architecture)
+  - Research module expanded from 6 → 18 endpoints
+
+- **Fixes** (`bd5f624`)
+  - `HestiaApp/macOS/Views/Research/ResearchView.swift` — moved `GraphControlPanel` inside ZStack (layout fix from previous session)
+  - `scripts/count-check.sh` — fixed test count parser for `(N backend + N CLI)` format; fixed file count to include CLI test files
+
+### Deploy
+- `git push origin main` complete — pre-push hook: full pytest (2142 passing, 3 skipped, 0 failing) + macOS BUILD SUCCEEDED
+- `./scripts/deploy-to-mini.sh` initiated in background at session end — verify Mac Mini server health before use
 
 ## In Progress
-Nothing. All code committed, all builds green.
+- Mac Mini deploy (background at session end) — run `lsof -i :8443` on Mac Mini to confirm server is live with Sprint 20 code
 
 ## Decisions Made
-- **Memory Browser relocated**: Standalone sidebar tab removed — Memory Browser lives inside Research view as third toggle. Three-layer mental model: Graph (visualization) → Principles (distilled patterns) → Memory (raw chunks).
-- **Principles injection is fail-open**: `_load_approved_principles()` returns `""` on any error, never raises. WARNING log on failure. Skips DB query entirely on cloud requests.
-- **Sprint 18 anti-hallucination stack kept**: Unauthorized scope expansion by subagent, but code was clean, tested, and architecturally sound. Approved by Andrew.
-- **Subagent scope discipline needed**: Subagents must implement only what's in the task spec. The Task 2 agent built a full Sprint 18 without authorization. Added to process learnings.
+- **Streaming verification event before `done`**: yield `{"type": "verification", ...}` before `done` so Swift clients can set `hallucinationRisk` immediately when streaming completes
+- **Option A disclaimer duplication**: kept text disclaimer in content AND amber dot for Sprint 20. Revisit in Sprint 21 (Option B: client-side suppression in bubble when `hallucinationRisk != nil`)
+- **`hallucination_risk: Optional[str]`** not a nested object: forward-compatible; future upgrade to `VerificationSummary` documented as ADR note in api-contract.md for Sprint 22+
+- **Retrieval threshold 0.6** hardcoded in handler risk derivation — matches configurable threshold in `_inject_retrieval_warning()`. Acceptable for Sprint 20
 
 ## Test Status
-- **2142 backend passing, 0 failing** (60 test files)
+- **2142 backend passing, 3 skipped, 0 failing**
 - **135 CLI passing** (unchanged)
-- **Total: 2277** (updated in CLAUDE.md)
-- macOS build: `BUILD SUCCEEDED` (HestiaWorkspace scheme)
+- **Total: 2277**
+- macOS: `BUILD SUCCEEDED`
 
 ## Uncommitted Changes
-None. Working tree is clean.
+None — working tree clean.
 
 ## Known Issues / Landmines
-- **SourceKit `No such module 'HestiaShared'` warnings**: IDE false positive affecting all macOS files. Appears after structural Swift changes. `xcodebuild` compiles clean — ignore in editor, will resolve when Xcode re-indexes.
-- **`ResearchView.swift` uses `MemoryBrowserView()` with no args** — Task 3 intentionally left the no-arg call. Task 4 added the `onChunkEdited` closure param to `MemoryBrowserView` but the `ResearchView` call needs to be updated to pass the closure. Check `ResearchView.swift` — the `.memory` case should be `MemoryBrowserView(onChunkEdited: { graphNeedsRefresh = true })` but Task 3 agent wrote `MemoryBrowserView()`. Task 4 added the param but may not have updated ResearchView. **Verify this wiring is complete.**
-- **Sprint 18 discovery doc** (`docs/discoveries/sprint-20-planning-2026-03-17.md`) recommends Sprint 20 = Verification UI Indicators + api-contract.md catch-up. Review before next sprint.
-- **api-contract.md is still stale**: Claims ~132 endpoints, actual is 187 (186 + new PUT chunk). The Task 5 agent updated the PUT chunk entry but the overall count header was not fixed. Sprint 20 planning doc correctly identifies this as Sprint 20 work.
-- **Tailscale OAuth setup** (pinned since 2026-03-22 weekend): `deploy.yml` has commented-out step. Create OAuth client in Tailscale admin → add GitHub secrets → uncomment block.
-- **handler.py at 2500+ lines**: Structural debt, no sprint scope yet.
+
+- **SourceKit `No such module 'HestiaShared'` warnings**: IDE false positives in macOS files. `xcodebuild` compiles clean. Resolves on Xcode re-index.
+- **`data-2026-03-15-22-44-27-batch-0000/` directory**: untracked in project root. Contains `conversations.json`, `memories.json`, `projects.json`, `users.json` — looks like a ChromaDB export from 2026-03-15. NOT committed (correct). Investigate: gitignore or delete if stale.
+- **Text disclaimer + amber dot both visible** on flagged messages: intentional Option A for Sprint 20. Sprint 21 correction UI is the right time to suppress the text (Option B: when `hallucinationRisk != nil`, hide the ⚠ footer from the bubble renderer).
+- **Tailscale OAuth for CI/CD still pending**: `deploy.yml` has commented-out Tailscale step. Manual deploy still works (`./scripts/deploy-to-mini.sh`). Weekend 2026-03-22 target passed — still pending.
+- **handler.py at 2500+ lines**: structural debt, no sprint scope yet.
 
 ## Process Learnings
 
-### Config Gap: Subagent scope enforcement
-**What happened**: Task 2 implementer built "Sprint 18 — 3-layer anti-hallucination verifier stack" (833 lines, 17 files) when asked to add principles injection (~50 lines, 3 files).
-**Root cause**: The implementer prompt gave enough architectural context about ResearchManager and the principles pipeline that the agent extrapolated a new feature. The implementer-prompt.md template says "implement exactly what the task specifies" but the agent over-indexed on the broader codebase context.
-**Fix**: Add to implementer prompt template: explicitly list the files the agent is *allowed* to touch. Any edit outside those files should be flagged as DONE_WITH_CONCERNS, not silently committed.
+### Config Gap: hestia-deployer hangs on ChromaDB pytest
+**What happened**: `hestia-deployer` subagent spent its entire budget running `python -m pytest` (ChromaDB background thread hang) and never reached the actual deploy step.
+**Root cause**: Deployer prompt triggers a full test run without the `run_with_timeout` wrapper from `scripts/pre-push.sh`.
+**Fix**: Update hestia-deployer agent definition — skip the test step (tests already ran pre-push), or invoke `scripts/pre-push.sh` which has the timeout wrapper built in.
 
-### Config Gap: pytest collection path issue
-**What happened**: `python -m pytest` from project root hits an `ImportPathMismatchError` for `hestia-cli/tests/conftest.py`. The workaround is always `python -m pytest tests/` (backend only).
-**Root cause**: Both `tests/` and `hestia-cli/tests/` have a `conftest.py` named `tests.conftest`. pytest can't disambiguate them.
-**Fix**: Add `testpaths = ["tests"]` to `pyproject.toml` or `pytest.ini` so bare `pytest` only collects backend tests. CLI tests always need `cd hestia-cli && python -m pytest tests/`.
-
-### First-Pass Success: ~75%
-- Tasks 1, 3, 4 — single implementer pass, review-then-fix loop was straightforward
-- Task 2 — single principles-injection pass was correct, but generated unauthorized Sprint 18 work (rework = Andrew review + decision)
-- Quality review found DesignSystem violations in Task 4 (expected for UI work — macOS token names aren't in the spec)
-- Top blocker: subagent scope creep. Mitigation: tighter file allowlists in implementer prompts.
+### First-Pass Success: ~90%
+- All 3 implementation tasks completed in single subagent passes
+- Both spec reviews: fully compliant on first submission
+- Both quality reviews: APPROVED on first submission
+- One rework: `count-check.sh` needed two fix iterations for BSD grep behaviour with `[^,\n]*`
+- The plan audit (4 conditions resolved pre-build) made the build extremely clean
 
 ### Agent Orchestration
-- Subagent-driven-development skill worked well — spec compliance + quality review caught real issues (deprecated `datetime.utcnow()`, ValueError scope, DesignSystem tokens)
-- `isolation: worktree` caused confusion: agents wrote to main working directory and committed there (no separate worktree path returned). This is fine but means parallel agents would conflict — the skill correctly serializes them.
-- Two-stage review (spec then quality) is the right pattern — spec caught nothing wrong on Task 2/3, quality caught real bugs on every task.
+- Subagent-driven-development was the right tool: implementer → spec review → quality review cycle caught nothing surprising
+- `hestia-deployer` should not be used as a foreground agent when a full test run is needed — use background or invoke scripts directly
 
 ## Next Step
 
-**Verify the `onChunkEdited` wiring in ResearchView first:**
-```bash
-grep -n "MemoryBrowserView" HestiaApp/macOS/Views/Research/ResearchView.swift
-```
-Expected: `MemoryBrowserView(onChunkEdited: { graphNeedsRefresh = true })`. If it shows `MemoryBrowserView()` (no closure), edit it to add the closure and rebuild.
+**Sprint 21: iOS Correction Feedback UI** (natural follow-on)
 
-**Then consider Sprint 20:**
-- Review `docs/discoveries/sprint-20-planning-2026-03-17.md` — recommends Verification UI Indicators + api-contract.md catch-up
-- Or deploy and test the new features on Mac Mini first: `./scripts/deploy-to-mini.sh`
+Users can now see which messages were flagged. Sprint 21 lets them act on it:
+- Backend complete: `POST /v1/outcomes/{id}/feedback` live; `CorrectionClassifier` + `OutcomeDistiller` consume it
+- iOS gap: `MessageBubble` needs a correction affordance on flagged messages
+- Design question: integrate into the amber dot popover, or separate tap target?
+- macOS already has `OutcomeFeedbackRow` on hover — check if it already covers this
+
+Start with: `/discovery sprint 21 — iOS correction feedback UI`
+
+First: clean up `data-2026-03-15-22-44-27-batch-0000/` (15 min, gitignore or delete) and confirm Mac Mini deploy is live.
