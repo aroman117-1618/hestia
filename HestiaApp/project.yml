@@ -102,6 +102,7 @@ targets:
           - "ToolModels.swift"
           - "DeviceModels.swift"
           - "NewsfeedModels.swift"
+          - "InvestigationModels.swift"
       - path: macOS/Fonts
         type: folder
         buildPhase: resources
