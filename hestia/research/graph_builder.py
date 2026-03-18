@@ -37,6 +37,7 @@ from .models import (
     NodeType,
     Principle,
     PrincipleStatus,
+    SourceCategory,
 )
 
 logger = get_logger()
@@ -85,6 +86,7 @@ class GraphBuilder:
         center_entity: Optional[str] = None,
         max_depth: int = 3,
         point_in_time: Optional[Any] = None,
+        source_categories: Optional[List[SourceCategory]] = None,
     ) -> GraphResponse:
         """
         Build a knowledge graph from entities, facts, communities, and episodes.
@@ -96,6 +98,8 @@ class GraphBuilder:
             center_entity: Entity ID to center the graph on (BFS filtering).
             max_depth: Max hops from center_entity to include.
             point_in_time: Optional datetime for bi-temporal fact filtering.
+            source_categories: Optional list of SourceCategory values to include.
+                If None, all categories are included.
 
         Returns:
             GraphResponse with entity nodes, relationship edges, community
@@ -134,6 +138,10 @@ class GraphBuilder:
         # Sprint 20A: Exclude ephemeral facts (durability=0) from graph
         # They remain searchable in Memory tab only (Log-to-Graph architecture)
         facts = [f for f in facts if f.durability_score > 0]
+
+        # Sprint 20B: Filter by source category if specified
+        if source_categories is not None:
+            facts = [f for f in facts if f.source_category in source_categories]
 
         # ── Build entity nodes ──────────────────────────
         entity_id_set = {e.id for e in entities}

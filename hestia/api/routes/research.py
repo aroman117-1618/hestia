@@ -22,6 +22,9 @@ from hestia.api.schemas.research import (
     ExtractFactsResponse,
     FactListResponse,
     GraphResponse,
+    ImportPasteRequest,
+    ImportPasteResponse,
+    ImportSourceListResponse,
     PrincipleListResponse,
     PrincipleResponse,
     PrincipleUpdateRequest,
@@ -29,7 +32,7 @@ from hestia.api.schemas.research import (
 )
 from hestia.logging import LogComponent, get_logger
 from hestia.research.manager import get_research_manager
-from hestia.research.models import PrincipleStatus
+from hestia.research.models import PrincipleStatus, SourceCategory
 
 router = APIRouter(prefix="/v1/research", tags=["research"])
 logger = get_logger()
@@ -49,6 +52,7 @@ async def get_graph(
     mode: str = Query(default="legacy", description="Graph mode: 'legacy' (co-occurrence) or 'facts' (entity-fact)"),
     center_entity: Optional[str] = Query(default=None, description="Center entity for mode=facts"),
     point_in_time: Optional[str] = Query(default=None, description="ISO datetime for bi-temporal fact filtering (mode=facts only)"),
+    source_categories: Optional[str] = Query(default=None, description="Comma-separated SourceCategory values for mode=facts: conversation,imported,web,tool,user_statement,apple_ecosystem,health,voice"),
     device_token: str = Depends(get_device_token),
 ) -> Dict[str, Any]:
     """Get the knowledge graph with nodes, edges, and clusters."""
@@ -87,9 +91,21 @@ async def get_graph(
                             data={"center_entity": center_entity},
                         )
 
+            # Parse source_categories filter
+            sc_list: Optional[List[SourceCategory]] = None
+            if source_categories:
+                try:
+                    sc_list = [SourceCategory(s.strip()) for s in source_categories.split(",") if s.strip()]
+                except ValueError:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Invalid source_categories. Use: {', '.join(sc.value for sc in SourceCategory)}",
+                    )
+
             response = await manager.get_fact_graph(
                 center_entity=resolved_center,
                 point_in_time=pit,
+                source_categories=sc_list,
             )
             return response.to_dict()
 
@@ -657,4 +673,77 @@ async def get_episodes_for_entity(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to find episodes for entity",
+        )
+
+
+# =============================================================================
+# Import Source Endpoints (Sprint 20B)
+# =============================================================================
+
+
+@router.post("/import/paste", response_model=ImportPasteResponse)
+async def import_paste(
+    request: ImportPasteRequest,
+    device_token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """Import facts from pasted text. Creates an import source record and extracts facts."""
+    try:
+        # Validate source_category
+        try:
+            sc = SourceCategory(request.source_category)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid source_category. Use: {', '.join(sc.value for sc in SourceCategory)}",
+            )
+
+        manager = await get_research_manager()
+        result = await manager.import_paste(
+            text=request.text,
+            provider=request.provider,
+            description=request.description,
+            source_category=sc,
+        )
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Import paste error",
+            component=LogComponent.RESEARCH,
+            data={"error": sanitize_for_log(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to import pasted text",
+        )
+
+
+@router.get("/import/sources", response_model=ImportSourceListResponse)
+async def list_import_sources(
+    provider: Optional[str] = Query(default=None, description="Filter by provider name"),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    device_token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """List import source records."""
+    try:
+        manager = await get_research_manager()
+        result = await manager.list_import_sources(
+            provider=provider,
+            limit=limit,
+            offset=offset,
+        )
+        return result
+
+    except Exception as e:
+        logger.error(
+            "List import sources error",
+            component=LogComponent.RESEARCH,
+            data={"error": sanitize_for_log(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to list import sources",
         )

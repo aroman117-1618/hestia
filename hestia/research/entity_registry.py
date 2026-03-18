@@ -15,7 +15,7 @@ from typing import Dict, List, Set
 from hestia.logging import LogComponent, get_logger
 
 from .database import ResearchDatabase
-from .models import Community, Entity, EntityType, FactStatus
+from .models import Community, Entity, EntityType, FactStatus, SourceCategory
 
 logger = get_logger()
 
@@ -32,6 +32,7 @@ class EntityRegistry:
         self,
         name: str,
         entity_type: EntityType = EntityType.CONCEPT,
+        source_category: SourceCategory = SourceCategory.CONVERSATION,
         user_id: str = "default",
     ) -> Entity:
         """Resolve a name to an existing or new entity.
@@ -50,6 +51,7 @@ class EntityRegistry:
         entity = Entity.create(
             name=name,
             entity_type=entity_type,
+            first_seen_source=source_category,
             user_id=user_id,
         )
         await self._db.create_entity(entity)

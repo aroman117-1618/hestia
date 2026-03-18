@@ -80,6 +80,12 @@ struct GraphControlPanel: View {
                         durabilitySection
                     }
 
+                    // Source category filter (facts mode)
+                    if viewModel.graphMode == .facts {
+                        MacColors.divider.frame(height: 1)
+                        sourceCategorySection
+                    }
+
                     // Apply button
                     Button {
                         Task { await viewModel.loadGraph() }
@@ -286,6 +292,52 @@ struct GraphControlPanel: View {
         case 3: return "Only permanent principles"
         default: return ""
         }
+    }
+
+    // MARK: - Source Categories (Sprint 20B)
+
+    private var sourceCategorySection: some View {
+        VStack(alignment: .leading, spacing: MacSpacing.sm) {
+            Text("SOURCES")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(MacColors.textFaint)
+                .tracking(1)
+
+            // Wrap pills in a flow layout
+            let columns = [GridItem(.flexible()), GridItem(.flexible())]
+            LazyVGrid(columns: columns, spacing: 4) {
+                ForEach(SourceCategoryFilter.allCases, id: \.rawValue) { category in
+                    sourceCategoryPill(category)
+                }
+            }
+        }
+    }
+
+    private func sourceCategoryPill(_ category: SourceCategoryFilter) -> some View {
+        let isActive = viewModel.activeSourceCategories.contains(category.rawValue)
+
+        return Button {
+            if isActive {
+                viewModel.activeSourceCategories.remove(category.rawValue)
+            } else {
+                viewModel.activeSourceCategories.insert(category.rawValue)
+            }
+        } label: {
+            HStack(spacing: 3) {
+                Image(systemName: category.icon)
+                    .font(.system(size: 9))
+                Text(category.label)
+                    .font(.system(size: 10, weight: .medium))
+            }
+            .foregroundStyle(isActive ? MacColors.amberAccent : MacColors.textFaint)
+            .padding(.horizontal, MacSpacing.sm)
+            .padding(.vertical, 3)
+            .background(isActive ? MacColors.amberAccent.opacity(0.15) : MacColors.textPrimary.opacity(0.04))
+            .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.tab))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(category.label) source, \(isActive ? "active" : "inactive")")
+        .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 
     // MARK: - Helpers

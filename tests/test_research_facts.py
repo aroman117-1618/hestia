@@ -932,9 +932,23 @@ class TestFactExtractorIntegration:
         )
         await db.create_fact(old_fact)
 
-        # New extraction says Andrew LEFT Acme Corp
-        extraction_response = json.dumps({
-            "triplets": [
+        # Phase 1: Entity identification
+        phase1_response = json.dumps({
+            "entities": [
+                {"name": "Andrew", "type": "person"},
+                {"name": "Acme Corp", "type": "organization"},
+            ]
+        })
+
+        # Phase 2: Significance filter
+        phase2_response = json.dumps({
+            "core": ["Andrew", "Acme Corp"],
+            "background": [],
+        })
+
+        # Phase 3: PRISM triple extraction
+        phase3_response = json.dumps({
+            "triples": [
                 {
                     "source": "Andrew",
                     "source_type": "person",
@@ -943,6 +957,8 @@ class TestFactExtractorIntegration:
                     "target_type": "organization",
                     "fact": "Andrew left Acme Corp",
                     "confidence": 0.9,
+                    "durability": 2,
+                    "temporal_type": "dynamic",
                 },
             ]
         })
@@ -954,10 +970,12 @@ class TestFactExtractorIntegration:
         })
 
         mock_inference = AsyncMock()
-        # First call = extraction, second call = contradiction check
+        # 4 calls: Phase 1 entities, Phase 2 significance, Phase 3 PRISM, contradiction check
         mock_inference.generate = AsyncMock(
             side_effect=[
-                MagicMock(content=extraction_response),
+                MagicMock(content=phase1_response),
+                MagicMock(content=phase2_response),
+                MagicMock(content=phase3_response),
                 MagicMock(content=contradiction_response),
             ]
         )

@@ -33,6 +33,45 @@ enum GraphMode: String, CaseIterable {
     }
 }
 
+/// Source categories matching backend SourceCategory enum.
+/// Used in facts mode to filter graph by provenance.
+enum SourceCategoryFilter: String, CaseIterable {
+    case conversation = "conversation"
+    case imported = "imported"
+    case web = "web"
+    case tool = "tool"
+    case userStatement = "user_statement"
+    case appleEcosystem = "apple_ecosystem"
+    case health = "health"
+    case voice = "voice"
+
+    var label: String {
+        switch self {
+        case .conversation:    return "Chat"
+        case .imported:        return "Imported"
+        case .web:             return "Web"
+        case .tool:            return "Tools"
+        case .userStatement:   return "User"
+        case .appleEcosystem:  return "Apple"
+        case .health:          return "Health"
+        case .voice:           return "Voice"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .conversation:    return "bubble.left"
+        case .imported:        return "square.and.arrow.down"
+        case .web:             return "globe"
+        case .tool:            return "wrench"
+        case .userStatement:   return "person"
+        case .appleEcosystem:  return "apple.logo"
+        case .health:          return "heart"
+        case .voice:           return "mic"
+        }
+    }
+}
+
 /// macOS ViewModel for the Neural Net 3D graph visualization
 ///
 /// Fetches graph data from /v1/research/graph (server-side layout + edges).
@@ -65,6 +104,7 @@ class MacNeuralNetViewModel: ObservableObject {
     @Published var focusTopic: String = ""
     @Published var depthLimit: Int = 3
     @Published var activeDataSources: Set<String> = Set(["conversation", "mail", "notes", "calendar", "reminders", "health"])
+    @Published var activeSourceCategories: Set<String> = Set(SourceCategoryFilter.allCases.map(\.rawValue))
     @Published var centerEntity: String = ""
 
     // MARK: - Published State (Time Slider — facts mode)
@@ -220,6 +260,12 @@ class MacNeuralNetViewModel: ObservableObject {
                 pointInTimeParam = formatter.string(from: date)
             }
 
+            // Source category filter (facts mode only)
+            var sourceCategoriesParam: String? = nil
+            if graphMode == .facts && activeSourceCategories.count < SourceCategoryFilter.allCases.count {
+                sourceCategoriesParam = activeSourceCategories.sorted().joined(separator: ",")
+            }
+
             let response = try await APIClient.shared.getResearchGraph(
                 limit: 200,
                 nodeTypes: nodeTypesParam,
@@ -227,7 +273,8 @@ class MacNeuralNetViewModel: ObservableObject {
                 mode: graphMode.rawValue,
                 sources: sourcesParam,
                 centerEntity: centerEntityParam,
-                pointInTime: pointInTimeParam
+                pointInTime: pointInTimeParam,
+                sourceCategories: sourceCategoriesParam
             )
             applyGraphResponse(response)
             CacheManager.shared.cache(response, forKey: CacheKey.researchGraph, ttl: 300)

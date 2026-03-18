@@ -120,6 +120,10 @@ class FactResponse(BaseModel):
     expiredAt: Optional[str] = None
     sourceChunkId: Optional[str] = None
     confidence: float = 0.5
+    durabilityScore: int = 1
+    temporalType: str = "dynamic"
+    sourceCategory: str = "conversation"
+    importSourceId: Optional[str] = None
     createdAt: Optional[str] = None
 
 
@@ -137,6 +141,7 @@ class EntityResponse(BaseModel):
     canonicalName: str
     summary: Optional[str] = None
     communityId: Optional[str] = None
+    firstSeenSource: str = "conversation"
     createdAt: Optional[str] = None
     updatedAt: Optional[str] = None
 
@@ -179,3 +184,45 @@ class TimelineResponse(BaseModel):
     facts: List[FactResponse]
     entities: List[EntityResponse]
     point_in_time: Optional[str] = None
+
+
+# =============================================================================
+# Import Source Schemas (Sprint 20B)
+# =============================================================================
+
+
+class ImportPasteRequest(BaseModel):
+    """Request to import facts from pasted text."""
+    text: str = Field(..., min_length=10, max_length=50000, description="Text to extract facts from")
+    provider: str = Field(default="paste", max_length=50, description="Source provider name")
+    description: Optional[str] = Field(default=None, max_length=500)
+    source_category: str = Field(default="imported", description="Source category: conversation, imported, web, etc.")
+
+
+class ImportPasteResponse(BaseModel):
+    """Result of a paste import."""
+    import_source_id: str
+    facts_created: int
+    entities_created: int
+    source_category: str
+
+
+class ImportSourceResponse(BaseModel):
+    """A single import source record."""
+    id: str
+    userId: str
+    provider: str
+    importType: str
+    filename: Optional[str] = None
+    description: Optional[str] = None
+    chunkCount: int = 0
+    factCount: int = 0
+    entityCount: int = 0
+    sourceCategory: str = "imported"
+    createdAt: Optional[str] = None
+
+
+class ImportSourceListResponse(BaseModel):
+    """List of import sources."""
+    sources: List[ImportSourceResponse]
+    total: int

@@ -16,7 +16,7 @@ from .database import ResearchDatabase, get_research_database, close_research_da
 from .entity_registry import EntityRegistry
 from .fact_extractor import FactExtractor
 from .graph_builder import GraphBuilder
-from .models import GraphCluster, GraphEdge, GraphNode, GraphResponse, Principle, PrincipleStatus
+from .models import GraphCluster, GraphEdge, GraphNode, GraphResponse, ImportSource, Principle, PrincipleStatus, SourceCategory
 from .principle_store import PrincipleStore
 
 logger = get_logger()
@@ -323,14 +323,16 @@ class ResearchManager:
         self,
         center_entity: Optional[str] = None,
         point_in_time: Optional[datetime] = None,
+        source_categories: Optional[List[SourceCategory]] = None,
     ) -> GraphResponse:
-        """Get the fact-based knowledge graph, optionally filtered to a point in time."""
+        """Get the fact-based knowledge graph, optionally filtered to a point in time or source."""
         if not self._graph_builder:
             return GraphResponse(nodes=[], edges=[], clusters=[], metadata={"error": "not_initialized"})
 
         return await self._graph_builder.build_fact_graph(
             center_entity=center_entity,
             point_in_time=point_in_time,
+            source_categories=source_categories,
         )
 
     async def list_communities(
@@ -362,6 +364,83 @@ class ResearchManager:
         return {
             "communities": len(communities),
             "details": [c.to_dict() for c in communities],
+        }
+
+
+    # ── Import Source Operations ──────────────────────────
+
+    async def import_paste(
+        self,
+        text: str,
+        provider: str = "paste",
+        description: Optional[str] = None,
+        source_category: SourceCategory = SourceCategory.IMPORTED,
+        user_id: str = "default",
+    ) -> Dict[str, Any]:
+        """Import facts from pasted text.
+
+        Creates an ImportSource record, extracts facts from the text,
+        and links all created facts/entities to the import source.
+        """
+        if not self._database or not self._fact_extractor:
+            return {"error": "not_initialized", "facts_created": 0}
+
+        # Create import source record
+        import_source = ImportSource.create(
+            user_id=user_id,
+            provider=provider,
+            import_type="paste",
+            description=description,
+            source_category=source_category,
+        )
+        await self._database.create_import_source(import_source)
+
+        # Extract facts from the pasted text
+        facts = await self._fact_extractor.extract_from_text(
+            text=text,
+            source_chunk_id=None,
+            source_category=source_category,
+            import_source_id=import_source.id,
+        )
+
+        # Count entities created (approximate: count all entities)
+        entity_count = await self._database.count_entities()
+
+        # Update import source counts
+        await self._database.update_import_source_counts(
+            source_id=import_source.id,
+            chunk_count=1,
+            fact_count=len(facts),
+            entity_count=entity_count,
+        )
+
+        # Invalidate graph cache
+        await self._database.invalidate_cache()
+
+        return {
+            "import_source_id": import_source.id,
+            "facts_created": len(facts),
+            "entities_created": entity_count,
+            "source_category": source_category.value,
+        }
+
+    async def list_import_sources(
+        self,
+        user_id: str = "default",
+        provider: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """List import source records."""
+        if not self._database:
+            return {"sources": [], "total": 0}
+
+        sources = await self._database.list_import_sources(
+            user_id=user_id, provider=provider, limit=limit, offset=offset,
+        )
+        return {
+            "sources": [s.to_dict() for s in sources],
+            "total": len(sources),
         }
 
 

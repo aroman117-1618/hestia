@@ -93,6 +93,7 @@ class FactExtractor:
         source_chunk_id: Optional[str] = None,
         user_id: str = "default",
         source_category: SourceCategory = SourceCategory.CONVERSATION,
+        import_source_id: Optional[str] = None,
     ) -> List[Fact]:
         """Extract facts from text via 3-phase LLM pipeline.
 
@@ -127,7 +128,7 @@ class FactExtractor:
         core_entities = await self._phase1_entities(client, truncated)
         if core_entities is None:
             # Phase 1 failed — fall back to legacy single-prompt
-            return await self._extract_legacy(client, truncated, source_chunk_id, user_id, source_category)
+            return await self._extract_legacy(client, truncated, source_chunk_id, user_id, source_category, import_source_id)
 
         # ── Phase 2: Significance Filter ───────────────────
         core_names = await self._phase2_significance(client, truncated, core_entities)
@@ -166,7 +167,7 @@ class FactExtractor:
             return []
 
         return await self._process_triplets(
-            triplets, source_chunk_id, user_id, source_category
+            triplets, source_chunk_id, user_id, source_category, import_source_id
         )
 
     async def _phase1_entities(
@@ -225,6 +226,7 @@ class FactExtractor:
         source_chunk_id: Optional[str],
         user_id: str,
         source_category: SourceCategory,
+        import_source_id: Optional[str] = None,
     ) -> List[Fact]:
         """Legacy single-prompt extraction (fallback when staged pipeline fails)."""
         try:
@@ -246,7 +248,7 @@ class FactExtractor:
             return []
 
         return await self._process_triplets(
-            triplets, source_chunk_id, user_id, source_category
+            triplets, source_chunk_id, user_id, source_category, import_source_id
         )
 
     async def _process_triplets(
@@ -255,6 +257,7 @@ class FactExtractor:
         source_chunk_id: Optional[str],
         user_id: str,
         source_category: SourceCategory,
+        import_source_id: Optional[str] = None,
     ) -> List[Fact]:
         """Resolve entities, check contradictions, store facts from parsed triplets."""
         created_facts: List[Fact] = []
@@ -269,11 +272,13 @@ class FactExtractor:
                 source_entity = await self._registry.resolve_entity(
                     name=triplet["source"],
                     entity_type=source_type,
+                    source_category=source_category,
                     user_id=user_id,
                 )
                 target_entity = await self._registry.resolve_entity(
                     name=triplet["target"],
                     entity_type=target_type,
+                    source_category=source_category,
                     user_id=user_id,
                 )
 
@@ -302,6 +307,7 @@ class FactExtractor:
                     durability_score=durability,
                     temporal_type=temporal_type,
                     source_category=source_category,
+                    import_source_id=import_source_id,
                     user_id=user_id,
                 )
 

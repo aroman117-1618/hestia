@@ -25,6 +25,7 @@ from .models import (
     EpisodicNode,
     Fact,
     FactStatus,
+    ImportSource,
     Principle,
     PrincipleStatus,
     SourceCategory,
@@ -132,13 +133,31 @@ class ResearchDatabase(BaseDatabase):
             CREATE INDEX IF NOT EXISTS idx_episodic_session ON episodic_nodes(session_id);
             CREATE INDEX IF NOT EXISTS idx_episodic_user ON episodic_nodes(user_id);
             CREATE INDEX IF NOT EXISTS idx_episodic_created ON episodic_nodes(created_at);
+
+            CREATE TABLE IF NOT EXISTS import_sources (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL DEFAULT 'default',
+                provider TEXT NOT NULL,
+                import_type TEXT NOT NULL,
+                filename TEXT,
+                description TEXT,
+                chunk_count INTEGER NOT NULL DEFAULT 0,
+                fact_count INTEGER NOT NULL DEFAULT 0,
+                entity_count INTEGER NOT NULL DEFAULT 0,
+                source_category TEXT NOT NULL DEFAULT 'imported',
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_import_sources_user ON import_sources(user_id);
+            CREATE INDEX IF NOT EXISTS idx_import_sources_provider ON import_sources(provider);
         """)
 
         # Sprint 20A: Add durability/temporal/source columns to facts table
+        # Sprint 20B: Add import_source_id FK on facts
         for col_sql in [
             "ALTER TABLE facts ADD COLUMN durability_score INTEGER DEFAULT 1",
             "ALTER TABLE facts ADD COLUMN temporal_type TEXT DEFAULT 'dynamic'",
             "ALTER TABLE facts ADD COLUMN source_category TEXT DEFAULT 'conversation'",
+            "ALTER TABLE facts ADD COLUMN import_source_id TEXT",
         ]:
             try:
                 await self._connection.execute(col_sql)
@@ -389,8 +408,8 @@ class ResearchDatabase(BaseDatabase):
         await self._connection.execute(
             """INSERT INTO entities
                (id, name, entity_type, canonical_name, summary, community_id,
-                user_id, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                user_id, created_at, updated_at, first_seen_source)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 entity.id,
                 entity.name,
@@ -401,6 +420,7 @@ class ResearchDatabase(BaseDatabase):
                 entity.user_id,
                 entity.created_at.isoformat() if entity.created_at else datetime.now(timezone.utc).isoformat(),
                 entity.updated_at.isoformat() if entity.updated_at else datetime.now(timezone.utc).isoformat(),
+                entity.first_seen_source.value,
             ),
         )
         await self._connection.commit()
@@ -491,7 +511,7 @@ class ResearchDatabase(BaseDatabase):
     def _row_to_entity(self, row: aiosqlite.Row) -> Entity:
         """Convert a database row to an Entity object."""
         # Columns: id, name, entity_type, canonical_name, summary, community_id,
-        #          user_id, created_at, updated_at
+        #          user_id, created_at, updated_at, first_seen_source (Sprint 20B)
         created_at = None
         updated_at = None
         try:
@@ -503,6 +523,14 @@ class ResearchDatabase(BaseDatabase):
         except (ValueError, TypeError, IndexError):
             pass
 
+        # first_seen_source added via ALTER TABLE — may not exist on old DBs
+        first_seen_source = SourceCategory.CONVERSATION
+        try:
+            if len(row) > 9 and row[9]:
+                first_seen_source = SourceCategory(row[9])
+        except (ValueError, IndexError):
+            pass
+
         return Entity(
             id=row[0],
             name=row[1],
@@ -510,6 +538,7 @@ class ResearchDatabase(BaseDatabase):
             canonical_name=row[3],
             summary=row[4],
             community_id=row[5],
+            first_seen_source=first_seen_source,
             user_id=row[6],
             created_at=created_at,
             updated_at=updated_at,
@@ -526,8 +555,8 @@ class ResearchDatabase(BaseDatabase):
                (id, source_entity_id, relation, target_entity_id, fact_text,
                 status, valid_at, invalid_at, expired_at, source_chunk_id,
                 confidence, user_id, created_at,
-                durability_score, temporal_type, source_category)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                durability_score, temporal_type, source_category, import_source_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 fact.id,
                 fact.source_entity_id,
@@ -545,6 +574,7 @@ class ResearchDatabase(BaseDatabase):
                 fact.durability_score,
                 fact.temporal_type.value,
                 fact.source_category.value,
+                fact.import_source_id,
             ),
         )
         await self._connection.commit()
@@ -662,6 +692,7 @@ class ResearchDatabase(BaseDatabase):
         #          status, valid_at, invalid_at, expired_at, source_chunk_id,
         #          confidence, user_id, created_at,
         #          durability_score, temporal_type, source_category  (Sprint 20A)
+        #          import_source_id  (Sprint 20B)
         def _parse_dt(idx: int) -> Optional[datetime]:
             try:
                 val = row[idx]
@@ -673,6 +704,7 @@ class ResearchDatabase(BaseDatabase):
         durability = 1
         temporal_type = TemporalType.DYNAMIC
         source_category = SourceCategory.CONVERSATION
+        import_source_id = None
         try:
             if len(row) > 13 and row[13] is not None:
                 durability = int(row[13])
@@ -680,6 +712,8 @@ class ResearchDatabase(BaseDatabase):
                 temporal_type = TemporalType(row[14])
             if len(row) > 15 and row[15]:
                 source_category = SourceCategory(row[15])
+            if len(row) > 16 and row[16]:
+                import_source_id = row[16]
         except (ValueError, IndexError):
             pass
 
@@ -698,6 +732,7 @@ class ResearchDatabase(BaseDatabase):
             durability_score=durability,
             temporal_type=temporal_type,
             source_category=source_category,
+            import_source_id=import_source_id,
             user_id=row[11],
             created_at=_parse_dt(12),
         )
@@ -854,6 +889,115 @@ class ResearchDatabase(BaseDatabase):
             summary=row[3],
             entity_ids=json.loads(row[4]) if row[4] else [],
             fact_ids=json.loads(row[5]) if row[5] else [],
+            created_at=created_at,
+        )
+
+    # ── Import Sources CRUD ─────────────────────────────────
+
+    async def create_import_source(self, source: ImportSource) -> ImportSource:
+        """Insert a new import source record."""
+        if not self._connection:
+            raise RuntimeError("Database not initialized")
+        await self._connection.execute(
+            """INSERT INTO import_sources
+               (id, user_id, provider, import_type, filename, description,
+                chunk_count, fact_count, entity_count, source_category, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                source.id,
+                source.user_id,
+                source.provider,
+                source.import_type,
+                source.filename,
+                source.description,
+                source.chunk_count,
+                source.fact_count,
+                source.entity_count,
+                source.source_category.value,
+                source.created_at.isoformat() if source.created_at else datetime.now(timezone.utc).isoformat(),
+            ),
+        )
+        await self._connection.commit()
+        return source
+
+    async def get_import_source(self, source_id: str) -> Optional[ImportSource]:
+        """Get a single import source by ID."""
+        if not self._connection:
+            return None
+        cursor = await self._connection.execute(
+            "SELECT * FROM import_sources WHERE id = ?", (source_id,)
+        )
+        row = await cursor.fetchone()
+        return self._row_to_import_source(row) if row else None
+
+    async def list_import_sources(
+        self,
+        user_id: str = "default",
+        provider: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[ImportSource]:
+        """List import sources for a user, newest first."""
+        if not self._connection:
+            return []
+
+        query = "SELECT * FROM import_sources WHERE user_id = ?"
+        params: List[Any] = [user_id]
+
+        if provider:
+            query += " AND provider = ?"
+            params.append(provider)
+
+        query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+
+        cursor = await self._connection.execute(query, params)
+        rows = await cursor.fetchall()
+        return [self._row_to_import_source(row) for row in rows]
+
+    async def update_import_source_counts(
+        self, source_id: str, chunk_count: int, fact_count: int, entity_count: int
+    ) -> None:
+        """Update counts after an import completes."""
+        if not self._connection:
+            return
+        await self._connection.execute(
+            "UPDATE import_sources SET chunk_count = ?, fact_count = ?, entity_count = ? WHERE id = ?",
+            (chunk_count, fact_count, entity_count, source_id),
+        )
+        await self._connection.commit()
+
+    async def delete_import_source(self, source_id: str) -> bool:
+        """Delete an import source by ID."""
+        if not self._connection:
+            return False
+        cursor = await self._connection.execute(
+            "DELETE FROM import_sources WHERE id = ?", (source_id,)
+        )
+        await self._connection.commit()
+        return cursor.rowcount > 0
+
+    def _row_to_import_source(self, row: aiosqlite.Row) -> ImportSource:
+        """Convert a database row to an ImportSource object."""
+        # Columns: id, user_id, provider, import_type, filename, description,
+        #          chunk_count, fact_count, entity_count, source_category, created_at
+        created_at = None
+        try:
+            created_at = datetime.fromisoformat(row[10])
+        except (ValueError, TypeError, IndexError):
+            pass
+
+        return ImportSource(
+            id=row[0],
+            user_id=row[1],
+            provider=row[2],
+            import_type=row[3],
+            filename=row[4],
+            description=row[5],
+            chunk_count=row[6] or 0,
+            fact_count=row[7] or 0,
+            entity_count=row[8] or 0,
+            source_category=SourceCategory(row[9]) if row[9] else SourceCategory.IMPORTED,
             created_at=created_at,
         )
 

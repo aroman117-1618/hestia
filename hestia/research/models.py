@@ -75,6 +75,9 @@ class SourceCategory(str, Enum):
     WEB = "web"
     TOOL = "tool"
     USER_STATEMENT = "user_statement"
+    APPLE_ECOSYSTEM = "apple_ecosystem"
+    HEALTH = "health"
+    VOICE = "voice"
 
 
 # Category-to-color mapping for frontend rendering.
@@ -290,6 +293,7 @@ class Fact:
     durability_score: int = 1
     temporal_type: TemporalType = TemporalType.DYNAMIC
     source_category: SourceCategory = SourceCategory.CONVERSATION
+    import_source_id: Optional[str] = None
     user_id: str = "default"
     created_at: Optional[datetime] = None
 
@@ -318,6 +322,7 @@ class Fact:
             "durabilityScore": self.durability_score,
             "temporalType": self.temporal_type.value,
             "sourceCategory": self.source_category.value,
+            "importSourceId": self.import_source_id,
             "createdAt": self.created_at.isoformat() if self.created_at else None,
         }
 
@@ -348,6 +353,7 @@ class Fact:
             durability_score=data.get("durabilityScore", 1),
             temporal_type=TemporalType(data.get("temporalType", "dynamic")),
             source_category=SourceCategory(data.get("sourceCategory", "conversation")),
+            import_source_id=data.get("importSourceId"),
             created_at=_parse_dt("createdAt"),
         )
 
@@ -363,6 +369,7 @@ class Fact:
         durability_score: int = 1,
         temporal_type: "TemporalType" = None,
         source_category: "SourceCategory" = None,
+        import_source_id: Optional[str] = None,
         valid_at: Optional[datetime] = None,
         user_id: str = "default",
     ) -> "Fact":
@@ -379,6 +386,7 @@ class Fact:
             durability_score=durability_score,
             temporal_type=temporal_type or TemporalType.DYNAMIC,
             source_category=source_category or SourceCategory.CONVERSATION,
+            import_source_id=import_source_id,
             valid_at=valid_at or now,
             user_id=user_id,
             created_at=now,
@@ -398,6 +406,7 @@ class Entity:
     entity_type: EntityType
     summary: Optional[str] = None
     community_id: Optional[str] = None
+    first_seen_source: SourceCategory = SourceCategory.CONVERSATION
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     user_id: str = "default"
@@ -411,6 +420,7 @@ class Entity:
             "entityType": self.entity_type.value,
             "summary": self.summary,
             "communityId": self.community_id,
+            "firstSeenSource": self.first_seen_source.value,
             "createdAt": self.created_at.isoformat() if self.created_at else None,
             "updatedAt": self.updated_at.isoformat() if self.updated_at else None,
             "userId": self.user_id,
@@ -435,6 +445,7 @@ class Entity:
             entity_type=EntityType(data["entityType"]),
             summary=data.get("summary"),
             community_id=data.get("communityId"),
+            first_seen_source=SourceCategory(data.get("firstSeenSource", "conversation")),
             created_at=_parse_dt("createdAt"),
             updated_at=_parse_dt("updatedAt"),
             user_id=data.get("userId", "default"),
@@ -447,6 +458,7 @@ class Entity:
         entity_type: EntityType,
         summary: Optional[str] = None,
         community_id: Optional[str] = None,
+        first_seen_source: "SourceCategory" = None,
         user_id: str = "default",
     ) -> "Entity":
         """Factory method with auto-generated UUID and timestamps."""
@@ -458,6 +470,7 @@ class Entity:
             entity_type=entity_type,
             summary=summary,
             community_id=community_id,
+            first_seen_source=first_seen_source or SourceCategory.CONVERSATION,
             created_at=now,
             updated_at=now,
             user_id=user_id,
@@ -685,4 +698,57 @@ class Principle:
             entities=entities or [],
             created_at=now,
             updated_at=now,
+        )
+
+
+@dataclass
+class ImportSource:
+    """Tracks a bulk import of facts/entities from an external source."""
+    id: str
+    user_id: str
+    provider: str  # e.g., "claude_history", "paste", "web_article"
+    import_type: str  # "paste", "file", "api"
+    filename: Optional[str] = None
+    description: Optional[str] = None
+    chunk_count: int = 0
+    fact_count: int = 0
+    entity_count: int = 0
+    source_category: SourceCategory = SourceCategory.IMPORTED
+    created_at: Optional[datetime] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "userId": self.user_id,
+            "provider": self.provider,
+            "importType": self.import_type,
+            "filename": self.filename,
+            "description": self.description,
+            "chunkCount": self.chunk_count,
+            "factCount": self.fact_count,
+            "entityCount": self.entity_count,
+            "sourceCategory": self.source_category.value,
+            "createdAt": self.created_at.isoformat() if self.created_at else None,
+        }
+
+    @classmethod
+    def create(
+        cls,
+        user_id: str,
+        provider: str,
+        import_type: str,
+        filename: Optional[str] = None,
+        description: Optional[str] = None,
+        source_category: SourceCategory = SourceCategory.IMPORTED,
+    ) -> "ImportSource":
+        """Factory method with auto-generated ID and timestamp."""
+        return cls(
+            id=str(uuid.uuid4()),
+            user_id=user_id,
+            provider=provider,
+            import_type=import_type,
+            filename=filename,
+            description=description,
+            source_category=source_category,
+            created_at=datetime.now(timezone.utc),
         )

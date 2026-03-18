@@ -22,7 +22,8 @@ extension APIClient {
         mode: String = "legacy",
         sources: String? = nil,
         centerEntity: String? = nil,
-        pointInTime: String? = nil
+        pointInTime: String? = nil,
+        sourceCategories: String? = nil
     ) async throws -> ResearchGraphResponse {
         var path = "/research/graph?limit=\(limit)&mode=\(mode)"
         if let types = nodeTypes {
@@ -39,6 +40,9 @@ extension APIClient {
         }
         if let pit = pointInTime, !pit.isEmpty {
             path += "&point_in_time=\(pit.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? pit)"
+        }
+        if let sc = sourceCategories, !sc.isEmpty {
+            path += "&source_categories=\(sc)"
         }
         return try await get(path)
     }
