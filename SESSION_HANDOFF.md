@@ -1,81 +1,119 @@
-# Session Handoff — 2026-03-18 (Session 2)
+# Session Handoff — 2026-03-18 (Session 4: Sprint 20 Completion + Codebase Audit)
 
 ## Mission
-Implement Sprint 20A autonomously — all 4 workstreams of the Neural Net Graph Phase 2 quality framework.
+Complete Sprint 20 by finishing Phase 20C (WS6: Intelligent Notification Relay), run a full codebase audit, and close out all Sprint 20 issues on the GitHub Project board.
 
 ## Completed
 
-### Sprint 20A: All 4 Workstreams COMPLETE
+### Sprint 20C WS6: Intelligent Notification Relay (42bf296, 5b018e2)
+- **7 source files** in `hestia/notifications/`: models, database, idle_detector, macos_notifier, apns_client, router, manager
+- **5-check routing chain**: rate limit -> session cooldown -> quiet hours -> Focus mode -> idle detection
+- macOS notifications via osascript when user is active
+- APNs HTTP/2 JWT push (ES256, 50-min token cache) when idle -- credentials in Keychain (apns-key-id, apns-team-id, apns-key-path)
+- Batch consolidation (3+ bumps in 60s -> single summary)
+- **6 API endpoints** under /v1/notifications/ with Pydantic schemas
+- **43 tests** in tests/test_notifications.py
+- Server lifecycle wired (init, shutdown block #22, router registration)
+- NOTIFICATION LogComponent added, auto-test.sh mapping added
 
-**WS1: Insight Quality Framework** (13h planned)
-- DIKW 4-tier durability scoring: Ephemeral(0), Contextual(1), Durable(2), Principled(3)
-- 3-phase staged extraction pipeline: Entity ID → Significance Filter → PRISM Triple Extraction
-- `TemporalType` + `SourceCategory` enums added to `hestia/research/models.py`
-- Backward-compat ALTER TABLE migrations in `database.py` (with proper error logging)
-- Importance formula updated: `0.2R + 0.2F + 0.3T + 0.3D` (added durability weight)
-- Ephemeral fact filter in graph builder, durability-blended node/edge weights
-- Retroactive crystallization loop in scheduler (weekly promotion of clustered ephemerals)
+### Reviewer Fixes (5b018e2)
+- Route prefix: /notifications -> /v1/notifications (was unreachable)
+- Cooldown check: UTC-aware comparison instead of fragile replace(tzinfo=None) stripping
+- Action validation: respond_to_bump now validates action against bump declared actions list
+- Import order fix in database.py, stderr decode consistency in macos_notifier.py
 
-**WS2: Principles Pipeline Fix** (3h planned)
-- `_distillation_loop()` rewrite with bootstrap check (seeds from 30d memory if empty)
-- Config-driven intervals via `memory.yaml` `principle_distillation` section
-- 3-phase distillation: memory chunks → outcomes → corrections
-- ResearchView empty state: "tap" → "click", added auto-distillation note
+### Codebase Audit (a45e4e6)
+- Full CISO/CTO/CPO audit saved to docs/audits/codebase-audit-2026-03-18.md
+- CLAUDE.md counts refreshed: 208 endpoints, 29 route modules, 2365 backend tests, 30 modules, 23 LogComponents
+- All three panels rated Acceptable
+- 0 critical blockers, 3 high-priority items identified (see Known Issues)
 
-**WS3: Memory Tab UI Polish** (2h planned)
-- Sort picker: external label + `.labelsHidden()`
-- Filter pill spacing: `MacSpacing.sm` → `MacSpacing.md`
-- Pagination bar: added top Divider (`.overlay()` for consistency)
-- Type badge width: 80px → 60px
+### GitHub Project Board
+- Issues #11 (WS5), #12 (WS7), #13 (WS6) all marked Done and closed
+- Sprint 20 marked COMPLETE in SPRINT.md
 
-**WS4: Graph Visual Weight System** (3h planned)
-- Node opacity maps to confidence (0.3–1.0)
-- Node emission glow maps to recency (fades over 90 days)
-- Durability filter UI (segmented picker: All/Contextual+/Durable+/Principled)
-- Client-side durability filtering with edge pruning
+### Commits This Session
+- 42bf296 feat: Sprint 20C WS6 -- intelligent notification relay
+- d537acc docs: update CLAUDE.md + SPRINT.md for WS6 notification relay completion
+- 5b018e2 fix: reviewer fixes -- /v1/ prefix, timezone safety, action validation
+- 1f6ea3b docs: update test count to 2465 after reviewer fix
+- a45e4e6 docs: codebase audit 2026-03-18 -- post-Sprint 20 health check
 
-### Review Fixes
-- Fixed `"triples"` vs `"triplets"` key mismatch in Phase 3 parser (would have returned zero results)
-- Replaced bare `except: pass` in ALTER TABLE migrations with targeted duplicate-column check
-- Moved `Counter` import to module level in scheduler
-- Fixed pagination Divider `.background()` → `.overlay()` for consistency
-- Updated scheduler docstring monitor count 8 → 9
+## In Progress
+- Nothing -- all Sprint 20 work complete
 
-## Key Commits
-- `714acac` feat: Sprint 20A — DIKW quality framework, principles pipeline, visual weights
-- `13330a4` fix: review fixes — triplets/triples key mismatch, migration logging, Counter import
+## Decisions Made
+- APNs always uses production endpoint (no sandbox toggle) -- acceptable for personal use, flag for Sprint 30 if needed
+- Bump actions validated against declared list (not just approve/deny binary) -- prevents silent misclassification
+- SQLite datetime format: bare UTC YYYY-MM-DD HH:MM:SS via _utc_iso() helper for SQLite datetime() compatibility
 
 ## Test Status
-- Backend: 2142+ tests, all passing (100%, no failures)
-- macOS build: BUILD SUCCEEDED, 0 errors, 0 warnings
-- Code review: completed, all critical/high items fixed
+- **2365 backend tests passing**, 0 failing, 0 skipped
+- **135 CLI tests** (separate run via cd hestia-cli and python -m pytest)
+- Exit code 0 on full suite
 
 ## Uncommitted Changes
-- `CLAUDE.md` — roadmap-sync.sh rename (from previous session, not Sprint 20A)
-- `scripts/roadmap-sync.sh`, `scripts/create-sprint20-issues.sh`, `scripts/reconcile-sprint20.sh` — untracked scripts from previous session
+- SESSION_HANDOFF.md -- this file (will be committed with handoff)
 
 ## Known Issues / Landmines
-- **Phase 3 extraction depends on LLM quality**: 3-phase pipeline falls back to legacy single-prompt if Phase 1 fails. This is by design (9B local model may struggle with multi-step extraction). Monitor extraction quality on Mac Mini.
-- **Durability filter is apply-on-click**: Changing the segmented picker doesn't live-filter — user must click "Apply Filters". This is consistent with other filters but could be confusing.
-- **Cross-module `_connection` access in importance.py**: `_get_durability_scores()` accesses `ResearchDatabase._connection` directly. Works but bypasses the abstraction layer. Low priority tech debt.
-- **`find_entity_by_name` ignores user_id**: Single-user safe, but would need scoping for multi-user. Deferred.
-- **Server NOT running on Mac Mini**: Deploy needed after Sprint 20A to see changes on device.
 
-## Reviewer Findings (deferred, low priority)
-- WARNING #5: Durability filter not "live" — intentional apply-on-click pattern
-- WARNING #6: Ephemeral filter inconsistency between live graph and time-slider — document or align
-- WARNING #7: Importance scorer cross-module DB access — add proper method to ResearchDatabase
-- GAP #11: `find_entity_by_name` needs user_id scope for multi-user
-- GAP #12: memory.yaml comment still says "three signals" (now four)
+### From Codebase Audit (High Priority)
+1. **handler.py at 2632 lines** -- growing, not shrinking. Top technical debt item. Extract command handling, tool execution, streaming into separate modules.
+2. **.env file contains plaintext Anthropic API key** -- gitignored but disk-resident. Should move to Keychain and delete .env.
+3. **Trading module has no ADR** -- no entry in docs/hestia-decision-log.md or security architecture doc. Create before live trading (Sprint 25+).
 
-## Architecture Decisions
-- **DIKW Hierarchy**: Data→Information→Knowledge→Wisdom mapped to 4-tier durability (0-3)
-- **Log-to-Graph Architecture**: Memory tab = full log (everything searchable), Graph = curated visualization (ephemeral excluded)
-- **Perceptual Visual Encoding**: Bertin's visual variables — diameter∝durability, opacity∝confidence, glow∝recency
-- **3-Phase Staged Extraction**: Decomposed for 9B local model constraints; Phase 1 failure → legacy fallback
+### From Codebase Audit (Medium Priority)
+4. **LearningScheduler encapsulation breach** -- scheduler.py:82,117,121,122 accesses private _database on OutcomeManager and _principle_store on ResearchManager. Add public accessor properties.
+5. **Blocking subprocess.run() in async context** -- proactive/policy.py:115,149 blocks event loop for up to 4s. Use asyncio.create_subprocess_exec().
+6. **docs/api-contract.md severely stale** -- claims 186 endpoints / 27 routes, actual 208 / 29. Missing notifications, ws_chat, and new learning endpoints.
 
-## Next Steps
-1. **Deploy to Mac Mini**: Push and verify Sprint 20A on device
-2. **Sprint 20B**: Source Expansion (WS5: imported knowledge + external research) + /second-opinion skill (WS7: Gemini CLI)
-3. **Fix memory.yaml comment**: "three signals" → "four signals" (trivial)
-4. **Consider live durability filtering**: Add `onChange` to re-filter cached nodes without network call
+### From Codebase Audit (Watch Items)
+7. **Agent Orchestrator (ADR-042)** -- keyword-based routing is fragile. Reassess if M5 acquisition delayed beyond 6 months.
+8. **Memory + Knowledge Graph overlap** -- two parallel retrieval systems. Monitor for duplication as knowledge graph grows past 1000 facts.
+
+### Untracked Swift Files (from audit sub-agent -- REVIEW NEEDED)
+The codebase-audit skill erroneously created Swift files that are NOT wired into the Xcode project:
+- HestiaApp/macOS/Services/APIClient+Investigate.swift
+- HestiaApp/macOS/Views/Command/ActivityFeedView.swift
+- HestiaApp/macOS/Views/Command/ExternalActivityView.swift
+- HestiaApp/macOS/Views/Command/InternalActivityView.swift
+- HestiaApp/macOS/Views/Command/InvestigationsListView.swift
+- HestiaApp/macOS/Views/Command/NewsFeedListView.swift
+- HestiaApp/macOS/Views/Command/SystemActivityView.swift
+- HestiaApp/macOS/Views/Command/TradingMonitorView.swift
+- docs/plans/activity-feed-restructure-second-opinion-2026-03-18.md
+
+**Action**: Review and either integrate properly or delete. They were created without build verification.
+
+### Deferred Reviewer Findings (Lower Priority)
+- APNs client creates new httpx.AsyncClient per notification -- fine for low volume, optimize later
+- _is_quiet_hours uses server local time -- will break if server timezone differs from user
+- Push token selection picks most-recently-used -- consider sending to all registered tokens
+- No FastAPI TestClient HTTP-level tests for notification routes (only unit tests)
+
+## Process Learnings
+
+### Config Gap
+- **Route prefix bug**: /notifications instead of /v1/notifications would have been caught instantly by a FastAPI TestClient smoke test. Consider adding HTTP-level route registration tests for all new modules.
+- **Audit sub-agent wrote code**: The /codebase-audit skill sub-agent created 8 Swift files and a plan doc despite agents being defined as read-only specialists. The hestia-reviewer agent correctly stayed read-only. The issue is the superpowers skill invoking a general-purpose agent that does not respect the project read-only agent convention.
+
+### First-Pass Success
+- **7/7 source files** correct on first pass (no design rework)
+- **5 test failures** on first run: SQLite datetime format, rate limit query scope, mock patch targets, timezone comparison -- all fixable bugs caught by tests
+- **3 reviewer criticals** -- all fixed in one pass
+- **Top blocker**: SQLite datetime format incompatibility (isoformat() produces +00:00 suffix that SQLite datetime() cannot parse). Not obvious from Python docs. The _utc_iso() helper pattern should be reused for any future SQLite modules with datetime queries.
+
+### Agent Orchestration
+- hestia-reviewer ran in background while board updates happened -- good parallelism
+- Tests run manually rather than via hestia-tester -- acceptable for this session pace
+- Codebase audit sub-agent overstepped -- created Swift files it should not have
+
+## Next Step
+Sprint 20 is complete. The natural next steps are:
+
+1. **Clean up audit artifacts**: Delete or integrate the 8 untracked Swift files + plan doc
+2. **Resume Trading Module**: Sprint 24 (Backtesting) or Sprint 25 (Coinbase Live) per docs/discoveries/trading-module-research-and-plan.md
+3. **Technical debt from audit**: handler.py decomposition (highest impact), .env cleanup, trading ADR
+4. **api-contract.md refresh**: 26 endpoints undocumented
+
+Run /pickup at session start to orient.
