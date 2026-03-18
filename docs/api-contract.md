@@ -283,7 +283,7 @@ Get details about a specific mode.
 
 ---
 
-### Memory Management (5 endpoints)
+### Memory Management (6 endpoints)
 
 Implements ADR-002: Governed Memory with human-in-the-loop review.
 
@@ -385,6 +385,31 @@ Mark a memory chunk as sensitive or non-sensitive. Sensitive chunks are excluded
 ```
 
 **Errors:** `404` if chunk not found.
+
+#### PUT /v1/memory/chunks/{chunk_id}
+
+Update a memory chunk's content, type, and/or tags. At least one field required.
+Re-indexes the ChromaDB embedding when content changes.
+
+**Auth:** JWT device token required
+**Body:**
+```json
+{ "content": "updated content", "chunk_type": "preference", "tags": ["topic1"] }
+```
+At least one of `content`, `chunk_type`, or `tags` must be provided.
+
+**Response:**
+```json
+{
+  "chunk_id": "chunk-abc123def",
+  "content": "updated content",
+  "chunk_type": "preference",
+  "tags": ["topic1"],
+  "updated_at": "2026-03-17T10:00:00Z"
+}
+```
+
+**Errors:** `404` chunk not found, `422` invalid value or no fields provided
 
 ---
 

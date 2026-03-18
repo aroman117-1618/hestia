@@ -274,7 +274,7 @@ hestia/
 |--------|-----------|------------|
 | Health & Auth | 8 | `/v1/ping`, `/v1/health`, `/v1/ready`, `/v1/auth/register`, `/v1/auth/refresh`, `/v1/auth/invite`, `/v1/auth/register-with-invite`, `/v1/auth/re-invite` |
 | Chat & Mode | 6 | `/v1/chat`, `/v1/chat/stream` (SSE), `/v1/chat/agentic` (iterative tool loop), `/v1/mode/*` |
-| Memory | 13 | `/v1/memory/chunks` (list+browse), `staged`, `approve`, `reject`, `search`, `sensitive`, `ingest`, `import/claude`, `importance-stats`, `consolidation/preview`, `consolidation/execute`, `pruning/preview`, `pruning/execute` |
+| Memory | 14 | `/v1/memory/chunks` (list+browse), `staged`, `approve`, `reject`, `search`, `sensitive`, `ingest`, `import/claude`, `importance-stats`, `consolidation/preview`, `consolidation/execute`, `pruning/preview`, `pruning/execute`, `PUT /v1/memory/chunks/{chunk_id}` |
 | Sessions | 3 | `/v1/sessions` CRUD |
 | Tools | 3 | `/v1/tools` list, details, schema |
 | Tasks | 6 | `/v1/tasks` CRUD + approve/cancel/retry |
@@ -318,6 +318,8 @@ Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 **Knowledge Graph (Sprint 9 — Graphiti-inspired):** Bi-temporal facts (`valid_at`, `invalid_at`, `expired_at`) on SQLite edges between entities. Entity resolution via canonical name dedup. Community detection via label propagation (no graph DB). LLM-powered triplet extraction + contradiction detection. Two graph modes: `mode=legacy` (co-occurrence) and `mode=facts` (entity-relationship). On-demand extraction (not per-chat) to avoid inference overhead.
 
 **Memory Lifecycle (Sprint 16):** ImportanceScorer (composite: 0.3 recency + 0.4 retrieval frequency + 0.3 type bonus), MemoryConsolidator (embedding-similarity dedup >0.90, 50-sample cap, pluggable MergeStrategy), MemoryPruner (archives >60d old + importance <0.2, soft-delete + undo). All zero-LLM. Scheduled via LearningScheduler (importance nightly, consolidation/pruning weekly). 5 new `/v1/memory/` endpoints. Config in `memory.yaml`.
+
+**Approved principles injection:** Approved principles from `ResearchManager` are injected into every system prompt as a `## Behavioral Principles` section. Excluded from cloud-safe context (same as user IDENTITY/BODY). Loaded via `research.list_principles(status=PrincipleStatus.APPROVED, limit=20)` — skipped entirely when `will_use_cloud=True` to avoid unnecessary DB queries.
 
 **Agent Orchestrator (ADR-042):** Hestia is the single user interface. Council coordinator classifies intent, then `AgentRouter` maps intent → `AgentRoute` (HESTIA_SOLO, ARTEMIS, APOLLO, ARTEMIS_THEN_APOLLO) via deterministic keyword heuristic. Confidence gating: >0.8 = full specialist dispatch, 0.5-0.8 = enriched solo, <0.5 = pure solo. Chains validated before execution. `asyncio.gather` for parallel groups (genuine on M5 Ultra, sequential on M1). Byline attribution in responses. Kill switch: `orchestration.yaml → enabled: false`.
 
