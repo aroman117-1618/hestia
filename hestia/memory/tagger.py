@@ -140,6 +140,7 @@ class AutoTagger:
                 temperature=0.0,  # Deterministic for consistent tagging
                 max_tokens=500,
                 validate=False,  # Don't validate - JSON might look like an error
+                think=False,  # Disable thinking — we need fast, structured JSON output
             )
 
             # Parse JSON response

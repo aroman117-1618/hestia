@@ -326,6 +326,7 @@ class InferenceClient:
         max_tokens: Optional[int] = None,
         timeout: Optional[float] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
+        think: Optional[bool] = None,
     ) -> InferenceResponse:
         """Make request to Ollama API."""
         # Create client with appropriate timeout
@@ -341,6 +342,11 @@ class InferenceClient:
                 "top_p": self.config.top_p,
             }
         }
+
+        # Control thinking mode for thinking-capable models (e.g. Qwen 3.5)
+        # Thinking tokens count against num_predict, so disable for short/structured outputs
+        if think is not None:
+            request_data["think"] = think
 
         # Use chat endpoint if messages provided, otherwise generate
         if messages:
@@ -410,6 +416,7 @@ class InferenceClient:
         max_tokens: Optional[int] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
         force_cloud: bool = False,
+        think: Optional[bool] = None,
     ) -> InferenceResponse:
         """
         Call inference with smart model routing (local + cloud).
@@ -499,6 +506,7 @@ class InferenceClient:
                         timeout=self.router._get_config_for_tier(routing.fallback_tier).request_timeout,
                         tier=routing.fallback_tier,
                         tools=tools,
+                        think=think,
                     )
                 raise LocalModelFailed(
                     f"Cloud inference failed and no local fallback: {cloud_error}"
@@ -516,6 +524,7 @@ class InferenceClient:
                 timeout=routing.model_config.request_timeout,
                 tier=routing.tier,
                 tools=tools if routing.model_config.supports_tools else None,
+                think=think,
             )
         except LocalModelFailed as local_error:
             # Local failed — try cloud fallback if available
@@ -558,6 +567,7 @@ class InferenceClient:
         timeout: float,
         tier: ModelTier,
         tools: Optional[List[Dict[str, Any]]] = None,
+        think: Optional[bool] = None,
     ) -> InferenceResponse:
         """
         Call local Ollama model with retry logic.
@@ -590,6 +600,7 @@ class InferenceClient:
                     max_tokens=max_tokens,
                     timeout=timeout,
                     tools=tools,
+                    think=think,
                 )
                 response.tier = tier.value
                 self.router.record_success(tier)
@@ -912,6 +923,7 @@ class InferenceClient:
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
         validate: bool = True,
+        think: Optional[bool] = None,
     ) -> InferenceResponse:
         """
         Generate completion for prompt.
@@ -956,6 +968,7 @@ class InferenceClient:
                 system=system,
                 temperature=temperature,
                 max_tokens=max_tokens,
+                think=think,
             )
 
             # Validate response
