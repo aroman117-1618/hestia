@@ -9,31 +9,6 @@ struct MacChatPanelView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Floating avatar header (replaces agent tab bar)
-            FloatingAvatarView(
-                currentMode: appState.currentMode,
-                isTyping: viewModel.isTyping,
-                isLoading: viewModel.isLoading,
-                hasMessages: !viewModel.messages.isEmpty,
-                sessionId: viewModel.currentSessionId,
-                onModePick: { mode in
-                    Task {
-                        await viewModel.switchMode(to: mode, appState: appState)
-                    }
-                },
-                onNewSession: {
-                    Task {
-                        await viewModel.startNewConversation(appState: appState)
-                    }
-                },
-                onMoveToBackground: { sessionId in
-                    await viewModel.moveSessionToBackground(
-                        sessionId: sessionId,
-                        appState: appState
-                    )
-                }
-            )
-
             // Chat window
             ScrollViewReader { proxy in
                 ScrollView {
@@ -87,7 +62,22 @@ struct MacChatPanelView: View {
             }
 
             // Input bar
-            MacMessageInputBar(messageText: $messageText) {
+            MacMessageInputBar(
+                messageText: $messageText,
+                hasMessages: !viewModel.messages.isEmpty,
+                sessionId: viewModel.currentSessionId,
+                onMoveToBackground: { sessionId in
+                    await viewModel.moveSessionToBackground(
+                        sessionId: sessionId,
+                        appState: appState
+                    )
+                },
+                onNewSession: {
+                    Task {
+                        await viewModel.startNewConversation(appState: appState)
+                    }
+                }
+            ) {
                 let text = messageText
                 messageText = ""
                 Task {
