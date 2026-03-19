@@ -39,6 +39,16 @@ class TestStrategyFactory:
         strategy = _create_strategy(StrategyType.MEAN_REVERSION, {})
         assert strategy.strategy_type == "mean_reversion"
 
+    def test_create_bollinger_strategy(self) -> None:
+        strategy = _create_strategy(StrategyType.BOLLINGER_BREAKOUT, {})
+        assert strategy.strategy_type == "bollinger_breakout"
+        assert strategy.name == "Bollinger Breakout"
+
+    def test_create_signal_dca_strategy(self) -> None:
+        strategy = _create_strategy(StrategyType.SIGNAL_DCA, {})
+        assert strategy.strategy_type == "signal_dca"
+        assert strategy.name == "Signal-Enhanced DCA"
+
     def test_create_invalid_raises(self) -> None:
         with pytest.raises(ValueError):
             _create_strategy(StrategyType("nonexistent"), {})
@@ -558,3 +568,162 @@ class TestErrorRecovery:
             await asyncio.sleep(0.1)
 
         await adapter.disconnect()
+
+
+# ── Bollinger Breakout Strategy Tests ────────────────────────
+
+
+class TestBollingerBreakoutStrategy:
+    """Verify Bollinger breakout signal generation."""
+
+    def _make_df(
+        self,
+        close: float = 65000.0,
+        bb_upper: float = 66000.0,
+        bb_lower: float = 64000.0,
+        bb_middle: float = 65000.0,
+        volume_ratio: float = 2.0,
+        rows: int = 30,
+    ) -> pd.DataFrame:
+        """Build a minimal DataFrame with pre-computed indicators."""
+        data = {
+            "open": [close] * rows,
+            "high": [close + 100] * rows,
+            "low": [close - 100] * rows,
+            "close": [close] * rows,
+            "volume": [1000] * rows,
+            "bb_upper": [bb_upper] * rows,
+            "bb_lower": [bb_lower] * rows,
+            "bb_middle": [bb_middle] * rows,
+            "volume_ratio": [volume_ratio] * rows,
+            "rsi": [50.0] * rows,
+            "sma": [close] * rows,
+        }
+        return pd.DataFrame(data)
+
+    def test_buy_on_upper_breakout_with_volume(self) -> None:
+        from hestia.trading.strategies.bollinger import BollingerBreakoutStrategy
+        strategy = BollingerBreakoutStrategy()
+        # Price above upper band + high volume
+        df = self._make_df(close=66500.0, bb_upper=66000.0, volume_ratio=2.0)
+        signal = strategy.analyze(df, portfolio_value=1000.0)
+        assert signal.signal_type == SignalType.BUY
+        assert signal.confidence > 0.5
+        assert "bullish_breakout" in signal.metadata.get("entry_type", "")
+
+    def test_sell_on_lower_breakout_with_volume(self) -> None:
+        from hestia.trading.strategies.bollinger import BollingerBreakoutStrategy
+        strategy = BollingerBreakoutStrategy()
+        # Price below lower band + high volume
+        df = self._make_df(close=63500.0, bb_lower=64000.0, volume_ratio=1.8)
+        signal = strategy.analyze(df, portfolio_value=1000.0)
+        assert signal.signal_type == SignalType.SELL
+        assert signal.confidence > 0.5
+        assert "bearish_breakout" in signal.metadata.get("entry_type", "")
+
+    def test_hold_when_inside_bands(self) -> None:
+        from hestia.trading.strategies.bollinger import BollingerBreakoutStrategy
+        strategy = BollingerBreakoutStrategy()
+        df = self._make_df(close=65000.0, bb_upper=66000.0, bb_lower=64000.0)
+        signal = strategy.analyze(df, portfolio_value=1000.0)
+        assert signal.signal_type == SignalType.HOLD
+
+    def test_hold_when_breakout_without_volume(self) -> None:
+        from hestia.trading.strategies.bollinger import BollingerBreakoutStrategy
+        strategy = BollingerBreakoutStrategy()
+        # Price above upper band but low volume
+        df = self._make_df(close=66500.0, bb_upper=66000.0, volume_ratio=1.0)
+        signal = strategy.analyze(df, portfolio_value=1000.0)
+        assert signal.signal_type == SignalType.HOLD
+        assert "insufficient volume" in signal.reason
+
+    def test_insufficient_data_returns_hold(self) -> None:
+        from hestia.trading.strategies.bollinger import BollingerBreakoutStrategy
+        strategy = BollingerBreakoutStrategy()
+        df = self._make_df(rows=5)
+        signal = strategy.analyze(df, portfolio_value=1000.0)
+        assert signal.signal_type == SignalType.HOLD
+        assert "Need" in signal.reason
+
+
+# ── Signal DCA Strategy Tests ────────────────────────────────
+
+
+class TestSignalDCAStrategy:
+    """Verify signal-enhanced DCA signal generation."""
+
+    def _make_df(
+        self,
+        close: float = 64000.0,
+        rsi: float = 35.0,
+        sma: float = 65000.0,
+        rows: int = 60,
+    ) -> pd.DataFrame:
+        """Build a minimal DataFrame with pre-computed indicators."""
+        data = {
+            "open": [close] * rows,
+            "high": [close + 100] * rows,
+            "low": [close - 100] * rows,
+            "close": [close] * rows,
+            "volume": [1000] * rows,
+            "rsi": [rsi] * rows,
+            "sma": [sma] * rows,
+        }
+        return pd.DataFrame(data)
+
+    def test_buy_when_rsi_low_and_below_ma(self) -> None:
+        from hestia.trading.strategies.signal_dca import SignalDCAStrategy
+        strategy = SignalDCAStrategy()
+        # RSI < 40 and price < SMA
+        df = self._make_df(close=64000.0, rsi=30.0, sma=65000.0)
+        signal = strategy.analyze(df, portfolio_value=1000.0)
+        assert signal.signal_type == SignalType.BUY
+        assert signal.confidence > 0.5
+        assert "signal_dca" in signal.metadata.get("entry_type", "")
+
+    def test_hold_when_rsi_above_threshold(self) -> None:
+        from hestia.trading.strategies.signal_dca import SignalDCAStrategy
+        strategy = SignalDCAStrategy()
+        df = self._make_df(close=64000.0, rsi=55.0, sma=65000.0)
+        signal = strategy.analyze(df, portfolio_value=1000.0)
+        assert signal.signal_type == SignalType.HOLD
+        assert "threshold" in signal.reason
+
+    def test_hold_when_price_above_ma(self) -> None:
+        from hestia.trading.strategies.signal_dca import SignalDCAStrategy
+        strategy = SignalDCAStrategy()
+        # RSI favorable but price above MA
+        df = self._make_df(close=66000.0, rsi=30.0, sma=65000.0)
+        signal = strategy.analyze(df, portfolio_value=1000.0)
+        assert signal.signal_type == SignalType.HOLD
+        assert "above MA" in signal.reason
+
+    def test_interval_gate_blocks_rapid_buys(self) -> None:
+        from hestia.trading.strategies.signal_dca import SignalDCAStrategy
+        strategy = SignalDCAStrategy({"buy_interval_hours": 24})
+        df = self._make_df(close=64000.0, rsi=30.0, sma=65000.0)
+
+        # First buy should succeed
+        signal1 = strategy.analyze(df, portfolio_value=1000.0)
+        assert signal1.signal_type == SignalType.BUY
+
+        # Second buy immediately should be blocked by interval gate
+        signal2 = strategy.analyze(df, portfolio_value=1000.0)
+        assert signal2.signal_type == SignalType.HOLD
+        assert "interval gate" in signal2.reason
+
+    def test_never_sells(self) -> None:
+        from hestia.trading.strategies.signal_dca import SignalDCAStrategy
+        strategy = SignalDCAStrategy()
+        # Even with extreme overbought conditions, never sell
+        df = self._make_df(close=70000.0, rsi=90.0, sma=65000.0)
+        signal = strategy.analyze(df, portfolio_value=1000.0)
+        assert signal.signal_type != SignalType.SELL
+
+    def test_insufficient_data_returns_hold(self) -> None:
+        from hestia.trading.strategies.signal_dca import SignalDCAStrategy
+        strategy = SignalDCAStrategy()
+        df = self._make_df(rows=5)
+        signal = strategy.analyze(df, portfolio_value=1000.0)
+        assert signal.signal_type == SignalType.HOLD
+        assert "Need" in signal.reason
