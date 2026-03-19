@@ -6,6 +6,13 @@ import HestiaShared
 struct SystemActivityView: View {
     @ObservedObject var viewModel: MacCommandCenterViewModel
 
+    enum OrdersTab: String, CaseIterable {
+        case upcoming = "Upcoming"
+        case past = "Past"
+    }
+
+    @State private var ordersTab: OrdersTab = .upcoming
+
     var body: some View {
         ScrollView {
             VStack(spacing: MacSpacing.lg) {
@@ -45,64 +52,165 @@ struct SystemActivityView: View {
 
     @ViewBuilder
     private var ordersContent: some View {
+        VStack(spacing: MacSpacing.md) {
+            // Upcoming/Past toggle
+            Picker("", selection: $ordersTab) {
+                ForEach(OrdersTab.allCases, id: \.self) { tab in
+                    Text(tab.rawValue).tag(tab)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(maxWidth: 200)
+
+            // Content based on tab
+            switch ordersTab {
+            case .upcoming:
+                upcomingOrdersContent
+            case .past:
+                pastOrdersContent
+            }
+        }
+    }
+
+    // MARK: - Upcoming Orders
+
+    @ViewBuilder
+    private var upcomingOrdersContent: some View {
         if viewModel.orders.isEmpty {
             sectionEmptyState(icon: "bolt.slash", message: "No active orders")
         } else {
             VStack(spacing: MacSpacing.sm) {
-                ForEach(viewModel.orders.prefix(6)) { order in
-                    orderRow(order)
+                ForEach(viewModel.orders) { order in
+                    upcomingOrderCard(order)
                 }
+
+                // Add Order button
+                Button {
+                    // TODO: Open order creation form
+                } label: {
+                    HStack(spacing: MacSpacing.xs) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 13))
+                        Text("New Order")
+                            .font(MacTypography.label)
+                    }
+                    .foregroundStyle(MacColors.textSecondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, MacSpacing.sm)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: MacCornerRadius.search)
+                            .strokeBorder(MacColors.textSecondary.opacity(0.3), style: StrokeStyle(lineWidth: 1, dash: [5]))
+                    )
+                }
+                .buttonStyle(.plain)
             }
         }
     }
 
-    private func orderRow(_ order: OrderResponse) -> some View {
-        HStack(spacing: MacSpacing.md) {
-            Image(systemName: order.status == .active ? "play.circle.fill" : "pause.circle")
-                .font(.system(size: 16))
-                .foregroundStyle(order.status == .active ? MacColors.healthGreen : MacColors.textSecondary)
-
-            VStack(alignment: .leading, spacing: 2) {
+    private func upcomingOrderCard(_ order: OrderResponse) -> some View {
+        VStack(alignment: .leading, spacing: MacSpacing.sm) {
+            HStack {
                 Text(order.name)
                     .font(MacTypography.label)
                     .foregroundStyle(MacColors.textPrimary)
                     .lineLimit(1)
+                Spacer()
+                // Status badge
+                Text(order.status == .active ? "Active" : "Scheduled")
+                    .font(MacTypography.metadata)
+                    .foregroundStyle(order.status == .active ? MacColors.healthGreen : MacColors.healthAmber)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background((order.status == .active ? MacColors.healthGreen : MacColors.healthAmber).opacity(0.15))
+                    .clipShape(Capsule())
+            }
 
-                HStack(spacing: MacSpacing.sm) {
+            HStack {
+                // Recurrence
+                HStack(spacing: 4) {
+                    Text("\u{1F501}")
+                        .font(.system(size: 11))
                     Text(order.frequency.type.rawValue.capitalized)
                         .font(MacTypography.caption)
                         .foregroundStyle(MacColors.textSecondary)
+                }
 
-                    if let next = order.nextExecution {
-                        Text("Next: \(next, style: .relative)")
-                            .font(MacTypography.caption)
-                            .foregroundStyle(MacColors.textFaint)
-                    }
+                Spacer()
+
+                // Next execution
+                if let next = order.nextExecution {
+                    Text("Next: \(next, style: .relative)")
+                        .font(MacTypography.caption)
+                        .foregroundStyle(MacColors.textFaint)
                 }
             }
 
-            Spacer()
+            // Last run
+            if let lastExec = order.lastExecution {
+                HStack {
+                    Spacer()
+                    Text("Last: \(lastExec.timestamp, style: .relative) ago")
+                        .font(MacTypography.caption)
+                        .foregroundStyle(MacColors.textFaint)
+                    let statusIcon = lastExec.status == .success ? "\u{2713}" : "\u{2717}"
+                    let statusColor = lastExec.status == .success ? MacColors.healthGreen : MacColors.healthRed
+                    Text(statusIcon)
+                        .font(MacTypography.caption)
+                        .foregroundStyle(statusColor)
+                }
+            }
+        }
+        .padding(MacSpacing.md)
+        .background(MacColors.searchInputBackground)
+        .overlay(alignment: .leading) {
+            Rectangle()
+                .fill(order.status == .active ? MacColors.healthGreen : MacColors.healthAmber)
+                .frame(width: 3)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
+    }
 
-            orderStatusBadge(order.status)
+    // MARK: - Past Orders
+
+    @ViewBuilder
+    private var pastOrdersContent: some View {
+        let pastExecutions = viewModel.orders.filter { $0.lastExecution != nil }
+        if pastExecutions.isEmpty {
+            sectionEmptyState(icon: "clock", message: "No past executions")
+        } else {
+            VStack(spacing: MacSpacing.sm) {
+                ForEach(pastExecutions) { order in
+                    pastOrderCard(order)
+                }
+            }
+        }
+    }
+
+    private func pastOrderCard(_ order: OrderResponse) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(order.name)
+                    .font(MacTypography.label)
+                    .foregroundStyle(MacColors.textPrimary)
+                if let lastExec = order.lastExecution {
+                    Text(lastExec.timestamp, style: .relative)
+                        .font(MacTypography.caption)
+                        .foregroundStyle(MacColors.textFaint)
+                }
+            }
+            Spacer()
+            // Success/failure based on last execution status
+            if let lastExec = order.lastExecution {
+                let isSuccess = lastExec.status == .success
+                Text(isSuccess ? "\u{2713} Success" : "\u{2717} Failed")
+                    .font(MacTypography.caption)
+                    .foregroundStyle(isSuccess ? MacColors.healthGreen : MacColors.healthRed)
+            }
         }
         .padding(MacSpacing.md)
         .background(MacColors.searchInputBackground)
         .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
-    }
-
-    private func orderStatusBadge(_ status: APIOrderStatus) -> some View {
-        let (text, color): (String, Color) = switch status {
-        case .active: ("Active", MacColors.healthGreen)
-        case .inactive: ("Inactive", MacColors.textSecondary)
-        }
-
-        return Text(text)
-            .font(MacTypography.metadata)
-            .foregroundStyle(color)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 3.5)
-            .background(color.opacity(0.15))
-            .clipShape(Capsule())
+        .opacity(0.8)
     }
 
     // MARK: - Memory Activity
