@@ -176,7 +176,7 @@ class TradingDatabase(BaseDatabase):
             except aiosqlite.OperationalError:
                 pass  # Column already exists
 
-        # Multi-asset preparation: asset_class + settlement_date (Sprint 28 prep)
+        # Multi-asset preparation: asset_class + settlement_date (Sprint 27 prep)
         for col_sql in [
             "ALTER TABLE bots ADD COLUMN asset_class TEXT DEFAULT 'crypto'",
             "ALTER TABLE trades ADD COLUMN asset_class TEXT DEFAULT 'crypto'",
@@ -187,6 +187,14 @@ class TradingDatabase(BaseDatabase):
                 await self.connection.execute(col_sql)
             except aiosqlite.OperationalError:
                 pass  # Column already exists
+
+        # Sprint 28: exchange column on bots (multi-exchange support)
+        try:
+            await self.connection.execute(
+                "ALTER TABLE bots ADD COLUMN exchange TEXT DEFAULT 'coinbase'"
+            )
+        except aiosqlite.OperationalError:
+            pass  # Column already exists
 
     # ── Bot CRUD ──────────────────────────────────────────────────
 
