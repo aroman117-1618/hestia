@@ -85,3 +85,4 @@ figma-mirror/
 *.tmp
 .cache/
 data/credentials/
+.claude/worktrees/
