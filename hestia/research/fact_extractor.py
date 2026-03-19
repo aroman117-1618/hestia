@@ -113,6 +113,11 @@ class FactExtractor:
             List of newly created Fact objects. Empty on failure.
         """
         truncated = text[:MAX_TEXT_LENGTH]
+        logger.info(
+            "Fact extraction starting",
+            component=LogComponent.RESEARCH,
+            data={"text_length": len(text)},
+        )
         client = None
         try:
             client = await _get_inference_client()
@@ -126,12 +131,22 @@ class FactExtractor:
 
         # ── Phase 1: Entity Identification ─────────────────
         core_entities = await self._phase1_entities(client, truncated)
+        logger.info(
+            "Fact extraction Phase 1 complete",
+            component=LogComponent.RESEARCH,
+            data={"entity_count": len(core_entities) if core_entities else 0, "fell_back": core_entities is None},
+        )
         if core_entities is None:
             # Phase 1 failed — fall back to legacy single-prompt
             return await self._extract_legacy(client, truncated, source_chunk_id, user_id, source_category, import_source_id)
 
         # ── Phase 2: Significance Filter ───────────────────
         core_names = await self._phase2_significance(client, truncated, core_entities)
+        logger.info(
+            "Fact extraction Phase 2 complete",
+            component=LogComponent.RESEARCH,
+            data={"significant_count": len(core_names), "total_entities": len(core_entities)},
+        )
         if not core_names:
             logger.info(
                 "No core entities after significance filter",
@@ -163,6 +178,11 @@ class FactExtractor:
             return []
 
         triplets = self._parse_extraction_response(response.content)
+        logger.info(
+            "Fact extraction Phase 3 complete",
+            component=LogComponent.RESEARCH,
+            data={"triplet_count": len(triplets)},
+        )
         if not triplets:
             return []
 

@@ -1919,10 +1919,25 @@ class RequestHandler:
         try:
             from hestia.research.manager import get_research_manager
             research_mgr = await get_research_manager()
-            if research_mgr and hasattr(research_mgr, '_fact_extractor') and research_mgr._fact_extractor:
-                await research_mgr._fact_extractor.extract_from_text(text=text[:2000])
-        except Exception:
-            pass  # Silent — never block chat for fact extraction
+            if not research_mgr or not hasattr(research_mgr, '_fact_extractor') or not research_mgr._fact_extractor:
+                self.logger.warning(
+                    "Research manager not initialized for fact extraction",
+                    component=LogComponent.RESEARCH,
+                )
+                return
+            facts = await research_mgr._fact_extractor.extract_from_text(text=text[:2000])
+            if facts:
+                self.logger.info(
+                    "Facts extracted from conversation",
+                    component=LogComponent.RESEARCH,
+                    data={"facts_created": len(facts), "text_length": len(text)},
+                )
+        except Exception as e:
+            self.logger.error(
+                "Fact extraction failed",
+                component=LogComponent.RESEARCH,
+                data={"error": type(e).__name__, "detail": str(e)[:200]},
+            )
 
     async def _try_execute_tool_from_response(
         self,
