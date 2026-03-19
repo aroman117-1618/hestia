@@ -138,7 +138,29 @@ class TradingDatabase(BaseDatabase):
             CREATE INDEX IF NOT EXISTS idx_bots_status ON bots(status);
             CREATE INDEX IF NOT EXISTS idx_daily_summaries_date ON daily_summaries(date);
             CREATE INDEX IF NOT EXISTS idx_reconciliation_timestamp ON reconciliation_log(timestamp);
+
+            -- Sprint 26: Watchlist
+            CREATE TABLE IF NOT EXISTS watchlist (
+                id TEXT PRIMARY KEY,
+                pair TEXT NOT NULL,
+                notes TEXT NOT NULL DEFAULT '',
+                price_alerts TEXT NOT NULL DEFAULT '{}',
+                added_at TEXT NOT NULL,
+                user_id TEXT NOT NULL DEFAULT 'user-default'
+            );
+            CREATE INDEX IF NOT EXISTS idx_watchlist_user_id ON watchlist(user_id);
         """)
+
+        # Sprint 26: decision trail + confidence score columns (migration)
+        import aiosqlite
+        for col_sql in [
+            "ALTER TABLE trades ADD COLUMN decision_trail TEXT DEFAULT '[]'",
+            "ALTER TABLE trades ADD COLUMN confidence_score REAL DEFAULT NULL",
+        ]:
+            try:
+                await self.connection.execute(col_sql)
+            except aiosqlite.OperationalError:
+                pass  # Column already exists
 
     # ── Bot CRUD ──────────────────────────────────────────────────
 
@@ -229,8 +251,8 @@ class TradingDatabase(BaseDatabase):
         await self.connection.execute(
             """INSERT INTO trades (id, bot_id, side, order_type, price, quantity,
                fee, fee_currency, pair, tax_lot_id, exchange_order_id,
-               timestamp, metadata, user_id)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               timestamp, metadata, user_id, decision_trail, confidence_score)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 trade_data["id"],
                 trade_data["bot_id"],
@@ -246,6 +268,8 @@ class TradingDatabase(BaseDatabase):
                 trade_data["timestamp"],
                 json.dumps(trade_data.get("metadata", {})),
                 trade_data.get("user_id", "user-default"),
+                trade_data.get("decision_trail", "[]"),
+                trade_data.get("confidence_score"),
             ),
         )
         await self.connection.commit()
@@ -489,6 +513,68 @@ class TradingDatabase(BaseDatabase):
         rows = await cursor.fetchall()
         return {row[0]: row[1] for row in rows}
 
+    # ── Watchlist CRUD (Sprint 26) ────────────────────────────────
+
+    async def create_watchlist_item(self, item: Dict[str, Any]) -> Dict[str, Any]:
+        """Add an item to the watchlist."""
+        await self.connection.execute(
+            """INSERT INTO watchlist (id, pair, notes, price_alerts, added_at, user_id)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (item["id"], item["pair"], item.get("notes", ""),
+             item.get("price_alerts", "{}"), item["added_at"],
+             item.get("user_id", "user-default")),
+        )
+        await self.connection.commit()
+        return item
+
+    async def get_watchlist(self, user_id: str = "user-default") -> List[Dict[str, Any]]:
+        """Get all watchlist items for a user."""
+        cursor = await self.connection.execute(
+            "SELECT * FROM watchlist WHERE user_id = ? ORDER BY added_at DESC",
+            (user_id,),
+        )
+        rows = await cursor.fetchall()
+        return [self._watchlist_row_to_dict(r) for r in rows]
+
+    async def update_watchlist_item(
+        self, item_id: str, updates: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
+        """Update a watchlist item."""
+        sets, values = [], []
+        for key in ("pair", "notes"):
+            if key in updates:
+                sets.append(f"{key} = ?")
+                values.append(updates[key])
+        if "price_alerts" in updates:
+            sets.append("price_alerts = ?")
+            values.append(json.dumps(updates["price_alerts"]))
+        if not sets:
+            return None
+        values.append(item_id)
+        await self.connection.execute(
+            f"UPDATE watchlist SET {', '.join(sets)} WHERE id = ?", values
+        )
+        await self.connection.commit()
+        cursor = await self.connection.execute(
+            "SELECT * FROM watchlist WHERE id = ?", (item_id,)
+        )
+        row = await cursor.fetchone()
+        return self._watchlist_row_to_dict(row) if row else None
+
+    async def delete_watchlist_item(self, item_id: str) -> bool:
+        """Remove a watchlist item."""
+        cursor = await self.connection.execute(
+            "DELETE FROM watchlist WHERE id = ?", (item_id,)
+        )
+        await self.connection.commit()
+        return cursor.rowcount > 0
+
+    @staticmethod
+    def _watchlist_row_to_dict(row: aiosqlite.Row) -> Dict[str, Any]:
+        d = dict(row)
+        d["price_alerts"] = json.loads(d.get("price_alerts", "{}"))
+        return d
+
     # ── Row converters ────────────────────────────────────────────
 
     @staticmethod
@@ -501,7 +587,27 @@ class TradingDatabase(BaseDatabase):
     def _trade_row_to_dict(row: aiosqlite.Row) -> Dict[str, Any]:
         d = dict(row)
         d["metadata"] = json.loads(d.get("metadata", "{}"))
+        d["decision_trail"] = json.loads(d.get("decision_trail", "[]"))
         return d
+
+    # ── Trade Helpers (Sprint 26) ────────────────────────────────
+
+    async def get_trade_by_id(self, trade_id: str) -> Optional[Dict[str, Any]]:
+        """Get a single trade by ID."""
+        cursor = await self.connection.execute(
+            "SELECT * FROM trades WHERE id = ?", (trade_id,)
+        )
+        row = await cursor.fetchone()
+        return self._trade_row_to_dict(row) if row else None
+
+    async def update_trade_metadata(self, trade_id: str, metadata: Dict[str, Any]) -> bool:
+        """Update a trade's metadata JSON."""
+        cursor = await self.connection.execute(
+            "UPDATE trades SET metadata = ? WHERE id = ?",
+            (json.dumps(metadata), trade_id),
+        )
+        await self.connection.commit()
+        return cursor.rowcount > 0
 
     @staticmethod
     def _tax_lot_row_to_dict(row: aiosqlite.Row) -> Dict[str, Any]:

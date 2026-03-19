@@ -384,3 +384,11 @@ async def get_trading_manager(
         _instance = TradingManager(config=config)
         await _instance.initialize()
     return _instance
+
+
+async def close_trading_manager() -> None:
+    """Shutdown the trading manager singleton."""
+    global _instance
+    if _instance is not None:
+        await _instance.close()
+        _instance = None
