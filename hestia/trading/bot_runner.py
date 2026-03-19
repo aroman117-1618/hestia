@@ -269,11 +269,18 @@ class BotRunner:
     async def _fetch_candles(self, pair: str) -> Optional[pd.DataFrame]:
         """Fetch OHLCV candles from exchange REST API."""
         try:
+            from datetime import timedelta
             from hestia.trading.backtest.data_loader import DataLoader
             loader = DataLoader()
+            # Fetch 7 days of 1h candles (168 candles) — enough for all indicators.
+            # Default 365 days is wasteful for live polling.
+            end = datetime.now(timezone.utc)
+            start = end - timedelta(days=7)
             df = await loader.fetch_from_coinbase(
                 pair=pair,
                 granularity="1h",
+                start=start,
+                end=end,
             )
             if df is not None and len(df) > 0:
                 return df

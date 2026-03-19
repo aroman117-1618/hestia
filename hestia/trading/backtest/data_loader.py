@@ -30,6 +30,16 @@ GRANULARITY = {
     "1d": 86400,
 }
 
+# Coinbase API granularity strings (SDK enum values)
+COINBASE_GRANULARITY = {
+    "1m": "ONE_MINUTE",
+    "5m": "FIVE_MINUTE",
+    "15m": "FIFTEEN_MINUTE",
+    "1h": "ONE_HOUR",
+    "6h": "SIX_HOUR",
+    "1d": "ONE_DAY",
+}
+
 
 class DataLoader:
     """
@@ -117,10 +127,19 @@ class DataLoader:
                     product_id=pair,
                     start=str(int(current_start.timestamp())),
                     end=str(int(chunk_end.timestamp())),
-                    granularity=granularity.upper() if granularity in ("1m", "5m", "15m") else f"ONE_{granularity.upper().replace('H','HOUR').replace('D','DAY')}",
+                    granularity=COINBASE_GRANULARITY.get(granularity, "ONE_HOUR"),
                 )
-                candles = response.get("candles", [])
+                # SDK returns GetProductCandlesResponse object (not dict).
+                # Support both: .candles attr (v1.8+) and dict .get() (older).
+                if hasattr(response, "candles"):
+                    candles = response.candles
+                elif isinstance(response, dict):
+                    candles = response.get("candles", [])
+                else:
+                    candles = []
+
                 for c in candles:
+                    # Candle objects support both bracket and attribute access
                     all_candles.append({
                         "timestamp": datetime.fromtimestamp(int(c["start"]), tz=timezone.utc),
                         "open": float(c["open"]),
