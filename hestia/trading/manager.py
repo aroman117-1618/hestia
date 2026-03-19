@@ -23,13 +23,11 @@ from hestia.trading.models import (
     DailySummary,
     OrderType,
     StrategyType,
-    TaxLot,
-    TaxLotMethod,
-    TaxLotStatus,
     Trade,
     TradeSide,
 )
 from hestia.trading.risk import RiskManager
+from hestia.trading.tax import TaxLotTracker
 
 logger = get_logger()
 
@@ -221,20 +219,20 @@ class TradingManager:
             await self._database.connection.execute("BEGIN IMMEDIATE")
 
             if trade.side == TradeSide.BUY:
-                lot = TaxLot(
+                tax_tracker = TaxLotTracker(method=tax_method)
+                lot_dict = tax_tracker.create_lot_from_buy(
                     trade_id=trade.id,
                     pair=pair,
                     quantity=quantity,
-                    remaining_quantity=quantity,
-                    cost_basis=trade.total_cost,
-                    cost_per_unit=trade.total_cost / quantity if quantity > 0 else 0,
-                    method=TaxLotMethod(tax_method),
+                    price=price,
+                    fee=fee,
+                    acquired_at=trade.timestamp,
                     user_id=user_id,
                 )
-                trade.tax_lot_id = lot.id
+                trade.tax_lot_id = lot_dict["id"]
                 # Insert trade first (FK parent), then tax lot (FK child)
                 await self._database.record_trade_no_commit(trade.to_dict())
-                await self._database.create_tax_lot_no_commit(lot.to_dict())
+                await self._database.create_tax_lot_no_commit(lot_dict)
 
             elif trade.side == TradeSide.SELL:
                 pnl = await self._consume_tax_lots_no_commit(
@@ -305,42 +303,31 @@ class TradingManager:
         Consume tax lots for a sell order WITHOUT committing.
 
         Used inside atomic transactions. Caller is responsible for COMMIT/ROLLBACK.
-        HIFO: Sell highest-cost lots first (minimize short-term gains).
-        FIFO: Sell oldest lots first (simplest accounting).
+        Delegates lot selection and P&L math to TaxLotTracker; applies
+        the results to the database via update_tax_lot_no_commit.
         """
         lots = await self._database.get_open_tax_lots(pair, method, user_id)
-        remaining = sell_quantity
-        total_pnl = 0.0
 
-        for lot_data in lots:
-            if remaining <= 0:
-                break
+        tax_tracker = TaxLotTracker(method=method)
+        result = tax_tracker.match_lots_for_sell(
+            open_lots=lots,
+            quantity=sell_quantity,
+            sell_price=sell_price,
+            sell_fee=sell_fee,
+        )
 
-            available = lot_data["remaining_quantity"]
-            consumed = min(available, remaining)
-            cost_per_unit = lot_data["cost_per_unit"]
-
-            proceeds = consumed * sell_price
-            cost = consumed * cost_per_unit
-            fee_portion = sell_fee * (consumed / sell_quantity) if sell_quantity > 0 else 0
-            pnl = proceeds - cost - fee_portion
-            total_pnl += pnl
-
-            new_remaining = available - consumed
+        for entry in result["consumed_lots"]:
             updates: Dict[str, Any] = {
-                "remaining_quantity": new_remaining,
-                "realized_pnl": lot_data.get("realized_pnl", 0.0) + pnl,
+                "remaining_quantity": entry["new_remaining"],
+                "realized_pnl": entry["prior_realized_pnl"] + entry["realized_pnl_delta"],
+                "status": entry["status"],
             }
-            if new_remaining <= 1e-10:
-                updates["status"] = TaxLotStatus.CLOSED.value
-                updates["closed_at"] = datetime.now(timezone.utc).isoformat()
-            else:
-                updates["status"] = TaxLotStatus.PARTIAL.value
+            if entry.get("closed_at"):
+                updates["closed_at"] = entry["closed_at"]
 
-            await self._database.update_tax_lot_no_commit(lot_data["id"], updates)
-            remaining -= consumed
+            await self._database.update_tax_lot_no_commit(entry["lot_id"], updates)
 
-        return total_pnl
+        return result["realized_pnl"]
 
     async def _estimate_portfolio_value(self, user_id: str) -> float:
         """Estimate total portfolio value from exchange balances."""
