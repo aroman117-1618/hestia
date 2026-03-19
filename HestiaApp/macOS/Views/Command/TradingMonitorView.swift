@@ -1,72 +1,29 @@
 import SwiftUI
 import HestiaShared
 
-// MARK: - Trading Monitor (Sprint 26 placeholder with full component structure)
+// MARK: - Trading Monitor (Sprint 26 — live data)
 
 struct TradingMonitorView: View {
+    @ObservedObject var viewModel: MacTradingViewModel
+
     var body: some View {
         ScrollView {
             VStack(spacing: MacSpacing.lg) {
-                // Portfolio Snapshot
                 portfolioSnapshotCard
-
-                // Active Positions
-                CollapsibleSection(
-                    title: "Active Positions",
-                    icon: "arrow.triangle.swap"
-                ) {
-                    emptyListState(
-                        icon: "chart.bar.xaxis",
-                        message: "No active positions",
-                        detail: "Positions will appear when trading begins"
-                    )
-                }
-
-                // Recent Trades
-                CollapsibleSection(
-                    title: "Recent Trades",
-                    icon: "list.bullet.rectangle"
-                ) {
-                    // Mock trade rows with expandable decision trail
-                    VStack(spacing: MacSpacing.sm) {
-                        tradeRow(
-                            pair: "BTC/USD",
-                            side: .buy,
-                            amount: "$127.50",
-                            price: "$67,842.30",
-                            hestiaScore: 0.82,
-                            time: "Mock data"
-                        )
-                        tradeRow(
-                            pair: "ETH/USD",
-                            side: .sell,
-                            amount: "$45.00",
-                            price: "$3,521.15",
-                            hestiaScore: 0.71,
-                            time: "Mock data"
-                        )
-                    }
-                }
-
-                // Watchlist
-                CollapsibleSection(
-                    title: "Watchlist",
-                    icon: "eye"
-                ) {
-                    emptyListState(
-                        icon: "binoculars",
-                        message: "No assets being watched",
-                        detail: "Add pairs to your watchlist to monitor"
-                    )
-                }
-
-                // Risk Status
+                activePositionsSection
+                recentTradesSection
+                watchlistSection
                 riskStatusCard
-
-                // Kill Switch
                 killSwitchButton
             }
             .padding(.top, MacSpacing.lg)
+        }
+        .task {
+            await viewModel.loadAllData()
+            viewModel.startPeriodicRefresh()
+        }
+        .onDisappear {
+            viewModel.cleanup()
         }
     }
 
@@ -89,7 +46,7 @@ struct TradingMonitorView: View {
                     Text("Total Value")
                         .font(MacTypography.caption)
                         .foregroundStyle(MacColors.textSecondary)
-                    Text("$0.00")
+                    Text(formatCurrency(viewModel.portfolio?.totalValue ?? 0))
                         .font(.system(size: 24, weight: .bold, design: .monospaced))
                         .foregroundStyle(MacColors.textPrimary)
                 }
@@ -100,33 +57,29 @@ struct TradingMonitorView: View {
                     Text("24h P&L")
                         .font(MacTypography.caption)
                         .foregroundStyle(MacColors.textSecondary)
-                    Text("$0.00")
+                    let pnl = viewModel.portfolio?.dailyPnl ?? 0
+                    Text(formatCurrency(pnl))
                         .font(.system(size: 16, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(MacColors.textSecondary)
+                        .foregroundStyle(pnl >= 0 ? MacColors.healthGreen : MacColors.healthRed)
                 }
 
                 VStack(alignment: .trailing, spacing: MacSpacing.xs) {
                     Text("Open Positions")
                         .font(MacTypography.caption)
                         .foregroundStyle(MacColors.textSecondary)
-                    Text("0")
+                    Text("\(viewModel.positions.count)")
                         .font(.system(size: 16, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(MacColors.textSecondary)
+                        .foregroundStyle(MacColors.textPrimary)
                 }
             }
 
-            // Status banner
-            HStack(spacing: MacSpacing.sm) {
-                Image(systemName: "info.circle")
-                    .font(.system(size: 12))
-                Text("Trading module loading — connect in Sprint 26")
-                    .font(MacTypography.caption)
+            if viewModel.bots.isEmpty {
+                statusBanner(
+                    icon: "info.circle",
+                    text: "No trading bots configured — create a bot to begin",
+                    color: MacColors.amberAccent
+                )
             }
-            .foregroundStyle(MacColors.amberAccent)
-            .padding(MacSpacing.sm)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(MacColors.amberAccent.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
         }
         .padding(MacSpacing.xl)
         .background(MacColors.panelBackground)
@@ -137,10 +90,126 @@ struct TradingMonitorView: View {
         .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
     }
 
-    // MARK: - Trade Row (with expandable Decision Trail)
+    // MARK: - Active Positions
 
-    private func tradeRow(pair: String, side: TradeSide, amount: String, price: String, hestiaScore: Double, time: String) -> some View {
-        TradeRowView(pair: pair, side: side, amount: amount, price: price, hestiaScore: hestiaScore, time: time)
+    private var activePositionsSection: some View {
+        CollapsibleSection(
+            title: "Active Positions",
+            icon: "arrow.triangle.swap"
+        ) {
+            if viewModel.positions.isEmpty {
+                emptyListState(
+                    icon: "chart.bar.xaxis",
+                    message: "No active positions",
+                    detail: "Positions will appear when trading begins"
+                )
+            } else {
+                VStack(spacing: MacSpacing.sm) {
+                    ForEach(Array(viewModel.positions.values), id: \.currency) { position in
+                        positionRow(position)
+                    }
+                }
+            }
+        }
+    }
+
+    private func positionRow(_ position: TradingPositionEntry) -> some View {
+        HStack(spacing: MacSpacing.md) {
+            Text(position.currency)
+                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                .foregroundStyle(MacColors.textPrimary)
+            Spacer()
+            VStack(alignment: .trailing, spacing: 1) {
+                Text(String(format: "%.6f", position.quantity))
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(MacColors.textPrimary)
+                Text(formatCurrency(position.value))
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(MacColors.textSecondary)
+            }
+        }
+        .padding(MacSpacing.md)
+        .background(MacColors.searchInputBackground)
+        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
+    }
+
+    // MARK: - Recent Trades
+
+    private var recentTradesSection: some View {
+        CollapsibleSection(
+            title: "Recent Trades",
+            icon: "list.bullet.rectangle"
+        ) {
+            if viewModel.trades.isEmpty {
+                emptyListState(
+                    icon: "arrow.left.arrow.right",
+                    message: "No trades yet",
+                    detail: "Trades will appear once a bot executes"
+                )
+            } else {
+                VStack(spacing: MacSpacing.sm) {
+                    ForEach(viewModel.trades.prefix(10)) { trade in
+                        TradeRowView(
+                            trade: trade,
+                            onFeedback: { rating in
+                                Task {
+                                    await viewModel.submitFeedback(tradeId: trade.id, rating: rating)
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Watchlist
+
+    private var watchlistSection: some View {
+        CollapsibleSection(
+            title: "Watchlist",
+            icon: "eye"
+        ) {
+            if viewModel.watchlist.isEmpty {
+                emptyListState(
+                    icon: "binoculars",
+                    message: "No assets being watched",
+                    detail: "Add pairs to your watchlist to monitor"
+                )
+            } else {
+                VStack(spacing: MacSpacing.sm) {
+                    ForEach(viewModel.watchlist) { item in
+                        watchlistRow(item)
+                    }
+                }
+            }
+        }
+    }
+
+    private func watchlistRow(_ item: TradingWatchlistItem) -> some View {
+        HStack(spacing: MacSpacing.md) {
+            Text(item.pair)
+                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                .foregroundStyle(MacColors.textPrimary)
+            if !item.notes.isEmpty {
+                Text(item.notes)
+                    .font(MacTypography.caption)
+                    .foregroundStyle(MacColors.textSecondary)
+                    .lineLimit(1)
+            }
+            Spacer()
+            Button {
+                Task { await viewModel.removeFromWatchlist(itemId: item.id) }
+            } label: {
+                Image(systemName: "xmark.circle")
+                    .font(.system(size: 12))
+                    .foregroundStyle(MacColors.textFaint)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(MacSpacing.md)
+        .background(MacColors.searchInputBackground)
+        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
     }
 
     // MARK: - Risk Status
@@ -156,21 +225,19 @@ struct TradingMonitorView: View {
                     .foregroundStyle(MacColors.textPrimary)
                 Spacer()
 
-                // Traffic light
                 HStack(spacing: MacSpacing.xs) {
+                    let breakers = viewModel.riskStatus?.anyBreakerActive ?? false
                     Circle()
-                        .fill(MacColors.textSecondary.opacity(0.3))
+                        .fill(breakers ? MacColors.healthRed : MacColors.healthGreen)
                         .frame(width: 10, height: 10)
-                    Text("Not connected")
+                    Text(breakers ? "Breaker Active" : "All Clear")
                         .font(MacTypography.caption)
-                        .foregroundStyle(MacColors.textSecondary)
+                        .foregroundStyle(breakers ? MacColors.healthRed : MacColors.healthGreen)
                 }
             }
 
-            HStack(spacing: MacSpacing.md) {
-                riskMetric(label: "Daily Drawdown", value: "—", limit: "3%")
-                riskMetric(label: "Position Size", value: "—", limit: "2%")
-                riskMetric(label: "Consec. Losses", value: "—", limit: "5")
+            if viewModel.riskStatus == nil {
+                statusBanner(icon: "wifi.slash", text: "Risk status unavailable", color: MacColors.textSecondary)
             }
         }
         .padding(MacSpacing.xl)
@@ -182,52 +249,46 @@ struct TradingMonitorView: View {
         .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
     }
 
-    private func riskMetric(label: String, value: String, limit: String) -> some View {
-        VStack(alignment: .leading, spacing: MacSpacing.xs) {
-            Text(label)
-                .font(MacTypography.caption)
-                .foregroundStyle(MacColors.textSecondary)
-            HStack(alignment: .firstTextBaseline, spacing: MacSpacing.xs) {
-                Text(value)
-                    .font(.system(size: 16, weight: .bold, design: .monospaced))
-                    .foregroundStyle(MacColors.textPrimary)
-                Text("/ \(limit)")
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(MacColors.textFaint)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(MacSpacing.md)
-        .background(MacColors.searchInputBackground)
-        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
-    }
-
     // MARK: - Kill Switch
 
     private var killSwitchButton: some View {
-        Button {} label: {
+        Button {
+            Task { await viewModel.toggleKillSwitch() }
+        } label: {
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: "power")
                     .font(.system(size: 14, weight: .bold))
-                Text("Emergency Kill Switch")
+                Text(viewModel.killSwitchActive ? "Deactivate Kill Switch" : "Emergency Kill Switch")
                     .font(.system(size: 14, weight: .semibold))
             }
-            .foregroundStyle(MacColors.healthRed.opacity(0.5))
+            .foregroundStyle(viewModel.killSwitchActive ? MacColors.amberAccent : MacColors.healthRed.opacity(0.7))
             .frame(maxWidth: .infinity)
             .padding(.vertical, MacSpacing.md)
-            .background(MacColors.healthRed.opacity(0.06))
+            .background(
+                viewModel.killSwitchActive
+                    ? MacColors.amberAccent.opacity(0.1)
+                    : MacColors.healthRed.opacity(0.06)
+            )
             .overlay {
                 RoundedRectangle(cornerRadius: MacCornerRadius.tab)
-                    .strokeBorder(MacColors.healthRed.opacity(0.15), lineWidth: 1)
+                    .strokeBorder(
+                        viewModel.killSwitchActive
+                            ? MacColors.amberAccent.opacity(0.3)
+                            : MacColors.healthRed.opacity(0.15),
+                        lineWidth: 1
+                    )
             }
             .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.tab))
         }
         .buttonStyle(.plain)
-        .disabled(true)
-        .accessibilityLabel("Emergency kill switch — disabled until trading module connects")
+        .accessibilityLabel(
+            viewModel.killSwitchActive
+                ? "Deactivate emergency kill switch"
+                : "Activate emergency kill switch"
+        )
     }
 
-    // MARK: - Empty List State
+    // MARK: - Helpers
 
     private func emptyListState(icon: String, message: String, detail: String) -> some View {
         VStack(spacing: MacSpacing.sm) {
@@ -244,43 +305,39 @@ struct TradingMonitorView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, MacSpacing.xl)
     }
-}
 
-// MARK: - Trade Side
-
-enum TradeSide {
-    case buy, sell
-
-    var label: String {
-        switch self {
-        case .buy: return "BUY"
-        case .sell: return "SELL"
+    private func statusBanner(icon: String, text: String, color: Color) -> some View {
+        HStack(spacing: MacSpacing.sm) {
+            Image(systemName: icon)
+                .font(.system(size: 12))
+            Text(text)
+                .font(MacTypography.caption)
         }
+        .foregroundStyle(color)
+        .padding(MacSpacing.sm)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(color.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
     }
 
-    var color: Color {
-        switch self {
-        case .buy: return MacColors.healthGreen
-        case .sell: return MacColors.healthRed
-        }
+    private func formatCurrency(_ value: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = "USD"
+        return formatter.string(from: NSNumber(value: value)) ?? "$0.00"
     }
 }
 
-// MARK: - Trade Row View (expandable with Decision Trail + satisfaction slots)
+// MARK: - Trade Row View (expandable with confidence gauge + feedback)
 
 struct TradeRowView: View {
-    let pair: String
-    let side: TradeSide
-    let amount: String
-    let price: String
-    let hestiaScore: Double
-    let time: String
+    let trade: TradingTradeResponse
+    let onFeedback: (String) -> Void
 
     @State private var isExpanded = false
 
     var body: some View {
         VStack(spacing: 0) {
-            // Main row
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     isExpanded.toggle()
@@ -288,45 +345,52 @@ struct TradeRowView: View {
             } label: {
                 HStack(spacing: MacSpacing.md) {
                     // Side badge
-                    Text(side.label)
+                    Text(trade.side.uppercased())
                         .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundStyle(side.color)
+                        .foregroundStyle(trade.side == "buy" ? MacColors.healthGreen : MacColors.healthRed)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(side.color.opacity(0.15))
+                        .background((trade.side == "buy" ? MacColors.healthGreen : MacColors.healthRed).opacity(0.15))
                         .clipShape(RoundedRectangle(cornerRadius: 4))
 
-                    // Pair + price
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(pair)
+                        Text(trade.pair)
                             .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(MacColors.textPrimary)
-                        Text("\(amount) @ \(price)")
+                        Text(String(format: "%.6f @ $%.2f", trade.quantity, trade.price))
                             .font(.system(size: 11, design: .monospaced))
                             .foregroundStyle(MacColors.textSecondary)
                     }
 
                     Spacer()
 
-                    // Hestia satisfaction score gauge slot
-                    satisfactionGauge(score: hestiaScore)
-
-                    // User feedback slot (thumbs)
-                    HStack(spacing: MacSpacing.xs) {
-                        Image(systemName: "hand.thumbsup")
-                            .font(.system(size: 12))
-                            .foregroundStyle(MacColors.textFaint)
-                        Image(systemName: "hand.thumbsdown")
-                            .font(.system(size: 12))
-                            .foregroundStyle(MacColors.textFaint)
+                    // Confidence gauge
+                    if let score = trade.confidenceScore {
+                        confidenceGauge(score: score)
                     }
 
-                    // Time
-                    Text(time)
+                    // Feedback buttons
+                    HStack(spacing: MacSpacing.xs) {
+                        Button { onFeedback("positive") } label: {
+                            Image(systemName: "hand.thumbsup")
+                                .font(.system(size: 12))
+                                .foregroundStyle(MacColors.textFaint)
+                        }
+                        .buttonStyle(.plain)
+
+                        Button { onFeedback("negative") } label: {
+                            Image(systemName: "hand.thumbsdown")
+                                .font(.system(size: 12))
+                                .foregroundStyle(MacColors.textFaint)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    // Timestamp
+                    Text(formatTradeTime(trade.timestamp))
                         .font(MacTypography.caption)
                         .foregroundStyle(MacColors.textFaint)
 
-                    // Expand chevron
                     Image(systemName: "chevron.right")
                         .font(.system(size: 10, weight: .medium))
                         .foregroundStyle(MacColors.textFaint)
@@ -346,11 +410,15 @@ struct TradeRowView: View {
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(MacColors.amberAccent)
 
-                    trailStep(icon: "antenna.radiowaves.left.and.right", label: "Signal", value: "Grid level hit — price crossed geometric boundary")
-                    trailStep(icon: "gearshape", label: "Strategy", value: "Geometric grid — 2.5% spacing, 15 levels")
-                    trailStep(icon: "shield", label: "Risk Check", value: "Passed — position 0.8% of portfolio (limit 2%)")
-                    trailStep(icon: "cloud.sun", label: "Market", value: "Neutral regime — volatility within 1σ")
-                    trailStep(icon: "brain", label: "Hestia", value: "Confidence 82% — no override signals detected")
+                    if let trail = trade.decisionTrail, !trail.isEmpty {
+                        ForEach(Array(trail.enumerated()), id: \.offset) { index, step in
+                            trailStepView(step)
+                        }
+                    } else {
+                        Text("No decision trail recorded")
+                            .font(MacTypography.caption)
+                            .foregroundStyle(MacColors.textFaint)
+                    }
                 }
                 .padding(.horizontal, MacSpacing.md)
                 .padding(.bottom, MacSpacing.md)
@@ -360,9 +428,7 @@ struct TradeRowView: View {
         .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
     }
 
-    // MARK: - Satisfaction Gauge
-
-    private func satisfactionGauge(score: Double) -> some View {
+    private func confidenceGauge(score: Double) -> some View {
         ZStack {
             Circle()
                 .stroke(MacColors.textFaint.opacity(0.2), lineWidth: 2.5)
@@ -384,22 +450,39 @@ struct TradeRowView: View {
         return MacColors.healthRed
     }
 
-    // MARK: - Trail Step
-
-    private func trailStep(icon: String, label: String, value: String) -> some View {
-        HStack(alignment: .top, spacing: MacSpacing.sm) {
+    private func trailStepView(_ step: TrailStep) -> some View {
+        let stepName = step.step ?? "unknown"
+        let icon = trailStepIcon(stepName)
+        return HStack(alignment: .top, spacing: MacSpacing.sm) {
             Image(systemName: icon)
                 .font(.system(size: 10))
                 .foregroundStyle(MacColors.textSecondary)
                 .frame(width: 14)
             VStack(alignment: .leading, spacing: 1) {
-                Text(label)
+                Text(stepName.replacingOccurrences(of: "_", with: " ").capitalized)
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(MacColors.textSecondary)
-                Text(value)
-                    .font(.system(size: 11))
-                    .foregroundStyle(MacColors.textPrimary)
             }
         }
+    }
+
+    private func trailStepIcon(_ step: String) -> String {
+        switch step {
+        case "risk_validation": return "shield"
+        case "price_validation": return "cloud.sun"
+        case "exchange_execution": return "arrow.left.arrow.right"
+        default: return "circle"
+        }
+    }
+
+    private func formatTradeTime(_ timestamp: String) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let date = formatter.date(from: timestamp) ?? ISO8601DateFormatter().date(from: timestamp) else {
+            return timestamp.prefix(16).description
+        }
+        let display = DateFormatter()
+        display.dateFormat = "HH:mm"
+        return display.string(from: date)
     }
 }

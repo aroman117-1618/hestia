@@ -29,6 +29,7 @@ enum ExternalSubTab: String, CaseIterable {
 
 struct ExternalActivityView: View {
     @ObservedObject var viewModel: MacCommandCenterViewModel
+    @StateObject private var tradingViewModel = MacTradingViewModel()
     @State private var selectedSubTab: ExternalSubTab = .news
 
     var body: some View {
@@ -40,7 +41,7 @@ struct ExternalActivityView: View {
             // Sub-tab content
             switch selectedSubTab {
             case .trading:
-                TradingMonitorView()
+                TradingMonitorView(viewModel: tradingViewModel)
             case .news:
                 NewsFeedListView(viewModel: viewModel)
             case .investigations:

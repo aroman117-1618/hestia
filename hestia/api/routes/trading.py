@@ -637,10 +637,7 @@ async def add_to_watchlist(
         raise HTTPException(status_code=500, detail="Failed to add to watchlist")
 
 
-@router.delete(
-    "/watchlist/{item_id}",
-    summary="Remove item from watchlist",
-)
+@router.delete("/watchlist/{item_id}", summary="Remove item from watchlist")
 async def remove_from_watchlist(
     item_id: str,
     device_id: str = Depends(get_device_token),
@@ -660,3 +657,12 @@ async def remove_from_watchlist(
             data={"error": sanitize_for_log(e)},
         )
         raise HTTPException(status_code=500, detail="Failed to remove from watchlist")
+
+
+# POST alias for DELETE /watchlist/{item_id} — iOS/macOS APIClient.delete() is private
+@router.post("/watchlist/{item_id}/delete", include_in_schema=False)
+async def remove_from_watchlist_post(
+    item_id: str,
+    device_id: str = Depends(get_device_token),
+):
+    return await remove_from_watchlist(item_id, device_id=device_id)
