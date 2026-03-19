@@ -1,100 +1,78 @@
-# Session Handoff — 2026-03-18 (Session 7: EXT-1 + Memory Graph Diversity + Inference Fix)
+# Session Handoff — 2026-03-18 (Session 6: Trading Dashboard + Go-Live + Autonomy UX)
 
 ## Mission
-Configure external NVMe storage (EXT-1), implement memory graph diversity for diverse high-quality node types, fix the inference client thinking model bug, and address macOS chat UX issues.
+Build the trading module's monitoring dashboard (Sprint 26), wire the Go-Live engine (Sprint 27), and create the Trading Autonomy UX — enabling natural language and toggle-based control of autonomous crypto trading.
 
 ## Completed
 
-### EXT-1: External Storage Setup — COMPLETE
-- Formatted 4TB Samsung 990 PRO as APFS at `/Volumes/HestiaStorage` on Mac Mini
-- Moved 138GB Ollama models to external via symlink (`~/.ollama/models → /Volumes/HestiaStorage/ollama-models/models`)
-- Created `scripts/archive-logs.sh` (weekly) + `scripts/backup-databases.sh` (nightly)
-- Created `hestia/config/storage.yaml`
-- Scheduled via crontab: backup 3:30am daily, archive Sunday 2am
-- Enabled SSH Full Disk Access + fixed GitHub SSH key on Mac Mini
-- SPRINT.md: EXT-1 marked COMPLETE. Commit: `c5d813a`
+### Code Review + Audit Remediation
+- **6 critical trading module bugs fixed** from @hestia-reviewer audit:
+  - Sync Coinbase SDK calls wrapped with `run_in_executor` (was blocking event loop)
+  - WebSocket `_handle_close` fixed for cross-thread asyncio scheduling
+  - Risk state (kill switch, circuit breakers) persisted to SQLite (survives restarts)
+  - SQL injection guard on tax lot method, weekly P&L reset, async PositionTracker
+- **Codebase audit remediation**: learning routes auth (IDOR fix), triggers.yaml created, doc counts updated
 
-### Memory Graph Diversity — Code Complete, Awaiting Reclassification
-- Discovery: `docs/discoveries/memory-graph-diversity-2026-03-18.md`
-- Second opinion: `docs/plans/memory-graph-diversity-second-opinion-2026-03-18.md` (Claude + Gemini approved)
-- Plan: `docs/superpowers/plans/2026-03-18-memory-graph-diversity.md`
-- Commits: `55cacc8` → `d3ecd80` → `a1e198f` → `8fbe0fa` → `beaec5b`
-- 40 new tests (36 classification + 4 fact extraction), all passing
-- LLM-backed classification with quality gates (promo email filter, Intelligence notes only)
-- Retroactive reclassification script ready: `scripts/reclassify-conversations.py`
+### Sprint 26: Trading Dashboard (4 commits)
+- Decision trail + confidence score columns, watchlist table, ConfidenceScorer, TradingEventBus
+- SSE streaming endpoint, positions/portfolio REST, watchlist CRUD, trail, feedback (9 new endpoints)
+- macOS TradingMonitorView rewrite with live ViewModel
+- TradingAlerter (Discord webhook + push), server lifecycle
 
-### Inference Client Thinking Model Fix — FIXED
-- **Root cause:** Qwen 3.5's thinking tokens consume `num_predict` budget, leaving `response` field empty
-- Every `complete()` call returned empty strings since Qwen 3.5 was installed
-- This also explains why fact extraction produced 0 facts since inception
-- **Fix:** Added `think` parameter through `_call_ollama` → `_call_local_with_retries` → `_call_with_routing` → `complete()`. Tagger uses `think=False`.
-- Commit: `8efe0c2`
+### Sprint 27: Go-Live Engine (2 commits)
+- Roadmap reorder: Go-Live moved from S30 to S27
+- **BotRunner** (async trading loop) + **BotOrchestrator** (lifecycle management)
+- Exponential backoff restart, per-bot locks, exchange reconciliation on startup
 
-### macOS Chat UX — 2 of 3 Fixed
-- **Thinking indicator**: Added animated dots bubble for `isLoading && !isTyping` gap. Commit: `016654f`
-- **Avatar moved**: Tia avatar (44x44) added to Command Center greeting in HeroSection, reduced to 32x32 in chat header. Commit: `897cb82`
-- **Input field resizing**: NOT addressed — dynamic height logic exists (36-200pt) but user reports it doesn't work. Needs debugging next session.
-
-### All Pushed
-- `45376c8` is on `origin/main`. Pre-push passed (tests + macOS build).
+### Trading Autonomy UX (1 commit)
+- 5 chat tools (trading_status, enable, disable, kill_switch, summary)
+- Enable/disable toggle in macOS TradingMonitorView with first-run confirmation modal
+- Live Decision Feed (SSE-powered real-time reasoning log from BotRunner)
 
 ## In Progress
-
-### Reclassification Deployment
-- Mac Mini needs `git pull` to get inference fix + classification code
-- Then: `source .venv/bin/activate && python scripts/reclassify-conversations.py --limit 10` to verify LLM returns classifications
-- If counts look good: `--apply` for full run (1,282 candidates after quality gate filtering)
-
-### Input Field Resizing
-- Dynamic height exists in `CLITextView.swift` (lines 112-122: `reportContentHeight()` via NSLayoutManager)
-- Clamped 36-200pt in `MacMessageInputBar.swift` (line 22-24)
-- User reports it doesn't resize. Debug: check if `textDidChange` → `reportContentHeight` → SwiftUI binding update is working
-- No formatting hotkeys (bold/italic) — plain text only (`isRichText = false`)
+- Nothing — all work committed and pushed
 
 ## Decisions Made
-- LLM-first classification (not keywords) for Decision/Preference/Research — asymmetric error cost with decay rates
-- Only ACTION_ITEM uses sync-path heuristic (explicit TODO: prefixes)
-- Confidence threshold 0.7 for chunk type promotion
-- `think=False` for all structured inference calls (tagger, fact extraction)
-- OBSERVATION chunks: mail filtered for promos, notes restricted to Intelligence folder
-- ChromaDB must be updated alongside SQLite in retroactive reclassification
+- **Roadmap reorder**: Go-Live moved to S27 (was S30). Enhancements (S28-S30) follow after live validation.
+- **Dashboard-first, chat-second** (Gemini PM/UX critique): Dashboard is primary control plane, chat is remote control.
+- **confidence_score not satisfaction_score**: Pre-execution metric. Outcome scoring deferred to S28.
+- **On bot stop: cancel orders, keep positions**: Fail-safe default.
+- **REST-first, SSE-for-deltas**: Client loads state via REST, SSE delivers incremental updates.
+- **Discord webhook in Keychain** (not config file): Follows established credential pattern.
 
 ## Test Status
-- 40 new tests passing (36 classification + 4 fact extraction diagnostic)
-- 2 pre-existing inference integration tests fail (thinking model timeout — same root cause, tests don't pass `think=False`)
-- 1 pre-existing error: `test_memory.py::TestMemorySource::test_query_filter_by_source`
-- macOS build: PASS (verified by build validator)
+- 2634 total (2499 backend + 135 CLI), 274 trading-specific
+- 0 failures, 3 skipped (Ollama integration)
+- macOS build: SUCCEEDED
 
 ## Uncommitted Changes
-None — all committed and pushed.
+None — all committed and pushed to GitHub + Mac Mini + MacBook.
 
 ## Known Issues / Landmines
-- **Mac Mini needs git pull**: Code pushed but Mini still has old version. Run `git pull` before testing.
-- **Mac Mini git state**: We did `git reset --hard origin/main` earlier. Any local-only changes gone.
-- **Fact extractor uses `client.generate()`**: This method doesn't exist on InferenceClient — the fact extractor's `_get_inference_client()` awaits a sync function. The pipeline needs separate investigation for the `generate()` method source. The `think` parameter won't automatically apply to fact extraction until this is resolved.
-- **`_parse_tag_response` regex** (`r'\{[^{}]*\}'`): Won't match nested JSON. If LLM wraps output in backticks or adds nested objects, parsing fails silently.
-- **Thinking model tests**: `test_inference.py::TestInferenceClientIntegration::test_simple_completion` and `test_chat_completion` fail because they hit real Ollama without `think=False`. Consider adding `think=False` to these tests or increasing their timeout.
+- **Pre-push ChromaDB hang**: 240s timeout works but fragile. Root fix: ChromaDB cleanup fixture.
+- **Mac Mini pip deps**: `pandas`, `ta`, `coinbase-advanced-py`, `aiohttp` installed manually — not in lockfile yet.
+- **Concurrent session stash on Mac Mini**: `git stash pop` to restore memory-graph-diversity artifacts.
+- **Paper mode only**: `trading.yaml` defaults to `mode: paper`. Switch to `coinbase` after 72h soak.
+- **No macOS app auto-update**: Must manually rebuild in Xcode after git pull. **#1 priority for next session.**
 
 ## Process Learnings
+- **Gemini second opinions were high-value**: PM/UX critique ("Glass Box Lab") reframed trading UX. REST-first and confidence_score rename were both correct.
+- **@hestia-reviewer caught 6 critical bugs** that would have caused real-money safety failures.
+- **Concurrent session discipline**: Zero merge conflicts despite 2 parallel sessions.
+- **Pre-push timeout**: Killed 2 push attempts. Bumped twice (120→180→240s).
 
-### Config Gaps
-- **SSH Full Disk Access**: Not documented. Mac Mini SSH sessions can't access external volumes or crontab without Full Disk Access for sshd. Add to deployment docs.
-- **Thinking model awareness**: No config or documentation warns that Qwen 3.5 is a thinking model that consumes tokens differently. Add a note to CLAUDE.md under inference.
+## Next Step
+**#1 Priority: macOS App Auto-Update Flow**
 
-### First-Pass Success
-- 7/8 tasks completed on first pass. Rework: Python 3.9 type hints (`int | None`), inference client empty response was unexpected.
-- **Top blocker**: The thinking model bug — existed since Qwen 3.5 was installed, silently broke all inference. A `/preflight` check that verifies inference returns non-empty would have caught this.
+Andrew wants the Hestia.app on his MacBook dock to auto-update when new code is pushed. Current state: must manually `xcodegen generate && xcodebuild` after every `git pull`.
 
-### Agent Orchestration
-- Good: Parallel dispatch of hestia-explorer for 4 research topics simultaneously
-- Good: Subagent-driven development for Task 1 (complex classification), inline for Task 2 (3-line edit)
-- Good: Parallel Tasks 3+4 dispatch (independent work)
-- Miss: Should have run a quick inference test on the Mini before starting reclassification deployment
+Options to explore:
+1. `launchd` + git poll → xcodegen → xcodebuild → replace app bundle
+2. GitHub Actions → Mac Mini build → distribute via Sparkle
+3. Simple `scripts/update-app.sh` with dock integration
 
-## Next Steps
-1. **Pull on Mini**: `ssh andrewroman117@hestia-3.local 'cd ~/hestia && git pull'`
-2. **Verify inference fix**: `ssh andrewroman117@hestia-3.local 'cd ~/hestia && source .venv/bin/activate && python3 -c "import asyncio; from hestia.inference import get_inference_client; r=asyncio.run(get_inference_client().complete(\"Say hello\", think=False, validate=False)); print(repr(r.content))"'`
-3. **Run reclassification dry run**: `python scripts/reclassify-conversations.py --limit 10`
-4. **If classifications look good**: `python scripts/reclassify-conversations.py --apply`
-5. **Restart server**: Kill stale, restart, verify chat works with thinking indicator
-6. **Debug input field resizing**: Check `CLITextView.swift:112-122` — `reportContentHeight()` may not be propagating to SwiftUI binding
+After auto-update is solved:
+- Start 72h paper trading soak test (via dashboard toggle or "enable trading" chat)
+- Monitor Decision Feed for strategy behavior
+- Validate risk management in real market conditions
+- Switch `trading.yaml` to `mode: coinbase` with $25
