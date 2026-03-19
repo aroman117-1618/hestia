@@ -77,6 +77,8 @@ class BotRunner:
         self._position_tracker = PositionTracker(
             exchange=exchange,
             reconciliation_interval=60,
+            kill_switch_callback=risk_manager.activate_kill_switch,
+            event_bus=event_bus,
         )
         self._price_validator = PriceValidator(exchange=exchange)
         self._executor = TradeExecutor(

@@ -164,11 +164,26 @@ class BotOrchestrator:
                 started = await self.start_runner(bot)
                 if started:
                     resumed += 1
+                else:
+                    # Runner already active (shouldn't happen on fresh startup)
+                    logger.debug(
+                        f"Bot {bot.id[:8]} already has active runner",
+                        component=LogComponent.TRADING,
+                    )
             except Exception as e:
                 logger.error(
                     f"Failed to resume bot {bot.id[:8]}: {type(e).__name__}",
                     component=LogComponent.TRADING,
                 )
+                # Mark bot as STOPPED — don't leave it RUNNING with no runner
+                try:
+                    await manager.update_bot(bot.id, {"status": BotStatus.STOPPED.value})
+                    logger.warning(
+                        f"Bot {bot.id[:8]} marked STOPPED (failed to resume)",
+                        component=LogComponent.TRADING,
+                    )
+                except Exception:
+                    pass
 
         logger.info(
             f"Resumed {resumed}/{len(bots)} RUNNING bots",

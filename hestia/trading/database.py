@@ -275,6 +275,34 @@ class TradingDatabase(BaseDatabase):
         await self.connection.commit()
         return trade_data
 
+    async def record_trade_no_commit(self, trade_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Record a trade WITHOUT committing — for use inside atomic transactions."""
+        await self.connection.execute(
+            """INSERT INTO trades (id, bot_id, side, order_type, price, quantity,
+               fee, fee_currency, pair, tax_lot_id, exchange_order_id,
+               timestamp, metadata, user_id, decision_trail, confidence_score)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                trade_data["id"],
+                trade_data["bot_id"],
+                trade_data["side"],
+                trade_data.get("order_type", "limit"),
+                trade_data["price"],
+                trade_data["quantity"],
+                trade_data.get("fee", 0.0),
+                trade_data.get("fee_currency", "USD"),
+                trade_data.get("pair", "BTC-USD"),
+                trade_data.get("tax_lot_id"),
+                trade_data.get("exchange_order_id"),
+                trade_data["timestamp"],
+                json.dumps(trade_data.get("metadata", {})),
+                trade_data.get("user_id", "user-default"),
+                trade_data.get("decision_trail", "[]"),
+                trade_data.get("confidence_score"),
+            ),
+        )
+        return trade_data
+
     async def get_trades(
         self,
         bot_id: Optional[str] = None,
@@ -314,6 +342,12 @@ class TradingDatabase(BaseDatabase):
 
     async def create_tax_lot(self, lot_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new tax lot from a buy trade."""
+        await self.create_tax_lot_no_commit(lot_data)
+        await self.connection.commit()
+        return lot_data
+
+    async def create_tax_lot_no_commit(self, lot_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a tax lot WITHOUT committing — for use inside atomic transactions."""
         await self.connection.execute(
             """INSERT INTO tax_lots (id, trade_id, pair, quantity, remaining_quantity,
                cost_basis, cost_per_unit, method, status, acquired_at, closed_at,
@@ -335,7 +369,6 @@ class TradingDatabase(BaseDatabase):
                 lot_data.get("user_id", "user-default"),
             ),
         )
-        await self.connection.commit()
         return lot_data
 
     async def get_open_tax_lots(
@@ -362,6 +395,11 @@ class TradingDatabase(BaseDatabase):
 
     async def update_tax_lot(self, lot_id: str, updates: Dict[str, Any]) -> None:
         """Update a tax lot (remaining_quantity, status, realized_pnl, closed_at)."""
+        await self.update_tax_lot_no_commit(lot_id, updates)
+        await self.connection.commit()
+
+    async def update_tax_lot_no_commit(self, lot_id: str, updates: Dict[str, Any]) -> None:
+        """Update a tax lot WITHOUT committing — for use inside atomic transactions."""
         sets = []
         values = []
         for key in ("remaining_quantity", "status", "realized_pnl", "closed_at"):
@@ -373,7 +411,6 @@ class TradingDatabase(BaseDatabase):
             await self.connection.execute(
                 f"UPDATE tax_lots SET {', '.join(sets)} WHERE id = ?", values
             )
-            await self.connection.commit()
 
     async def get_tax_lots(
         self, user_id: str = "user-default", status: Optional[str] = None

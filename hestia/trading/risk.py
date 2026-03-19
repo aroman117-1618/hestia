@@ -78,6 +78,16 @@ class RiskManager:
         self._daily_reset_date: Optional[str] = None
         self._weekly_reset_date: Optional[str] = None
 
+    # Breakers that have active check logic in the executor pipeline.
+    # Others are disabled by default until implemented (dead code = false safety).
+    _IMPLEMENTED_BREAKERS = {
+        CircuitBreakerType.DRAWDOWN,
+        CircuitBreakerType.DAILY_LOSS,
+        CircuitBreakerType.WEEKLY_LOSS,
+        CircuitBreakerType.LATENCY,
+        CircuitBreakerType.PRICE_DIVERGENCE,
+    }
+
     def _init_breakers(self, cfg: Dict[str, Any]) -> None:
         """Initialize circuit breakers from config."""
         defaults = {
@@ -86,14 +96,18 @@ class RiskManager:
             CircuitBreakerType.WEEKLY_LOSS: 0.10,     # 10% weekly
             CircuitBreakerType.LATENCY: 2000.0,       # 2000ms
             CircuitBreakerType.PRICE_DIVERGENCE: 0.02, # 2%
-            CircuitBreakerType.SINGLE_TRADE: 0.03,    # 3% single trade
-            CircuitBreakerType.VOLATILITY: 2.0,       # 2x normal ATR
-            CircuitBreakerType.CONNECTIVITY: 300.0,   # 5 minutes (seconds)
+            CircuitBreakerType.SINGLE_TRADE: 0.03,    # 3% single trade (NOT IMPLEMENTED)
+            CircuitBreakerType.VOLATILITY: 2.0,       # 2x normal ATR (NOT IMPLEMENTED)
+            CircuitBreakerType.CONNECTIVITY: 300.0,   # 5 minutes (NOT IMPLEMENTED)
         }
 
         for breaker_type, default_threshold in defaults.items():
             threshold = cfg.get(breaker_type.value, {}).get("threshold", default_threshold)
-            enabled = cfg.get(breaker_type.value, {}).get("enabled", True)
+            # Only arm breakers that have actual check logic
+            if breaker_type in self._IMPLEMENTED_BREAKERS:
+                enabled = cfg.get(breaker_type.value, {}).get("enabled", True)
+            else:
+                enabled = cfg.get(breaker_type.value, {}).get("enabled", False)
             self._breakers[breaker_type] = CircuitBreaker(
                 breaker_type=breaker_type,
                 state=CircuitBreakerState.ARMED if enabled else CircuitBreakerState.DISABLED,

@@ -21,6 +21,7 @@ from hestia.trading.models import (
     Bot,
     BotStatus,
     DailySummary,
+    OrderType,
     StrategyType,
     TaxLot,
     TaxLotMethod,
@@ -186,14 +187,16 @@ class TradingManager:
         user_id: str = "user-default",
     ) -> Trade:
         """
-        Record a trade and manage tax lots.
+        Record a trade and manage tax lots atomically.
 
         Buys create new tax lots. Sells consume lots (HIFO or FIFO).
+        Trade + tax lot writes happen in a single SQLite transaction —
+        if either fails, both roll back (no orphaned records).
         """
         trade = Trade(
             bot_id=bot_id,
             side=TradeSide(side),
-            order_type=order_type,
+            order_type=OrderType(order_type) if isinstance(order_type, str) else order_type,
             price=price,
             quantity=quantity,
             fee=fee,
@@ -202,39 +205,58 @@ class TradingManager:
             user_id=user_id,
         )
 
-        # Tax lot management
         tax_method = self._config.get("tax", {}).get("default_method", "hifo")
 
-        if trade.side == TradeSide.BUY:
-            # Create new tax lot
-            lot = TaxLot(
-                trade_id=trade.id,
-                pair=pair,
-                quantity=quantity,
-                remaining_quantity=quantity,
-                cost_basis=trade.total_cost,
-                cost_per_unit=trade.total_cost / quantity if quantity > 0 else 0,
-                method=TaxLotMethod(tax_method),
-                user_id=user_id,
-            )
-            trade.tax_lot_id = lot.id
-            await self._database.create_tax_lot(lot.to_dict())
+        # Atomic transaction: trade + tax lot(s) written together.
+        # Trade is inserted first (tax_lots.trade_id has FK constraint).
+        try:
+            await self._database.connection.execute("BEGIN IMMEDIATE")
 
-        elif trade.side == TradeSide.SELL:
-            # Consume lots based on method
-            pnl = await self._consume_tax_lots(
-                pair=pair,
-                sell_quantity=quantity,
-                sell_price=price,
-                sell_fee=fee,
-                method=tax_method,
-                user_id=user_id,
-            )
-            # Record P&L for risk tracking
-            portfolio_value = await self._estimate_portfolio_value(user_id)
-            self._risk_manager.record_trade_pnl(pnl, portfolio_value)
+            if trade.side == TradeSide.BUY:
+                lot = TaxLot(
+                    trade_id=trade.id,
+                    pair=pair,
+                    quantity=quantity,
+                    remaining_quantity=quantity,
+                    cost_basis=trade.total_cost,
+                    cost_per_unit=trade.total_cost / quantity if quantity > 0 else 0,
+                    method=TaxLotMethod(tax_method),
+                    user_id=user_id,
+                )
+                trade.tax_lot_id = lot.id
+                # Insert trade first (FK parent), then tax lot (FK child)
+                await self._database.record_trade_no_commit(trade.to_dict())
+                await self._database.create_tax_lot_no_commit(lot.to_dict())
 
-        await self._database.record_trade(trade.to_dict())
+            elif trade.side == TradeSide.SELL:
+                pnl = await self._consume_tax_lots_no_commit(
+                    pair=pair,
+                    sell_quantity=quantity,
+                    sell_price=price,
+                    sell_fee=fee,
+                    method=tax_method,
+                    user_id=user_id,
+                )
+                await self._database.record_trade_no_commit(trade.to_dict())
+                portfolio_value = await self._estimate_portfolio_value(user_id)
+                self._risk_manager.record_trade_pnl(pnl, portfolio_value)
+
+            else:
+                await self._database.record_trade_no_commit(trade.to_dict())
+
+            await self._database.connection.execute("COMMIT")
+
+        except Exception:
+            try:
+                await self._database.connection.execute("ROLLBACK")
+            except Exception:
+                pass  # Connection may already be rolled back
+            logger.error(
+                f"Trade recording ROLLED BACK: {side} {quantity:.8f} {pair} @ {price:.2f}",
+                component=LogComponent.TRADING,
+                data={"trade_id": trade.id, "bot_id": bot_id},
+            )
+            raise
 
         logger.info(
             f"Trade recorded: {side} {quantity:.8f} {pair} @ {price:.2f}",
@@ -252,9 +274,26 @@ class TradingManager:
         method: str,
         user_id: str,
     ) -> float:
-        """
-        Consume tax lots for a sell order. Returns total realized P&L.
+        """Consume tax lots with auto-commit (standalone use)."""
+        pnl = await self._consume_tax_lots_no_commit(
+            pair, sell_quantity, sell_price, sell_fee, method, user_id
+        )
+        await self._database.connection.commit()
+        return pnl
 
+    async def _consume_tax_lots_no_commit(
+        self,
+        pair: str,
+        sell_quantity: float,
+        sell_price: float,
+        sell_fee: float,
+        method: str,
+        user_id: str,
+    ) -> float:
+        """
+        Consume tax lots for a sell order WITHOUT committing.
+
+        Used inside atomic transactions. Caller is responsible for COMMIT/ROLLBACK.
         HIFO: Sell highest-cost lots first (minimize short-term gains).
         FIFO: Sell oldest lots first (simplest accounting).
         """
@@ -270,10 +309,8 @@ class TradingManager:
             consumed = min(available, remaining)
             cost_per_unit = lot_data["cost_per_unit"]
 
-            # P&L for this portion
             proceeds = consumed * sell_price
             cost = consumed * cost_per_unit
-            # Allocate sell fee proportionally
             fee_portion = sell_fee * (consumed / sell_quantity) if sell_quantity > 0 else 0
             pnl = proceeds - cost - fee_portion
             total_pnl += pnl
@@ -289,7 +326,7 @@ class TradingManager:
             else:
                 updates["status"] = TaxLotStatus.PARTIAL.value
 
-            await self._database.update_tax_lot(lot_data["id"], updates)
+            await self._database.update_tax_lot_no_commit(lot_data["id"], updates)
             remaining -= consumed
 
         return total_pnl

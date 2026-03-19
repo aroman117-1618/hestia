@@ -11,10 +11,15 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from hestia.logging import get_logger, LogComponent
+from hestia.trading.event_bus import TradingEvent, TradingEventBus
 from hestia.trading.exchange.base import AbstractExchangeAdapter
 from hestia.trading.models import ReconciliationResult
 
 logger = get_logger()
+
+# Callback type for kill switch activation
+from typing import Callable
+KillSwitchCallback = Optional[Callable[[str], None]]
 
 
 class Position:
@@ -93,12 +98,16 @@ class PositionTracker:
         exchange: Optional[AbstractExchangeAdapter] = None,
         reconciliation_interval: int = 60,
         max_acceptable_discrepancy: float = 0.001,
+        kill_switch_callback: KillSwitchCallback = None,
+        event_bus: Optional[TradingEventBus] = None,
     ) -> None:
         self._exchange = exchange
         self._positions: Dict[str, Position] = {}
         self._positions_lock = asyncio.Lock()
         self._reconciliation_interval = reconciliation_interval
         self._max_discrepancy = max_acceptable_discrepancy
+        self._kill_switch_callback = kill_switch_callback
+        self._event_bus = event_bus
         self._reconciliation_task: Optional[asyncio.Task] = None
         self._running = False
         self._reconciliation_results: List[ReconciliationResult] = []
@@ -183,6 +192,7 @@ class PositionTracker:
             return []
 
         results = []
+        has_critical_divergence = False
         try:
             balances = await self._exchange.get_balances()
 
@@ -211,6 +221,7 @@ class PositionTracker:
                             component=LogComponent.TRADING,
                             data=result.to_dict(),
                         )
+                        has_critical_divergence = True
 
                 # Check for positions on exchange not tracked locally
                 for currency, balance in balances.items():
@@ -231,6 +242,26 @@ class PositionTracker:
                             f"Untracked exchange position: {balance.total:.8f} {currency}",
                             component=LogComponent.TRADING,
                         )
+                        has_critical_divergence = True
+
+            # CRITICAL: Trigger kill switch on any divergence above threshold
+            if has_critical_divergence:
+                reason = (
+                    f"Position reconciliation divergence detected: "
+                    f"{sum(1 for r in results if not r.resolved)} discrepancies found"
+                )
+                logger.critical(
+                    f"RECONCILIATION HALT: {reason}",
+                    component=LogComponent.TRADING,
+                )
+                if self._kill_switch_callback:
+                    self._kill_switch_callback(reason)
+                if self._event_bus:
+                    self._event_bus.publish(TradingEvent(
+                        event_type="kill_switch",
+                        data={"reason": reason, "discrepancies": [r.to_dict() for r in results if not r.resolved]},
+                        priority=True,
+                    ))
 
         except Exception as e:
             logger.error(
