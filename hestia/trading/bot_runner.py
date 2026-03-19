@@ -190,6 +190,17 @@ class BotRunner:
 
     async def _tick(self, pair: str) -> None:
         """Single iteration of the trading loop."""
+        # Market hours gate for equity bots
+        if getattr(self.bot, 'asset_class', 'crypto') == 'us_equity':
+            if hasattr(self, '_market_hours') and self._market_hours:
+                if not await self._market_hours.is_market_open():
+                    logger.debug(
+                        "Market closed — skipping equity tick",
+                        component=LogComponent.TRADING,
+                        data={"bot_id": self.bot.id},
+                    )
+                    return
+
         # 1. Fetch candles from exchange
         candles = await self._fetch_candles(pair)
         if candles is None or len(candles) < 30:
@@ -273,42 +284,34 @@ class BotRunner:
                 ))
 
     async def _fetch_candles(self, pair: str) -> Optional[pd.DataFrame]:
-        """Fetch OHLCV candles from exchange REST API."""
+        """Fetch OHLCV candles via the exchange adapter's unified interface."""
         try:
-            from datetime import timedelta
-            from hestia.trading.backtest.data_loader import DataLoader
-            loader = DataLoader()
-            # Fetch 7 days of 1h candles (168 candles) — enough for all indicators.
-            # Default 365 days is wasteful for live polling.
-            end = datetime.now(timezone.utc)
-            start = end - timedelta(days=7)
-            df = await loader.fetch_from_coinbase(
-                pair=pair,
-                granularity="1h",
-                start=start,
-                end=end,
-            )
-            if df is not None and len(df) > 0:
+            df = await self._exchange.get_candles(pair=pair, granularity="1h", days=7)
+            if df is not None and not df.empty:
                 return df
-        except Exception as e:
+
             logger.warning(
-                f"Coinbase candle fetch failed: {type(e).__name__}, trying ticker fallback",
+                "Candle fetch returned empty — falling back to ticker",
                 component=LogComponent.TRADING,
+                data={"pair": pair},
             )
 
-        # Fallback: use ticker for latest price (minimal data)
-        try:
             ticker = await self._exchange.get_ticker(pair)
-            price = ticker.get("price", 0.0)
-            if price > 0:
+            if ticker and ticker.get("price"):
+                price = ticker["price"]
                 now = datetime.now(timezone.utc)
                 return pd.DataFrame([{
                     "timestamp": now, "open": price, "high": price,
                     "low": price, "close": price, "volume": 0,
                 }])
-        except Exception:
-            pass
-        return None
+            return None
+        except Exception as e:
+            logger.warning(
+                f"Candle fetch failed: {type(e).__name__}",
+                component=LogComponent.TRADING,
+                data={"pair": pair},
+            )
+            return None
 
     async def _get_portfolio_value(self) -> float:
         """Estimate current portfolio value from exchange balances."""

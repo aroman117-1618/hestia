@@ -15,8 +15,10 @@ import asyncio
 import functools
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
+
+import pandas as pd
 
 from hestia.logging import get_logger, LogComponent
 from hestia.trading.exchange.base import (
@@ -346,6 +348,30 @@ class CoinbaseAdapter(AbstractExchangeAdapter):
                 component=LogComponent.TRADING,
             )
             return {"pair": pair, "price": 0.0}
+
+    async def get_candles(
+        self,
+        pair: str,
+        granularity: str = "1h",
+        days: int = 7,
+    ) -> Optional[pd.DataFrame]:
+        """Fetch OHLCV candles via DataLoader (Coinbase REST API)."""
+        try:
+            from hestia.trading.backtest.data_loader import DataLoader
+
+            loader = DataLoader()
+            end = datetime.now(timezone.utc)
+            start = end - timedelta(days=days)
+            df = await loader.fetch_from_coinbase(
+                pair=pair, granularity=granularity, start=start, end=end
+            )
+            return df
+        except Exception as e:
+            logger.warning(
+                f"Candle fetch failed: {type(e).__name__}",
+                component=LogComponent.TRADING,
+            )
+            return None
 
     async def get_order_book(self, pair: str = "BTC-USD", depth: int = 10) -> Dict[str, Any]:
         if not self._client:

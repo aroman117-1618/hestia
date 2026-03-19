@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+import pandas as pd
+
 
 @dataclass
 class OrderRequest:
@@ -113,6 +115,20 @@ class AbstractExchangeAdapter(ABC):
     @abstractmethod
     async def get_order_book(self, pair: str = "BTC-USD", depth: int = 10) -> Dict[str, Any]:
         """Get order book (bids and asks)."""
+        ...
+
+    @abstractmethod
+    async def get_candles(
+        self,
+        pair: str,
+        granularity: str = "1h",
+        days: int = 7,
+    ) -> Optional[pd.DataFrame]:
+        """Fetch OHLCV candle data from the exchange.
+
+        Returns DataFrame with columns: open, high, low, close, volume, timestamp.
+        None if fetch fails.
+        """
         ...
 
     @property
