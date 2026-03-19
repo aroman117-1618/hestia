@@ -70,7 +70,8 @@ jobs:
             -clonedSourcePackagesDirPath ../spm-cache \
             CODE_SIGN_IDENTITY="Developer ID Application" \
             DEVELOPMENT_TEAM=563968AM8L \
-            CODE_SIGN_STYLE=Manual
+            CODE_SIGN_STYLE=Manual \
+            ENABLE_HARDENED_RUNTIME=YES
 
       - name: Export archive
         run: |
