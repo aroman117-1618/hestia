@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import PlainTextResponse, StreamingResponse
 
 from hestia.api.errors import sanitize_for_log
 from hestia.api.middleware.auth import get_device_token
@@ -279,6 +279,47 @@ async def get_tax_lots(
     manager = await get_trading_manager()
     lots = await manager.get_tax_lots(status=status)
     return TaxLotListResponse(lots=lots, total=len(lots))
+
+
+# ── CSV Trade Export ──────────────────────────────────────────
+
+@router.get(
+    "/export/csv",
+    summary="Export trades as CSV for tax software",
+    description="Download trade history as a CSV file. Optionally filter by tax year.",
+)
+async def export_trades_csv(
+    year: Optional[int] = Query(None, description="Filter by tax year (e.g. 2026)"),
+    user_id: str = Query(DEFAULT_USER_ID, description="User ID"),
+    device_id: str = Depends(get_device_token),
+) -> PlainTextResponse:
+    try:
+        from hestia.trading.tax import TaxLotTracker
+
+        manager = await get_trading_manager()
+        trades = await manager.get_trades(limit=10000, offset=0)
+
+        if year is not None:
+            trades = [
+                t for t in trades
+                if str(t.get("timestamp", t.get("date", ""))).startswith(str(year))
+            ]
+
+        csv_content = TaxLotTracker.export_trades_csv(trades)
+        filename = f"hestia-trades-{year}.csv" if year else "hestia-trades-all.csv"
+
+        return PlainTextResponse(
+            content=csv_content,
+            media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except Exception as e:
+        logger.error(
+            "Failed to export trades CSV",
+            component=LogComponent.TRADING,
+            data={"error": sanitize_for_log(e)},
+        )
+        raise HTTPException(status_code=500, detail="Failed to export trades")
 
 
 # ── Daily Summary ─────────────────────────────────────────────

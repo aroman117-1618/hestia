@@ -1,6 +1,7 @@
 """Tests for hestia.trading.tax — TaxLotTracker."""
 
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -206,3 +207,101 @@ class TestInvalidMethod:
     def test_invalid_method_raises(self) -> None:
         with pytest.raises(ValueError, match="Invalid tax lot method"):
             TaxLotTracker(method="lifo")
+
+
+class TestExportCsvEndpoint:
+    """API endpoint tests for GET /v1/trading/export/csv."""
+
+    @staticmethod
+    def _make_app():
+        from fastapi import FastAPI
+        from hestia.api.middleware.auth import get_device_token
+        from hestia.api.routes.trading import router
+
+        app = FastAPI()
+        app.include_router(router)
+        app.dependency_overrides[get_device_token] = lambda: "test-device-123"
+        return app
+
+    def test_csv_export_endpoint_returns_csv(self) -> None:
+        """GET /v1/trading/export/csv returns 200 with text/csv content type."""
+        from fastapi.testclient import TestClient
+
+        mock_manager = AsyncMock()
+        mock_manager.get_trades = AsyncMock(return_value=[
+            {
+                "timestamp": "2026-01-15T12:00:00",
+                "side": "buy",
+                "pair": "BTC-USD",
+                "quantity": 0.5,
+                "price": 60000.0,
+                "fee": 10.0,
+                "exchange": "coinbase",
+            },
+        ])
+
+        app = self._make_app()
+        with patch("hestia.api.routes.trading.get_trading_manager", return_value=mock_manager):
+            client = TestClient(app)
+            response = client.get("/v1/trading/export/csv")
+
+        assert response.status_code == 200
+        assert "text/csv" in response.headers["content-type"]
+        assert "attachment" in response.headers["content-disposition"]
+        assert "hestia-trades-all.csv" in response.headers["content-disposition"]
+        # Verify CSV content
+        lines = response.text.strip().splitlines()
+        assert len(lines) == 2  # header + 1 trade
+        assert lines[0] == "Date,Type,Asset,Quantity,Price,Fee,Total,Exchange"
+
+    def test_csv_export_with_year_filter(self) -> None:
+        """Year parameter filters trades and sets filename."""
+        from fastapi.testclient import TestClient
+
+        mock_manager = AsyncMock()
+        mock_manager.get_trades = AsyncMock(return_value=[
+            {
+                "timestamp": "2026-01-15T12:00:00",
+                "side": "buy",
+                "pair": "BTC-USD",
+                "quantity": 0.5,
+                "price": 60000.0,
+                "fee": 10.0,
+                "exchange": "coinbase",
+            },
+            {
+                "timestamp": "2025-06-01T09:00:00",
+                "side": "sell",
+                "pair": "ETH-USD",
+                "quantity": 1.0,
+                "price": 3000.0,
+                "fee": 5.0,
+                "exchange": "coinbase",
+            },
+        ])
+
+        app = self._make_app()
+        with patch("hestia.api.routes.trading.get_trading_manager", return_value=mock_manager):
+            client = TestClient(app)
+            response = client.get("/v1/trading/export/csv?year=2026")
+
+        assert response.status_code == 200
+        assert "hestia-trades-2026.csv" in response.headers["content-disposition"]
+        lines = response.text.strip().splitlines()
+        assert len(lines) == 2  # header + 1 trade (2025 trade filtered out)
+
+    def test_csv_export_empty(self) -> None:
+        """No trades returns header-only CSV."""
+        from fastapi.testclient import TestClient
+
+        mock_manager = AsyncMock()
+        mock_manager.get_trades = AsyncMock(return_value=[])
+
+        app = self._make_app()
+        with patch("hestia.api.routes.trading.get_trading_manager", return_value=mock_manager):
+            client = TestClient(app)
+            response = client.get("/v1/trading/export/csv")
+
+        assert response.status_code == 200
+        lines = response.text.strip().splitlines()
+        assert len(lines) == 1  # header only
