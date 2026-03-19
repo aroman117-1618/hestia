@@ -53,6 +53,7 @@ from hestia.notifications import get_notification_manager, close_notification_ma
 from hestia.orchestration.audit_db import get_routing_audit_db, close_routing_audit_db
 from hestia.learning import get_learning_scheduler, close_learning_scheduler
 from hestia.trading.manager import close_trading_manager
+from hestia.trading.orchestrator import get_bot_orchestrator, close_bot_orchestrator
 
 # Import routers
 from hestia.api.routes import (
@@ -381,6 +382,21 @@ async def lifespan(app: FastAPI):
         app.state.ready = True
         app.state.started_at = time.monotonic()
 
+        # Resume RUNNING trading bots (after server is ready)
+        try:
+            orchestrator = await get_bot_orchestrator()
+            resumed = await orchestrator.resume_running_bots()
+            if resumed > 0:
+                logger.info(
+                    f"Resumed {resumed} trading bot(s)",
+                    component=LogComponent.TRADING,
+                )
+        except Exception as e:
+            logger.warning(
+                f"Trading orchestrator startup skipped: {type(e).__name__}",
+                component=LogComponent.API,
+            )
+
         yield
 
     finally:
@@ -411,6 +427,16 @@ async def lifespan(app: FastAPI):
             shutdown_errors += 1
             logger.warning(
                 f"Notification manager cleanup error: {type(e).__name__}",
+                component=LogComponent.API,
+            )
+
+        # 23. bot orchestrator (stop all runners before closing manager)
+        try:
+            await close_bot_orchestrator()
+        except Exception as e:
+            shutdown_errors += 1
+            logger.warning(
+                f"Bot orchestrator cleanup error: {type(e).__name__}",
                 component=LogComponent.API,
             )
 

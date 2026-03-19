@@ -185,7 +185,7 @@ async def delete_bot(
 @router.post(
     "/bots/{bot_id}/start",
     response_model=BotResponse,
-    summary="Start a bot",
+    summary="Start a bot — launches the trading loop",
 )
 async def start_bot(
     bot_id: str,
@@ -196,6 +196,12 @@ async def start_bot(
         bot = await manager.start_bot(bot_id)
         if bot is None:
             raise HTTPException(status_code=404, detail="Bot not found")
+
+        # Launch the BotRunner via orchestrator
+        from hestia.trading.orchestrator import get_bot_orchestrator
+        orchestrator = await get_bot_orchestrator()
+        await orchestrator.start_runner(bot)
+
         return BotResponse(**bot.to_dict())
     except HTTPException:
         raise
@@ -211,7 +217,7 @@ async def start_bot(
 @router.post(
     "/bots/{bot_id}/stop",
     response_model=BotResponse,
-    summary="Stop a bot",
+    summary="Stop a bot — cancels open orders, keeps positions",
 )
 async def stop_bot(
     bot_id: str,
@@ -222,6 +228,12 @@ async def stop_bot(
         bot = await manager.stop_bot(bot_id)
         if bot is None:
             raise HTTPException(status_code=404, detail="Bot not found")
+
+        # Stop the BotRunner via orchestrator
+        from hestia.trading.orchestrator import get_bot_orchestrator
+        orchestrator = await get_bot_orchestrator()
+        await orchestrator.stop_runner(bot_id)
+
         return BotResponse(**bot.to_dict())
     except HTTPException:
         raise
