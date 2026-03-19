@@ -3,7 +3,7 @@
 import pytest
 import pytest_asyncio
 
-from hestia.trading.exchange.base import AccountBalance, OrderRequest, OrderResult
+from hestia.trading.exchange.base import AbstractExchangeAdapter, AccountBalance, OrderRequest, OrderResult
 from hestia.trading.exchange.paper import PaperAdapter
 
 
@@ -266,3 +266,19 @@ class TestCustomConfig:
         result = await adapter.place_order(request)
         assert result.filled_price == 65000.0  # No slippage
         await adapter.disconnect()
+
+
+# ── ABC Interface ────────────────────────────────────────────
+
+class TestABCInterface:
+    @pytest.mark.asyncio
+    async def test_get_candles_in_abc(self):
+        """get_candles is declared as an abstract method on the ABC."""
+        assert hasattr(AbstractExchangeAdapter, "get_candles")
+        assert "get_candles" in AbstractExchangeAdapter.__abstractmethods__
+
+    @pytest.mark.asyncio
+    async def test_paper_adapter_get_candles_returns_none(self, paper):
+        """Paper adapter stub returns None (no live data source)."""
+        result = await paper.get_candles("BTC-USD")
+        assert result is None

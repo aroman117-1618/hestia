@@ -9,6 +9,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+import pandas as pd
+
 from hestia.logging import get_logger, LogComponent
 from hestia.trading.exchange.base import (
     AbstractExchangeAdapter,
@@ -211,6 +213,15 @@ class PaperAdapter(AbstractExchangeAdapter):
             "volume_24h": 1000000.0,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
+
+    async def get_candles(
+        self,
+        pair: str,
+        granularity: str = "1h",
+        days: int = 7,
+    ) -> Optional[pd.DataFrame]:
+        """Paper adapter has no live data source."""
+        return None
 
     async def get_order_book(self, pair: str = "BTC-USD", depth: int = 10) -> Dict[str, Any]:
         price = self._current_prices.get(pair, 0.0)
