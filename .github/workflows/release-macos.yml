@@ -34,6 +34,11 @@ jobs:
             echo "version=${TAG_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Set up PATH for self-hosted runner
+        run: |
+          echo "/opt/homebrew/bin" >> $GITHUB_PATH
+          echo "/usr/local/bin" >> $GITHUB_PATH
+
       - name: Install xcodegen (if missing)
         run: which xcodegen || brew install xcodegen
 
