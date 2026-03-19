@@ -45,6 +45,12 @@ def _create_strategy(strategy_type: StrategyType, config: Dict[str, Any]) -> Bas
     elif strategy_type == StrategyType.MEAN_REVERSION:
         from hestia.trading.strategies.mean_reversion import MeanReversionStrategy
         return MeanReversionStrategy(config)
+    elif strategy_type == StrategyType.BOLLINGER_BREAKOUT:
+        from hestia.trading.strategies.bollinger import BollingerBreakoutStrategy
+        return BollingerBreakoutStrategy(config)
+    elif strategy_type == StrategyType.SIGNAL_DCA:
+        from hestia.trading.strategies.signal_dca import SignalDCAStrategy
+        return SignalDCAStrategy(config)
     else:
         raise ValueError(f"Unsupported strategy type: {strategy_type}")
 
