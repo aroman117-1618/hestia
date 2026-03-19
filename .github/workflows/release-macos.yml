@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   build-and-release:
-    runs-on: macos-15
+    runs-on: [self-hosted, macos, hestia]
     timeout-minutes: 45
     env:
       INPUT_VERSION: ${{ inputs.version }}
@@ -34,8 +34,8 @@ jobs:
             echo "version=${TAG_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Install xcodegen
-        run: brew install xcodegen
+      - name: Install xcodegen (if missing)
+        run: which xcodegen || brew install xcodegen
 
       - name: Generate Xcode project
         run: cd HestiaApp && xcodegen generate
