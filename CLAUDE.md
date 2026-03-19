@@ -139,7 +139,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 **Active: Trading Module (Sprints 21-30).** Sprints 21-26 COMPLETE. Sprint 27 (Go-Live) IN PROGRESS — safety hardening complete, paper soak ready.
 
-2650 tests (2515 backend + 135 CLI), 81 test files. Full details: `python -m pytest tests/ -v --timeout=30`
+2692 tests (2557 backend + 135 CLI), 83 test files. Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -281,10 +281,10 @@ Sprints 21-26 COMPLETE (foundation, strategies, risk, backtesting, Coinbase live
 
 | Sprint | Status | Scope |
 |--------|--------|-------|
-| Sprint 27: Go-Live | TODO | Bot Runner, orchestrator, market data polling, WebSocket wiring, paper soak |
-| Sprint 28: Portfolio Expansion | TODO | Bollinger breakout, signal DCA, regime rotation, CCXT for Kraken |
-| Sprint 29: AI Sentiment | TODO | LLM regime filter, CryptoPanic, alpha decay measurement |
-| Sprint 30: On-Chain + ML | TODO | Glassnode PiT data, Bayesian optimizer, walk-forward |
+| Sprint 27: Go-Live | IN PROGRESS | Paper soak running, S27 hardening complete, awaiting validation Mar 22 |
+| Sprint 28: Alpaca + Stocks | TODO | AlpacaAdapter, market hours, PDT rule, stock strategies, Bollinger/DCA backtests |
+| Sprint 29: Multi-Asset Intelligence | TODO | Regime detection, wash sale/tax-loss harvesting, CoinGecko feed |
+| Sprint 30: Optimization + On-Chain | TODO | Optuna optimizer, walk-forward validation, CryptoQuant/Dune signals |
 
 **Plan:** `docs/discoveries/trading-module-research-and-plan.md`
 **Critical path:** S21-S26 (done) → S27 (Go-Live) → S28-S30 (enhancements on live data).
