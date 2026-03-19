@@ -79,29 +79,38 @@ jobs:
             -exportPath HestiaApp/build/export \
             -exportOptionsPlist HestiaApp/ExportOptions.plist
 
+      - name: Find exported app
+        id: app
+        run: |
+          APP_PATH=$(find HestiaApp/build/export -name "*.app" -maxdepth 1 | head -1)
+          APP_NAME=$(basename "$APP_PATH")
+          echo "path=$APP_PATH" >> "$GITHUB_OUTPUT"
+          echo "name=$APP_NAME" >> "$GITHUB_OUTPUT"
+          echo "Found app: $APP_NAME at $APP_PATH"
+
       - name: Notarize
         env:
           AC_USERNAME: ${{ secrets.AC_USERNAME }}
           AC_PASSWORD: ${{ secrets.AC_PASSWORD }}
           AC_TEAM_ID: ${{ secrets.AC_TEAM_ID }}
+          APP_PATH: ${{ steps.app.outputs.path }}
         run: |
-          cd HestiaApp/build/export
-          ditto -c -k --keepParent "HestiaWorkspace.app" Hestia-notarize.zip
-          xcrun notarytool submit Hestia-notarize.zip \
+          ditto -c -k --keepParent "$APP_PATH" /tmp/Hestia-notarize.zip
+          xcrun notarytool submit /tmp/Hestia-notarize.zip \
             --apple-id "$AC_USERNAME" \
             --password "$AC_PASSWORD" \
             --team-id "$AC_TEAM_ID" \
             --wait --timeout 600
-          xcrun stapler staple "HestiaWorkspace.app"
-          rm Hestia-notarize.zip
+          xcrun stapler staple "$APP_PATH"
+          rm /tmp/Hestia-notarize.zip
 
       - name: Package release ZIP
         id: package
+        env:
+          APP_PATH: ${{ steps.app.outputs.path }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          cd HestiaApp/build/export
-          ditto -c -k --keepParent "HestiaWorkspace.app" "../../../Hestia-${VERSION}.zip"
-          cd ../../..
+          ditto -c -k --keepParent "$APP_PATH" "Hestia-${VERSION}.zip"
           SIZE=$(stat -f%z "Hestia-${VERSION}.zip")
           echo "size=$SIZE" >> "$GITHUB_OUTPUT"
 
