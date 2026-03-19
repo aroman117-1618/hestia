@@ -124,6 +124,8 @@ class ChunkMetadata:
     source: Optional[str] = None        # MemorySource value string
     is_sensitive: bool = False           # PII, health, financial data
     sensitive_reason: Optional[str] = None  # "pii_detected", "user_flagged", "health_data"
+    suggested_type: Optional[str] = None       # LLM-suggested chunk type
+    type_confidence: float = 0.0               # LLM confidence in suggested type
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for storage."""
@@ -137,6 +139,8 @@ class ChunkMetadata:
             "source": self.source,
             "is_sensitive": self.is_sensitive,
             "sensitive_reason": self.sensitive_reason,
+            "suggested_type": self.suggested_type,
+            "type_confidence": self.type_confidence,
         }
 
     @classmethod
@@ -152,6 +156,8 @@ class ChunkMetadata:
             source=data.get("source"),
             is_sensitive=data.get("is_sensitive", False),
             sensitive_reason=data.get("sensitive_reason"),
+            suggested_type=data.get("suggested_type"),
+            type_confidence=float(data.get("type_confidence", 0.0)),
         )
 
 

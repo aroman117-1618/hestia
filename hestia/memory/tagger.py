@@ -11,7 +11,7 @@ from typing import Optional
 
 from hestia.inference import get_inference_client, Message
 from hestia.logging import get_logger, LogComponent
-from hestia.memory.models import ChunkTags, ChunkMetadata, ConversationChunk
+from hestia.memory.models import ChunkTags, ChunkMetadata, ChunkType, ConversationChunk
 
 
 # Prompt for tag extraction
@@ -29,7 +29,9 @@ Extract the following information as JSON:
     "has_decision": true/false,
     "has_action_item": true/false,
     "sentiment": "positive" | "neutral" | "negative",
-    "status": ["active"] or ["unresolved"] if there's an open question
+    "status": ["active"] or ["unresolved"] if there's an open question,
+    "suggested_type": "conversation" | "decision" | "action_item" | "preference" | "research",
+    "type_confidence": 0.0 to 1.0
 }}
 
 Guidelines:
@@ -41,6 +43,23 @@ Guidelines:
 - has_action_item is true if there's a task to be done
 - sentiment reflects the overall tone
 - status is ["unresolved"] if there's an open question or issue
+
+Chunk Type Classification (for suggested_type):
+- "decision": Author made a clear, finalized choice between alternatives.
+  MUST contain explicit commitment ("I decided", "we're going with", "I chose").
+  Do NOT classify tentative statements ("maybe we should", "thinking about").
+- "action_item": A concrete task with implied or stated deadline.
+  MUST describe a specific action ("TODO:", "need to update X", "schedule Y").
+  Do NOT classify vague intentions ("should probably", "would be nice to").
+- "preference": A personal taste, habit, or recurring style choice.
+  MUST express a consistent preference ("I prefer", "I always", "I never").
+  Do NOT classify one-time situational choices.
+- "research": Analysis results, investigation findings, or comparative evaluation.
+  MUST contain synthesized findings, not just raw data or questions.
+- "conversation": Default. Casual chat, questions, greetings, troubleshooting.
+  When in doubt, choose "conversation" — false negatives are better than false positives.
+- type_confidence: How confident you are in the classification (0.0-1.0).
+  Use 0.9+ only for unambiguous cases. Use <0.5 for borderline.
 
 Respond with ONLY the JSON object, no other text."""
 
@@ -57,6 +76,31 @@ SENSITIVE_PATTERNS = [
     # Explicit privacy markers
     r'\b(private|confidential|secret|don\'t share|between us|off the record)\b',
 ]
+
+# Promotional email signals — skip these from classification
+PROMO_SIGNALS = [
+    "unsubscribe", "view in browser", "email preferences",
+    "no longer wish to receive", "opt out", "manage subscriptions",
+    "privacy policy", "terms of service", "do not reply",
+    "noreply@", "no-reply@", "marketing@", "updates@",
+    "newsletter", "weekly digest", "daily summary",
+    "powered by mailchimp", "powered by sendgrid",
+]
+
+# Minimum content length for classification (chars)
+MIN_CLASSIFICATION_LENGTH = 40
+
+# Minimum LLM confidence to promote chunk type
+CLASSIFICATION_CONFIDENCE_THRESHOLD = 0.7
+
+# Explicit action item prefixes (high-confidence heuristic, sync-safe)
+ACTION_ITEM_PREFIXES = [
+    "todo:", "todo -", "action item:", "action item -",
+    "task:", "[ ]", "[x]", "- [ ]", "- [x]",
+]
+
+# Valid LLM-suggested types for promotion
+PROMOTABLE_TYPES = {"decision", "action_item", "preference", "research"}
 
 
 class AutoTagger:
@@ -152,6 +196,8 @@ class AutoTagger:
             sentiment=data.get("sentiment"),
             is_sensitive=data.get("is_sensitive", False),
             sensitive_reason=data.get("sensitive_reason"),
+            suggested_type=data.get("suggested_type"),
+            type_confidence=float(data.get("type_confidence", 0.0)),
         )
 
         return tags, metadata
@@ -167,6 +213,66 @@ class AutoTagger:
             status=list(set(existing.status + new.status)),
             custom={**existing.custom, **new.custom},
         )
+
+    def _should_classify(self, chunk: ConversationChunk) -> bool:
+        """Content quality gate: only classify chunks worth promoting."""
+        # Only classify CONVERSATION and OBSERVATION chunks
+        if chunk.chunk_type not in (ChunkType.CONVERSATION, ChunkType.OBSERVATION):
+            return False
+
+        # Too short to classify meaningfully
+        if len(chunk.content.strip()) < MIN_CLASSIFICATION_LENGTH:
+            return False
+
+        source = chunk.metadata.source if chunk.metadata else None
+
+        # Mail filter: skip promotional/marketing emails
+        if source == "mail":
+            content_lower = chunk.content.lower()
+            if any(signal in content_lower for signal in PROMO_SIGNALS):
+                return False
+
+        # Notes filter: only classify from "Intelligence" folder
+        if source == "notes":
+            folder = ""
+            if chunk.tags and chunk.tags.custom:
+                folder = chunk.tags.custom.get("folder", "")
+            if not folder or "intelligence" not in folder.lower():
+                return False
+
+        return True
+
+    def classify_chunk_type(
+        self,
+        content: str,
+        metadata: ChunkMetadata,
+        llm_suggested_type: Optional[str] = None,
+        llm_type_confidence: float = 0.0,
+    ) -> ChunkType:
+        """Classify chunk type using heuristic + LLM signals.
+
+        Priority:
+        1. Explicit ACTION_ITEM prefixes (heuristic, high confidence)
+        2. LLM suggested_type with confidence >= threshold
+        3. Default: CONVERSATION
+        """
+        # Tier 1: Heuristic — explicit action item prefixes only
+        content_stripped = content.strip().lower()
+        if any(content_stripped.startswith(prefix) for prefix in ACTION_ITEM_PREFIXES):
+            return ChunkType.ACTION_ITEM
+
+        # Tier 2: LLM classification with confidence gate
+        if (
+            llm_suggested_type
+            and llm_suggested_type in PROMOTABLE_TYPES
+            and llm_type_confidence >= CLASSIFICATION_CONFIDENCE_THRESHOLD
+        ):
+            try:
+                return ChunkType(llm_suggested_type)
+            except ValueError:
+                pass  # Invalid type string, fall through
+
+        return ChunkType.CONVERSATION
 
     def quick_tag(self, content: str) -> tuple[ChunkTags, ChunkMetadata]:
         """
