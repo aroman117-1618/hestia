@@ -45,6 +45,7 @@ jobs:
         run: |
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" ~/Library/Keychains/login.keychain-db
           security set-keychain-settings -t 3600 ~/Library/Keychains/login.keychain-db
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" ~/Library/Keychains/login.keychain-db
 
       - name: Install xcodegen (if missing)
         run: which xcodegen || brew install xcodegen
