@@ -56,6 +56,7 @@ rapidfuzz>=3.0.0
 pandas>=2.0.0
 ta>=0.10.0
 coinbase-advanced-py>=1.0.0
+alpaca-py>=0.30.0,<1.0
 aiohttp>=3.9.0
 
 # Trading Module (backtesting only — requires Python 3.10+)
