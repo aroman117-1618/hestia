@@ -1,81 +1,100 @@
-# Session Handoff — 2026-03-18 (Session 7: EXT-1 + Memory Graph Diversity)
+# Session Handoff — 2026-03-18 (Session 7: EXT-1 + Memory Graph Diversity + Inference Fix)
 
 ## Mission
-Configure external NVMe storage tier (EXT-1), implement memory graph diversity so the Research graph shows diverse high-quality node types, and fix the inference client thinking model bug.
+Configure external NVMe storage (EXT-1), implement memory graph diversity for diverse high-quality node types, fix the inference client thinking model bug, and address macOS chat UX issues.
 
 ## Completed
 
 ### EXT-1: External Storage Setup — COMPLETE
 - Formatted 4TB Samsung 990 PRO as APFS at `/Volumes/HestiaStorage` on Mac Mini
 - Moved 138GB Ollama models to external via symlink (`~/.ollama/models → /Volumes/HestiaStorage/ollama-models/models`)
-- Created `scripts/archive-logs.sh` (weekly log archival) + `scripts/backup-databases.sh` (nightly SQLite backup)
-- Created `hestia/config/storage.yaml` — central config for all external paths
-- Scheduled via crontab on Mac Mini: backup 3:30am daily, archive Sunday 2am
+- Created `scripts/archive-logs.sh` (weekly) + `scripts/backup-databases.sh` (nightly)
+- Created `hestia/config/storage.yaml`
+- Scheduled via crontab: backup 3:30am daily, archive Sunday 2am
 - Enabled SSH Full Disk Access + fixed GitHub SSH key on Mac Mini
-- Commit: `c5d813a`
+- SPRINT.md: EXT-1 marked COMPLETE. Commit: `c5d813a`
 
-### Memory Graph Diversity — Code Complete
+### Memory Graph Diversity — Code Complete, Awaiting Reclassification
 - Discovery: `docs/discoveries/memory-graph-diversity-2026-03-18.md`
 - Second opinion: `docs/plans/memory-graph-diversity-second-opinion-2026-03-18.md` (Claude + Gemini approved)
 - Plan: `docs/superpowers/plans/2026-03-18-memory-graph-diversity.md`
-- 5 commits: `55cacc8` → `d3ecd80` → `a1e198f` → `8fbe0fa` → `beaec5b`
+- Commits: `55cacc8` → `d3ecd80` → `a1e198f` → `8fbe0fa` → `beaec5b`
 - 40 new tests (36 classification + 4 fact extraction), all passing
-- LLM-backed classification with quality gates (promo email filter, Intelligence folder notes only)
-- Retroactive reclassification script ready (`scripts/reclassify-conversations.py`)
+- LLM-backed classification with quality gates (promo email filter, Intelligence notes only)
+- Retroactive reclassification script ready: `scripts/reclassify-conversations.py`
 
 ### Inference Client Thinking Model Fix — FIXED
 - **Root cause:** Qwen 3.5's thinking tokens consume `num_predict` budget, leaving `response` field empty
-- Every `complete()` call returned empty strings on Mac Mini since Qwen 3.5 was installed
-- **Fix:** Added `think` parameter to `_call_ollama` chain; tagger uses `think=False`
-- This also explains why fact extraction has produced 0 facts since inception
-- Commit: `8efe0c2` (push in progress with pre-push hook)
+- Every `complete()` call returned empty strings since Qwen 3.5 was installed
+- This also explains why fact extraction produced 0 facts since inception
+- **Fix:** Added `think` parameter through `_call_ollama` → `_call_local_with_retries` → `_call_with_routing` → `complete()`. Tagger uses `think=False`.
+- Commit: `8efe0c2`
+
+### macOS Chat UX — 2 of 3 Fixed
+- **Thinking indicator**: Added animated dots bubble for `isLoading && !isTyping` gap. Commit: `016654f`
+- **Avatar moved**: Tia avatar (44x44) added to Command Center greeting in HeroSection, reduced to 32x32 in chat header. Commit: `897cb82`
+- **Input field resizing**: NOT addressed — dynamic height logic exists (36-200pt) but user reports it doesn't work. Needs debugging next session.
+
+### All Pushed
+- `45376c8` is on `origin/main`. Pre-push passed (tests + macOS build).
 
 ## In Progress
 
-### Reclassification Deployment — Blocked on push completion
-- Code is on Mac Mini but inference fix needs to land first
-- After push: `git pull && python scripts/reclassify-conversations.py --limit 10` to verify
-- Then `--apply` for full run (1,282 candidates after quality gate filtering)
+### Reclassification Deployment
+- Mac Mini needs `git pull` to get inference fix + classification code
+- Then: `source .venv/bin/activate && python scripts/reclassify-conversations.py --limit 10` to verify LLM returns classifications
+- If counts look good: `--apply` for full run (1,282 candidates after quality gate filtering)
 
-### macOS Chat UX Issues — Researched, Not Started
-Four issues identified from user screenshots, all code paths traced:
-
-1. **Input field**: Dynamic height (36-200pt) exists in `CLITextView.swift` but user reports it doesn't resize. No formatting hotkeys (bold/italic). Check if `reportContentHeight()` is firing correctly.
-   - Files: `HestiaApp/macOS/Views/Chat/CLITextView.swift`, `MacMessageInputBar.swift`
-
-2. **Move Tia avatar to Command header**: Add avatar image left of greeting text in HeroSection. Remove large avatar from FloatingAvatarView (keep mode name + picker only).
-   - Files: `HestiaApp/macOS/Views/Command/HeroSection.swift`, `HestiaApp/macOS/Views/Chat/FloatingAvatarView.swift`
-
-3. **Thinking/loading state**: No visual between message send and first token. `isLoading` is set but no "thinking" bubble shown. Need to add a preparing/thinking indicator in `MacChatPanelView.swift` for the `isLoading && !isTyping` state.
-   - Files: `HestiaApp/macOS/Views/Chat/MacChatPanelView.swift`
-
-4. **Connection error**: "No connection available" — this was the inference client returning empty responses. Should be fixed by the thinking model fix above. Verify after deploy.
+### Input Field Resizing
+- Dynamic height exists in `CLITextView.swift` (lines 112-122: `reportContentHeight()` via NSLayoutManager)
+- Clamped 36-200pt in `MacMessageInputBar.swift` (line 22-24)
+- User reports it doesn't resize. Debug: check if `textDidChange` → `reportContentHeight` → SwiftUI binding update is working
+- No formatting hotkeys (bold/italic) — plain text only (`isRichText = false`)
 
 ## Decisions Made
-- LLM-first classification (not keyword heuristics) for Decision/Preference/Research types
+- LLM-first classification (not keywords) for Decision/Preference/Research — asymmetric error cost with decay rates
+- Only ACTION_ITEM uses sync-path heuristic (explicit TODO: prefixes)
 - Confidence threshold 0.7 for chunk type promotion
-- `think=False` for all structured inference calls (tagger, fact extraction) — thinking models waste tokens on reasoning for JSON output
-- OBSERVATION chunks classified only from Intelligence folder (notes) and non-promo (mail)
+- `think=False` for all structured inference calls (tagger, fact extraction)
+- OBSERVATION chunks: mail filtered for promos, notes restricted to Intelligence folder
+- ChromaDB must be updated alongside SQLite in retroactive reclassification
 
 ## Test Status
-- 40 new tests passing (classification + fact extraction)
-- 2 pre-existing inference integration tests fail (same thinking model timeout — not affected by our fix since they don't pass `think=False`)
+- 40 new tests passing (36 classification + 4 fact extraction diagnostic)
+- 2 pre-existing inference integration tests fail (thinking model timeout — same root cause, tests don't pass `think=False`)
 - 1 pre-existing error: `test_memory.py::TestMemorySource::test_query_filter_by_source`
+- macOS build: PASS (verified by build validator)
 
 ## Uncommitted Changes
-- `docs/discoveries/memory-graph-diversity-2026-03-18.md` (untracked — discovery report)
-- `docs/plans/memory-graph-diversity-second-opinion-2026-03-18.md` (untracked — second opinion)
-- `docs/superpowers/plans/2026-03-18-memory-graph-diversity.md` (untracked — plan)
+None — all committed and pushed.
 
 ## Known Issues / Landmines
-- **Push may still be running** — pre-push hook runs full test suite + macOS build. Check `git log origin/main --oneline -1` to verify `8efe0c2` landed.
-- **Mac Mini git state**: We did `git reset --hard origin/main` earlier to force-pull. Any local-only Mini changes are gone.
-- **Fact extractor uses `client.generate()`** which doesn't exist on InferenceClient — it uses a separate import path. The fact extraction pipeline needs separate investigation to determine if it's using the Ollama Python library or a different client.
-- **`_parse_tag_response` regex** (`r'\{[^{}]*\}'`) won't match nested JSON — if the LLM returns nested objects, parsing fails silently.
+- **Mac Mini needs git pull**: Code pushed but Mini still has old version. Run `git pull` before testing.
+- **Mac Mini git state**: We did `git reset --hard origin/main` earlier. Any local-only changes gone.
+- **Fact extractor uses `client.generate()`**: This method doesn't exist on InferenceClient — the fact extractor's `_get_inference_client()` awaits a sync function. The pipeline needs separate investigation for the `generate()` method source. The `think` parameter won't automatically apply to fact extraction until this is resolved.
+- **`_parse_tag_response` regex** (`r'\{[^{}]*\}'`): Won't match nested JSON. If LLM wraps output in backticks or adds nested objects, parsing fails silently.
+- **Thinking model tests**: `test_inference.py::TestInferenceClientIntegration::test_simple_completion` and `test_chat_completion` fail because they hit real Ollama without `think=False`. Consider adding `think=False` to these tests or increasing their timeout.
+
+## Process Learnings
+
+### Config Gaps
+- **SSH Full Disk Access**: Not documented. Mac Mini SSH sessions can't access external volumes or crontab without Full Disk Access for sshd. Add to deployment docs.
+- **Thinking model awareness**: No config or documentation warns that Qwen 3.5 is a thinking model that consumes tokens differently. Add a note to CLAUDE.md under inference.
+
+### First-Pass Success
+- 7/8 tasks completed on first pass. Rework: Python 3.9 type hints (`int | None`), inference client empty response was unexpected.
+- **Top blocker**: The thinking model bug — existed since Qwen 3.5 was installed, silently broke all inference. A `/preflight` check that verifies inference returns non-empty would have caught this.
+
+### Agent Orchestration
+- Good: Parallel dispatch of hestia-explorer for 4 research topics simultaneously
+- Good: Subagent-driven development for Task 1 (complex classification), inline for Task 2 (3-line edit)
+- Good: Parallel Tasks 3+4 dispatch (independent work)
+- Miss: Should have run a quick inference test on the Mini before starting reclassification deployment
 
 ## Next Steps
-1. **Verify push landed**: `git log origin/main --oneline -1` should show `8efe0c2`
-2. **Pull on Mini + test inference**: `ssh andrewroman117@hestia-3.local 'cd ~/hestia && git pull && source .venv/bin/activate && python3 -c "import asyncio; from hestia.inference import get_inference_client; asyncio.run((lambda: get_inference_client().complete(\"Say hello\", think=False, validate=False))())"'`
-3. **Run reclassification**: `python scripts/reclassify-conversations.py --limit 10` → verify counts → `--apply`
-4. **macOS Chat UX** (4 items above — ~1.5h total Swift work)
-5. **Commit untracked docs**: 3 plan/discovery files
+1. **Pull on Mini**: `ssh andrewroman117@hestia-3.local 'cd ~/hestia && git pull'`
+2. **Verify inference fix**: `ssh andrewroman117@hestia-3.local 'cd ~/hestia && source .venv/bin/activate && python3 -c "import asyncio; from hestia.inference import get_inference_client; r=asyncio.run(get_inference_client().complete(\"Say hello\", think=False, validate=False)); print(repr(r.content))"'`
+3. **Run reclassification dry run**: `python scripts/reclassify-conversations.py --limit 10`
+4. **If classifications look good**: `python scripts/reclassify-conversations.py --apply`
+5. **Restart server**: Kill stale, restart, verify chat works with thinking indicator
+6. **Debug input field resizing**: Check `CLITextView.swift:112-122` — `reportContentHeight()` may not be propagating to SwiftUI binding
