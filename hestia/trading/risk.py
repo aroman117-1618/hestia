@@ -1,11 +1,11 @@
 """
-Risk management framework — 8-layer safety architecture.
+Risk management framework — safety architecture.
 
 Layer 1: API key scoping (enforced at Coinbase console level)
 Layer 2: Position limits (max % per trade, max total deployed)
 Layer 3: Quarter-Kelly position sizing
 Layer 4: Drawdown circuit breaker
-Layer 5: Daily loss limit
+Layer 5: Daily/weekly loss limit
 Layer 6: Latency circuit breaker
 Layer 7: Price divergence check
 Layer 8: Reconciliation loop (in manager.py)
@@ -78,16 +78,6 @@ class RiskManager:
         self._daily_reset_date: Optional[str] = None
         self._weekly_reset_date: Optional[str] = None
 
-    # Breakers that have active check logic in the executor pipeline.
-    # Others are disabled by default until implemented (dead code = false safety).
-    _IMPLEMENTED_BREAKERS = {
-        CircuitBreakerType.DRAWDOWN,
-        CircuitBreakerType.DAILY_LOSS,
-        CircuitBreakerType.WEEKLY_LOSS,
-        CircuitBreakerType.LATENCY,
-        CircuitBreakerType.PRICE_DIVERGENCE,
-    }
-
     def _init_breakers(self, cfg: Dict[str, Any]) -> None:
         """Initialize circuit breakers from config."""
         defaults = {
@@ -96,18 +86,11 @@ class RiskManager:
             CircuitBreakerType.WEEKLY_LOSS: 0.10,     # 10% weekly
             CircuitBreakerType.LATENCY: 2000.0,       # 2000ms
             CircuitBreakerType.PRICE_DIVERGENCE: 0.02, # 2%
-            CircuitBreakerType.SINGLE_TRADE: 0.03,    # 3% single trade (NOT IMPLEMENTED)
-            CircuitBreakerType.VOLATILITY: 2.0,       # 2x normal ATR (NOT IMPLEMENTED)
-            CircuitBreakerType.CONNECTIVITY: 300.0,   # 5 minutes (NOT IMPLEMENTED)
         }
 
         for breaker_type, default_threshold in defaults.items():
             threshold = cfg.get(breaker_type.value, {}).get("threshold", default_threshold)
-            # Only arm breakers that have actual check logic
-            if breaker_type in self._IMPLEMENTED_BREAKERS:
-                enabled = cfg.get(breaker_type.value, {}).get("enabled", True)
-            else:
-                enabled = cfg.get(breaker_type.value, {}).get("enabled", False)
+            enabled = cfg.get(breaker_type.value, {}).get("enabled", True)
             self._breakers[breaker_type] = CircuitBreaker(
                 breaker_type=breaker_type,
                 state=CircuitBreakerState.ARMED if enabled else CircuitBreakerState.DISABLED,
@@ -177,6 +160,15 @@ class RiskManager:
 
             # Restore breaker states
             breakers_data = state.get("breakers", {})
+            # Warn about persisted keys that no longer exist in the enum
+            # (e.g., removed breakers like SINGLE_TRADE, VOLATILITY, CONNECTIVITY)
+            known_keys = {bt.value for bt in self._breakers}
+            for key in breakers_data:
+                if key not in known_keys:
+                    logger.warning(
+                        f"Skipping unknown breaker type from persisted state: {key}",
+                        component=LogComponent.TRADING,
+                    )
             for bt, b in self._breakers.items():
                 bd = breakers_data.get(bt.value)
                 if bd:

@@ -56,15 +56,12 @@ class CircuitBreakerState(str, Enum):
 
 
 class CircuitBreakerType(str, Enum):
-    """The 8-layer safety architecture breaker types."""
+    """The 5-layer safety architecture breaker types."""
     DRAWDOWN = "drawdown"           # Layer 4: Portfolio drawdown
     DAILY_LOSS = "daily_loss"       # Layer 5: Daily loss limit
     LATENCY = "latency"             # Layer 6: API latency
     PRICE_DIVERGENCE = "price_divergence"  # Layer 7: Price feed mismatch
     WEEKLY_LOSS = "weekly_loss"     # Extended: Weekly loss
-    SINGLE_TRADE = "single_trade"   # Extended: Single trade loss
-    VOLATILITY = "volatility"       # Extended: ATR spike
-    CONNECTIVITY = "connectivity"   # Extended: Exchange disconnect
 
 
 class StrategyType(str, Enum):

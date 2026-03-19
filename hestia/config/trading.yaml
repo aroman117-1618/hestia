@@ -39,10 +39,6 @@ risk:
       enabled: true
       threshold: 0.10            # 10% weekly loss → pause 72h
       cooldown_hours: 72
-    single_trade:
-      enabled: true
-      threshold: 0.03            # 3% single trade loss
-      recovery_wins: 3           # Reset after 3 winning trades
     latency:
       enabled: true
       threshold: 2000            # Pause if API > 2000ms
@@ -51,12 +47,7 @@ risk:
       enabled: true
       threshold: 0.02            # Halt if feeds diverge > 2%
       auto_reset: false
-    volatility:
-      enabled: true
-      threshold: 2.0             # Reduce positions if ATR > 2x normal
-    connectivity:
-      enabled: true
-      threshold: 300             # Pause after 5min disconnect (seconds)
+
 
 # ── Exchange Settings ─────────────────────────────────────────
 exchange:

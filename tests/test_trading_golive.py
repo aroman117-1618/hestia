@@ -441,19 +441,10 @@ class TestCircuitBreakerCascade:
         assert result["approved"] is False
         assert "Kill switch" in result["reasons"][0]
 
-    def test_unimplemented_breakers_disabled_by_default(self) -> None:
-        """VOLATILITY, CONNECTIVITY, SINGLE_TRADE should be disabled."""
+    def test_all_breakers_armed_by_default(self) -> None:
+        """All circuit breakers should be armed by default."""
         risk = RiskManager()
-        for bt in (CircuitBreakerType.VOLATILITY, CircuitBreakerType.CONNECTIVITY, CircuitBreakerType.SINGLE_TRADE):
-            breaker = risk.get_breaker(bt)
-            assert breaker.state == CircuitBreakerState.DISABLED, f"{bt.value} should be disabled"
-
-    def test_implemented_breakers_armed_by_default(self) -> None:
-        """DRAWDOWN, DAILY_LOSS, WEEKLY_LOSS, LATENCY, PRICE_DIVERGENCE should be armed."""
-        risk = RiskManager()
-        for bt in (CircuitBreakerType.DRAWDOWN, CircuitBreakerType.DAILY_LOSS,
-                    CircuitBreakerType.WEEKLY_LOSS, CircuitBreakerType.LATENCY,
-                    CircuitBreakerType.PRICE_DIVERGENCE):
+        for bt in CircuitBreakerType:
             breaker = risk.get_breaker(bt)
             assert breaker.state == CircuitBreakerState.ARMED, f"{bt.value} should be armed"
 
