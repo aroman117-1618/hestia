@@ -397,6 +397,30 @@ class LearningScheduler:
                     component=LogComponent.LEARNING,
                     data=result,
                 )
+
+                # Fallback: if outcomes were insufficient, re-run memory-based
+                # bootstrap to keep principles flowing even with low chat volume
+                if (
+                    result.get("outcomes_analyzed", 0) < 2
+                    and research_mgr is not None
+                ):
+                    bootstrap_days = distill_config.get(
+                        "bootstrap_time_range_days", 30,
+                    )
+                    try:
+                        fb_result = await research_mgr.distill_principles(
+                            time_range_days=bootstrap_days,
+                        )
+                        logger.info(
+                            "Fallback memory distillation (low outcomes)",
+                            component=LogComponent.LEARNING,
+                            data=fb_result,
+                        )
+                    except Exception as fb_e:
+                        logger.warning(
+                            f"Fallback distillation failed: {type(fb_e).__name__}",
+                            component=LogComponent.LEARNING,
+                        )
             except Exception as e:
                 logger.warning(
                     f"Outcome distillation failed: {type(e).__name__}",

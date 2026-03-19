@@ -305,14 +305,29 @@ class OutcomeDatabase(BaseDatabase):
     async def get_high_signal_outcomes(
         self, user_id: str, days: int = 30, limit: int = 50,
     ) -> List[OutcomeRecord]:
-        """Get outcomes with positive signal for principle distillation."""
+        """Get outcomes with positive signal for principle distillation.
+
+        Includes:
+        - Explicit positive feedback (thumbs-up)
+        - Implicit 'accepted' signal (30-300s gap = user read and moved on)
+        - Implicit 'long_gap' signal (>300s = strong positive)
+
+        Priority: explicit positive > long_gap > accepted.
+        """
         cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
         cursor = await self._connection.execute(
             """SELECT * FROM outcomes
                WHERE user_id = ? AND timestamp > ?
-               AND (feedback = 'positive' OR implicit_signal = 'long_gap')
+               AND (
+                   feedback = 'positive'
+                   OR implicit_signal IN ('long_gap', 'accepted')
+               )
                ORDER BY
-                 CASE WHEN feedback = 'positive' THEN 0 ELSE 1 END,
+                 CASE
+                   WHEN feedback = 'positive' THEN 0
+                   WHEN implicit_signal = 'long_gap' THEN 1
+                   ELSE 2
+                 END,
                  timestamp DESC
                LIMIT ?""",
             (user_id, cutoff, limit),

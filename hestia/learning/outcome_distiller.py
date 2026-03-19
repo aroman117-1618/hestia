@@ -78,7 +78,7 @@ class OutcomeDistiller:
         self,
         user_id: str,
         days: int = 30,
-        min_outcomes: int = 3,
+        min_outcomes: int = 2,
     ) -> Dict[str, Any]:
         """Run a distillation pass over recent high-signal outcomes.
 

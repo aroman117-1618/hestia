@@ -20,6 +20,7 @@ from hestia.api.middleware.auth import verify_device_token, check_device_revocat
 from hestia.api.errors import sanitize_for_log
 from hestia.orchestration.handler import get_request_handler
 from hestia.orchestration.models import Request, RequestSource, Mode
+from hestia.outcomes import get_outcome_manager
 from hestia.logging import get_logger, LogComponent
 
 router = APIRouter(tags=["websocket"])
@@ -343,6 +344,17 @@ async def _handle_chat_message(conn: WSConnection, raw: dict) -> None:
         context_hints=raw.get("context_hints", {}),
     )
 
+    # Detect implicit signal from previous response (Learning Cycle)
+    try:
+        outcome_mgr = await get_outcome_manager()
+        await outcome_mgr.detect_implicit_signal(
+            session_id=session_id or "",
+            user_id=conn.device_id or "",
+            new_message_content=content,
+        )
+    except Exception:
+        pass  # Outcome tracking must never break chat
+
     # Reset cancel event for this generation
     conn._cancel_event.clear()
 
@@ -403,9 +415,30 @@ async def _handle_chat_message(conn: WSConnection, raw: dict) -> None:
             # Forward event to client
             await conn.websocket.send_json(event)
 
-            # Track session ID from done event
+            # Track session ID and outcome from done event
             if event.get("type") == "done":
                 conn.session_id = session_id or request.session_id
+
+                # Track outcome for Learning Cycle
+                try:
+                    outcome_mgr = await get_outcome_manager()
+                    await outcome_mgr.track_response(
+                        user_id=conn.device_id or "",
+                        device_id=conn.device_id,
+                        session_id=session_id or request.session_id,
+                        message_id=request.id,
+                        response_content=event.get("content", "")[:500] if event.get("content") else None,
+                        response_type="text",
+                        duration_ms=event.get("metrics", {}).get("duration_ms", 0),
+                        metadata={
+                            "mode": mode_str,
+                            "streaming": True,
+                            "source": "websocket",
+                            "tokens_out": event.get("metrics", {}).get("tokens_out", 0),
+                        },
+                    )
+                except Exception:
+                    pass  # Outcome tracking must never break chat
 
     except Exception as e:
         logger.error(
