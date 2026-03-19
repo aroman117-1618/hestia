@@ -67,6 +67,12 @@ class CircuitBreakerType(str, Enum):
     CONNECTIVITY = "connectivity"   # Extended: Exchange disconnect
 
 
+class AssetClass(str, Enum):
+    """Supported asset classes for multi-asset trading."""
+    CRYPTO = "crypto"
+    US_EQUITY = "us_equity"
+
+
 class StrategyType(str, Enum):
     """Available trading strategies."""
     GRID = "grid"
@@ -87,6 +93,7 @@ class Bot:
     config: Dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    asset_class: str = "crypto"
     user_id: str = "user-default"
 
     def to_dict(self) -> Dict[str, Any]:
@@ -100,6 +107,7 @@ class Bot:
             "config": self.config,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
+            "asset_class": self.asset_class,
             "user_id": self.user_id,
         }
 
@@ -115,6 +123,7 @@ class Bot:
             config=data.get("config", {}),
             created_at=datetime.fromisoformat(data["created_at"]) if "created_at" in data else datetime.now(timezone.utc),
             updated_at=datetime.fromisoformat(data["updated_at"]) if "updated_at" in data else datetime.now(timezone.utc),
+            asset_class=data.get("asset_class", "crypto"),
             user_id=data.get("user_id", "user-default"),
         )
 
@@ -135,6 +144,8 @@ class Trade:
     exchange_order_id: Optional[str] = None
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     metadata: Dict[str, Any] = field(default_factory=dict)
+    asset_class: str = "crypto"
+    settlement_date: Optional[str] = None
     user_id: str = "user-default"
 
     @property
@@ -162,6 +173,8 @@ class Trade:
             "exchange_order_id": self.exchange_order_id,
             "timestamp": self.timestamp.isoformat(),
             "metadata": self.metadata,
+            "asset_class": self.asset_class,
+            "settlement_date": self.settlement_date,
             "user_id": self.user_id,
         }
 
@@ -181,6 +194,8 @@ class Trade:
             exchange_order_id=data.get("exchange_order_id"),
             timestamp=datetime.fromisoformat(data["timestamp"]) if "timestamp" in data else datetime.now(timezone.utc),
             metadata=data.get("metadata", {}),
+            asset_class=data.get("asset_class", "crypto"),
+            settlement_date=data.get("settlement_date"),
             user_id=data.get("user_id", "user-default"),
         )
 
@@ -205,6 +220,7 @@ class TaxLot:
     acquired_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     closed_at: Optional[datetime] = None
     realized_pnl: float = 0.0  # P&L when lot is sold
+    asset_class: str = "crypto"
     user_id: str = "user-default"
 
     @property
@@ -230,6 +246,7 @@ class TaxLot:
             "acquired_at": self.acquired_at.isoformat(),
             "closed_at": self.closed_at.isoformat() if self.closed_at else None,
             "realized_pnl": self.realized_pnl,
+            "asset_class": self.asset_class,
             "user_id": self.user_id,
         }
 
@@ -248,6 +265,7 @@ class TaxLot:
             acquired_at=datetime.fromisoformat(data["acquired_at"]) if "acquired_at" in data else datetime.now(timezone.utc),
             closed_at=datetime.fromisoformat(data["closed_at"]) if data.get("closed_at") else None,
             realized_pnl=float(data.get("realized_pnl", 0.0)),
+            asset_class=data.get("asset_class", "crypto"),
             user_id=data.get("user_id", "user-default"),
         )
 
