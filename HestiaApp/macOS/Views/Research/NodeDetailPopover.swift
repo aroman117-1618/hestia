@@ -312,6 +312,27 @@ struct NodeDetailPopover: View {
                 }
             }
 
+            // For fact nodes: mark outdated
+            if node.nodeType == "fact" {
+                Button {
+                    Task { await viewModel.markFactOutdated(node.id) }
+                } label: {
+                    HStack {
+                        Image(systemName: "clock.badge.xmark")
+                        Text("Mark Outdated")
+                    }
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(MacColors.healthAmber)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, MacSpacing.sm)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: MacCornerRadius.search)
+                            .strokeBorder(MacColors.healthAmber.opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+
             // Investigate button (all node types)
             Button {} label: {
                 HStack {

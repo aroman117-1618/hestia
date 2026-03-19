@@ -9,8 +9,15 @@ struct ExplorerView: View {
     enum ExplorerMode: String, CaseIterable {
         case files = "Files"
         case inbox = "Inbox"
+    }
+
+    /// Sub-mode within Files tab: filesystem browser or resources aggregation.
+    enum FilesSubMode: String, CaseIterable {
+        case filesystem = "Filesystem"
         case resources = "Resources"
     }
+
+    @State private var filesSubMode: FilesSubMode = .filesystem
 
     var body: some View {
         VStack(spacing: 0) {
@@ -23,7 +30,19 @@ struct ExplorerView: View {
                 }
                 .pickerStyle(.segmented)
                 .tint(MacColors.amberAccent)
-                .frame(maxWidth: 300)
+                .frame(maxWidth: 200)
+
+                // Files sub-mode picker (only when Files tab is active)
+                if explorerMode == .files {
+                    Picker("", selection: $filesSubMode) {
+                        ForEach(FilesSubMode.allCases, id: \.self) { sub in
+                            Text(sub.rawValue).tag(sub)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .tint(MacColors.amberAccent)
+                    .frame(maxWidth: 220)
+                }
 
                 Spacer()
             }
@@ -34,11 +53,14 @@ struct ExplorerView: View {
             // Content
             switch explorerMode {
             case .files:
-                ExplorerFilesView(viewModel: filesViewModel)
+                switch filesSubMode {
+                case .filesystem:
+                    ExplorerFilesView(viewModel: filesViewModel)
+                case .resources:
+                    MacExplorerResourcesView()
+                }
             case .inbox:
                 ExplorerInboxView(viewModel: inboxViewModel)
-            case .resources:
-                MacExplorerResourcesView()
             }
         }
         .background(MacColors.windowBackground)

@@ -24,11 +24,13 @@ enum GraphMode: String, CaseIterable {
         }
     }
 
-    /// Default visible node types per mode
+    /// Default visible node types per mode.
+    /// Legacy: principle-centric (P/F/D primary + structural connectors).
+    /// Facts: entity-relationship focus.
     var defaultNodeTypes: Set<String> {
         switch self {
-        case .legacy: return ["memory", "topic", "entity"]
-        case .facts:  return ["entity", "community", "episode"]
+        case .legacy: return ["principle", "fact", "topic", "entity", "community"]
+        case .facts:  return ["entity", "community", "episode", "fact"]
         }
     }
 }
@@ -510,6 +512,19 @@ class MacNeuralNetViewModel: ObservableObject {
         } catch {
             #if DEBUG
             print("[MacNeuralNetViewModel] Reject failed: \(error)")
+            #endif
+        }
+    }
+
+    /// Mark a fact as outdated/superseded via the research API.
+    func markFactOutdated(_ id: String) async {
+        do {
+            _ = try await APIClient.shared.invalidateFact(id, reason: "Marked outdated by user")
+            // Reload graph to reflect the change
+            await loadGraph()
+        } catch {
+            #if DEBUG
+            print("[MacNeuralNetViewModel] Fact invalidation failed: \(error)")
             #endif
         }
     }

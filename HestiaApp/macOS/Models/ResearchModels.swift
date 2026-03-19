@@ -89,3 +89,17 @@ struct PrincipleActionResponse: Codable {
     let confidence: Double
     let status: String
 }
+
+struct FactInvalidateResponse: Codable {
+    let factId: String
+    let status: String
+    let invalidAt: String?
+    let reason: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case factId = "fact_id"
+        case status
+        case invalidAt = "invalid_at"
+        case reason
+    }
+}

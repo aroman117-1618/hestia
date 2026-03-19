@@ -78,4 +78,13 @@ extension APIClient {
     func updatePrinciple(_ id: String, content: String) async throws -> PrincipleActionResponse {
         return try await put("/research/principles/\(id)", body: ["content": content])
     }
+
+    /// Mark a fact as outdated/superseded.
+    func invalidateFact(_ id: String, reason: String? = nil) async throws -> FactInvalidateResponse {
+        var path = "/research/facts/\(id)/invalidate"
+        if let r = reason {
+            path += "?reason=\(r.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? r)"
+        }
+        return try await post(path, body: ResearchEmptyBody())
+    }
 }
