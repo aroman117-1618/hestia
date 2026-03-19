@@ -42,14 +42,14 @@ struct FloatingAvatarView: View {
                         Circle()
                             .strokeBorder(
                                 MacColors.amberAccent.opacity(glowOpacity),
-                                lineWidth: 3
+                                lineWidth: 2
                             )
-                            .frame(width: 68, height: 68)
+                            .frame(width: 40, height: 40)
                     }
 
                     // Avatar content with cross-dissolve
                     avatarContent
-                        .frame(width: 60, height: 60)
+                        .frame(width: 32, height: 32)
                         .clipShape(Circle())
                         .overlay {
                             Circle().strokeBorder(MacColors.aiAvatarBorder, lineWidth: 1.5)
@@ -85,7 +85,7 @@ struct FloatingAvatarView: View {
             HeaderChatToggle()
         }
         .padding(.vertical, MacSpacing.sm)
-        .frame(height: 90)
+        .frame(height: 70)
         .overlay(alignment: .bottom) {
             MacColors.primaryBorder.frame(height: 1)
         }
@@ -119,7 +119,7 @@ struct FloatingAvatarView: View {
                 .fill(Color.gray.opacity(0.3))
                 .overlay {
                     Image(systemName: "person.fill")
-                        .font(.system(size: 22))
+                        .font(.system(size: 14))
                         .foregroundStyle(MacColors.textSecondary)
                 }
                 .transition(.opacity)
@@ -141,7 +141,7 @@ struct FloatingAvatarView: View {
                     .fill(MacColors.aiAvatarBackground)
                     .overlay {
                         Text(mode.displayName.prefix(1))
-                            .font(.system(size: 24, weight: .bold))
+                            .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(MacColors.amberAccent)
                     }
             }

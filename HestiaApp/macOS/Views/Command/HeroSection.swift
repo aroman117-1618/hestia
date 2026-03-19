@@ -3,6 +3,7 @@ import HestiaShared
 
 struct HeroSection: View {
     @ObservedObject var viewModel: MacCommandCenterViewModel
+    let currentMode: HestiaMode
     @Environment(\.layoutMode) private var layoutMode
 
     var body: some View {
@@ -42,18 +43,23 @@ struct HeroSection: View {
                 }
             }
 
-            // Hero text
-            Text(greetingText)
-                .font(MacTypography.heroHeading)
-                .foregroundStyle(MacColors.textPrimaryAlt)
-                .padding(.top, MacSpacing.sm)
+            // Hero text with agent avatar
+            HStack(spacing: MacSpacing.md) {
+                // Agent avatar
+                agentAvatar
 
-            // Subtitle
-            Text("Stonehurst is running smoothly. 12 updates since your last session.")
-                .font(MacTypography.body)
-                .foregroundStyle(MacColors.textSecondary)
-                .padding(.top, 2)
-                .lineLimit(layoutMode.isCompact ? 2 : nil)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(greetingText)
+                        .font(MacTypography.heroHeading)
+                        .foregroundStyle(MacColors.textPrimaryAlt)
+
+                    Text("Stonehurst is running smoothly. 12 updates since your last session.")
+                        .font(MacTypography.body)
+                        .foregroundStyle(MacColors.textSecondary)
+                        .lineLimit(layoutMode.isCompact ? 2 : nil)
+                }
+            }
+            .padding(.top, MacSpacing.sm)
 
             // Action buttons
             HStack(spacing: MacSpacing.md) {
@@ -90,6 +96,32 @@ struct HeroSection: View {
                 .buttonStyle(.hestia)
             }
             .padding(.top, MacSpacing.md)
+        }
+    }
+
+    @ViewBuilder
+    private var agentAvatar: some View {
+        if let avatarImage = currentMode.avatarImage {
+            avatarImage
+                .resizable()
+                .scaledToFill()
+                .frame(width: 44, height: 44)
+                .clipShape(Circle())
+                .overlay {
+                    Circle().strokeBorder(MacColors.aiAvatarBorder, lineWidth: 1.5)
+                }
+        } else {
+            Circle()
+                .fill(MacColors.aiAvatarBackground)
+                .frame(width: 44, height: 44)
+                .overlay {
+                    Text(currentMode.displayName.prefix(1))
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(MacColors.amberAccent)
+                }
+                .overlay {
+                    Circle().strokeBorder(MacColors.aiAvatarBorder, lineWidth: 1.5)
+                }
         }
     }
 
