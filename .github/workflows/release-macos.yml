@@ -38,7 +38,6 @@ jobs:
         run: |
           echo "/opt/homebrew/bin" >> $GITHUB_PATH
           echo "/usr/local/bin" >> $GITHUB_PATH
-          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 
       - name: Install xcodegen (if missing)
         run: which xcodegen || brew install xcodegen
