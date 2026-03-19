@@ -207,6 +207,14 @@ class TradingManager:
 
         tax_method = self._config.get("tax", {}).get("default_method", "hifo")
 
+        pnl = 0.0
+        # Pre-compute portfolio value BEFORE entering transaction.
+        # _estimate_portfolio_value() makes exchange API calls (network I/O)
+        # which would hold the BEGIN IMMEDIATE lock for unbounded time.
+        portfolio_value = 0.0
+        if trade.side == TradeSide.SELL:
+            portfolio_value = await self._estimate_portfolio_value(user_id)
+
         # Atomic transaction: trade + tax lot(s) written together.
         # Trade is inserted first (tax_lots.trade_id has FK constraint).
         try:
@@ -238,15 +246,13 @@ class TradingManager:
                     user_id=user_id,
                 )
                 await self._database.record_trade_no_commit(trade.to_dict())
-                portfolio_value = await self._estimate_portfolio_value(user_id)
-                self._risk_manager.record_trade_pnl(pnl, portfolio_value)
 
             else:
                 await self._database.record_trade_no_commit(trade.to_dict())
 
             await self._database.connection.execute("COMMIT")
 
-        except Exception:
+        except Exception as exc:
             try:
                 await self._database.connection.execute("ROLLBACK")
             except Exception:
@@ -254,9 +260,14 @@ class TradingManager:
             logger.error(
                 f"Trade recording ROLLED BACK: {side} {quantity:.8f} {pair} @ {price:.2f}",
                 component=LogComponent.TRADING,
-                data={"trade_id": trade.id, "bot_id": bot_id},
+                data={"trade_id": trade.id, "bot_id": bot_id, "error": type(exc).__name__},
             )
             raise
+
+        # Record P&L for risk tracking AFTER successful commit.
+        # This is in-memory state, not transactional — safe outside the lock.
+        if trade.side == TradeSide.SELL:
+            self._risk_manager.record_trade_pnl(pnl, portfolio_value)
 
         logger.info(
             f"Trade recorded: {side} {quantity:.8f} {pair} @ {price:.2f}",

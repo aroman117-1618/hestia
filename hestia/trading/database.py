@@ -30,14 +30,28 @@ class TradingDatabase(BaseDatabase):
         super().__init__("trading", db_path or _DB_PATH)
 
     async def connect(self) -> None:
-        """Open connection with WAL mode enabled."""
-        await super().connect()
+        """Open connection with WAL mode and explicit transaction control.
+
+        Sets isolation_level=None on the underlying sqlite3 connection to
+        disable Python's implicit transaction management. This allows us to
+        issue BEGIN IMMEDIATE / COMMIT / ROLLBACK explicitly for atomic
+        trade + tax lot writes without conflicting with the driver's
+        automatic BEGIN statements.
+        """
+        # Override BaseDatabase.connect() to pass isolation_level=None.
+        # This disables Python's implicit transaction management, allowing
+        # explicit BEGIN IMMEDIATE / COMMIT / ROLLBACK for atomic trade recording.
+        import aiosqlite as _aiosqlite
+        self._connection = await _aiosqlite.connect(self.db_path, isolation_level=None)
+        self._connection.row_factory = _aiosqlite.Row
+        await self._connection.execute("PRAGMA foreign_keys = ON")
+        await self._init_schema()
         # Enable WAL mode for concurrent reads during WebSocket events
         await self.connection.execute("PRAGMA journal_mode=WAL")
         # Enable memory-mapped I/O for performance
         await self.connection.execute("PRAGMA mmap_size=268435456")  # 256MB
         logger.info(
-            "Trading database connected (WAL mode)",
+            "Trading database connected (WAL mode, explicit transactions)",
             component=LogComponent.TRADING,
         )
 
