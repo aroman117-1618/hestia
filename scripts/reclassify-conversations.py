@@ -18,6 +18,7 @@ import argparse
 import asyncio
 import json
 import sqlite3
+from typing import Optional
 import sys
 from pathlib import Path
 
@@ -38,7 +39,7 @@ from hestia.memory.models import ChunkType  # noqa: E402
 DB_PATH = PROJECT_ROOT / "data" / "memory.db"
 
 
-def load_candidates(conn: sqlite3.Connection) -> list[dict]:
+def load_candidates(conn: sqlite3.Connection) -> list:
     """Load CONVERSATION and OBSERVATION chunks that pass quality gates."""
     rows = conn.execute(
         "SELECT id, content, tags, metadata "
@@ -109,15 +110,15 @@ def load_candidates(conn: sqlite3.Connection) -> list[dict]:
 
 
 async def classify_candidates(
-    candidates: list[dict],
-    limit: int | None = None,
-) -> list[dict]:
+    candidates: list,
+    limit: Optional[int] = None,
+) -> list:
     """Run LLM classification on candidates, return promotion list."""
     tagger = AutoTagger()
     to_process = candidates[:limit] if limit else candidates
     total = len(to_process)
 
-    promotions: list[dict] = []
+    promotions: list = []
     type_counts: dict[str, int] = {}
     errors = 0
 
@@ -173,7 +174,7 @@ async def classify_candidates(
     return promotions
 
 
-def apply_promotions(conn: sqlite3.Connection, promotions: list[dict]) -> None:
+def apply_promotions(conn: sqlite3.Connection, promotions: list) -> None:
     """Write promotions to SQLite and ChromaDB."""
     if not promotions:
         print("\nNo promotions to apply.")
