@@ -88,6 +88,7 @@ class Bot:
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     user_id: str = "user-default"
+    exchange: str = "coinbase"  # Exchange adapter name (coinbase, alpaca)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -101,6 +102,7 @@ class Bot:
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
             "user_id": self.user_id,
+            "exchange": self.exchange,
         }
 
     @classmethod
@@ -116,6 +118,7 @@ class Bot:
             created_at=datetime.fromisoformat(data["created_at"]) if "created_at" in data else datetime.now(timezone.utc),
             updated_at=datetime.fromisoformat(data["updated_at"]) if "updated_at" in data else datetime.now(timezone.utc),
             user_id=data.get("user_id", "user-default"),
+            exchange=data.get("exchange", "coinbase"),
         )
 
 

@@ -69,6 +69,21 @@ class TestBot:
             assert bot.strategy == st
             assert bot.to_dict()["strategy"] == st.value
 
+    def test_exchange_field_defaults_coinbase(self):
+        bot = Bot(name="test")
+        assert bot.exchange == "coinbase"
+
+    def test_exchange_serialization(self):
+        bot = Bot(name="test", exchange="alpaca")
+        d = bot.to_dict()
+        assert d["exchange"] == "alpaca"
+        restored = Bot.from_dict(d)
+        assert restored.exchange == "alpaca"
+
+    def test_exchange_from_dict_defaults(self):
+        bot = Bot.from_dict({"name": "no-exchange"})
+        assert bot.exchange == "coinbase"
+
 
 class TestTrade:
     def test_total_cost(self):

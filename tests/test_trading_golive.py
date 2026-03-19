@@ -130,7 +130,7 @@ class TestBotOrchestrator:
         await adapter.connect()
         risk = RiskManager()
         bus = TradingEventBus()
-        orchestrator = BotOrchestrator(exchange=adapter, risk_manager=risk, event_bus=bus)
+        orchestrator = BotOrchestrator(exchanges={"coinbase": adapter}, risk_manager=risk, event_bus=bus)
 
         bot = self._make_bot()
 
@@ -153,7 +153,7 @@ class TestBotOrchestrator:
         adapter = PaperAdapter()
         await adapter.connect()
         risk = RiskManager()
-        orchestrator = BotOrchestrator(exchange=adapter, risk_manager=risk)
+        orchestrator = BotOrchestrator(exchanges={"coinbase": adapter}, risk_manager=risk)
 
         bot = self._make_bot()
         await orchestrator.start_runner(bot)
@@ -171,7 +171,7 @@ class TestBotOrchestrator:
         adapter = PaperAdapter()
         await adapter.connect()
         risk = RiskManager()
-        orchestrator = BotOrchestrator(exchange=adapter, risk_manager=risk)
+        orchestrator = BotOrchestrator(exchanges={"coinbase": adapter}, risk_manager=risk)
         stopped = await orchestrator.stop_runner("nonexistent-id")
         assert stopped is False
         await adapter.disconnect()
@@ -181,7 +181,7 @@ class TestBotOrchestrator:
         adapter = PaperAdapter()
         await adapter.connect()
         risk = RiskManager()
-        orchestrator = BotOrchestrator(exchange=adapter, risk_manager=risk)
+        orchestrator = BotOrchestrator(exchanges={"coinbase": adapter}, risk_manager=risk)
 
         for i in range(3):
             await orchestrator.start_runner(self._make_bot(f"bot-{i}"))
@@ -197,7 +197,7 @@ class TestBotOrchestrator:
         adapter = PaperAdapter()
         await adapter.connect()
         risk = RiskManager()
-        orchestrator = BotOrchestrator(exchange=adapter, risk_manager=risk)
+        orchestrator = BotOrchestrator(exchanges={"coinbase": adapter}, risk_manager=risk)
 
         await orchestrator.start_runner(self._make_bot("alpha"))
         await orchestrator.start_runner(self._make_bot("beta"))
@@ -215,10 +215,78 @@ class TestBotOrchestrator:
         adapter = PaperAdapter()
         await adapter.connect()
         risk = RiskManager()
-        orchestrator = BotOrchestrator(exchange=adapter, risk_manager=risk)
+        orchestrator = BotOrchestrator(exchanges={"coinbase": adapter}, risk_manager=risk)
         # Should not raise
         await orchestrator._reconcile_exchange_state()
         await adapter.disconnect()
+
+    @pytest.mark.asyncio
+    async def test_multi_exchange_routing(self) -> None:
+        """Bots should be routed to their configured exchange adapter."""
+        coinbase_adapter = PaperAdapter()
+        await coinbase_adapter.connect()
+        alpaca_adapter = PaperAdapter()
+        await alpaca_adapter.connect()
+        risk = RiskManager()
+
+        orchestrator = BotOrchestrator(
+            exchanges={"coinbase": coinbase_adapter, "alpaca": alpaca_adapter},
+            risk_manager=risk,
+        )
+
+        # Bot with coinbase exchange
+        cb_bot = Bot(
+            id="cb-bot", name="coinbase-bot",
+            strategy=StrategyType.MEAN_REVERSION, pair="BTC-USD",
+            capital_allocated=250.0, status=BotStatus.RUNNING,
+            exchange="coinbase",
+        )
+        assert orchestrator._get_exchange_for_bot(cb_bot) is coinbase_adapter
+
+        # Bot with alpaca exchange
+        alp_bot = Bot(
+            id="alp-bot", name="alpaca-bot",
+            strategy=StrategyType.GRID, pair="AAPL-USD",
+            capital_allocated=500.0, status=BotStatus.RUNNING,
+            exchange="alpaca",
+        )
+        assert orchestrator._get_exchange_for_bot(alp_bot) is alpaca_adapter
+
+        await coinbase_adapter.disconnect()
+        await alpaca_adapter.disconnect()
+
+    @pytest.mark.asyncio
+    async def test_unknown_exchange_raises(self) -> None:
+        """Requesting an unregistered exchange should raise ValueError."""
+        adapter = PaperAdapter()
+        await adapter.connect()
+        risk = RiskManager()
+        orchestrator = BotOrchestrator(exchanges={"coinbase": adapter}, risk_manager=risk)
+
+        bot = Bot(id="bad-bot", name="bad", exchange="kraken")
+        with pytest.raises(ValueError, match="No adapter registered for exchange: kraken"):
+            orchestrator._get_exchange_for_bot(bot)
+
+        await adapter.disconnect()
+
+    @pytest.mark.asyncio
+    async def test_reconcile_iterates_all_exchanges(self) -> None:
+        """Reconciliation should check all registered exchanges."""
+        adapter1 = PaperAdapter()
+        await adapter1.connect()
+        adapter2 = PaperAdapter()
+        await adapter2.connect()
+        risk = RiskManager()
+
+        orchestrator = BotOrchestrator(
+            exchanges={"coinbase": adapter1, "alpaca": adapter2},
+            risk_manager=risk,
+        )
+        # Should not raise — reconciles both
+        await orchestrator._reconcile_exchange_state()
+
+        await adapter1.disconnect()
+        await adapter2.disconnect()
 
 
 # ── Phase 1.1: Atomic Trade Recording Tests ──────────────────
@@ -537,7 +605,7 @@ class TestErrorRecovery:
         await adapter.connect()
         risk = RiskManager()
         bus = TradingEventBus()
-        orchestrator = BotOrchestrator(exchange=adapter, risk_manager=risk, event_bus=bus)
+        orchestrator = BotOrchestrator(exchanges={"coinbase": adapter}, risk_manager=risk, event_bus=bus)
 
         bot = Bot(
             id="crash-bot", name="crasher",

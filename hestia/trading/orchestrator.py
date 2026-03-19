@@ -30,11 +30,13 @@ class BotOrchestrator:
 
     def __init__(
         self,
-        exchange: AbstractExchangeAdapter,
+        exchanges: Dict[str, AbstractExchangeAdapter],
         risk_manager: RiskManager,
         event_bus: Optional[TradingEventBus] = None,
+        default_exchange: str = "coinbase",
     ) -> None:
-        self._exchange = exchange
+        self._exchanges = exchanges
+        self._default_exchange = default_exchange
         self._risk = risk_manager
         self._event_bus = event_bus
         self._runners: Dict[str, asyncio.Task] = {}
@@ -46,6 +48,14 @@ class BotOrchestrator:
         if bot_id not in self._bot_locks:
             self._bot_locks[bot_id] = asyncio.Lock()
         return self._bot_locks[bot_id]
+
+    def _get_exchange_for_bot(self, bot: Bot) -> AbstractExchangeAdapter:
+        """Look up the exchange adapter for a bot."""
+        exchange_name = getattr(bot, "exchange", self._default_exchange)
+        adapter = self._exchanges.get(exchange_name)
+        if adapter is None:
+            raise ValueError(f"No adapter registered for exchange: {exchange_name}")
+        return adapter
 
     async def start_runner(self, bot: Bot) -> bool:
         """Spawn a BotRunner for the given bot.
@@ -60,9 +70,10 @@ class BotOrchestrator:
                 )
                 return False
 
+            exchange = self._get_exchange_for_bot(bot)
             runner = BotRunner(
                 bot=bot,
-                exchange=self._exchange,
+                exchange=exchange,
                 risk_manager=self._risk,
                 event_bus=self._event_bus,
             )
@@ -109,13 +120,18 @@ class BotOrchestrator:
 
             # Cancel open orders for this bot's pair (don't flatten positions)
             try:
-                open_orders = await self._exchange.get_open_orders()
-                for order in open_orders:
-                    await self._exchange.cancel_order(order.order_id)
-                    logger.info(
-                        f"Cancelled open order {order.order_id} on bot stop",
-                        component=LogComponent.TRADING,
-                    )
+                from hestia.trading.manager import get_trading_manager
+                manager = await get_trading_manager()
+                bot_data = await manager.get_bot(bot_id)
+                if bot_data:
+                    exchange = self._get_exchange_for_bot(bot_data)
+                    open_orders = await exchange.get_open_orders(bot_data.pair)
+                    for order in open_orders:
+                        await exchange.cancel_order(order.order_id)
+                        logger.info(
+                            f"Cancelled open order {order.order_id} on bot stop",
+                            component=LogComponent.TRADING,
+                        )
             except Exception as e:
                 logger.warning(
                     f"Failed to cancel open orders on stop: {type(e).__name__}",
@@ -205,46 +221,30 @@ class BotOrchestrator:
                 )
 
     async def _reconcile_exchange_state(self) -> None:
-        """Reconcile local state with exchange on startup (Gemini condition #1).
+        """Reconcile local state with all registered exchanges on startup.
 
-        Queries Coinbase for actual positions and open orders.
+        Queries each exchange for actual positions and balances.
         Logs discrepancies. Does NOT auto-correct — logs for human review.
         """
-        if not self._exchange or not self._exchange.is_connected:
-            logger.debug(
-                "Exchange not connected, skipping reconciliation",
-                component=LogComponent.TRADING,
-            )
-            return
-
-        try:
-            # Check actual balances
-            balances = await self._exchange.get_balances()
-            non_usd = {
-                k: v for k, v in balances.items()
-                if k != "USD" and v.total > 0.001
-            }
-            if non_usd:
-                logger.info(
-                    f"Exchange positions on startup: {list(non_usd.keys())}",
+        for name, exchange in self._exchanges.items():
+            if not exchange.is_connected:
+                logger.warning(
+                    f"Exchange {name} not connected — skipping reconciliation",
                     component=LogComponent.TRADING,
-                    data={k: {"available": v.available, "hold": v.hold} for k, v in non_usd.items()},
                 )
-
-            # Check open orders
-            open_orders = await self._exchange.get_open_orders()
-            if open_orders:
+                continue
+            try:
+                balances = await exchange.get_balances()
                 logger.info(
-                    f"Open orders on startup: {len(open_orders)}",
+                    f"Reconciled {name}",
                     component=LogComponent.TRADING,
-                    data=[{"id": o.order_id, "pair": o.pair, "side": o.side} for o in open_orders],
+                    data={"exchange": name, "balances": {k: v.total for k, v in balances.items()}},
                 )
-
-        except Exception as e:
-            logger.warning(
-                f"Exchange reconciliation failed: {type(e).__name__}",
-                component=LogComponent.TRADING,
-            )
+            except Exception as e:
+                logger.warning(
+                    f"Reconciliation failed for {name}: {type(e).__name__}",
+                    component=LogComponent.TRADING,
+                )
 
     def _on_runner_done(self, bot_id: str, task: asyncio.Task) -> None:
         """Callback when a runner task completes (normally or with error)."""
@@ -315,8 +315,9 @@ async def get_bot_orchestrator() -> BotOrchestrator:
         from hestia.api.routes.trading import _event_bus
 
         manager = await get_trading_manager()
+        exchanges: Dict[str, AbstractExchangeAdapter] = {"coinbase": manager.exchange}
         _orchestrator = BotOrchestrator(
-            exchange=manager.exchange,
+            exchanges=exchanges,
             risk_manager=manager.risk_manager,
             event_bus=_event_bus,
         )

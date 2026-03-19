@@ -176,6 +176,14 @@ class TradingDatabase(BaseDatabase):
             except aiosqlite.OperationalError:
                 pass  # Column already exists
 
+        # Sprint 28: exchange column on bots (multi-exchange support)
+        try:
+            await self.connection.execute(
+                "ALTER TABLE bots ADD COLUMN exchange TEXT DEFAULT 'coinbase'"
+            )
+        except aiosqlite.OperationalError:
+            pass  # Column already exists
+
     # ── Bot CRUD ──────────────────────────────────────────────────
 
     async def create_bot(self, bot_data: Dict[str, Any]) -> Dict[str, Any]:
