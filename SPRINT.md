@@ -1,3 +1,43 @@
+# Sprint 27: Go-Live (2026-03-19) — IN PROGRESS (Paper Soak)
+
+**Started:** 2026-03-19
+**Plan:** `docs/discoveries/sprint-27-go-live-2026-03-18.md`
+**Safety Review:** `docs/plans/sprint-27-golive-second-opinion-2026-03-19.md`
+
+## What Was Built
+- **BotRunner** (`bot_runner.py`, 380 lines) — async poll loop: candles → indicators → strategy.analyze() → executor.execute_signal(). 3-strike exponential backoff, event publishing to TradingEventBus
+- **BotOrchestrator** (`orchestrator.py`, 332 lines) — lifecycle mgmt, per-bot asyncio locks, crash detection, graceful shutdown, server startup resume
+- **Market data polling** — Coinbase REST candles (7-day, 1h granularity), 15-min poll interval, ticker fallback
+- **Execution pipeline** — Signal → Risk → Price Validation → Exchange, full audit trail + confidence scoring + decision trail
+- **Safety hardening** — atomic trade recording (isolation_level fix), active reconciliation → kill switch, portfolio value outside tx
+- **Coinbase SDK fixes** — response type handling, granularity mapping, 7-day fetch window
+- **Server wiring** — `orchestrator.resume_running_bots()` on startup, start/stop API endpoints
+
+## Paper Soak Status
+- **Started:** 2026-03-19 at 11:52 UTC on Mac Mini (`hestia-3.local`)
+- **Bots active:** 5 (Mean Reversion on BTC-USD) — `bot-0`, `bot-1`, `bot-2`, `alpha`, `beta`
+- **Capital:** $250 paper balance, Quarter-Kelly sizing
+- **Expected completion:** ~2026-03-22 (72h window)
+- **Mac Mini:** running with `caffeinate -d`
+- **Status:** Bots executing, risk manager active, no errors or kill switch triggers
+
+## Remaining (post-soak)
+- Review trade history + tax lots via API
+- Confirm no kill switch triggers in logs
+- If clean → flip `trading.yaml mode: coinbase`, start with $25 (10% ramp)
+- Minor hardening: lock dependencies, dead circuit breaker cleanup, partial fill handling
+
+### Key Commits
+- `e80a512` fix(trading): Coinbase SDK response type + granularity mapping + 7-day window
+- `f01265f` fix: defer vectorbt dep — requires Python 3.10+, Mac Mini runs 3.9
+- `f8ef1f3` fix(trading): reviewer critical fixes — isolation_level + portfolio value outside tx
+
+### Test Results
+- 33 tests in `test_trading_golive.py`, all passing
+- 2515 backend + 135 CLI = 2650 total
+
+---
+
 # Graph + Memory Browser Bug Fix Session (2026-03-18) — COMPLETE
 
 **Started:** 2026-03-18
@@ -515,10 +555,10 @@ Terminal-native interface. WebSocket streaming, prompt_toolkit REPL, Rich render
 ## Next: Trading Module — Sprints 21–30 (APPROVED 2026-03-18)
 
 **Workstream:** WS-TRADING — Autonomous Algorithmic Crypto Trading
-**Milestone:** Hestia v2.0 — Autonomous Trading
+**Milestone:** Hestia v2.0 — Personal Investment Platform (crypto + stocks)
 **GitHub Label:** `workstream:trading`
 **Plan:** `docs/discoveries/trading-module-research-and-plan.md`
-**Capital:** $500–$2,000 | **Target:** 25–50% annualized | **Exchange:** Coinbase (Kraken expansion later)
+**Capital:** $250 crypto + $500 equity (scaling to $5K+) | **Target:** 15–50% annualized | **Exchanges:** Coinbase (crypto) + Alpaca (stocks) | Kraken optional at $5K+
 
 ### Critical Path: S21 → S22 → S23 → S25 → S26 → S27 (Go-Live)
 
@@ -531,10 +571,12 @@ Terminal-native interface. WebSocket streaming, prompt_toolkit REPL, Rich render
 | S25 | Coinbase Live — WebSocket, Post-Only orders, sequence check | XL | P0 | Exchange | S23+S24 | **COMPLETE** |
 | S25.5 | Activity Feed Restructure — Command Center → System/Internal/External tabs | L | P0 | UI | — | **COMPLETE** |
 | S26 | Trading Dashboard — SSE streaming, confidence scoring, decision trails, alerts | XL | P0 | UI | S25.5 | **COMPLETE** |
-| S27 | **Go-Live** — Bot Runner, orchestrator, market data, WebSocket wiring, paper soak, capital deploy | XL | P0 | Launch | S26 | **TODO** |
-| S28 | Portfolio Expansion — Bollinger breakout, DCA, regime rotation, CCXT for Kraken | XL | P1 | Strategies | S27 | TODO |
-| S29 | AI Sentiment — LLM regime filter, CryptoPanic, alpha decay | L | P2 | AI | S28 | TODO |
-| S30 | On-Chain + ML — Glassnode, walk-forward optimizer, guardrails | XL | P2 | AI | S29 | TODO |
+| S27 | **Go-Live** — Bot Runner, orchestrator, market data, safety hardening, paper soak, capital deploy | XL | P0 | Launch | S26 | **IN PROGRESS** (paper soak) |
+| S28A | Wire Bollinger + DCA for crypto, backtest 90d, CSV trade export | L | P0 | Strategies | S27 | TODO |
+| S28B | AlpacaAdapter (read-only), market hours scheduler, simulated stock signals | XL | P0 | Platform | S28A | TODO |
+| S29A | AlpacaAdapter (full), PDT enforcement, Alpaca paper soak | XL | P0 | Platform | S28B | TODO |
+| S29B | Equity live ($100), regime detection (observe-only), CoinGecko feed | L | P1 | AI | S29A | TODO |
+| S30 | **Optimization + On-Chain** — Optuna optimizer, walk-forward validation, wash sale PoC, CryptoQuant signals | XL | P1 | ML | S29B | TODO |
 | EXT-1 | External Storage Setup — Ollama offload, backups, log archival | S | P1 | Infra | — | COMPLETE |
 | DQ-1 | Research Data Quality — insight cleanup, Apple backfill, graph filters | L | P1 | Research | S20A | IN PROGRESS |
 

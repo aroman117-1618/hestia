@@ -137,9 +137,9 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 **All foundation work complete** (MVP phases 0-7, Intelligence WS1-4, UI phases 1-4, Frontend Wiring sprints 1-5, CLI sprints 1-5, Stability sprints 6-7+12, HealthKit, Wiki, macOS app). See `SPRINT.md` for full history.
 
-**Active: Trading Module (Sprints 21-30).** Sprints 21-26 COMPLETE. Sprint 27 (Go-Live) is next.
+**Active: Trading Module (Sprints 21-30).** Sprints 21-26 COMPLETE. Sprint 27 (Go-Live) IN PROGRESS — safety hardening complete, paper soak ready.
 
-2634 tests (2499 backend + 135 CLI), 81 test files. Full details: `python -m pytest tests/ -v --timeout=30`
+2650 tests (2515 backend + 135 CLI), 81 test files. Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 

@@ -15,8 +15,10 @@ import pytest
 
 from hestia.trading.bot_runner import BotRunner, _create_strategy
 from hestia.trading.event_bus import TradingEventBus
-from hestia.trading.exchange.base import AccountBalance, OrderResult
+from hestia.trading.exchange.base import AccountBalance, OrderRequest, OrderResult
 from hestia.trading.exchange.paper import PaperAdapter
+from hestia.trading.executor import TradeExecutor
+from hestia.trading.price_validator import PriceValidator
 from hestia.trading.models import (
     Bot, BotStatus, CircuitBreakerState, CircuitBreakerType,
     ReconciliationResult, StrategyType,
@@ -718,3 +720,170 @@ class TestSignalDCAStrategy:
         signal = strategy.analyze(df, portfolio_value=1000.0)
         assert signal.signal_type == SignalType.HOLD
         assert "Need" in signal.reason
+
+
+# ── Partial Fill Handling Tests ─────────────────────────────
+
+
+class TestPartialFillHandling:
+    """Verify executor records partial fills instead of silently dropping them."""
+
+    def _make_executor(
+        self, exchange: Optional[Any] = None
+    ) -> tuple:
+        """Create a TradeExecutor with mock dependencies."""
+        mock_exchange = exchange or AsyncMock(spec=["place_order"])
+        risk = RiskManager()
+        risk.update_portfolio_value(1000.0)
+        tracker = PositionTracker()
+        price_validator = AsyncMock()
+        price_validator.validate = AsyncMock(return_value={"valid": True, "price": 87000.0})
+
+        executor = TradeExecutor(
+            exchange=mock_exchange,
+            risk_manager=risk,
+            position_tracker=tracker,
+            price_validator=price_validator,
+        )
+        return executor, tracker, risk
+
+    def _make_signal(
+        self, side: str = "buy", price: float = 87000.0, quantity: float = 0.01
+    ) -> Signal:
+        return Signal(
+            signal_type=SignalType.BUY if side == "buy" else SignalType.SELL,
+            pair="BTC-USD",
+            price=price,
+            quantity=quantity,
+            confidence=0.8,
+            reason="test signal",
+            metadata={"post_only": True},
+        )
+
+    @pytest.mark.asyncio
+    async def test_partial_fill_records_filled_portion(self) -> None:
+        """A partial fill should record the filled quantity, not be dropped."""
+        executor, tracker, risk = self._make_executor()
+
+        # Exchange returns a partial fill (0.006 of 0.01 filled)
+        partial_result = OrderResult(
+            order_id="order-123",
+            status="partial",
+            pair="BTC-USD",
+            side="buy",
+            order_type="limit",
+            price=87000.0,
+            filled_price=86950.0,
+            quantity=0.01,
+            filled_quantity=0.006,
+            fee=2.61,
+        )
+        executor._exchange.place_order = AsyncMock(return_value=partial_result)
+
+        signal = self._make_signal(side="buy", price=87000.0, quantity=0.01)
+        audit = await executor.execute_signal(signal, portfolio_value=1000.0)
+
+        # Should be recorded as partial_fill, NOT dropped
+        assert audit["result"] == "partial_fill"
+        assert audit["fill"]["quantity"] == 0.006
+        assert audit["fill"]["price"] == 86950.0
+        assert audit["fill"]["partial_fill"] is True
+        assert audit["fill"]["remaining_quantity"] == pytest.approx(0.004)
+
+        # Position tracker should have the filled portion
+        pos = tracker.get_position("BTC-USD")
+        assert pos is not None
+        assert pos.quantity == pytest.approx(0.006)
+
+        # Execution count should increment
+        assert executor._execution_count == 1
+
+    @pytest.mark.asyncio
+    async def test_partial_fill_sell_records_pnl(self) -> None:
+        """A partial sell fill should record realized P&L."""
+        executor, tracker, risk = self._make_executor()
+
+        # Pre-load a position (buy 0.01 BTC at 85000)
+        await tracker.record_fill("BTC-USD", "buy", 0.01, 85000.0, fee=0.0)
+
+        # Use a large portfolio value so risk manager doesn't reject the sell
+        risk.update_portfolio_value(10000.0)
+
+        # Exchange returns partial sell (0.005 of 0.01 filled at 87000)
+        partial_result = OrderResult(
+            order_id="order-456",
+            status="partial",
+            pair="BTC-USD",
+            side="sell",
+            order_type="limit",
+            price=87000.0,
+            filled_price=87000.0,
+            quantity=0.01,
+            filled_quantity=0.005,
+            fee=1.74,
+        )
+        executor._exchange.place_order = AsyncMock(return_value=partial_result)
+
+        signal = self._make_signal(side="sell", price=87000.0, quantity=0.01)
+        audit = await executor.execute_signal(signal, portfolio_value=10000.0)
+
+        assert audit["result"] == "partial_fill"
+        assert audit["fill"]["pnl"] != 0  # Should have realized P&L
+
+        # Position should be reduced, not zeroed
+        pos = tracker.get_position("BTC-USD")
+        assert pos is not None
+        assert pos.quantity == pytest.approx(0.005)
+
+    @pytest.mark.asyncio
+    async def test_full_fill_still_works(self) -> None:
+        """Full fills should continue to work as before."""
+        executor, tracker, risk = self._make_executor()
+
+        full_result = OrderResult(
+            order_id="order-789",
+            status="filled",
+            pair="BTC-USD",
+            side="buy",
+            order_type="limit",
+            price=87000.0,
+            filled_price=87000.0,
+            quantity=0.01,
+            filled_quantity=0.01,
+            fee=3.48,
+        )
+        executor._exchange.place_order = AsyncMock(return_value=full_result)
+
+        signal = self._make_signal(side="buy", price=87000.0, quantity=0.01)
+        audit = await executor.execute_signal(signal, portfolio_value=1000.0)
+
+        assert audit["result"] == "filled"
+        assert "partial_fill" not in audit.get("fill", {})
+
+    @pytest.mark.asyncio
+    async def test_partial_fill_zero_quantity_not_recorded(self) -> None:
+        """A partial status with zero filled_quantity should NOT record a fill."""
+        executor, tracker, risk = self._make_executor()
+
+        partial_zero = OrderResult(
+            order_id="order-000",
+            status="partial",
+            pair="BTC-USD",
+            side="buy",
+            order_type="limit",
+            price=87000.0,
+            filled_price=0.0,
+            quantity=0.01,
+            filled_quantity=0.0,
+            fee=0.0,
+            raw_response={"error": "No liquidity"},
+        )
+        executor._exchange.place_order = AsyncMock(return_value=partial_zero)
+
+        signal = self._make_signal(side="buy", price=87000.0, quantity=0.01)
+        audit = await executor.execute_signal(signal, portfolio_value=1000.0)
+
+        # Should NOT be treated as a fill
+        assert audit["result"] == "partial"
+        assert "fill" not in audit
+        assert executor._execution_count == 0
