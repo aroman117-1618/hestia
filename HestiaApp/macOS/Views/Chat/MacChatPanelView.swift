@@ -5,6 +5,7 @@ struct MacChatPanelView: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var viewModel = MacChatViewModel()
     @State private var messageText: String = ""
+    @State private var isAnimatingThinking = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -58,6 +59,11 @@ struct MacChatPanelView: View {
                             .id(message.id)
                         }
 
+                        // Thinking indicator (before tokens start streaming)
+                        if viewModel.isLoading && !viewModel.isTyping {
+                            thinkingBubble
+                        }
+
                         // Typing indicator
                         if viewModel.isTyping, let typingText = viewModel.currentTypingText {
                             typingBubble(typingText)
@@ -106,6 +112,50 @@ struct MacChatPanelView: View {
         .task {
             viewModel.loadInitialGreeting(mode: appState.currentMode)
         }
+    }
+
+    // MARK: - Thinking Bubble
+
+    private var thinkingBubble: some View {
+        HStack(alignment: .top, spacing: MacSpacing.sm) {
+            Circle()
+                .fill(MacColors.amberAccent.opacity(0.3))
+                .frame(width: 28, height: 28)
+                .overlay {
+                    Image(systemName: "brain")
+                        .font(.system(size: 12))
+                        .foregroundStyle(MacColors.amberAccent)
+                }
+
+            HStack(spacing: 4) {
+                ForEach(0..<3, id: \.self) { index in
+                    Circle()
+                        .fill(MacColors.amberAccent)
+                        .frame(width: 6, height: 6)
+                        .opacity(thinkingDotOpacity(for: index))
+                        .animation(
+                            .easeInOut(duration: 0.6)
+                            .repeatForever()
+                            .delay(Double(index) * 0.2),
+                            value: isAnimatingThinking
+                        )
+                }
+            }
+            .padding(.horizontal, MacSpacing.md)
+            .padding(.vertical, MacSpacing.sm)
+            .background(MacColors.aiBubbleBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+
+            Spacer()
+        }
+        .padding(.leading, 4)
+        .transition(.opacity.combined(with: .move(edge: .bottom)))
+        .onAppear { isAnimatingThinking = true }
+        .onDisappear { isAnimatingThinking = false }
+    }
+
+    private func thinkingDotOpacity(for index: Int) -> Double {
+        isAnimatingThinking ? 1.0 : 0.3
     }
 
     // MARK: - Typing Bubble
