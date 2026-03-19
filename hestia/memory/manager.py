@@ -247,6 +247,15 @@ class MemoryManager:
         if metadata.source is None:
             metadata.source = MemorySource.CONVERSATION.value
 
+        # Sync heuristic: only explicit ACTION_ITEM prefixes (high confidence)
+        if chunk_type == ChunkType.CONVERSATION and auto_tag:
+            chunk_type = self.tagger.classify_chunk_type(
+                content=content,
+                metadata=metadata,
+                llm_suggested_type=None,  # No LLM in sync path
+                llm_type_confidence=0.0,
+            )
+
         # Create chunk
         chunk = ConversationChunk.create(
             content=content,
@@ -278,7 +287,7 @@ class MemoryManager:
         return chunk
 
     async def _async_tag_chunk(self, chunk: ConversationChunk) -> None:
-        """Run auto-tagging asynchronously and update chunk."""
+        """Run auto-tagging and LLM classification asynchronously."""
         try:
             new_tags, new_metadata = await self.tagger.extract_tags(
                 chunk.content,
@@ -288,6 +297,29 @@ class MemoryManager:
             # Update chunk with extracted tags
             chunk.tags = new_tags
             chunk.metadata = new_metadata
+
+            # Classify chunk type if content passes quality gates
+            if self.tagger._should_classify(chunk):
+                new_type = self.tagger.classify_chunk_type(
+                    content=chunk.content,
+                    metadata=new_metadata,
+                    llm_suggested_type=new_metadata.suggested_type,
+                    llm_type_confidence=new_metadata.type_confidence,
+                )
+                if new_type != chunk.chunk_type:
+                    old_type = chunk.chunk_type.value
+                    chunk.chunk_type = new_type
+                    self.logger.info(
+                        "Promoted chunk type",
+                        component=LogComponent.MEMORY,
+                        data={
+                            "chunk_id": chunk.id,
+                            "old_type": old_type,
+                            "new_type": new_type.value,
+                            "confidence": new_metadata.type_confidence,
+                            "llm_suggested": new_metadata.suggested_type,
+                        },
+                    )
 
             await self.database.update_chunk(chunk)
             self.vector_store.update_chunk(chunk)
