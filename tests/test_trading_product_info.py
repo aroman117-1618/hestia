@@ -87,3 +87,40 @@ class TestGetProductInfo:
         assert info.pair == "DOGE-USD"
         # Falls back to BTC-USD defaults
         assert info.base_min_size == 0.0001
+
+
+
+class TestEquityProducts:
+    """Equity product catalog (Sprint 28)."""
+
+    def test_equity_product_info(self) -> None:
+        info = get_product_info("SPY")
+        assert info.base_min_size == 0.001
+        assert info.base_max_size == 100000.0
+
+    def test_crypto_product_info_unchanged(self) -> None:
+        info = get_product_info("BTC-USD")
+        assert info.base_min_size == 0.0001
+
+    def test_unknown_pair_returns_default(self) -> None:
+        info = get_product_info("UNKNOWN-PAIR")
+        assert info.pair == "UNKNOWN-PAIR"
+
+    def test_equity_all_symbols_present(self) -> None:
+        """Verify all 10 equity symbols are in the catalog."""
+        symbols = ["SPY", "QQQ", "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "TSLA", "VOO", "VTI"]
+        for sym in symbols:
+            info = get_product_info(sym)
+            assert info.pair == sym
+            assert info.base_min_size == 0.001
+
+    def test_equity_fractional_shares(self) -> None:
+        """Equity products support fractional shares (0.001 increment)."""
+        info = get_product_info("AAPL")
+        assert info.base_increment == 0.001
+
+    def test_equity_does_not_fall_back_to_btc(self) -> None:
+        """Equity symbols should use equity defaults, not BTC fallback."""
+        info = get_product_info("NVDA")
+        assert info.base_max_size == 100000.0
+        assert info.base_min_size != 0.0001  # Not BTC default

@@ -61,6 +61,12 @@ exchange:
     default_order_type: "limit"
     post_only: true              # Maker orders only (0.40% vs 0.60%)
 
+  alpaca:
+    keychain_api_key: "alpaca-api-key"
+    keychain_api_secret: "alpaca-api-secret"
+    paper: true
+    market_hours_only: true
+
   paper:
     initial_balance_usd: 250.0
     maker_fee: 0.004             # 0.40% (Coinbase <$10K tier)
@@ -93,6 +99,17 @@ strategies:
     period: 20
     std_dev: 2.0                 # 2σ bands
     volume_confirmation: 1.5     # ≥ 1.5× avg volume
+  signal_dca_equity:
+    rsi_period: 14
+    rsi_threshold: 30
+    ma_period: 50
+    buy_interval_hours: 24
+  mean_reversion_equity:
+    rsi_period: 14
+    rsi_oversold: 30
+    rsi_overbought: 70
+    volume_confirmation: 1.5
+    trend_filter_period: 50
 
 # ── Reconciliation ────────────────────────────────────────────
 reconciliation:

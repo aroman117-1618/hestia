@@ -2,6 +2,7 @@
 Exchange product metadata — minimum order sizes and increments.
 
 Validates that orders meet exchange minimums before submission.
+Supports crypto pairs (Coinbase) and equity symbols (Alpaca).
 Future: fetch live product specs from exchange API.
 """
 
@@ -26,6 +27,20 @@ _PRODUCT_DEFAULTS: Dict[str, Dict[str, float]] = {
         "quote_increment": 0.01,
         "base_max_size": 10000.0,
     },
+}
+
+# Equity defaults — fractional shares, zero commission via Alpaca
+_EQUITY_DEFAULTS: Dict[str, Dict[str, float]] = {
+    "SPY": {"base_min_size": 0.001, "base_increment": 0.001, "quote_increment": 0.01, "base_max_size": 100000.0},
+    "QQQ": {"base_min_size": 0.001, "base_increment": 0.001, "quote_increment": 0.01, "base_max_size": 100000.0},
+    "AAPL": {"base_min_size": 0.001, "base_increment": 0.001, "quote_increment": 0.01, "base_max_size": 100000.0},
+    "MSFT": {"base_min_size": 0.001, "base_increment": 0.001, "quote_increment": 0.01, "base_max_size": 100000.0},
+    "GOOGL": {"base_min_size": 0.001, "base_increment": 0.001, "quote_increment": 0.01, "base_max_size": 100000.0},
+    "AMZN": {"base_min_size": 0.001, "base_increment": 0.001, "quote_increment": 0.01, "base_max_size": 100000.0},
+    "NVDA": {"base_min_size": 0.001, "base_increment": 0.001, "quote_increment": 0.01, "base_max_size": 100000.0},
+    "TSLA": {"base_min_size": 0.001, "base_increment": 0.001, "quote_increment": 0.01, "base_max_size": 100000.0},
+    "VOO": {"base_min_size": 0.001, "base_increment": 0.001, "quote_increment": 0.01, "base_max_size": 100000.0},
+    "VTI": {"base_min_size": 0.001, "base_increment": 0.001, "quote_increment": 0.01, "base_max_size": 100000.0},
 }
 
 
@@ -86,14 +101,16 @@ def validate_order_size(
 
 def get_product_info(pair: str) -> ProductInfo:
     """
-    Get product metadata for a trading pair.
+    Get product metadata for a trading pair or equity symbol.
 
+    Checks crypto catalog first, then equity catalog.
     Falls back to conservative BTC-USD defaults for unknown pairs.
     Future: fetch from exchange API and cache.
     """
-    defaults = _PRODUCT_DEFAULTS.get(pair)
-    if defaults:
-        return ProductInfo(pair=pair, **defaults)
+    if pair in _PRODUCT_DEFAULTS:
+        return ProductInfo(pair=pair, **_PRODUCT_DEFAULTS[pair])
+    if pair in _EQUITY_DEFAULTS:
+        return ProductInfo(pair=pair, **_EQUITY_DEFAULTS[pair])
 
     logger.warning(
         f"No product info for {pair}, using BTC-USD defaults",
