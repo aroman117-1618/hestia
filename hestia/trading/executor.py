@@ -1,5 +1,5 @@
 """
-Trade executor — Strategy → Risk → Price Validation → Exchange pipeline.
+Trade executor — Strategy → Risk → Price → Product → Exchange pipeline.
 
 No order can reach the exchange without passing through this pipeline.
 This is the single entry point for all trade execution.
@@ -11,6 +11,7 @@ from hestia.logging import get_logger, LogComponent
 from hestia.trading.exchange.base import AbstractExchangeAdapter, OrderRequest, OrderResult
 from hestia.trading.position_tracker import PositionTracker
 from hestia.trading.price_validator import PriceValidator
+from hestia.trading.product_info import ProductInfo, get_product_info, validate_order_size
 from hestia.trading.risk import RiskManager
 from hestia.trading.strategies.base import Signal, SignalType
 
@@ -21,7 +22,7 @@ class TradeExecutor:
     """
     Executes trades through the full safety pipeline.
 
-    Pipeline: Signal → Risk Validation → Price Validation → Exchange → Position Update
+    Pipeline: Signal → Risk → Price → Product → Exchange → Position Update
 
     Every decision is logged with full reasoning for audit trail.
     """
@@ -113,7 +114,27 @@ class TradeExecutor:
             )
             return audit
 
-        # Step 3: Execute on exchange
+        # Step 3: Product validation (exchange minimums)
+        product = get_product_info(signal.pair)
+        product_check = validate_order_size(product, quantity, signal.price)
+        audit["pipeline_steps"].append({
+            "step": "product_validation",
+            "result": product_check,
+        })
+
+        if not product_check["valid"]:
+            self._rejected_count += 1
+            audit["result"] = "rejected"
+            audit["reason"] = f"Product validation failed: {product_check['reason']}"
+            logger.warning(
+                f"Order rejected by product validator: {signal.pair} "
+                f"qty={quantity:.8f}",
+                component=LogComponent.TRADING,
+                data=product_check,
+            )
+            return audit
+
+        # Step 4: Execute on exchange
         order = OrderRequest(
             pair=signal.pair,
             side=signal.signal_type.value,
@@ -145,7 +166,7 @@ class TradeExecutor:
             },
         })
 
-        # Step 4: Update position tracker
+        # Step 5: Update position tracker
         if result.is_filled:
             pnl = await self._positions.record_fill(
                 pair=signal.pair,
