@@ -453,19 +453,20 @@ Full endpoint details: `docs/api-contract.md` or `/docs` (Swagger)
 ### Autonomous Trading Module — Sprints 21–30 (APPROVED 2026-03-18)
 | Sprint | Status | Scope |
 |--------|--------|-------|
-| Sprint 21: Trading Foundation | TODO | Module structure, SQLite WAL DB, paper adapter, tax lot tracker (1099-DA) |
-| Sprint 22: Strategy Engine | TODO | Geometric grid trading + crypto-optimized mean reversion (RSI-7/9, 20/80) |
-| Sprint 23: Risk Management | TODO | 8 circuit breakers, 60-sec exchange reconciliation, Quarter-Kelly sizing |
-| Sprint 24: Backtesting | TODO | VectorBT, maker/taker fee modeling, walk-forward validation, overfit detection |
-| Sprint 25: Coinbase Live | TODO | WebSocket + sequence checking, Post-Only orders, Keychain API keys |
-| Sprint 26: Dashboard | TODO | SSE streaming, iOS/macOS Trading tab, Discord alerts, daily summary |
-| Sprint 27: Portfolio | TODO | Bollinger breakout, signal DCA, regime rotation, CCXT abstraction for Kraken |
-| Sprint 28: AI Sentiment | TODO | LLM regime filter (cloud → local), CryptoPanic, alpha decay measurement |
-| Sprint 29: On-Chain + ML | TODO | Glassnode PiT data, Bayesian optimizer, walk-forward, overfit guardrails |
-| Sprint 30: Go-Live | TODO | Security audit, 72h soak test, gradual capital deployment (10→25→50→100%) |
+| Sprint 21: Trading Foundation | COMPLETE | Module structure, SQLite WAL DB, paper adapter, tax lot tracker (1099-DA) |
+| Sprint 22: Strategy Engine | COMPLETE | Geometric grid trading + crypto-optimized mean reversion (RSI-7/9, 20/80) |
+| Sprint 23: Risk Management | COMPLETE | 8 circuit breakers, 60-sec exchange reconciliation, Quarter-Kelly sizing |
+| Sprint 24: Backtesting | COMPLETE | VectorBT, maker/taker fee modeling, walk-forward validation, overfit detection |
+| Sprint 25: Coinbase Live | COMPLETE | WebSocket + sequence checking, Post-Only orders, Keychain API keys |
+| Sprint 26: Dashboard | COMPLETE | SSE streaming, macOS Trading tab, confidence scoring, decision trails, alerts |
+| Sprint 27: Go-Live | TODO | Bot Runner, orchestrator, market data polling, WebSocket wiring, paper soak, gradual capital deployment |
+| Sprint 28: Portfolio Expansion | TODO | Bollinger breakout, signal DCA, regime rotation, CCXT abstraction for Kraken |
+| Sprint 29: AI Sentiment | TODO | LLM regime filter (cloud → local), CryptoPanic, alpha decay measurement |
+| Sprint 30: On-Chain + ML | TODO | Glassnode PiT data, Bayesian optimizer, walk-forward, overfit guardrails |
 
 **Plan:** `docs/discoveries/trading-module-research-and-plan.md`
-**Critical path:** S21 → S22 → S23 → S25 → S27 → S30 (6 sprints minimum to live trading)
+**Critical path:** S21 → S22 → S23 → S25 → S26 → S27 (Go-Live). Enhancements (S28-S30) follow after live validation.
+**Reordered 2026-03-18:** Go-Live moved from S30 to S27. Grid + Mean Reversion strategies are sufficient for initial paper validation. Enhancements (portfolio expansion, AI sentiment, ML) shift to S28-S30 — building on live trading data rather than hypothetical backtests.
 
 ### Known Issues (Mac Mini)
 - Council needs `qwen2.5:0.5b` pulled on Mac Mini

@@ -520,7 +520,7 @@ Terminal-native interface. WebSocket streaming, prompt_toolkit REPL, Rich render
 **Plan:** `docs/discoveries/trading-module-research-and-plan.md`
 **Capital:** $500–$2,000 | **Target:** 25–50% annualized | **Exchange:** Coinbase (Kraken expansion later)
 
-### Critical Path: S21 → S22 → S23 → S25 → S27 → S30
+### Critical Path: S21 → S22 → S23 → S25 → S26 → S27 (Go-Live)
 
 | Sprint | Title | Size | Priority | Phase | Depends | Status |
 |--------|-------|------|----------|-------|---------|--------|
@@ -529,14 +529,16 @@ Terminal-native interface. WebSocket streaming, prompt_toolkit REPL, Rich render
 | S23 | Risk Management — 8 circuit breakers, reconciliation, ¼-Kelly | L | P0 | Engine | S22 | **COMPLETE** |
 | S24 | Backtesting — VectorBT, anti-overfit, walk-forward validation | XL | P0 | Engine | S22 | **COMPLETE** |
 | S25 | Coinbase Live — WebSocket, Post-Only orders, sequence check | XL | P0 | Exchange | S23+S24 | **COMPLETE** |
-| S25.5 | Activity Feed Restructure — Command Center → System/Internal/External tabs | L | P0 | UI | — | TODO |
-| S26 | Full Trading Dashboard — decision trails, watchlist, satisfaction scores, MVM | XL | P1 | UI | S25.5 | TODO |
-| S27 | Portfolio — Bollinger breakout, DCA, regime rotation, summary | XL | P1 | Strategies | S25 | TODO |
-| S28 | AI Sentiment — LLM regime filter, CryptoPanic, alpha decay | L | P2 | AI | S27 | TODO |
-| S29 | On-Chain + ML — Glassnode, walk-forward optimizer, guardrails | XL | P2 | AI | S28 | TODO |
-| S30 | Go-Live — security audit, soak test, capital deployment | L | P0 | Launch | S27 | TODO |
+| S25.5 | Activity Feed Restructure — Command Center → System/Internal/External tabs | L | P0 | UI | — | **COMPLETE** |
+| S26 | Trading Dashboard — SSE streaming, confidence scoring, decision trails, alerts | XL | P0 | UI | S25.5 | **COMPLETE** |
+| S27 | **Go-Live** — Bot Runner, orchestrator, market data, WebSocket wiring, paper soak, capital deploy | XL | P0 | Launch | S26 | **TODO** |
+| S28 | Portfolio Expansion — Bollinger breakout, DCA, regime rotation, CCXT for Kraken | XL | P1 | Strategies | S27 | TODO |
+| S29 | AI Sentiment — LLM regime filter, CryptoPanic, alpha decay | L | P2 | AI | S28 | TODO |
+| S30 | On-Chain + ML — Glassnode, walk-forward optimizer, guardrails | XL | P2 | AI | S29 | TODO |
 | EXT-1 | External Storage Setup — Ollama offload, backups, log archival | S | P1 | Infra | — | COMPLETE |
-| DQ-1 | Research Data Quality — insight cleanup, Apple backfill, graph filters | L | P1 | Research | S20A | TODO |
+| DQ-1 | Research Data Quality — insight cleanup, Apple backfill, graph filters | L | P1 | Research | S20A | IN PROGRESS |
+
+**Reordered 2026-03-18:** Go-Live moved to S27 (was S30). Grid + Mean Reversion strategies are sufficient for initial live validation. Enhancement sprints (S28-S30) build on live trading data rather than hypothetical backtests.
 
 ### Frontend Architecture Decisions (locked 2026-03-18)
 - **Activity Feed restructure:** Command Center → 3 tabbed views (System / Internal / External)
