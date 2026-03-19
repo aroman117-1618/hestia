@@ -45,6 +45,10 @@ TOOL_TRIGGER_KEYWORDS = frozenset({
     "briefing", "today", "tomorrow", "week", "morning",
     # System commands
     "command", "run", "execute", "shell",
+    # Trading
+    "trading", "trade", "trades", "bot", "bots", "portfolio",
+    "kill switch", "killswitch", "crypto", "bitcoin", "btc", "eth",
+    "strategy", "position", "positions", "p&l", "pnl",
 })
 
 

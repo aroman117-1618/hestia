@@ -6,10 +6,18 @@ import HestiaShared
 struct TradingMonitorView: View {
     @ObservedObject var viewModel: MacTradingViewModel
 
+    @State private var firstRunStrategy = "mean_reversion"
+    @State private var firstRunPair = "BTC-USD"
+    @State private var firstRunCapital = 25.0
+
     var body: some View {
         ScrollView {
             VStack(spacing: MacSpacing.lg) {
+                autonomousTradingToggle
                 portfolioSnapshotCard
+                if !viewModel.decisionFeed.isEmpty {
+                    decisionFeedSection
+                }
                 activePositionsSection
                 recentTradesSection
                 watchlistSection
@@ -24,6 +32,168 @@ struct TradingMonitorView: View {
         }
         .onDisappear {
             viewModel.cleanup()
+        }
+        .sheet(isPresented: $viewModel.showFirstRunModal) {
+            firstRunConfirmationModal
+        }
+    }
+
+    // MARK: - Autonomous Trading Toggle
+
+    private var autonomousTradingToggle: some View {
+        HStack(spacing: MacSpacing.md) {
+            Image(systemName: viewModel.autonomousTradingEnabled ? "bolt.circle.fill" : "bolt.circle")
+                .font(.system(size: 18))
+                .foregroundStyle(viewModel.autonomousTradingEnabled ? MacColors.healthGreen : MacColors.textSecondary)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Autonomous Trading")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(MacColors.textPrimary)
+                Text(viewModel.autonomousTradingEnabled ? "Active — Hestia is managing your trades" : "Disabled — tap to enable")
+                    .font(MacTypography.caption)
+                    .foregroundStyle(viewModel.autonomousTradingEnabled ? MacColors.healthGreen : MacColors.textFaint)
+            }
+
+            Spacer()
+
+            Toggle("", isOn: Binding(
+                get: { viewModel.autonomousTradingEnabled },
+                set: { _ in viewModel.toggleAutonomousTrading() }
+            ))
+            .toggleStyle(.switch)
+            .tint(MacColors.healthGreen)
+            .labelsHidden()
+        }
+        .padding(MacSpacing.xl)
+        .background(
+            viewModel.autonomousTradingEnabled
+                ? MacColors.healthGreen.opacity(0.06)
+                : MacColors.panelBackground
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: MacCornerRadius.panel)
+                .strokeBorder(
+                    viewModel.autonomousTradingEnabled
+                        ? MacColors.healthGreen.opacity(0.2)
+                        : MacColors.cardBorder,
+                    lineWidth: 1
+                )
+        }
+        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
+    }
+
+    // MARK: - Decision Feed
+
+    private var decisionFeedSection: some View {
+        CollapsibleSection(
+            title: "Live Decision Feed",
+            icon: "text.alignleft"
+        ) {
+            VStack(alignment: .leading, spacing: MacSpacing.xs) {
+                ForEach(viewModel.decisionFeed.prefix(20)) { entry in
+                    HStack(alignment: .top, spacing: MacSpacing.sm) {
+                        Text(entry.timeString)
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(MacColors.textFaint)
+                            .frame(width: 55, alignment: .leading)
+
+                        Image(systemName: entry.sourceIcon)
+                            .font(.system(size: 10))
+                            .foregroundStyle(MacColors.amberAccent)
+                            .frame(width: 14)
+
+                        Text("[\(entry.source)]")
+                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(MacColors.textSecondary)
+
+                        Text(entry.message)
+                            .font(.system(size: 11))
+                            .foregroundStyle(MacColors.textPrimary)
+                            .lineLimit(2)
+                    }
+                }
+            }
+            .padding(.vertical, MacSpacing.xs)
+        }
+    }
+
+    // MARK: - First-Run Confirmation Modal
+
+    private var firstRunConfirmationModal: some View {
+        VStack(spacing: MacSpacing.lg) {
+            // Header
+            VStack(spacing: MacSpacing.sm) {
+                Image(systemName: "bolt.circle.fill")
+                    .font(.system(size: 32))
+                    .foregroundStyle(MacColors.amberAccent)
+                Text("Enable Autonomous Trading")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(MacColors.textPrimary)
+                Text("Hestia will manage trades automatically using the settings below.")
+                    .font(MacTypography.body)
+                    .foregroundStyle(MacColors.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            // Settings
+            VStack(alignment: .leading, spacing: MacSpacing.md) {
+                settingRow(label: "Strategy", value: firstRunStrategy == "mean_reversion" ? "Mean Reversion (RSI)" : "Grid Trading")
+                settingRow(label: "Pair", value: firstRunPair)
+                settingRow(label: "Capital", value: "$\(String(format: "%.0f", firstRunCapital))")
+                settingRow(label: "Sizing", value: "Quarter-Kelly (conservative)")
+                settingRow(label: "Daily Loss Limit", value: "5%")
+                settingRow(label: "Kill Switch", value: "Enabled (persisted)")
+            }
+            .padding(MacSpacing.lg)
+            .background(MacColors.searchInputBackground)
+            .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
+
+            // Buttons
+            HStack(spacing: MacSpacing.md) {
+                Button("Cancel") {
+                    viewModel.showFirstRunModal = false
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(MacColors.textSecondary)
+
+                Button {
+                    Task {
+                        await viewModel.confirmEnableTrading(
+                            strategy: firstRunStrategy,
+                            pair: firstRunPair,
+                            capital: firstRunCapital
+                        )
+                    }
+                } label: {
+                    HStack(spacing: MacSpacing.xs) {
+                        Image(systemName: "bolt.fill")
+                        Text("Enable Trading")
+                    }
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(MacColors.buttonTextDark)
+                    .padding(.horizontal, MacSpacing.xl)
+                    .padding(.vertical, MacSpacing.sm)
+                    .background(MacColors.amberAccent)
+                    .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.tab))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(MacSpacing.xl * 2)
+        .frame(width: 420)
+        .background(MacColors.windowBackground)
+    }
+
+    private func settingRow(label: String, value: String) -> some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(MacColors.textSecondary)
+            Spacer()
+            Text(value)
+                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .foregroundStyle(MacColors.textPrimary)
         }
     }
 

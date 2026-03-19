@@ -166,15 +166,25 @@ class BotRunner:
                 data={"bot_id": bot_id},
             )
 
+    def _publish_decision(self, source: str, message: str, data: Optional[Dict] = None) -> None:
+        """Publish a reasoning event to the decision feed."""
+        if self._event_bus:
+            self._event_bus.publish(TradingEvent(
+                event_type="decision",
+                data={
+                    "bot_id": self.bot.id,
+                    "bot_name": self.bot.name,
+                    "source": source,
+                    "message": message,
+                    **(data or {}),
+                },
+            ))
+
     async def _tick(self, pair: str) -> None:
         """Single iteration of the trading loop."""
         # 1. Fetch candles from exchange
         candles = await self._fetch_candles(pair)
         if candles is None or len(candles) < 30:
-            logger.debug(
-                f"Insufficient candle data ({len(candles) if candles is not None else 0} candles), skipping tick",
-                component=LogComponent.TRADING,
-            )
             return
 
         # 2. Compute indicators
@@ -191,27 +201,63 @@ class BotRunner:
         # 3. Get portfolio value
         portfolio_value = await self._get_portfolio_value()
         if portfolio_value <= 0:
-            logger.debug("Portfolio value is 0, skipping tick", component=LogComponent.TRADING)
             return
+
+        latest_price = float(df.iloc[-1]["close"]) if len(df) > 0 else 0
+        self._publish_decision(
+            "MarketData",
+            f"{pair} @ ${latest_price:,.2f} — {len(df)} candles, indicators computed",
+            {"price": latest_price, "candles": len(df)},
+        )
 
         # 4. Generate signal
         signal = self._strategy.analyze(df, portfolio_value)
+
+        self._publish_decision(
+            self._strategy.name,
+            f"Signal: {signal.signal_type.value.upper()} — {signal.reason}" if signal.reason
+            else f"Signal: {signal.signal_type.value.upper()} (confidence: {signal.confidence:.0%})",
+            {"signal": signal.signal_type.value, "confidence": signal.confidence},
+        )
 
         # 5. Execute if actionable
         if signal.is_actionable:
             result = await self._executor.execute_signal(signal, portfolio_value)
 
+            # Publish pipeline result
+            result_status = result.get("result", "unknown")
+            if result_status == "filled":
+                fill = result.get("fill", {})
+                self._publish_decision(
+                    "Executor",
+                    f"FILLED: {signal.signal_type.value.upper()} {fill.get('quantity', 0):.6f} {pair} "
+                    f"@ ${fill.get('price', 0):,.2f} (fee: ${fill.get('fee', 0):.4f})",
+                    {"result": "filled", "fill": fill},
+                )
+            elif result_status == "rejected":
+                self._publish_decision(
+                    "RiskManager",
+                    f"REJECTED: {result.get('reason', 'unknown')}",
+                    {"result": "rejected"},
+                )
+            else:
+                self._publish_decision(
+                    "Executor",
+                    f"Result: {result_status} — {result.get('reason', '')}",
+                    {"result": result_status},
+                )
+
             # 6. Record trade if filled
-            if result.get("result") == "filled":
+            if result_status == "filled":
                 await self._record_trade(result, signal)
 
-            # 7. Publish event
+            # 7. Publish trade event (separate from decision feed)
             if self._event_bus:
                 self._event_bus.publish(TradingEvent(
                     event_type="trade",
                     data={
                         "bot_id": self.bot.id,
-                        "result": result.get("result"),
+                        "result": result_status,
                         "pair": pair,
                         "side": signal.signal_type.value,
                         "confidence": signal.confidence,

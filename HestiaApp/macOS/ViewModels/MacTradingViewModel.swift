@@ -1,6 +1,8 @@
 import SwiftUI
 import HestiaShared
 
+private struct TradingEmptyBody: Codable {}
+
 /// ViewModel for the Trading Monitor dashboard.
 /// Loads data via REST endpoints, subscribes to SSE for real-time updates.
 @MainActor
@@ -20,10 +22,17 @@ class MacTradingViewModel: ObservableObject {
     @Published var killSwitchActive = false
     @Published var isConnected = false
 
+    // MARK: - Autonomous Trading State
+
+    @Published var autonomousTradingEnabled = false
+    @Published var showFirstRunModal = false
+    @Published var decisionFeed: [DecisionFeedEntry] = []
+
     // MARK: - SSE State
 
     private var sseTask: Task<Void, Never>?
     private var refreshTimer: Timer?
+    private var hasEverEnabled = false
 
     // MARK: - Data Loading
 
@@ -100,6 +109,8 @@ class MacTradingViewModel: ObservableObject {
         do {
             let response = try await APIClient.shared.getTradingBots()
             bots = response.bots
+            // Sync autonomous trading state from actual bot statuses
+            autonomousTradingEnabled = bots.contains { $0.status == "running" }
         } catch {
             #if DEBUG
             print("[Trading] Bots load failed: \(error)")
@@ -161,6 +172,88 @@ class MacTradingViewModel: ObservableObject {
             #if DEBUG
             print("[Trading] Remove watchlist failed: \(error)")
             #endif
+        }
+    }
+
+    // MARK: - Autonomous Trading Toggle
+
+    func toggleAutonomousTrading() {
+        if autonomousTradingEnabled {
+            // Disable — no confirmation needed
+            Task { await disableTrading() }
+        } else {
+            // Enable — show first-run confirmation
+            showFirstRunModal = true
+        }
+    }
+
+    func confirmEnableTrading(strategy: String = "mean_reversion", pair: String = "BTC-USD", capital: Double = 25.0) async {
+        showFirstRunModal = false
+        do {
+            struct EnableRequest: Codable {
+                let strategy: String
+                let pair: String
+                let capitalAllocated: Double
+                let name: String
+                let config: [String: String]
+            }
+            // Create bot
+            let bot: TradingBotResponse = try await APIClient.shared.post(
+                "/trading/bots",
+                body: EnableRequest(
+                    strategy: strategy, pair: pair, capitalAllocated: capital,
+                    name: "\(strategy.replacingOccurrences(of: "_", with: " ").capitalized) — \(pair)",
+                    config: [:]
+                )
+            )
+            // Start bot (this launches the BotRunner)
+            let _: TradingBotResponse = try await APIClient.shared.post(
+                "/trading/bots/\(bot.id)/start",
+                body: TradingEmptyBody()
+            )
+            autonomousTradingEnabled = true
+            addDecisionEntry(source: "Hestia", message: "Autonomous trading enabled — \(strategy) on \(pair) with $\(String(format: "%.0f", capital))")
+            await loadAllData()
+        } catch {
+            errorMessage = "Failed to enable trading"
+            #if DEBUG
+            print("[Trading] Enable failed: \(error)")
+            #endif
+        }
+    }
+
+    private func disableTrading() async {
+        do {
+            // Stop all running bots
+            for bot in bots where bot.status == "running" {
+                let _: TradingBotResponse = try await APIClient.shared.post(
+                    "/trading/bots/\(bot.id)/stop",
+                    body: TradingEmptyBody()
+                )
+            }
+            autonomousTradingEnabled = false
+            addDecisionEntry(source: "Hestia", message: "Autonomous trading disabled — all bots stopped")
+            await loadAllData()
+        } catch {
+            errorMessage = "Failed to disable trading"
+            #if DEBUG
+            print("[Trading] Disable failed: \(error)")
+            #endif
+        }
+    }
+
+    // MARK: - Decision Feed
+
+    func addDecisionEntry(source: String, message: String) {
+        let entry = DecisionFeedEntry(
+            timestamp: Date(),
+            source: source,
+            message: message
+        )
+        decisionFeed.insert(entry, at: 0)
+        // Keep last 100 entries
+        if decisionFeed.count > 100 {
+            decisionFeed = Array(decisionFeed.prefix(100))
         }
     }
 

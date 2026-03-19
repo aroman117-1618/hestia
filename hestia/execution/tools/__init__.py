@@ -87,3 +87,12 @@ def register_builtin_tools(registry) -> None:
         pass
     except Exception:
         pass
+
+    # Trading tools (autonomous trading control)
+    try:
+        from hestia.trading.tools import register_trading_tools
+        count = register_trading_tools(registry)
+    except ImportError:
+        pass
+    except Exception:
+        pass

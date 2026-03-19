@@ -100,3 +100,28 @@ struct TradingKillSwitchResponse: Codable {
     let active: Bool
     let reason: String?
 }
+
+// MARK: - Decision Feed
+
+struct DecisionFeedEntry: Identifiable {
+    let id = UUID()
+    let timestamp: Date
+    let source: String
+    let message: String
+
+    var timeString: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss"
+        return formatter.string(from: timestamp)
+    }
+
+    var sourceIcon: String {
+        switch source {
+        case "MarketData": return "chart.line.uptrend.xyaxis"
+        case "RiskManager": return "shield"
+        case "Executor": return "arrow.left.arrow.right"
+        case "Hestia": return "brain"
+        default: return "gearshape"
+        }
+    }
+}
