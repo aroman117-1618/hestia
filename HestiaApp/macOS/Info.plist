@@ -28,5 +28,9 @@
 	<string>Hestia needs calendar access to show your upcoming events in the Command Center.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>SUFeedURL</key>
+	<string>https://aroman117-1618.github.io/hestia/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>t9z32MFmQGXD5elW9qM+/u/19JBT5c2tmoxfaNzhgwM=</string>
 </dict>
 </plist>

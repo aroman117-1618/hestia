@@ -17,6 +17,9 @@ packages:
     from: "1.1.0"
   HestiaShared:
     path: ../HestiaShared
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.6.0"
 
 settings:
   base:
@@ -111,6 +114,7 @@ targets:
         buildPhase: resources
     dependencies:
       - package: HestiaShared
+      - package: Sparkle
       - framework: EventKit.framework
         embed: false
       - framework: WebKit.framework
@@ -134,6 +138,8 @@ targets:
         LSMinimumSystemVersion: "15.0"
         ATSApplicationFontsPath: Fonts
         NSCalendarsUsageDescription: Hestia needs calendar access to show your upcoming events in the Command Center.
+        SUPublicEDKey: t9z32MFmQGXD5elW9qM+/u/19JBT5c2tmoxfaNzhgwM=
+        SUFeedURL: https://aroman117-1618.github.io/hestia/appcast.xml
 
   HestiaAppTests:
     type: bundle.unit-test

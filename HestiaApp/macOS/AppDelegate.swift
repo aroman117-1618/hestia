@@ -1,5 +1,6 @@
 import AppKit
 import HestiaShared
+import Sparkle
 
 @main
 enum HestiaWorkspaceApp {
@@ -15,10 +16,18 @@ enum HestiaWorkspaceApp {
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var mainWindowController: MainWindowController?
     private var keyMonitor: Any?
+    private var updaterController: SPUStandardUpdaterController!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Configure shared package with macOS device info
         APIClient.configure(deviceInfo: MacDeviceInfoProvider())
+
+        // Initialize Sparkle auto-updater
+        updaterController = SPUStandardUpdaterController(
+            startingUpdater: true,
+            updaterDelegate: nil,
+            userDriverDelegate: nil
+        )
 
         buildMainMenu()
         installKeyboardShortcuts()
@@ -47,6 +56,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let appMenuItem = NSMenuItem()
         let appMenu = NSMenu(title: "Hestia")
         appMenu.addItem(withTitle: "About Hestia", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(.separator())
+        let checkForUpdatesItem = NSMenuItem(
+            title: "Check for Updates...",
+            action: #selector(checkForUpdates(_:)),
+            keyEquivalent: ""
+        )
+        checkForUpdatesItem.target = self
+        appMenu.addItem(checkForUpdatesItem)
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Quit Hestia", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appMenuItem.submenu = appMenu
@@ -142,6 +159,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     // MARK: - Menu Actions
+
+    @objc private func checkForUpdates(_ sender: Any?) {
+        updaterController.checkForUpdates(nil)
+    }
 
     @objc private func showCommandView() { switchView(to: .command) }
     @objc private func showHealthView() { switchView(to: .health) }

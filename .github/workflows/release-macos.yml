@@ -1,0 +1,166 @@
+name: macOS Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g., 1.0.1)'
+        required: true
+
+concurrency:
+  group: release-macos
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      INPUT_VERSION: ${{ inputs.version }}
+      TAG_REF: ${{ github.ref }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: |
+          if [ -n "$INPUT_VERSION" ]; then
+            echo "version=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${TAG_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: cd HestiaApp && xcodegen generate
+
+      - name: Resolve SPM dependencies
+        run: |
+          cd HestiaApp
+          xcodebuild -resolvePackageDependencies \
+            -scheme HestiaWorkspace \
+            -clonedSourcePackagesDirPath ../spm-cache
+
+      - name: Build and archive
+        run: |
+          cd HestiaApp
+          xcodebuild archive \
+            -scheme HestiaWorkspace \
+            -archivePath build/Hestia.xcarchive \
+            -configuration Release \
+            -clonedSourcePackagesDirPath ../spm-cache \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            DEVELOPMENT_TEAM=563968AM8L \
+            CODE_SIGN_STYLE=Manual
+
+      - name: Export archive
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath HestiaApp/build/Hestia.xcarchive \
+            -exportPath HestiaApp/build/export \
+            -exportOptionsPlist HestiaApp/ExportOptions.plist
+
+      - name: Notarize
+        env:
+          AC_USERNAME: ${{ secrets.AC_USERNAME }}
+          AC_PASSWORD: ${{ secrets.AC_PASSWORD }}
+          AC_TEAM_ID: ${{ secrets.AC_TEAM_ID }}
+        run: |
+          cd HestiaApp/build/export
+          ditto -c -k --keepParent "HestiaWorkspace.app" Hestia-notarize.zip
+          xcrun notarytool submit Hestia-notarize.zip \
+            --apple-id "$AC_USERNAME" \
+            --password "$AC_PASSWORD" \
+            --team-id "$AC_TEAM_ID" \
+            --wait --timeout 600
+          xcrun stapler staple "HestiaWorkspace.app"
+          rm Hestia-notarize.zip
+
+      - name: Package release ZIP
+        id: package
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          cd HestiaApp/build/export
+          ditto -c -k --keepParent "HestiaWorkspace.app" "../../../Hestia-${VERSION}.zip"
+          cd ../../..
+          SIZE=$(stat -f%z "Hestia-${VERSION}.zip")
+          echo "size=$SIZE" >> "$GITHUB_OUTPUT"
+
+      - name: Download Sparkle tools
+        run: |
+          curl -sLO https://github.com/sparkle-project/Sparkle/releases/download/2.6.0/Sparkle-2.6.0.tar.xz
+          tar xf Sparkle-2.6.0.tar.xz
+
+      - name: Sign with EdDSA
+        id: sparkle
+        env:
+          SPARKLE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "$SPARKLE_KEY" > /tmp/sparkle.key
+          SIGN_OUTPUT=$(./bin/sign_update "Hestia-${VERSION}.zip" -f /tmp/sparkle.key)
+          rm /tmp/sparkle.key
+          ED_SIG=$(echo "$SIGN_OUTPUT" | grep -o 'edSignature="[^"]*"' | cut -d'"' -f2)
+          echo "signature=$ED_SIG" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          gh release create "v${VERSION}" \
+            "Hestia-${VERSION}.zip" \
+            --title "Hestia v${VERSION}" \
+            --generate-notes
+
+      - name: Generate appcast.xml
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          REPO="${{ github.repository }}"
+          DOWNLOAD_URL="https://github.com/${REPO}/releases/download/v${VERSION}/Hestia-${VERSION}.zip"
+          ED_SIG="${{ steps.sparkle.outputs.signature }}"
+          SIZE="${{ steps.package.outputs.size }}"
+          PUB_DATE="$(date -R)"
+
+          cat > /tmp/appcast.xml << EOF
+          <?xml version="1.0" encoding="utf-8"?>
+          <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+            <channel>
+              <title>Hestia Updates</title>
+              <item>
+                <title>Version ${VERSION}</title>
+                <sparkle:version>${VERSION}</sparkle:version>
+                <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
+                <pubDate>${PUB_DATE}</pubDate>
+                <enclosure
+                  url="${DOWNLOAD_URL}"
+                  sparkle:edSignature="${ED_SIG}"
+                  length="${SIZE}"
+                  type="application/octet-stream" />
+              </item>
+            </channel>
+          </rss>
+          EOF
+
+      - name: Deploy appcast to gh-pages
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin gh-pages 2>/dev/null || true
+          if git rev-parse --verify origin/gh-pages >/dev/null 2>&1; then
+            git checkout gh-pages
+          else
+            git checkout --orphan gh-pages
+            git rm -rf . 2>/dev/null || true
+          fi
+          cp /tmp/appcast.xml appcast.xml
+          echo "# Hestia Releases" > README.md
+          git add appcast.xml README.md
+          git commit -m "Update appcast for v${{ steps.version.outputs.version }}" || true
+          git push origin gh-pages
