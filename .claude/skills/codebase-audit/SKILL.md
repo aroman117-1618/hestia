@@ -121,6 +121,23 @@ Product quality and usability assessment:
 ### Verdict
 **CPO Rating:** Critical / Needs Work / Acceptable / Strong
 
+## Phase 5.5: CFO & Legal Audit
+
+### CFO Review
+- **Infrastructure costs**: Compute, storage, cloud API spend — is this sustainable?
+- **Resource allocation**: Are engineer-hours going to the highest-value work?
+- **ROI assessment**: What's the return on the last 3 sprints? Where was effort wasted?
+- **Maintenance burden**: Which modules have the highest ongoing cost vs. value delivered?
+- **Verdict:** Critical / Needs Work / Acceptable / Strong
+
+### Legal Review
+- **Data handling**: PII exposure, GDPR/CCPA implications, data retention policies
+- **Dependencies**: License compatibility scan (GPL contamination?), vendor lock-in risk
+- **API ToS compliance**: External service terms (Coinbase, cloud providers, Ollama)
+- **IP exposure**: Open-source risk for proprietary logic
+- **Regulatory**: Crypto trading compliance, financial data handling
+- **Verdict:** Critical / Needs Work / Acceptable / Strong
+
 ## Phase 6: Simplification Opportunities
 
 Actively look for ways to reduce complexity while preserving functionality:
@@ -267,6 +284,8 @@ Save the audit to `docs/audits/codebase-audit-[date].md` and present it:
 - **CISO:** [rating] — [one-line summary]
 - **CTO:** [rating] — [one-line summary]
 - **CPO:** [rating] — [one-line summary]
+- **CFO:** [rating] — [one-line summary]
+- **Legal:** [rating] — [one-line summary]
 - Critical issues: N
 - Simplification opportunities: N
 - Consistency violations: N

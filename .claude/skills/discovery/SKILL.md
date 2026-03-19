@@ -25,6 +25,8 @@ Run a comprehensive strategic research session on a topic. This is not a quick l
 
 The user should provide a topic, hypothesis, or question when invoking this skill. If not provided, ask for one.
 
+**Mode detection:** If Andrew says "just make it work", "operate mode", or passes `--mode operate`, compress the workflow: combine Phases 2-4 into a single rapid assessment, skip Phase 6 (Philosophical), and deliver a concise recommendation without interactive gates. Default is **Collaborate mode** (full multi-phase review with explanations and approval gates).
+
 ## Phase 1: Scope & Hypothesis
 
 1. Clarify the research question — restate it precisely
@@ -116,21 +118,48 @@ Revise the SWOT and argue/refute sections if Gemini surfaces material contradict
 - Go deeper on the highest-uncertainty areas
 - Quantify where possible (performance numbers, cost estimates, time estimates)
 
-## Phase 6: Determination
+## Phase 6: Philosophical Layer & Moonshot
+
+### 6.1 Ethical Check
+- Is this ethical, moral, and productive? Would we be comfortable if this were public?
+- Does this serve real human needs or just technical curiosity?
+
+### 6.2 First Principles Challenge
+- Why this approach? Strip away assumptions and rebuild from fundamentals.
+- What would a 10x better solution look like — one that doesn't exist yet?
+- Are we anchored on the first workable idea?
+
+### 6.3 Moonshot Challenge (Full Feasibility)
+The viable dream most people dismiss too quickly. NOT a throwaway brainstorm — this gets a real analysis:
+- **What's the moonshot version?** The approach that sounds crazy but is suddenly feasible with current tools.
+- **Technical viability**: Can it actually be built? What's the hardest unsolved piece?
+- **Effort estimate**: Realistic hours/days, not optimistic
+- **Risk assessment**: What's the worst case if the moonshot fails?
+- **MVP scope**: What's the smallest version that proves the moonshot works?
+- **Verdict**: PURSUE (worth the risk) or SHELVE (note what would change the answer)
+
+### 6.4 Key Principles Filter
+Rate the approach (1-5 each):
+- **Security**: Does it reduce the attack surface?
+- **Empathy**: Does it genuinely serve the user well?
+- **Simplicity**: Is this the simplest approach that works?
+- **Joy**: Will building and using this bring satisfaction?
+
+## Phase 7: Determination
 
 Synthesize all findings into a clear recommendation:
 - State the recommendation with a confidence level (high/medium/low)
 - Explain the key factors that drove the recommendation
 - Identify what would change the recommendation (reversibility triggers)
 
-## Phase 7: Final Critiques
+## Phase 8: Final Critiques
 
 Stress-test the recommendation from three adversarial angles:
 - **The Skeptic** — "Why won't this work?"
 - **The Pragmatist** — "Is the effort worth it?"
 - **The Long-Term Thinker** — "What happens in 6 months?"
 
-If any critique reveals a fatal flaw, loop back to Phase 6.
+If any critique reveals a fatal flaw, loop back to Phase 7.
 
 ## Output Format
 
@@ -182,6 +211,19 @@ Save the report to `docs/discoveries/[topic-slug]-[date].md` and present it:
 
 ### Sources
 [URLs cited by Gemini]
+
+## Philosophical Layer
+- **Ethical check:** [assessment]
+- **First principles:** [alternative approaches considered]
+- **Moonshot:** [viable dream version — PURSUE or SHELVE, with reasoning]
+
+## Key Principles Score
+| Principle | Score (1-5) | Notes |
+|-----------|-------------|-------|
+| Security | X | ... |
+| Empathy | X | ... |
+| Simplicity | X | ... |
+| Joy | X | ... |
 
 ## Recommendation
 [Clear, actionable recommendation with reasoning]

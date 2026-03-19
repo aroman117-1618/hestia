@@ -72,7 +72,39 @@ Quick assessment of development efficiency:
 - Were there missed delegation or parallelism opportunities?
 - Any agent prompts that were too vague and wasted turns?
 
-Record findings in the SESSION_HANDOFF.md under a "Process Learnings" section.
+### 3d: Classify Improvements
+For each learning from 3a-3c, classify as:
+- **HOOK**: Could a hook have caught this earlier?
+- **SKILL**: Should a skill have guided this better?
+- **AGENT**: Should an agent have been invoked?
+- **CLAUDE.MD**: Was context missing that caused wrong assumptions?
+- **SCRIPT**: Should automation exist for this?
+
+### 3e: Generate Proposals
+For each classified improvement:
+- What specific file would change?
+- What would the change look like? (1-2 sentence description)
+- What's the expected impact? (time saved, errors prevented)
+
+### 3f: Priority Ranking
+Rank proposals by frequency × severity ÷ effort. Present top 3-5 proposals in SESSION_HANDOFF.md.
+
+Append quantitative metrics to `docs/metrics/dev-loop-metrics.md` (create if missing):
+```markdown
+## [date] — [session summary]
+- **First-pass success**: X/Y tasks (Z%)
+- **Rework causes**: [list]
+- **Top blocker**: [description]
+- **Hook catches**: [count of real issues caught by hooks]
+- **Config proposals**: [count generated, count applied]
+```
+
+### 3g: Apply or Defer
+- **Doc updates** (CLAUDE.md, agent defs, decision log): Apply immediately if non-breaking
+- **Hook/skill changes**: Present as proposals for Andrew's approval — do NOT auto-apply
+- **Script changes**: Flag for next session
+
+Record all findings in SESSION_HANDOFF.md under a "Process Learnings" section.
 
 ## Phase 4: Workspace Cleanup
 

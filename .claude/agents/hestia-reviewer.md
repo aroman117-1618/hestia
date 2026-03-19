@@ -37,10 +37,10 @@ Determine mode from the caller's prompt using these rules (in priority order):
 
 ## Project Context
 
-- **Backend**: Python 3.12 / FastAPI with 28 modules, ~170 API endpoints
+- **Backend**: Python 3.12 / FastAPI with 31 modules, 218 API endpoints
 - **iOS/macOS**: SwiftUI app (iOS 26.0+ target, ObservableObject pattern — NOT @Observable)
 - **Error handling**: All routes use `sanitize_for_log(e)` from `hestia.api.errors` — never raw exceptions in logs, never raw exceptions in HTTP response details
-- **Logging**: `get_logger()` from `hestia.logging` (no arguments) with `LogComponent` enum (19 components: ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED, INVESTIGATE, RESEARCH, FILE, INBOX, OUTCOMES, APPLE_CACHE)
+- **Logging**: `get_logger()` from `hestia.logging` (no arguments) with `LogComponent` enum (23 components: ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED, INVESTIGATE, RESEARCH, FILE, INBOX, OUTCOMES, APPLE_CACHE, LEARNING, VERIFICATION, TRADING, NOTIFICATION)
 - **Server**: HTTPS on port 8443 with self-signed cert, JWT auth
 - **Cloud routing**: 3-state (disabled → enabled_smart → enabled_full), state sync via `_sync_router_state()`
 - **Council**: 4-role dual-path (cloud parallel or SLM-only), purely additive with try/except fallbacks

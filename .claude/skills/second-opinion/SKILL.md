@@ -23,6 +23,8 @@ Run a rigorous, multi-perspective audit of a proposed plan or sprint, then cross
 
 The user should provide the plan to audit (or point to relevant files/context). If not provided, read `SPRINT.md`, recent conversation history, and any plan documents in `docs/plans/`.
 
+**Mode detection:** If Andrew says "just make it work", "operate mode", or passes `--mode operate`, compress the workflow: combine Phases 2-7 into a rapid risk assessment, run Phases 8-8.6 as a single pass, skip Phase 9 (Devil's Advocate), and deliver a concise verdict without interactive gates. Default is **Collaborate mode** (full multi-phase review with explanations and approval gates).
+
 ---
 
 ## Phase 1: Consume the Plan
@@ -119,9 +121,41 @@ Three executives render verdicts based on all previous findings:
 - Is the priority ordering correct?
 - **Verdict:** Acceptable / Needs Remediation / Reject
 
+## Phase 8.4: CFO Review
+
+Think like the CFO:
+- **Build cost**: Engineer-hours and cloud spend to implement this plan
+- **Maintenance cost**: Ongoing compute, monitoring, support burden
+- **ROI**: Time saved, capability gained, risk reduced — is this worth it?
+- **Resource allocation**: Are we putting resources on the highest-value work?
+- **Opportunity cost**: What's the dollar-equivalent cost of NOT building something else?
+- **Verdict:** Acceptable / Needs Remediation / Reject
+
+## Phase 8.5: Legal Review
+
+Think like the Legal counsel:
+- **Data handling**: Does this touch PII? GDPR/CCPA implications?
+- **Third-party dependencies**: License compatibility (GPL contamination)? Vendor lock-in risk?
+- **API usage**: Terms of service compliance for any external APIs (Coinbase, Ollama, cloud providers)?
+- **IP exposure**: Any open-source risk for proprietary logic?
+- **Regulatory**: Industry-specific compliance concerns (crypto regulations for trading module)?
+- **Verdict:** Acceptable / Needs Remediation / Reject
+
+## Phase 8.6: Key Principles Filter
+
+Rate the plan against Hestia's core principles (1-5 each):
+- **Security**: Does this reduce (or at least not increase) the attack surface?
+- **Empathy**: Does this genuinely serve the user well?
+- **Simplicity**: Is this the simplest approach that works?
+- **Joy**: Will building and using this bring satisfaction?
+
+If any principle scores 1-2, flag it as a concern in the executive summary.
+
 ## Phase 9: Sustained Devil's Advocate
 
 This is not a checklist — it's a sustained adversarial argument against the plan. Build the strongest possible case for NOT doing this plan.
+
+**Before starting Phase 9**, dispatch @hestia-critic (Agent with subagent_type=hestia-critic) with the plan summary and top findings from Phases 1-8. The critic agent runs independently and returns adversarial strategic critique. Incorporate its findings into sections 9.1-9.4 below — use its strongest arguments, don't duplicate weaker ones.
 
 ### 9.1 The Counter-Plan
 
@@ -309,6 +343,16 @@ Save the audit to `docs/plans/[plan-name]-second-opinion-[date].md` and present 
 - **CISO:** [verdict] — [one-line summary]
 - **CTO:** [verdict] — [one-line summary]
 - **CPO:** [verdict] — [one-line summary]
+- **CFO:** [verdict] — [one-line summary]
+- **Legal:** [verdict] — [one-line summary]
+
+## Key Principles Score
+| Principle | Score (1-5) | Notes |
+|-----------|-------------|-------|
+| Security | X | ... |
+| Empathy | X | ... |
+| Simplicity | X | ... |
+| Joy | X | ... |
 
 ## Final Critiques
 1. **Most likely failure:** [what and mitigation]

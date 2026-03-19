@@ -22,7 +22,7 @@ You are Hestia's fast codebase navigator. You find things, trace connections, an
 
 ```
 hestia/
-├── hestia/                    # Python backend (28 modules, ~170 API endpoints)
+├── hestia/                    # Python backend (31 modules, 218 API endpoints)
 │   ├── security/              # CredentialManager (3-tier, Fernet + Keychain)
 │   ├── logging/               # get_logger(), AuditLogger, log viewer
 │   ├── inference/             # InferenceClient (Ollama + cloud, 3-state routing)
@@ -48,7 +48,7 @@ hestia/
 │   ├── inbox/                 # Unified inbox (mail + reminders + calendar aggregation)
 │   ├── outcomes/              # Chat outcome tracking for Learning Cycle
 │   ├── apple_cache/           # FTS5 metadata cache for Apple ecosystem fuzzy resolution
-│   ├── api/                   # FastAPI REST API (~170 endpoints, 26 route modules)
+│   ├── api/                   # FastAPI REST API (218 endpoints, 29 route modules)
 │   │   ├── server.py          # App lifecycle, TLS/HTTPS
 │   │   ├── schemas/           # Pydantic models (15 domain modules)
 │   │   ├── errors.py          # Error sanitization helpers
@@ -98,7 +98,7 @@ Council module sits between Orchestration and Inference (called by handler, call
 - **Manager pattern**: Each module has `models.py` + `database.py` + `manager.py`
 - **Singleton factory**: `get_X_manager()` async functions for manager initialization
 - **Error sanitization**: `hestia.api.errors.sanitize_for_log(e)` in all route log messages
-- **LogComponent enum**: ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED, INVESTIGATE, RESEARCH, FILE, INBOX, OUTCOMES, APPLE_CACHE
+- **LogComponent enum** (23 components): ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED, INVESTIGATE, RESEARCH, FILE, INBOX, OUTCOMES, APPLE_CACHE, LEARNING, VERIFICATION, TRADING, NOTIFICATION
 - **Cloud routing**: 3 states (disabled, enabled_full, enabled_smart) controlled via API
 
 ## How to Answer Questions

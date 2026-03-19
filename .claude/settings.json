@@ -48,7 +48,7 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/auto-test.sh",
-            "timeout": 120,
+            "timeout": 180,
             "statusMessage": "Running related tests..."
           }
         ]
@@ -59,7 +59,7 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/auto-build-swift.sh",
-            "timeout": 180,
+            "timeout": 360,
             "statusMessage": "Building Swift targets..."
           }
         ]

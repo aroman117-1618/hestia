@@ -316,19 +316,30 @@ hestia-preflight                       # On-demand validation (shell function)
 | On-demand | `hestia-preflight` in terminal | Same as main pre-push |
 | Full | `/preflight` in Claude Code | Server restart + tests + connectivity + permissions |
 
-## Skills (Slash Commands)
+## Skills — Invocation Matrix
 
-| Command | Purpose |
-|---------|---------|
-| `/discovery` | Deep research with SWOT, argue/refute, priority matrix |
-| `/second-opinion` | Cross-model plan validation (internal + Gemini critique) |
-| `/codebase-audit` | Full-stack health assessment with executive panel |
-| `/handoff` | Session wrap-up — handoff notes, doc spot-check, workspace cleanup |
-| `/preflight` | Full stack validation with auto-remediation |
+Use this to pick the right skill. If unsure, start with `/discovery`.
+
+| Scenario | Skill | Why |
+|----------|-------|-----|
+| Investigating a new topic, technology, or approach | `/discovery` | SWOT + argue/refute + Gemini web-grounded validation |
+| Reviewing a plan before building | `/second-opinion` | 9-phase internal audit + Gemini cross-model critique |
+| Assessing overall codebase health | `/codebase-audit` | Full-stack SWOT with CISO/CTO/CPO panel |
+| Wrapping up a session | `/handoff` | Handoff notes, doc spot-check, retro, workspace cleanup |
+| Checking environment health | `/preflight` | Server restart + tests + connectivity + permissions |
+| Building a new feature (guided) | `/scaffold` | Parallel multi-agent feature buildout |
+| Fixing a specific bug | `/bugfix` | Autonomous test-driven fix pipeline |
+
+Workflow: `/discovery` → `/second-opinion` → `/scaffold` or manual → `/handoff`
 
 Definitions: `.claude/skills/`. Output to `docs/discoveries/`, `docs/plans/`, `docs/audits/`.
 
 ---
+
+## Design Principles
+
+- **CLI > SDK > MCP**: Prefer shell scripts and CLI tools (lowest token cost, ambient auth). Use SDKs when CLIs aren't enough. Use MCP only when per-user auth and governance require it.
+- **Parallel session safety**: See `.claude/rules/parallel-sessions.md` — narrow edits, check for concurrent modifications, avoid shared config files.
 
 ## Key Documentation
 
