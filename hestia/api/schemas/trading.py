@@ -128,3 +128,35 @@ class KillSwitchResponse(BaseModel):
     success: bool
     active: bool
     reason: Optional[str] = None
+
+
+# ── Sprint 26: Trail, Watchlist, Feedback ────────────────────
+
+class TradeTrailResponse(BaseModel):
+    trade_id: str
+    decision_trail: List[Dict[str, Any]]
+    confidence_score: Optional[float] = None
+
+
+class TradeFeedbackRequest(BaseModel):
+    rating: Literal["positive", "negative", "neutral"]
+    note: str = Field(default="")
+
+
+class WatchlistItemRequest(BaseModel):
+    pair: str = Field(..., pattern=r"^[A-Z]{2,10}-[A-Z]{2,10}$")
+    notes: str = Field(default="")
+    price_alerts: Dict[str, Any] = Field(default_factory=dict)
+
+
+class WatchlistItemResponse(BaseModel):
+    id: str
+    pair: str
+    notes: str
+    price_alerts: Dict[str, Any] = Field(default_factory=dict)
+    added_at: str
+
+
+class WatchlistResponse(BaseModel):
+    items: List[WatchlistItemResponse]
+    total: int

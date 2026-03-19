@@ -1,13 +1,16 @@
 """
-Trading API routes — bot CRUD, trade history, risk status, kill switch.
-
-NOTE: These routes are NOT registered in server.py yet.
-Registration deferred to merge time (concurrent session guardrail).
+Trading API routes — bot CRUD, trade history, risk status, kill switch,
+SSE streaming, positions, portfolio, watchlist, decision trails, feedback.
 """
 
-from typing import Optional
+import asyncio
+import json
+import uuid
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 
 from hestia.api.errors import sanitize_for_log
 from hestia.api.middleware.auth import get_device_token
@@ -21,13 +24,22 @@ from hestia.api.schemas.trading import (
     KillSwitchResponse,
     RiskStatusResponse,
     TaxLotListResponse,
+    TradeFeedbackRequest,
     TradeListResponse,
+    TradeTrailResponse,
     UpdateBotRequest,
+    WatchlistItemRequest,
+    WatchlistItemResponse,
+    WatchlistResponse,
 )
 from hestia.logging import get_logger, LogComponent
+from hestia.trading.event_bus import TradingEvent, TradingEventBus
 from hestia.trading.manager import get_trading_manager
 
 logger = get_logger()
+
+# Module-level event bus singleton
+_event_bus = TradingEventBus(max_queue_size=100)
 router = APIRouter(prefix="/v1/trading", tags=["trading"])
 
 DEFAULT_USER_ID = "user-default"
@@ -368,3 +380,283 @@ async def run_backtest(
             data={"error": sanitize_for_log(e)},
         )
         raise HTTPException(status_code=500, detail="Backtest execution failed")
+
+
+# ── SSE Streaming (Sprint 26) ────────────────────────────────
+
+@router.get(
+    "/stream",
+    summary="SSE streaming for real-time trading updates",
+    description="Long-lived SSE connection. Events: heartbeat, trade, position_update, risk_alert, portfolio_snapshot, kill_switch.",
+)
+async def trading_stream(
+    device_id: str = Depends(get_device_token),
+) -> StreamingResponse:
+    async def event_generator():
+        queue = _event_bus.subscribe()
+        try:
+            # Send initial portfolio snapshot
+            try:
+                manager = await get_trading_manager()
+                snapshot = manager.get_risk_status()
+                yield TradingEvent(
+                    event_type="portfolio_snapshot",
+                    data={"risk": snapshot, "kill_switch_active": snapshot["kill_switch"]["active"]},
+                ).to_sse()
+            except Exception:
+                pass  # Non-fatal — snapshot is informational
+
+            heartbeat_interval = 15
+            last_heartbeat = asyncio.get_running_loop().time()
+
+            while True:
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=float(heartbeat_interval))
+                    yield event.to_sse()
+                except asyncio.TimeoutError:
+                    now = asyncio.get_running_loop().time()
+                    if now - last_heartbeat >= heartbeat_interval:
+                        yield TradingEvent(event_type="heartbeat", data={}).to_sse()
+                        last_heartbeat = now
+        except asyncio.CancelledError:
+            pass
+        finally:
+            _event_bus.unsubscribe(queue)
+            logger.debug("SSE trading client disconnected", component=LogComponent.TRADING)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+# ── Positions & Portfolio (Sprint 26) ────────────────────────
+
+@router.get(
+    "/positions",
+    summary="Get current open positions",
+)
+async def get_positions(
+    device_id: str = Depends(get_device_token),
+):
+    try:
+        manager = await get_trading_manager()
+        if not manager.exchange:
+            return {"positions": {}, "total_exposure": 0.0}
+        balances = await manager.exchange.get_balances()
+        positions: Dict[str, Any] = {}
+        for currency, balance in balances.items():
+            if currency != "USD" and balance.total > 0:
+                ticker = await manager.exchange.get_ticker(f"{currency}-USD")
+                price = ticker.get("price", 0.0)
+                positions[f"{currency}-USD"] = {
+                    "currency": currency,
+                    "quantity": balance.available,
+                    "hold": balance.hold,
+                    "price": price,
+                    "value": balance.total * price,
+                }
+        total = sum(p["value"] for p in positions.values())
+        return {"positions": positions, "total_exposure": total}
+    except Exception as e:
+        logger.error(
+            "Failed to get positions",
+            component=LogComponent.TRADING,
+            data={"error": sanitize_for_log(e)},
+        )
+        raise HTTPException(status_code=500, detail="Failed to get positions")
+
+
+@router.get(
+    "/portfolio",
+    summary="Get portfolio overview",
+)
+async def get_portfolio(
+    device_id: str = Depends(get_device_token),
+):
+    try:
+        manager = await get_trading_manager()
+        if not manager.exchange:
+            return {
+                "total_value": 0.0, "cash": 0.0,
+                "positions_value": 0.0, "daily_pnl": 0.0,
+                "risk_status": manager.get_risk_status(),
+            }
+        balances = await manager.exchange.get_balances()
+        cash_bal = balances.get("USD")
+        cash_value = (cash_bal.available + cash_bal.hold) if cash_bal else 0.0
+
+        positions_value = 0.0
+        for currency, balance in balances.items():
+            if currency != "USD" and balance.total > 0:
+                ticker = await manager.exchange.get_ticker(f"{currency}-USD")
+                positions_value += balance.total * ticker.get("price", 0.0)
+
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        summary = await manager.get_daily_summary(today)
+        daily_pnl = summary["total_pnl"] if summary else 0.0
+
+        return {
+            "total_value": cash_value + positions_value,
+            "cash": cash_value,
+            "positions_value": positions_value,
+            "daily_pnl": daily_pnl,
+            "risk_status": manager.get_risk_status(),
+        }
+    except Exception as e:
+        logger.error(
+            "Failed to get portfolio",
+            component=LogComponent.TRADING,
+            data={"error": sanitize_for_log(e)},
+        )
+        raise HTTPException(status_code=500, detail="Failed to get portfolio")
+
+
+# ── Decision Trail & Feedback (Sprint 26) ────────────────────
+
+@router.get(
+    "/trades/{trade_id}/trail",
+    response_model=TradeTrailResponse,
+    summary="Get decision trail for a trade",
+)
+async def get_trade_trail(
+    trade_id: str,
+    device_id: str = Depends(get_device_token),
+):
+    try:
+        manager = await get_trading_manager()
+        trade = await manager._database.get_trade_by_id(trade_id)
+        if not trade:
+            raise HTTPException(status_code=404, detail="Trade not found")
+        return TradeTrailResponse(
+            trade_id=trade_id,
+            decision_trail=trade.get("decision_trail", []),
+            confidence_score=trade.get("confidence_score"),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Failed to get trade trail",
+            component=LogComponent.TRADING,
+            data={"error": sanitize_for_log(e), "trade_id": trade_id},
+        )
+        raise HTTPException(status_code=500, detail="Failed to get trade trail")
+
+
+@router.post(
+    "/trades/{trade_id}/feedback",
+    summary="Submit user feedback on a trade",
+)
+async def submit_trade_feedback(
+    trade_id: str,
+    request: TradeFeedbackRequest,
+    device_id: str = Depends(get_device_token),
+):
+    try:
+        manager = await get_trading_manager()
+        trade = await manager._database.get_trade_by_id(trade_id)
+        if not trade:
+            raise HTTPException(status_code=404, detail="Trade not found")
+        metadata = trade.get("metadata", {})
+        metadata["user_feedback"] = {"rating": request.rating, "note": request.note}
+        await manager._database.update_trade_metadata(trade_id, metadata)
+        return {"success": True, "trade_id": trade_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Failed to submit feedback",
+            component=LogComponent.TRADING,
+            data={"error": sanitize_for_log(e), "trade_id": trade_id},
+        )
+        raise HTTPException(status_code=500, detail="Failed to submit feedback")
+
+
+# ── Watchlist (Sprint 26) ────────────────────────────────────
+
+@router.get(
+    "/watchlist",
+    response_model=WatchlistResponse,
+    summary="Get watchlist items",
+)
+async def get_watchlist(
+    device_id: str = Depends(get_device_token),
+):
+    try:
+        manager = await get_trading_manager()
+        items = await manager._database.get_watchlist()
+        return WatchlistResponse(
+            items=[WatchlistItemResponse(**{k: v for k, v in i.items() if k != "user_id"}) for i in items],
+            total=len(items),
+        )
+    except Exception as e:
+        logger.error(
+            "Failed to get watchlist",
+            component=LogComponent.TRADING,
+            data={"error": sanitize_for_log(e)},
+        )
+        raise HTTPException(status_code=500, detail="Failed to get watchlist")
+
+
+@router.post(
+    "/watchlist",
+    response_model=WatchlistItemResponse,
+    summary="Add item to watchlist",
+)
+async def add_to_watchlist(
+    request: WatchlistItemRequest,
+    device_id: str = Depends(get_device_token),
+):
+    try:
+        manager = await get_trading_manager()
+        item = {
+            "id": str(uuid.uuid4()),
+            "pair": request.pair,
+            "notes": request.notes,
+            "price_alerts": json.dumps(request.price_alerts),
+            "added_at": datetime.now(timezone.utc).isoformat(),
+            "user_id": DEFAULT_USER_ID,
+        }
+        await manager._database.create_watchlist_item(item)
+        return WatchlistItemResponse(
+            id=item["id"], pair=item["pair"], notes=item["notes"],
+            price_alerts=request.price_alerts, added_at=item["added_at"],
+        )
+    except Exception as e:
+        logger.error(
+            "Failed to add watchlist item",
+            component=LogComponent.TRADING,
+            data={"error": sanitize_for_log(e)},
+        )
+        raise HTTPException(status_code=500, detail="Failed to add to watchlist")
+
+
+@router.delete(
+    "/watchlist/{item_id}",
+    summary="Remove item from watchlist",
+)
+async def remove_from_watchlist(
+    item_id: str,
+    device_id: str = Depends(get_device_token),
+):
+    try:
+        manager = await get_trading_manager()
+        success = await manager._database.delete_watchlist_item(item_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Watchlist item not found")
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Failed to remove watchlist item",
+            component=LogComponent.TRADING,
+            data={"error": sanitize_for_log(e)},
+        )
+        raise HTTPException(status_code=500, detail="Failed to remove from watchlist")

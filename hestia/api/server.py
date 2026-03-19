@@ -52,6 +52,7 @@ from hestia.apple_cache import get_apple_cache_manager, close_apple_cache_manage
 from hestia.notifications import get_notification_manager, close_notification_manager
 from hestia.orchestration.audit_db import get_routing_audit_db, close_routing_audit_db
 from hestia.learning import get_learning_scheduler, close_learning_scheduler
+from hestia.trading.manager import close_trading_manager
 
 # Import routers
 from hestia.api.routes import (
@@ -410,6 +411,16 @@ async def lifespan(app: FastAPI):
             shutdown_errors += 1
             logger.warning(
                 f"Notification manager cleanup error: {type(e).__name__}",
+                component=LogComponent.API,
+            )
+
+        # 22. trading_manager
+        try:
+            await close_trading_manager()
+        except Exception as e:
+            shutdown_errors += 1
+            logger.warning(
+                f"Trading manager cleanup error: {type(e).__name__}",
                 component=LogComponent.API,
             )
 
