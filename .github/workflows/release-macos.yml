@@ -39,6 +39,13 @@ jobs:
           echo "/opt/homebrew/bin" >> $GITHUB_PATH
           echo "/usr/local/bin" >> $GITHUB_PATH
 
+      - name: Unlock Keychain for code signing
+        env:
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" ~/Library/Keychains/login.keychain-db
+          security set-keychain-settings -t 3600 ~/Library/Keychains/login.keychain-db
+
       - name: Install xcodegen (if missing)
         run: which xcodegen || brew install xcodegen
 
