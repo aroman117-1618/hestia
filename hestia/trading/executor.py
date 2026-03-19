@@ -146,7 +146,11 @@ class TradeExecutor:
         })
 
         # Step 4: Update position tracker
-        if result.is_filled:
+        has_fill = result.is_filled or (
+            result.status == "partial" and result.filled_quantity > 0
+        )
+
+        if has_fill:
             pnl = await self._positions.record_fill(
                 pair=signal.pair,
                 side=signal.signal_type.value,
@@ -165,20 +169,38 @@ class TradeExecutor:
             )
 
             self._execution_count += 1
-            audit["result"] = "filled"
-            audit["fill"] = {
-                "price": result.filled_price,
-                "quantity": result.filled_quantity,
-                "fee": result.fee,
-                "pnl": pnl,
-            }
 
-            logger.info(
-                f"Trade executed: {signal.signal_type.value} {result.filled_quantity:.8f} "
-                f"{signal.pair} @ {result.filled_price:.2f} (fee: {result.fee:.4f})",
-                component=LogComponent.TRADING,
-                data={"order_id": result.order_id, "pnl": pnl},
-            )
+            if result.status == "partial":
+                audit["result"] = "partial_fill"
+                audit["fill"] = {
+                    "price": result.filled_price,
+                    "quantity": result.filled_quantity,
+                    "remaining_quantity": result.quantity - result.filled_quantity,
+                    "fee": result.fee,
+                    "pnl": pnl,
+                    "partial_fill": True,
+                }
+                logger.info(
+                    f"Partial fill: {signal.signal_type.value} {result.filled_quantity:.8f}/"
+                    f"{result.quantity:.8f} {signal.pair} @ {result.filled_price:.2f} "
+                    f"(fee: {result.fee:.4f})",
+                    component=LogComponent.TRADING,
+                    data={"order_id": result.order_id, "pnl": pnl, "partial_fill": True},
+                )
+            else:
+                audit["result"] = "filled"
+                audit["fill"] = {
+                    "price": result.filled_price,
+                    "quantity": result.filled_quantity,
+                    "fee": result.fee,
+                    "pnl": pnl,
+                }
+                logger.info(
+                    f"Trade executed: {signal.signal_type.value} {result.filled_quantity:.8f} "
+                    f"{signal.pair} @ {result.filled_price:.2f} (fee: {result.fee:.4f})",
+                    component=LogComponent.TRADING,
+                    data={"order_id": result.order_id, "pnl": pnl},
+                )
         else:
             audit["result"] = result.status
             audit["reason"] = result.raw_response.get("error", "Order not filled")
