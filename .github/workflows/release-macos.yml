@@ -17,7 +17,7 @@ concurrency:
 jobs:
   build-and-release:
     runs-on: [self-hosted, macos, hestia]
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
       INPUT_VERSION: ${{ inputs.version }}
       TAG_REF: ${{ github.ref }}
@@ -101,7 +101,7 @@ jobs:
             --apple-id "$AC_USERNAME" \
             --password "$AC_PASSWORD" \
             --team-id "$AC_TEAM_ID" \
-            --wait --timeout 600
+            --wait --timeout 1800
           xcrun stapler staple "$APP_PATH"
           rm /tmp/Hestia-notarize.zip
 
