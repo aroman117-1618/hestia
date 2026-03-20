@@ -105,6 +105,13 @@ class ChatViewModel: ObservableObject {
                 #if DEBUG
                 print("[ChatVM] Streaming failed, falling back to REST: \(error)")
                 #endif
+                // Remove empty streaming placeholder before REST fallback
+                if let lastMsg = messages.last, lastMsg.role == .assistant,
+                   lastMsg.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    messages.removeLast()
+                }
+                isTyping = false
+                currentTypingText = nil
                 try await sendMessageREST(text, sessionId: sessionId, forceLocal: wasForceLocal, appState: appState)
             }
 
@@ -198,6 +205,11 @@ class ChatViewModel: ObservableObject {
         isTyping = true
         currentTypingText = ""
 
+        defer {
+            isTyping = false
+            currentTypingText = nil
+        }
+
         let stream = client.sendMessageStream(text, sessionId: sessionId, forceLocal: forceLocal)
 
         for try await event in stream {
@@ -255,8 +267,10 @@ class ChatViewModel: ObservableObject {
             }
         }
 
-        isTyping = false
-        currentTypingText = nil
+        // Guard against empty content (clearStream with no follow-up tokens)
+        if messages[messageIndex].content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            messages[messageIndex].content = "Sorry, I ran into a problem processing that. Want me to try again?"
+        }
 
         // Enforce message limit
         if messages.count > Constants.Limits.maxConversationHistory {
