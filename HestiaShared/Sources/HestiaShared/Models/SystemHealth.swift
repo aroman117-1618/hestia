@@ -83,6 +83,15 @@ public struct InferenceHealth: Codable, Sendable {
         self.complexModelAvailable = complexModelAvailable
     }
 
+    // Custom decoder: server may return null for booleans before Ollama status is checked
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        status = try container.decode(HealthStatus.self, forKey: .status)
+        ollamaAvailable = (try? container.decode(Bool.self, forKey: .ollamaAvailable)) ?? false
+        primaryModelAvailable = (try? container.decode(Bool.self, forKey: .primaryModelAvailable)) ?? false
+        complexModelAvailable = (try? container.decode(Bool.self, forKey: .complexModelAvailable)) ?? false
+    }
+
     enum CodingKeys: String, CodingKey {
         case status
         case ollamaAvailable = "ollama_available"
