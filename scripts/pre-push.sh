@@ -26,6 +26,19 @@ run_with_timeout() {
 
 BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "detached")
 
+# Skip validation for tag-only pushes — code was already validated on branch push
+TAG_ONLY=true
+while read local_ref local_sha remote_ref remote_sha; do
+    if [[ ! "$local_ref" =~ ^refs/tags/ ]]; then
+        TAG_ONLY=false
+        break
+    fi
+done
+if [ "$TAG_ONLY" = true ]; then
+    echo "=== Tag-only push — skipping validation (code already validated) ==="
+    exit 0
+fi
+
 echo "=== Hestia pre-push: branch=$BRANCH ==="
 
 # --- Step 1: Kill stale servers ---
