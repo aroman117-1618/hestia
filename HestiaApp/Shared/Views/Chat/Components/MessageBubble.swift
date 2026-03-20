@@ -24,6 +24,10 @@ struct MessageBubble: View {
     }
 
     var body: some View {
+        // Don't render empty assistant messages (streaming placeholder not yet populated)
+        if !isUser && message.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            EmptyView()
+        } else {
         HStack(alignment: .bottom, spacing: Spacing.sm) {
             if isUser {
                 Spacer(minLength: 60)
@@ -93,6 +97,7 @@ struct MessageBubble: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint("Double tap to copy")
+        } // else (non-empty content)
     }
 
     // MARK: - Styling

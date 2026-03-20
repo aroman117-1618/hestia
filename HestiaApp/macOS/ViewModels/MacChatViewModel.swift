@@ -244,8 +244,8 @@ class MacChatViewModel: ObservableObject {
         messages.append(assistantMessage)
         let messageIndex = messages.count - 1
 
-        isTyping = true
-        currentTypingText = ""
+        // Don't set isTyping yet — let thinking dots show (isLoading && !isTyping)
+        // isTyping transitions to true on first token arrival
 
         defer {
             isTyping = false
@@ -257,6 +257,11 @@ class MacChatViewModel: ObservableObject {
         for try await event in stream {
             switch event {
             case .token(let content, _):
+                // Start typing indicator on first token
+                if !isTyping {
+                    isTyping = true
+                    currentTypingText = ""
+                }
                 currentTypingText = (currentTypingText ?? "") + content
                 messages[messageIndex].content += content
 

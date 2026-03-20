@@ -16,7 +16,7 @@ struct MacMessageBubble: View {
     var body: some View {
         if isUser {
             userBubble
-        } else {
+        } else if !message.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             aiBubble
         }
     }

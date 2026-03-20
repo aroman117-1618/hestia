@@ -40,8 +40,8 @@ struct MacChatPanelView: View {
                             thinkingBubble
                         }
 
-                        // Typing indicator
-                        if viewModel.isTyping, let typingText = viewModel.currentTypingText {
+                        // Typing indicator (only when content has arrived)
+                        if viewModel.isTyping, let typingText = viewModel.currentTypingText, !typingText.isEmpty {
                             typingBubble(typingText)
                         }
                     }

@@ -51,8 +51,8 @@ struct ChatView: View {
                 // Messages - bottom anchored
                 messageList
 
-                // Typewriter text (if typing) - appears above input bar
-                if viewModel.isTyping, let typingText = viewModel.currentTypingText {
+                // Typewriter text (if typing, only when content has arrived)
+                if viewModel.isTyping, let typingText = viewModel.currentTypingText, !typingText.isEmpty {
                     typewriterView(text: typingText)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
