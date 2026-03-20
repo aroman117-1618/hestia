@@ -58,6 +58,7 @@ DerivedData/
 ._*
 .Spotlight-V100
 .Trashes
+Icon?
 
 # IDEs
 .vscode/
@@ -79,6 +80,12 @@ htmlcov/
 
 # Figma mirror (local dev tool, not committed)
 figma-mirror/
+
+# Plugin runtime state
+.superpowers/
+
+# Local export data
+commercial-exports/
 
 # Misc
 *.bak
