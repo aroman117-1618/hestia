@@ -15,3 +15,11 @@ Rolling log of per-session development efficiency metrics. Appended by `/handoff
 - **Releases**: 4 (v1.1.0, v1.1.1, v1.1.2, HA infra push)
 - **Second opinions**: 3 (macOS wiring, caching, server HA)
 - **Sub-agents dispatched**: ~20
+
+## 2026-03-20 (continued) — SystemHealth bugfix + Command Center wiring audit
+- **First-pass success**: 4/6 tasks (67%)
+- **Rework causes**: CodingKeys + convertFromSnakeCase double-conversion (2 rounds to find real root cause), Swift 6 Sendable conformance
+- **Top blocker**: Silent JSON decode failures — CacheFetcher catches all errors, making it impossible to see what's failing without temporary debug logging
+- **Hook catches**: 0
+- **Config proposals**: 1 (CLAUDE.MD: document convertFromSnakeCase + CodingKeys incompatibility)
+- **Key learning**: Never use explicit CodingKeys with snake_case raw values when the decoder uses convertFromSnakeCase — they conflict. This wasted ~30 min of debugging.
