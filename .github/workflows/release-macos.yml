@@ -129,12 +129,14 @@ jobs:
           SPARKLE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          printf '%s' "$SPARKLE_KEY" > /tmp/sparkle.key
-          SIGN_OUTPUT=$(./bin/sign_update "Hestia-${VERSION}.zip" -f /tmp/sparkle.key 2>&1) || true
-          rm -f /tmp/sparkle.key
+          SIGN_OUTPUT=$(echo "$SPARKLE_KEY" | ./bin/sign_update "Hestia-${VERSION}.zip" 2>&1) || true
           ED_SIG=$(echo "$SIGN_OUTPUT" | grep -o 'edSignature="[^"]*"' | cut -d'"' -f2 || echo "")
           echo "signature=$ED_SIG" >> "$GITHUB_OUTPUT"
-          echo "Sign output: $SIGN_OUTPUT"
+          if [ -n "$ED_SIG" ]; then
+            echo "EdDSA signature generated successfully"
+          else
+            echo "WARNING: EdDSA signing failed. Output: $SIGN_OUTPUT"
+          fi
 
       - name: Create GitHub Release
         env:
