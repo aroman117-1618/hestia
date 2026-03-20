@@ -48,6 +48,9 @@ public enum HealthStatus: String, Codable, Sendable {
 }
 
 /// Health status of all system components
+/// Note: No explicit CodingKeys — APIClient decoder uses convertFromSnakeCase globally.
+/// Explicit CodingKeys with snake_case raw values conflict with convertFromSnakeCase
+/// (double conversion: JSON key converted THEN CodingKey raw value can't match).
 public struct HealthComponents: Codable, Sendable {
     public let inference: InferenceHealth
     public let memory: MemoryHealth
@@ -59,13 +62,6 @@ public struct HealthComponents: Codable, Sendable {
         self.memory = memory
         self.stateMachine = stateMachine
         self.tools = tools
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case inference
-        case memory
-        case stateMachine = "state_machine"
-        case tools
     }
 }
 
@@ -92,11 +88,12 @@ public struct InferenceHealth: Codable, Sendable {
         complexModelAvailable = (try? container.decode(Bool.self, forKey: .complexModelAvailable)) ?? false
     }
 
+    // CodingKeys needed for custom init(from:) — use camelCase (convertFromSnakeCase handles the rest)
     enum CodingKeys: String, CodingKey {
         case status
-        case ollamaAvailable = "ollama_available"
-        case primaryModelAvailable = "primary_model_available"
-        case complexModelAvailable = "complex_model_available"
+        case ollamaAvailable
+        case primaryModelAvailable
+        case complexModelAvailable
     }
 }
 
@@ -109,11 +106,6 @@ public struct MemoryHealth: Codable, Sendable {
         self.status = status
         self.vectorCount = vectorCount
     }
-
-    enum CodingKeys: String, CodingKey {
-        case status
-        case vectorCount = "vector_count"
-    }
 }
 
 /// State machine health
@@ -124,11 +116,6 @@ public struct StateMachineHealth: Codable, Sendable {
     public init(status: HealthStatus, activeTasks: Int) {
         self.status = status
         self.activeTasks = activeTasks
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case status
-        case activeTasks = "active_tasks"
     }
 }
 
@@ -142,12 +129,6 @@ public struct ToolsHealth: Codable, Sendable {
         self.status = status
         self.registeredTools = registeredTools
         self.toolNames = toolNames
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case status
-        case registeredTools = "registered_tools"
-        case toolNames = "tool_names"
     }
 }
 
