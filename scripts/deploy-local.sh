@@ -85,9 +85,7 @@ for i in 1 2 3 4 5 6 7 8; do
   if ! lsof -i :8443 | grep -q LISTEN; then
     echo "::warning::Attempt $i: No process listening on 8443 — server may have crashed"
   fi
-  # Mac Mini runs HTTP (not HTTPS) — try both protocols
-  if curl -s --connect-timeout 3 http://localhost:8443/v1/ready 2>/dev/null | grep -q '"ready": true' \
-     || curl -sk --connect-timeout 3 https://localhost:8443/v1/ready 2>/dev/null | grep -q '"ready": true'; then
+  if curl -sk --connect-timeout 3 https://localhost:8443/v1/ready 2>/dev/null | grep -q '"ready": true'; then
     echo "Server ready (attempt $i)"
     echo "=== Deploy complete ==="
     exit 0
