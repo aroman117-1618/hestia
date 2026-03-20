@@ -383,3 +383,131 @@ class TestEdgeCases:
         assert len(chunks) >= 1
         assert "Check this image" in chunks[0].content
         assert "file-service" not in chunks[0].content
+
+
+# ---------------------------------------------------------------------------
+# Task 5: Dry-Run Review
+# ---------------------------------------------------------------------------
+
+import json
+import tempfile
+from pathlib import Path
+
+from hestia.memory.importers.review import DryRunReview, DryRunChunkEntry
+
+
+class TestDryRunReview:
+    def test_generates_review_entries(self):
+        from hestia.memory.importers.openai import OpenAIHistoryParser
+
+        parser = OpenAIHistoryParser(exclude_keywords=[])
+        chunks = parser.parse_export(
+            [SAMPLE_LINEAR_CONVERSATION], exclude_hestia=False,
+        )
+        review = DryRunReview.from_chunks(chunks, [SAMPLE_LINEAR_CONVERSATION])
+        assert len(review.entries) >= 1
+
+    def test_entry_has_required_fields(self):
+        from hestia.memory.importers.openai import OpenAIHistoryParser
+
+        parser = OpenAIHistoryParser(exclude_keywords=[])
+        chunks = parser.parse_export(
+            [SAMPLE_LINEAR_CONVERSATION], exclude_hestia=False,
+        )
+        review = DryRunReview.from_chunks(chunks, [SAMPLE_LINEAR_CONVERSATION])
+        entry = review.entries[0]
+        assert entry.conversation_title == "Python debugging help"
+        assert entry.chunk_type == "observation"
+        assert 0.0 <= entry.confidence <= 1.0
+        assert entry.projected_importance >= 0.0
+        assert entry.content_preview  # Not empty
+
+    def test_writes_json_file(self):
+        from hestia.memory.importers.openai import OpenAIHistoryParser
+
+        parser = OpenAIHistoryParser(exclude_keywords=[])
+        chunks = parser.parse_export(
+            [SAMPLE_LINEAR_CONVERSATION], exclude_hestia=False,
+        )
+        review = DryRunReview.from_chunks(chunks, [SAMPLE_LINEAR_CONVERSATION])
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
+            review.write_json(f.name)
+            data = json.loads(Path(f.name).read_text())
+        assert "summary" in data
+        assert "entries" in data
+        assert data["summary"]["total_chunks"] >= 1
+        assert data["summary"]["conversations_processed"] >= 1
+
+    def test_summary_includes_type_breakdown(self):
+        from hestia.memory.importers.openai import OpenAIHistoryParser
+
+        parser = OpenAIHistoryParser(exclude_keywords=[])
+        chunks = parser.parse_export(
+            [SAMPLE_LINEAR_CONVERSATION], exclude_hestia=False,
+        )
+        review = DryRunReview.from_chunks(chunks, [SAMPLE_LINEAR_CONVERSATION])
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
+            review.write_json(f.name)
+            data = json.loads(Path(f.name).read_text())
+        assert "by_type" in data["summary"]
+        assert "observation" in data["summary"]["by_type"]
+
+
+# ---------------------------------------------------------------------------
+# Task 6: Pipeline Dry-Run Integration
+# ---------------------------------------------------------------------------
+
+class TestPipelineDryRun:
+    def test_dry_run_produces_review_file(self):
+        """Pipeline dry-run should output JSON without touching memory."""
+        import tempfile
+        from hestia.memory.importers.pipeline import ImportPipeline
+
+        with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as conv_file:
+            json.dump([SAMPLE_LINEAR_CONVERSATION], conv_file)
+            conv_path = conv_file.name
+
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as out_file:
+            out_path = out_file.name
+
+        result = ImportPipeline.dry_run_openai(
+            export_path=conv_path,
+            output_path=out_path,
+            exclude_hestia=True,
+        )
+        assert result["total_chunks"] >= 1
+        data = json.loads(Path(out_path).read_text())
+        assert "summary" in data
+        assert "entries" in data
+
+
+# ---------------------------------------------------------------------------
+# Task 7: Multi-File Export Integration
+# ---------------------------------------------------------------------------
+
+class TestMultiFileExport:
+    def test_loads_from_directory_with_numbered_files(self):
+        """ChatGPT exports split across conversations-000.json through conversations-005.json."""
+        import os
+        from hestia.memory.importers.pipeline import ImportPipeline
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create two numbered files
+            for i in range(2):
+                conv = {
+                    **SAMPLE_LINEAR_CONVERSATION,
+                    "title": f"Conversation from file {i}",
+                    "id": f"conv-file-{i}",
+                }
+                with open(os.path.join(tmpdir, f"conversations-{i:03d}.json"), "w") as f:
+                    json.dump([conv], f)
+
+            out_path = os.path.join(tmpdir, "review.json")
+            result = ImportPipeline.dry_run_openai(
+                export_path=tmpdir,
+                output_path=out_path,
+                exclude_hestia=False,
+            )
+            assert result["total_chunks"] >= 2
+            data = json.loads(Path(out_path).read_text())
+            assert data["summary"]["conversations_processed"] == 2
