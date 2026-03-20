@@ -40,9 +40,9 @@ backoff==2.2.1
     # via
     #   coinbase-advanced-py
     #   posthog
-backports-asyncio-runner==1.2.0
+backports-asyncio-runner==1.2.0 ; python_version < "3.11"
     # via pytest-asyncio
-backports-tarfile==1.2.0
+backports-tarfile==1.2.0 ; python_version < "3.12"
     # via jaraco-context
 bcrypt==5.0.0
     # via chromadb
@@ -89,7 +89,7 @@ durationpy==0.10
     # via kubernetes
 ecdsa==0.19.1
     # via python-jose
-exceptiongroup==1.3.1
+exceptiongroup==1.3.1 ; python_version < "3.11"
     # via
     #   anyio
     #   pytest
@@ -138,12 +138,12 @@ idna==3.11
     #   httpx
     #   requests
     #   yarl
-importlib-metadata==8.7.1
+importlib-metadata==8.7.1 ; python_version < "3.10"
     # via
     #   build
     #   keyring
     #   opentelemetry-api
-importlib-resources==6.5.2
+importlib-resources==6.5.2 ; python_version < "3.10"
     # via chromadb
 iniconfig==2.1.0
     # via pytest
