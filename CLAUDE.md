@@ -139,7 +139,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 **Active: Trading Module (Sprints 21-30).** Sprints 21-26 COMPLETE. Sprint 27 (Go-Live) IN PROGRESS — safety hardening complete, paper soak ready.
 
-2692 tests (2557 backend + 135 CLI), 83 test files. Full details: `python -m pytest tests/ -v --timeout=30`
+2706 tests (2571 backend + 135 CLI), 83 test files. Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -166,6 +166,7 @@ Always run the full test suite (`python -m pytest`) after making changes and ens
 - Simulator has Face ID limitations — use mock auth for development builds
 - Asset catalogs must have matching JSON metadata files; don't just copy images
 - Always verify SwiftUI previews compile after changes
+- **Xcode build cache**: After committing Swift changes, MUST clean build (Shift+Cmd+K) or changes won't appear. Xcode aggressively caches and won't pick up file changes without a clean.
 - Mac Mini deployment target: `andrewroman117@hestia-3.local` (via Tailscale)
 - **APIClient HTTP methods**: `get()`, `put()`, `delete()` are internal (not private). ViewModels can call them directly with generic return types: `let response: MyType = try await APIClient.shared.get("/v1/path")`.
 
