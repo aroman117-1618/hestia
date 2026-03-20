@@ -35,6 +35,8 @@ if [[ "$REPO_DIR" != "$HESTIA_HOME" ]]; then
     --exclude '*.pyc' \
     --exclude '.pytest_cache/' \
     --exclude '.claude/worktrees/' \
+    --exclude 'certs/*.crt' \
+    --exclude 'certs/*.key' \
     "$REPO_DIR/" "$HESTIA_HOME/"
 else
   echo "--- Pulling latest ---"
