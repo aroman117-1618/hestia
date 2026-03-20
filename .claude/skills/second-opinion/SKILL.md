@@ -394,3 +394,25 @@ Save the audit to `docs/plans/[plan-name]-second-opinion-[date].md` and present 
 ```
 
 Be decisive. The plan either passes or it doesn't. Don't hedge with "it depends" — state what it depends ON and recommend accordingly.
+
+## Phase 11: Roadmap Sync
+
+After delivering the verdict, sync with the GitHub Project board.
+
+**If verdict is APPROVE or APPROVE WITH CONDITIONS:**
+
+1. Check if a GitHub issue already exists for this plan: `scripts/roadmap-sync.sh list`
+2. If **no issue exists**, proactively ask: "This plan is approved. Want me to create a GitHub issue and add it to the board?"
+3. When creating:
+   ```bash
+   scripts/roadmap-sync.sh issue "<Sprint/WS title>" \
+     --labels "sprint-XX,backend" \
+     --hours <estimate from plan> \
+     --plan "docs/plans/<plan-file>.md"
+   ```
+4. Adapt labels based on plan content (add `macos`, `ios`, `trading`, etc. as appropriate).
+
+**If verdict is REJECT:**
+- If an issue already exists on the board for this plan, flag it: "This plan was rejected — should I remove issue #X from the board?"
+
+After any board changes, verify with `scripts/roadmap-sync.sh list`.

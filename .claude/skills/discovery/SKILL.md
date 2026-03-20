@@ -248,3 +248,24 @@ Save the report to `docs/discoveries/[topic-slug]-[date].md` and present it:
 ```
 
 Be specific. Cite sources. Quantify estimates. Don't hedge when the evidence is clear.
+
+## Phase 9: Roadmap Sync
+
+After presenting the discovery report, check whether this work should be tracked on the GitHub Project board.
+
+**Auto-trigger** if Andrew says any of: "add to roadmap", "put this on the roadmap", "let's build this", "approved — create the issue", or similar.
+
+**Also proactively ask** if the discovery resulted in a concrete recommendation with estimated hours — e.g., "This looks like roadmap work. Want me to create a GitHub issue and add it to the board?"
+
+When creating the issue:
+
+```bash
+scripts/roadmap-sync.sh issue "<Sprint/WS title>" \
+  --labels "sprint-XX,backend" \
+  --hours <estimate> \
+  --plan "docs/discoveries/<slug>.md"
+```
+
+Adapt labels based on the discovery content (add `macos`, `ios`, `trading`, etc. as appropriate). If the discovery spans multiple sprints, create one issue per sprint.
+
+After creating, verify with `scripts/roadmap-sync.sh list` and confirm the new item(s) appear on the board.

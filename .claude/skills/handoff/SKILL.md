@@ -165,6 +165,30 @@ If `SPRINT.md` exists, update phase markers for any topics worked on this sessio
 - Add any new topics discovered during the session
 - Note any blockers
 
+## Phase 6.5: Sync GitHub Project Board (MANDATORY)
+
+After SPRINT.md is updated, sync the board to match. This is the primary mechanism that keeps the GitHub Project board accurate — do NOT skip it.
+
+```bash
+# Dry-run first to see what would change
+bash scripts/sync-board-from-sprint.sh
+
+# If changes look correct, apply them
+bash scripts/sync-board-from-sprint.sh --apply
+```
+
+Also check for missing board items — if new sprints or workstreams were added to SPRINT.md this session but have no corresponding GitHub issue:
+
+```bash
+# List current board state
+scripts/roadmap-sync.sh list
+
+# Create missing issues (adapt title/labels per sprint)
+# scripts/roadmap-sync.sh issue "<title>" --labels "sprint-XX,backend" --plan "docs/plans/relevant-plan.md"
+```
+
+If `sync-board-from-sprint.sh` or `roadmap-sync.sh` fails, note the error in SESSION_HANDOFF.md under Known Issues — do NOT silently skip.
+
 ## Phase 7: Update CLAUDE.md (if needed)
 
 Only update `CLAUDE.md` if:
@@ -183,4 +207,4 @@ Before finishing, confirm:
 - [ ] CLAUDE.md status is accurate
 - [ ] Process learnings are captured (not just what happened, but how to improve)
 - [ ] The "Next Step" in handoff is specific enough that a fresh session could start immediately
-- [ ] **Sprint number consistency**: the sprint label in SPRINT.md matches the active GitHub board item title — run `scripts/gh-project-sync.sh list` and confirm
+- [ ] **GitHub Project board synced**: Phase 6.5 ran `sync-board-from-sprint.sh --apply` — run `scripts/roadmap-sync.sh list` and confirm board matches SPRINT.md
