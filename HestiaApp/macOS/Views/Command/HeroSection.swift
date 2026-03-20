@@ -146,7 +146,7 @@ struct HeroSection: View {
             )
             ProgressRing(
                 value: externalRingValue,
-                label: "\(viewModel.unreadCount)",
+                label: "\(viewModel.externalUnreadCount)",
                 title: "External",
                 subtitle: "World Activity",
                 color: MacColors.amberAccent,
@@ -172,7 +172,7 @@ struct HeroSection: View {
 
     /// External ring: unread newsfeed items, normalized to 0-20
     private var externalRingValue: Double {
-        min(Double(viewModel.unreadCount) / 20.0, 1.0)
+        min(Double(viewModel.externalUnreadCount) / 20.0, 1.0)
     }
 
     /// System ring: server health (binary — up or down)

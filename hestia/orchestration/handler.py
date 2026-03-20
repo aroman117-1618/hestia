@@ -1278,8 +1278,11 @@ class RequestHandler:
                             tool_result=tool_result,
                             mode=request.mode.value,
                         )
-                except Exception:
-                    pass
+                except Exception as synth_err:
+                    self.logger.warning(
+                        f"Council synthesis failed: {type(synth_err).__name__}",
+                        component=LogComponent.ORCHESTRATION,
+                    )
 
                 if synthesized:
                     # Council gave us a complete response — chunk it
@@ -1295,6 +1298,16 @@ class RequestHandler:
                     ):
                         yield {"type": "token", "content": token, "request_id": request.id}
                         final_content += token
+
+                # Guard: if synthesis produced nothing after clear_stream, yield raw tool result
+                if not final_content.strip():
+                    self.logger.warning(
+                        "Empty synthesis after tool execution — falling back to raw result",
+                        component=LogComponent.ORCHESTRATION,
+                        data={"tool_name": tool_name, "result_len": len(tool_result)},
+                    )
+                    yield {"type": "token", "content": tool_result, "request_id": request.id}
+                    final_content = tool_result
             else:
                 # Handle raw tool call JSON (don't show to user)
                 if inference_response.tool_calls or self._looks_like_tool_call(content):
@@ -1810,8 +1823,11 @@ class RequestHandler:
                             tool_result=tool_result,
                             mode=request.mode.value,
                         )
-                except Exception:
-                    pass
+                except Exception as synth_err:
+                    self.logger.warning(
+                        f"Council synthesis failed: {type(synth_err).__name__}",
+                        component=LogComponent.ORCHESTRATION,
+                    )
 
                 if synthesized:
                     final_content = synthesized
@@ -1819,6 +1835,14 @@ class RequestHandler:
                     final_content = await self._format_tool_result_with_personality(
                         tool_result, request, current_messages, temperature, max_tokens
                     )
+
+                # Guard: if synthesis produced nothing, fall back to raw tool result
+                if not final_content or not final_content.strip():
+                    self.logger.warning(
+                        "Empty synthesis after tool execution — using raw result",
+                        component=LogComponent.ORCHESTRATION,
+                    )
+                    final_content = tool_result
                 response_type = ResponseType.TEXT
             else:
                 # Check if native tool calls were attempted but all failed

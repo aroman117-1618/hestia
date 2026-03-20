@@ -35,6 +35,11 @@ class MacCommandCenterViewModel: ObservableObject {
     var todayEventCount: Int { calendarEvents.count }
     var serverIsReachable: Bool { systemHealth != nil }
 
+    /// Unread count excluding health items (which are filtered from External > News)
+    var externalUnreadCount: Int {
+        newsfeedItems.filter { $0.source != "health" && !$0.isRead }.count
+    }
+
     // Learning derived
     var positiveRatioPercent: Int {
         guard let ratio = metaMonitorReport?.positiveRatio else { return 0 }

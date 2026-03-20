@@ -77,8 +77,8 @@ struct ExternalActivityView: View {
                     .font(.system(size: 12, weight: .medium))
 
                 // News unread badge
-                if tab == .news && viewModel.unreadCount > 0 {
-                    Text("\(viewModel.unreadCount)")
+                if tab == .news && viewModel.externalUnreadCount > 0 {
+                    Text("\(viewModel.externalUnreadCount)")
                         .font(.system(size: 9, weight: .bold))
                         .foregroundStyle(MacColors.buttonTextDark)
                         .padding(.horizontal, 4)

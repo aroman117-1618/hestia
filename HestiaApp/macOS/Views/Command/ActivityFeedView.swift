@@ -85,8 +85,8 @@ struct ActivityFeedView: View {
                     .font(.system(size: 13, weight: .medium))
 
                 // Unread badge on External tab
-                if tab == .external && viewModel.unreadCount > 0 {
-                    Text("\(viewModel.unreadCount)")
+                if tab == .external && viewModel.externalUnreadCount > 0 {
+                    Text("\(viewModel.externalUnreadCount)")
                         .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(MacColors.buttonTextDark)
                         .padding(.horizontal, 5)
