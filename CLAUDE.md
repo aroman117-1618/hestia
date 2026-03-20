@@ -129,7 +129,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | Hardware | Mac Mini M1 (16GB) |
 | Model | Qwen 3.5 9B (Hestia) + DeepSeek-R1-14B (Artemis) + Qwen 3 8B (Apollo) + cloud (Anthropic/OpenAI/Google) |
 | SLM | qwen2.5:0.5b (council intent classification, ~100ms) |
-| Backend | Python 3.12, FastAPI, 218 endpoints across 29 route modules |
+| Backend | Python 3.12, FastAPI, 225 endpoints across 29 route modules |
 | Storage | ChromaDB (vectors) + SQLite (structured) + macOS Keychain (credentials) |
 | App | Native Swift/SwiftUI (iOS 26.0+, macOS 15.0+) |
 | API | REST on port 8443 with JWT auth, HTTPS with self-signed cert |

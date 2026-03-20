@@ -1,73 +1,92 @@
-# Session Handoff — 2026-03-20 (Extended)
+# Session Handoff — 2026-03-20 (Afternoon)
 
 ## Mission
-Massive session: Sprint 31 dashboard truthfulness, offline caching, server HA (bot decoupling + watchdog + monitoring), settings fixes, and Command Center wiring audit. Culminated in a critical debugging session fixing SystemHealth JSON decode failures that caused "Can't reach server" despite 200 OK responses.
+Fix the "Review Memory" button in the Graph view to navigate to the Memory Browser with the selected chunk pinned, then overhaul the broken CI/CD pipeline to use the Mac Mini's self-hosted runner.
 
 ## Completed
 
-### Sprint 31: Dashboard Truthfulness (v1.1.0) — `ceb27b7`
-- Real progress rings (calendar/unread/health), 3-state status badge, error handling, hero buttons wired, OrdersPanel real timestamps, NetworkMonitor + OfflineBanner, 7 color tokens, `GET /v1/trading/summary` endpoint
+### Graph → Memory Browser Navigation
+- Renamed "Investigate in Explorer" → "Review Memory" in `NodeDetailPopover.swift`
+- Added `onReviewMemory` callback that fetches the chunk by ID, switches to Memory tab, and pins it at the top
+- New backend endpoint: `GET /v1/memory/chunks/{chunk_id}` in `hestia/api/routes/memory.py`
+- New client method: `APIClient.getChunk(_:)` in `APIClient+Memory.swift`
+- `ResearchView` fetches chunk before switching tabs (avoids SwiftUI timing issues)
+- `MemoryBrowserView` shows pinned chunk with amber border, "From Graph" label, dismiss button
+- Added `Equatable` to `MemoryChunkItem` in `MemoryBrowserModels.swift`
 
-### Settings Fixes (in v1.1.0)
-- Agent Personality tab wired, Apple "Me" card sync, Feedback → GitHub Issues, Roadmap removed from Field Guide
+### CI/CD Pipeline Overhaul
+- **Deploy workflow** rewritten to use self-hosted runner (`[self-hosted, macos, hestia]`) — no more SSH/Tailscale tunnel
+- Created `scripts/deploy-local.sh` — single deploy script for both Actions and manual use
+- **CI job names** improved: "Lint, Test & Audit", "Deploy to Mac Mini" (was "test/test" and "deploy")
+- **Actions bumped** to `checkout@v5` across all 4 workflows (eliminates Node.js 20 deprecation warning)
+- **Stale cron** removed from `release-macos.yml`
+- **requirements.txt** refreshed with Python version markers for backport packages
+- **SSL certs** generated on Mac Mini (10-year self-signed, SAN: hestia-3.local + localhost)
+- **Readiness check** uses Python instead of curl (LibreSSL/SecureTransport mismatch in runner context)
+- **launchd restart** simplified: kill once, let KeepAlive auto-restart (was double-killing)
+- Cert files excluded from rsync `--delete`
 
-### Offline Caching (v1.1.1) — `d6edd51`
-- CacheManager enhanced (getStale, TTL constants), CacheFetcher SWR helper, 10 ViewModels cached, OfflineBanner 2-state + auto-reconnect
+### Release
+- Shipped **v1.1.3** (build 7) — macOS Release workflow built, signed, notarized, published
 
-### Server HA — `1ea4e93`
-- Bot decoupled to standalone `bot_service.py` + `bot_commands` table IPC
-- Watchdog: 60s/2-strikes (was 5min/3), Healthchecks.io + ntfy.sh monitoring
-- macOS hardening script, 3 launchd plists (server, watchdog, trading-bots)
-- **Deployed to Mac Mini** — all services running and verified
+### Key Commits
+- `4aa4ba3` fix: overhaul CI/CD — self-hosted runner, clear names, v5 actions
+- `4b5de78` fix: add python_version markers to backport packages in lockfile
+- `d11b13c` bump: version 1.1.3 (build 7)
+- `7f20418` fix: exclude SSL certs from rsync --delete
+- `4fab2a6` fix: use Python for readiness check instead of curl
+- `0589b08` fix: let launchd KeepAlive handle restart, don't double-kill
 
-### Sparkle Hotfix (v1.1.2) — `67c5b87`
-- Removed app-sandbox (broke Sparkle installer)
-
-### SystemHealth Decode Bugfixes — `992a596`, `4ee385a`
-- InferenceHealth null booleans → custom init(from:) with fallback
-- **ROOT CAUSE: `convertFromSnakeCase` + explicit CodingKeys with snake_case raw values = double-conversion failure.** Removed all redundant CodingKeys from SystemHealth models.
-
-### Command Center Wiring Audit Fixes — `ae2d48f`
-- Health Summary: AnyCodableValue handles nested dicts, fixed key names (stepCount, restingHeartRate, total_hours)
-- Calendar: broadened to "next 7 days from today", removed all-day filter, added diagnostic logging
-- Newsfeed: filtered health insights out of External News tab
-- New Order button in System tab: wired to open NewOrderSheet
-
-## Uncommitted Changes
-- `.github/workflows/*.yml` + `requirements.txt` — pre-existing from parallel session, NOT from this session
-- Untracked: `.superpowers/`, audit artifacts, mockups — pre-existing
+## In Progress
+- **Alpaca API keys** — Andrew's account approved but Alpaca dashboard returns 403 when generating API keys. Retry later. Sprint 28 blocked on this.
+- **macOS app environment** set to `local` in UserDefaults (`defaults write com.andrewlonati.hestia-macos hestia_environment local`) — **reset to `tailscale` when done testing locally**: `defaults write com.andrewlonati.hestia-macos hestia_environment tailscale`
 
 ## Decisions Made
-- **convertFromSnakeCase is global**: NEVER use explicit CodingKeys with snake_case raw values when decoder uses convertFromSnakeCase. Document in CLAUDE.md.
-- **Bot decoupling via command table**: SQLite-based IPC, bot service polls every 1s
-- **Gunicorn rejected**: Fork safety + bot duplication risk. Single Uvicorn + bot service instead.
-- **App sandbox reverted**: Breaks Sparkle. Needs XPC installer service (future task).
-- **Caching stays on UserDefaults**: ~850KB total fits. Disk migration deferred.
+- Self-hosted runner over Tailscale GitHub Action for deploy — eliminates network dependency, faster, proven by release workflow
+- Python readiness check over curl — LibreSSL in runner context can't negotiate with server's TLS
+- Kill + KeepAlive over explicit kickstart — avoids double-kill race condition
+- SSL certs on Mac Mini — server should always run HTTPS (was running plain HTTP)
+
+## Test Status
+- 2571 backend + 135 CLI = 2706 total, 83 test files
+- All passing (3 skipped integration tests)
+- Known: pytest hangs after completion due to ChromaDB background threads (pre-push hook handles this with timeout)
+
+## Uncommitted Changes
+None — all committed and pushed. Untracked files are artifacts from prior sessions:
+- `.superpowers/`, `MACOS_APP_AUDIT.md`, `MACOS_AUDIT_REPORT.md`, `docs/mockups/`, `docs/plans/consumer-product-strategy.md`
 
 ## Known Issues / Landmines
-- **Calendar may still show empty** if EventKit permission wasn't properly re-granted after sandbox removal. Check Xcode console for `[Calendar] Auth status:` line.
-- **Health Summary shows dashes** if no HealthKit data exists on Mac Mini (no iOS sync). The decode fix is correct, but there may simply be no data.
-- **Workflow files modified** (`.github/workflows/`) — from parallel session, don't commit without checking.
-- **Sparkle auto-update**: v1.1.2 fixes the sandbox issue but user must manually update past v1.1.0/v1.1.1 (those versions can't auto-update due to sandbox).
-- **Trading bots on Mac Mini**: Now running via `com.hestia.trading-bots` launchd service. Paper soak should be resumed.
-- **Orphaned files**: `StatCardsRow.swift` and `LearningMetricsPanel.swift` exist but aren't rendered. Could be deleted or re-integrated.
+- **macOS app pointed at localhost** — UserDefaults override set to `local`. The macOS app won't connect to the Mac Mini until reset to `tailscale`. Run: `defaults write com.andrewlonati.hestia-macos hestia_environment tailscale`
+- **Mac Mini Python 3.9** — venv uses Xcode CLI tools Python 3.9.6. Should upgrade to 3.11+ via Homebrew to match CI. Not blocking but a latent risk for packages that drop 3.9 support.
+- **Command Center bugs** (from screenshots, not yet investigated):
+  - Calendar shows "No upcoming events" despite access granted — likely connecting to Mac Mini which doesn't have calendar data
+  - News feed (External tab) shows only "Daily health summary" x8 — should be in Internal/Health, not External/News
+- **Pre-push hook takes 4-5 min** — pytest + xcodebuild on every push. Not a bug but slows iteration.
 
 ## Process Learnings
 
-### Critical Bug Pattern: Silent Decode Failures
-The CacheFetcher pattern catches ALL errors and returns `.empty` — making it impossible to distinguish "server unreachable" from "server returned data but decode failed." The `[DEBUG]` temporary logging was the only way to see the actual error. **Proposal**: Add a `.decodeFailed` case to `CacheFetcher.Source` that preserves the error, or log decode errors even in release builds.
-
-### convertFromSnakeCase Gotcha
-This wasted ~30 min across 2 fix attempts. The APIClient decoder uses `convertFromSnakeCase` globally, which means explicit CodingKeys with snake_case raw values double-convert and fail silently. **Must document in CLAUDE.md.**
+### Config Gaps
+1. **CLAUDE.MD**: No mention that Mac Mini server runs HTTP when certs are missing — caused 3 debug iterations. Fix: document in "Known Issues (Mac Mini)" section.
+2. **CLAUDE.MD**: No mention that macOS app defaults to Tailscale when testing locally — caused the "Review Memory" feature to appear broken. Fix: document the UserDefaults override pattern.
 
 ### First-Pass Success
-- Session total: ~12/16 tasks first-pass (75%)
-- Rework causes: CodingKeys double-conversion (2x), Swift 6 Sendable (2x), `body` variable collision (1x), Sparkle sandbox (1x)
-- Top blocker: Silent error swallowing in CacheFetcher
+- 3/4 main tasks completed on first pass (Graph nav, deploy script, CI names)
+- Deploy readiness check required 4 iterations: HTTP/HTTPS mismatch → cert generation → curl vs Python → timeout tuning
+- **Top blocker**: environment mismatch between dev Mac, CI (Ubuntu/3.11), and Mac Mini (macOS/3.9/LibreSSL) — three different SSL stacks
+
+### Agent Orchestration
+- @hestia-explorer used effectively for initial Graph/Memory research
+- @hestia-build-validator caught the `Equatable` conformance issue before manual testing
+- @hestia-tester confirmed memory backend tests passed
+- Subagent-driven development worked well for parallel CI/CD file creation (Tasks 2+3)
+
+### Proposals (for Andrew's approval)
+1. **CLAUDE.MD** — Add "Mac Mini runs HTTP if certs missing" to Known Issues section. Impact: prevents 30+ min debug cycle.
+2. **CLAUDE.MD** — Add UserDefaults override pattern for macOS app environment switching. Impact: prevents "feature broken" false alarms.
+3. **SCRIPT** — Upgrade Mac Mini Python to 3.11 via Homebrew. Impact: eliminates 3.9/3.11 split risk, removes backport markers from lockfile.
 
 ## Next Steps
-1. **Push latest commits** (`ae2d48f` — Command Center fixes not yet pushed)
-2. **Verify on device**: Clean build in Xcode, check calendar shows events, health summary shows data if available
-3. **Ship v1.1.3** if everything looks good
-4. **Continue Sprint 32**: Newsfeed interactivity (tap → detail sheet), investigation detail sheets, stat card navigation
-5. **Future**: Sparkle XPC sandbox support, blue/green deploys, PostgreSQL evaluation
+1. **Sprint 28 (Alpaca)** — Retry API key generation on Alpaca dashboard. If still 403, contact Alpaca support. Once keys work: `python3 -c "from hestia.security.credential_manager import store_api_key; store_api_key('alpaca-api-key', 'KEY'); store_api_key('alpaca-api-secret', 'SECRET')"`
+2. **Command Center bugs** — Investigate calendar wiring (likely needs Mac Mini calendar access or local server) and newsfeed source filtering (health summaries appearing in External/News)
+3. **Reset macOS app** — `defaults write com.andrewlonati.hestia-macos hestia_environment tailscale`
