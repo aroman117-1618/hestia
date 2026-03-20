@@ -126,11 +126,12 @@ jobs:
           SPARKLE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          echo "$SPARKLE_KEY" > /tmp/sparkle.key
-          SIGN_OUTPUT=$(./bin/sign_update "Hestia-${VERSION}.zip" -f /tmp/sparkle.key)
-          rm /tmp/sparkle.key
-          ED_SIG=$(echo "$SIGN_OUTPUT" | grep -o 'edSignature="[^"]*"' | cut -d'"' -f2)
+          printf '%s' "$SPARKLE_KEY" > /tmp/sparkle.key
+          SIGN_OUTPUT=$(./bin/sign_update "Hestia-${VERSION}.zip" -f /tmp/sparkle.key 2>&1) || true
+          rm -f /tmp/sparkle.key
+          ED_SIG=$(echo "$SIGN_OUTPUT" | grep -o 'edSignature="[^"]*"' | cut -d'"' -f2 || echo "")
           echo "signature=$ED_SIG" >> "$GITHUB_OUTPUT"
+          echo "Sign output: $SIGN_OUTPUT"
 
       - name: Create GitHub Release
         env:
