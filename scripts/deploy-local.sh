@@ -97,8 +97,10 @@ ctx.verify_mode = ssl.CERT_NONE
 try:
     r = urllib.request.urlopen('https://localhost:8443/v1/ready', context=ctx, timeout=3)
     sys.exit(0 if b'ready' in r.read() else 1)
-except: sys.exit(1)
-" 2>/dev/null; then
+except Exception as e:
+    print(f'  readiness check error: {e}', file=sys.stderr)
+    sys.exit(1)
+"; then
     echo "Server ready (attempt $i)"
     echo "=== Deploy complete ==="
     exit 0
