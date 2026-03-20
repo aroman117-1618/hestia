@@ -1,73 +1,80 @@
-# Session Handoff — 2026-03-20 (Session 9+10 Combined)
+# Session Handoff — 2026-03-20
 
-## Priority for Next Session
+## Mission
+Massive UI wiring + infrastructure session: make the macOS dashboard truthful (Sprint 31), add offline caching, fix settings bugs, and decouple trading bots for enterprise-grade server reliability.
 
-1. **Check if v1.0.1 release succeeded** — scheduled retry at 9 AM ET March 20:
-   - `gh run list --workflow=release-macos.yml --limit=1`
-   - If succeeded: verify appcast has `edSignature`, test "Check for Updates" in app
-   - If failed: check `gh run view <id> --log-failed` — likely notarization timeout again
-   - **Remove the `schedule:` cron line from `.github/workflows/release-macos.yml`** after success (it's a one-time retry)
+## Completed (5 major features, 4 releases)
 
-2. **Fix EdDSA signing** — the `edSignature` field in appcast.xml was empty last run. The Sparkle private key (44 chars, from Mac Mini Keychain) is in GitHub Secrets but `sign_update` may need a different input format. Debug by checking the "Sign with EdDSA" step output in the workflow logs.
+### Sprint 31: Dashboard Truthfulness (v1.1.0) — `ceb27b7`
+- Progress rings: real data (calendar / unread / server health) replacing 99.2%/87%/18%
+- Status badge: 3-state (green/amber/red) based on actual server state
+- Error handling: `failedSections` tracking + `ErrorState` banner integration
+- Hero buttons: "New Order" → sheet, "View Reports" → External tab
+- OrdersPanel: real timestamps, time-based progress bar
+- NetworkMonitor: OfflineBanner wired to WorkspaceRootView
+- Color tokens: 7 new MacColors, all Color(hex:) in Views replaced
+- New endpoint: `GET /v1/trading/summary`
+- New files: `NewOrderSheet.swift`, `LoadableState.swift`, `OfflineBanner.swift`
 
-3. **Check Alpaca account approval** — once approved, test AlpacaAdapter against paper API
+### Settings Fixes (included in v1.1.0)
+- Agent Personality tab: wired `loadPersonality()` (was never called)
+- Apple sync: `AppleIdentityProvider.swift` (Contacts "Me" card + NSFullUserName fallback)
+- Feedback button: opens GitHub Issues with pre-filled data
+- Roadmap removed from Field Guide sidebar
 
-4. **Sprint 27 post-soak review** (~Mar 22) — review trade history, confirm clean run, flip to real capital
+### Offline Resilience / Caching (v1.1.1) — `d6edd51`
+- CacheManager: `getStale()`, `CacheTTL` constants, backward-compatible decoding
+- CacheFetcher: shared SWR helper with `@Sendable` closures
+- 10 ViewModels cached (was 3): CommandCenter, Trading, Cloud, Devices, Inbox, Health, Integrations
+- OfflineBanner: 2-state (amber cached / red unreachable), auto-refresh on reconnect
 
-## What Was Built (Sessions 9+10 Combined)
+### Server HA (pushed for CI/CD) — `1ea4e93`
+- Bot decoupling: `bot_service.py` standalone process, `bot_commands` table IPC
+- Watchdog: 60s interval, 2 strikes (was 5 min / 3 strikes)
+- Monitoring: Healthchecks.io + ntfy.sh wired into watchdog
+- macOS hardening script: `scripts/harden-macos.sh`
 
-### Planning & Analysis
-- 3-model audits (Claude + Gemini + @hestia-critic) on Graph View plan and Sprint 28 plan
-- Sparkle auto-update discovery
-- Command Tab modernization design (with browser-based visual companion mockups)
+### Sparkle Hotfix (v1.1.2) — sandbox removed — `67c5b87`
+- App sandbox broke Sparkle auto-update installer
+- Removed sandbox entitlement; Contacts/Calendar entitlements kept
+- Calendar permission may re-prompt (known tradeoff until proper Sparkle XPC sandbox support added)
 
-### Backend Fixes
-- **Principles pipeline unblocked** — WebSocket outcome tracking, widened filter, fallback distillation
-- **Sprint 28 infrastructure** (7 parallel agents) — get_candles() ABC, AlpacaAdapter, MarketHoursScheduler, multi-exchange orchestrator, product info equities, backtest tests
+## In Progress
+- **Mac Mini setup**: Andrew is SSH'd in. Needs: `cd ~/hestia && git pull && sudo bash scripts/harden-macos.sh`, then load the 2 new launchd plists
+- **Healthchecks.io**: Account not yet created. Set `HESTIA_HC_PING_URL` env var after signup
+- **ntfy.sh topic**: Set `HESTIA_NTFY_TOPIC` env var (e.g., `hestia-alerts`)
 
-### UI Changes
-- Graph default filter → principle-centric
-- Explore nav 3→2 tabs with Files sub-mode
-- Curation "Mark Outdated" button on fact nodes
-- Removed 70px FloatingAvatarView chat header
-- Redesigned input bar: mic/send swap + session controls + recording state
-- Orders moved under System tab with Upcoming/Past views
-- Chat empty bubble fixes (parallel session)
-
-### Sparkle Auto-Update (95% complete)
-- Sparkle 2 SPM, AppDelegate wiring, "Check for Updates" menu item
-- GitHub Actions release workflow on self-hosted Mac Mini runner
-- Build → sign (Developer ID) → notarize (Apple) → all working
-- GitHub Release creation working
-- Appcast on GitHub Pages working
-- **Blocked:** Apple notarization queue very slow (~30 min timeout). Scheduled retry at 9 AM ET.
-- **EdDSA signing:** Key piped via stdin but signature may be empty — check workflow logs
-
-### Infrastructure
-- Mac Mini registered as self-hosted GitHub Actions runner (labels: macos, hestia)
-- Xcode installed on Mac Mini (26.3, Swift 6.2)
-- `/ship-it` skill created (bumps version, tags, pushes)
-- Repo made public (enables GitHub Pages + Releases)
-
-## GitHub Secrets Configured
-- `SPARKLE_PRIVATE_KEY` — Ed25519 private key (44 chars from Mac Mini Keychain)
-- `AC_USERNAME` — andrew.roman117@gmail.com
-- `AC_PASSWORD` — app-specific password for notarization
-- `AC_TEAM_ID` — 563968AM8L
-- `KEYCHAIN_PASSWORD` — Mac Mini login password (for CI Keychain unlock)
-
-## Key Decisions
-- Margin account for Alpaca, regular hours only, SPY first
-- Visual companion is standard for all UI brainstorming
-- No manual mode switching — Hestia orchestrates, @agent for overrides
-- Tagged commits only trigger releases
-- Self-hosted Mac Mini runner (not GitHub cloud — Swift 6.2 requirement)
-
-## Known Issues
-- **Python venv on dev Mac** — linked to Xcode Python 3.9, needs `python3.12 -m venv .venv`
-- **Xcode stale builds** — clean build (Shift+Cmd+K) needed after Swift changes
-- **`startNewConversation`** still calls `loadInitialGreeting()` — remove if greeting permanently deprecated
+## Decisions Made
+- Progress rings: simple (1 source/ring), not 9-source composite — defer complexity
+- CacheManager stays UserDefaults — ~850KB fits, disk migration deferred
+- WikiCacheService NOT consolidated — working code, don't touch
+- Gunicorn REJECTED — fork safety + bot duplication risk. Single Uvicorn + bot decoupling instead
+- App sandbox REVERTED — breaks Sparkle. Needs XPC installer service for proper sandbox (future task)
+- Voice (Sprint 34) DEFERRED — SpeechAnalyzer iOS 26+ only, macOS 15 can't use it
 
 ## Test Status
-- 2552+ backend tests passing on Mac Mini
-- macOS + iOS builds clean
+- 346 trading tests passing (post-decoupling)
+- macOS + iOS builds: passing
+- Full suite not re-run — trading subset validated
+
+## Known Issues / Landmines
+- **Calendar permission**: Will re-prompt on launch (sandbox removed). Persists after first grant on non-sandboxed.
+- **Trading bots on Mac Mini**: NOT running until `com.hestia.trading-bots.plist` loaded. Paper soak interrupted.
+- **Sandbox + Sparkle**: Future task — add XPC installer service for proper sandboxed auto-update
+- **3 untracked files**: `.superpowers/`, `MACOS_APP_AUDIT.md`, `MACOS_AUDIT_REPORT.md` — pre-existing artifacts, not from this session
+
+## Discovery Reports (saved)
+- `docs/discoveries/server-high-availability-2026-03-20.md`
+- `docs/discoveries/offline-resilience-caching-strategy-2026-03-20.md`
+
+## Second Opinions (saved)
+- `docs/plans/macos-wiring-sprints-second-opinion-2026-03-19.md`
+- `docs/plans/offline-resilience-caching-second-opinion-2026-03-20.md`
+- `docs/plans/server-ha-second-opinion-2026-03-20.md`
+
+## Next Steps
+1. Finish Mac Mini setup (hardening + launchd plists)
+2. Verify paper soak bots resume via bot service
+3. Create Healthchecks.io account + configure env vars
+4. Continue macOS wiring: Sprint 32 items (newsfeed interactivity, investigation detail sheets, stat card navigation)
+5. Future: Sparkle XPC sandbox support, blue/green deploys, PostgreSQL evaluation
