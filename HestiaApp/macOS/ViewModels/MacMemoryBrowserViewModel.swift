@@ -15,8 +15,6 @@ class MacMemoryBrowserViewModel: ObservableObject {
     @Published var sortOrder: String = "desc"
     @Published var chunkTypeFilter: String?
     @Published var statusFilter: String? = "active"
-    @Published var pinnedChunk: MemoryChunkItem?
-
     let pageSize: Int = 50
 
     // MARK: - Sort Options
@@ -81,17 +79,6 @@ class MacMemoryBrowserViewModel: ObservableObject {
     func resetAndLoad() async {
         currentPage = 0
         await loadChunks()
-    }
-
-    func fetchPinnedChunk(id: String) async {
-        do {
-            pinnedChunk = try await APIClient.shared.getChunk(id)
-        } catch {
-            pinnedChunk = nil
-            #if DEBUG
-            print("[MacMemoryBrowserVM] Failed to fetch pinned chunk: \(error)")
-            #endif
-        }
     }
 
     func updateChunk(

@@ -3,14 +3,14 @@ import HestiaShared
 
 struct MemoryBrowserView: View {
     @StateObject private var viewModel = MacMemoryBrowserViewModel()
-    @Binding var highlightChunkId: String?
+    @Binding var pinnedChunk: MemoryChunkItem?
     var onChunkEdited: (() -> Void)? = nil
 
     init(
-        highlightChunkId: Binding<String?> = .constant(nil),
+        pinnedChunk: Binding<MemoryChunkItem?> = .constant(nil),
         onChunkEdited: (() -> Void)? = nil
     ) {
-        self._highlightChunkId = highlightChunkId
+        self._pinnedChunk = pinnedChunk
         self.onChunkEdited = onChunkEdited
     }
 
@@ -43,9 +43,6 @@ struct MemoryBrowserView: View {
         }
         .background(MacColors.windowBackground)
         .task {
-            if let chunkId = highlightChunkId {
-                await viewModel.fetchPinnedChunk(id: chunkId)
-            }
             await viewModel.loadChunks()
         }
     }
@@ -168,7 +165,7 @@ struct MemoryBrowserView: View {
         ScrollView {
             LazyVStack(spacing: MacSpacing.sm) {
                 // Pinned chunk from graph navigation (shown above paginated list)
-                if let pinned = viewModel.pinnedChunk {
+                if let pinned = pinnedChunk {
                     VStack(alignment: .leading, spacing: MacSpacing.xs) {
                         HStack(spacing: MacSpacing.xs) {
                             Image(systemName: "pin.fill")
@@ -180,8 +177,7 @@ struct MemoryBrowserView: View {
                             Spacer()
                             Button {
                                 withAnimation(.easeOut(duration: 0.2)) {
-                                    viewModel.pinnedChunk = nil
-                                    highlightChunkId = nil
+                                    pinnedChunk = nil
                                 }
                             } label: {
                                 Image(systemName: "xmark")

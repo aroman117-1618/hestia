@@ -8,7 +8,7 @@ struct ResearchView: View {
     @State private var selectedTimeRange: TimeRange = .thirtyDays
     @State private var searchText: String = ""
     @State private var graphNeedsRefresh = false
-    @State private var highlightChunkId: String?
+    @State private var pinnedChunk: MemoryChunkItem?
     // activeFilters derived from graphViewModel.activeDataSources
     @State private var hoveredNode: MacNeuralNetViewModel.GraphNode?
     @StateObject private var graphViewModel = MacNeuralNetViewModel()
@@ -35,7 +35,7 @@ struct ResearchView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 case .memory:
                     MemoryBrowserView(
-                        highlightChunkId: $highlightChunkId,
+                        pinnedChunk: $pinnedChunk,
                         onChunkEdited: { graphNeedsRefresh = true }
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -137,10 +137,20 @@ struct ResearchView: View {
                             }
                         },
                         onReviewMemory: { chunkId in
-                            highlightChunkId = chunkId
-                            withAnimation(.easeInOut(duration: 0.25)) {
-                                graphViewModel.selectedNode = nil
-                                selectedMode = .memory
+                            Task {
+                                do {
+                                    let chunk = try await APIClient.shared.getChunk(chunkId)
+                                    pinnedChunk = chunk
+                                } catch {
+                                    #if DEBUG
+                                    print("[ResearchView] Failed to fetch chunk \(chunkId): \(error)")
+                                    #endif
+                                    pinnedChunk = nil
+                                }
+                                withAnimation(.easeInOut(duration: 0.25)) {
+                                    graphViewModel.selectedNode = nil
+                                    selectedMode = .memory
+                                }
                             }
                         }
                     )
