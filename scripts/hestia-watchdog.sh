@@ -45,7 +45,8 @@ fi
 
 # Readiness check (replaces ping — catches both down AND still-initializing)
 READY_OUTPUT=$(curl -sk --max-time 10 "$READY_URL" 2>/dev/null)
-if echo "$READY_OUTPUT" | grep -q '"ready": true'; then
+# Match "ready":true or "ready": true (compact or pretty JSON)
+if echo "$READY_OUTPUT" | grep -qE '"ready"\s*:\s*true'; then
     # Ready succeeded — reset failure counter
     if [[ $FAILURES -gt 0 ]]; then
         log "RECOVERED | Ready check succeeded after ${FAILURES} failure(s)"
