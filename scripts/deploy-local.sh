@@ -80,14 +80,25 @@ else
   disown
 fi
 
-# 7. Readiness check (server needs ~25s for full manager init)
+# 7. Readiness check (server needs ~50s for full manager init)
+# Uses Python instead of curl to avoid LibreSSL/SecureTransport mismatches
+# between interactive shell and launchd runner environments.
 echo "--- Checking readiness ---"
 for i in $(seq 1 12); do
   sleep 5
   if ! lsof -i :8443 | grep -q LISTEN; then
     echo "::warning::Attempt $i: No process listening on 8443 — server may have crashed"
   fi
-  if curl -sk --connect-timeout 3 https://localhost:8443/v1/ready 2>/dev/null | grep -q '"ready": true'; then
+  if "$HESTIA_HOME/.venv/bin/python" -c "
+import urllib.request, ssl, sys
+ctx = ssl.create_default_context()
+ctx.check_hostname = False
+ctx.verify_mode = ssl.CERT_NONE
+try:
+    r = urllib.request.urlopen('https://localhost:8443/v1/ready', context=ctx, timeout=3)
+    sys.exit(0 if b'ready' in r.read() else 1)
+except: sys.exit(1)
+" 2>/dev/null; then
     echo "Server ready (attempt $i)"
     echo "=== Deploy complete ==="
     exit 0
