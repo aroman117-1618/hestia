@@ -135,7 +135,7 @@ jobs:
           SPARKLE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          SIGN_OUTPUT=$(echo "$SPARKLE_KEY" | ./bin/sign_update "Hestia-${VERSION}.zip" 2>&1) || true
+          SIGN_OUTPUT=$(echo "$SPARKLE_KEY" | ./bin/sign_update --ed-key-file - "Hestia-${VERSION}.zip" 2>&1) || true
           ED_SIG=$(echo "$SIGN_OUTPUT" | grep -o 'edSignature="[^"]*"' | cut -d'"' -f2 || echo "")
           echo "signature=$ED_SIG" >> "$GITHUB_OUTPUT"
           if [ -n "$ED_SIG" ]; then
