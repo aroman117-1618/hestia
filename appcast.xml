@@ -6,11 +6,11 @@
       <title>Version 1.0.1</title>
       <sparkle:version>1.0.1</sparkle:version>
       <sparkle:shortVersionString>1.0.1</sparkle:shortVersionString>
-      <pubDate>Thu, 19 Mar 2026 20:52:33 -0400</pubDate>
+      <pubDate>Fri, 20 Mar 2026 10:04:39 -0400</pubDate>
       <enclosure
         url="https://github.com/aroman117-1618/hestia/releases/download/v1.0.1/Hestia-1.0.1.zip"
         sparkle:edSignature=""
-        length="11671583"
+        length="11671996"
         type="application/octet-stream" />
     </item>
   </channel>
