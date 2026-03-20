@@ -28,30 +28,35 @@ class MacInboxViewModel: ObservableObject {
     // MARK: - Load Inbox
 
     func loadInbox() async {
-        isLoading = true
+        if !CacheManager.shared.has(forKey: CacheKey.inboxItems) {
+            isLoading = true
+        }
         error = nil
 
-        do {
-            let response = try await APIClient.shared.getInbox(
+        let (response, source) = await CacheFetcher.load(
+            key: CacheKey.inboxItems,
+            ttl: CacheTTL.standard
+        ) { [selectedSource] in
+            try await APIClient.shared.getInbox(
                 source: selectedSource,
                 limit: 100,
                 offset: 0
             )
+        }
+
+        if let response {
             items = response.items
-            isLoading = false
             #if DEBUG
             print("[Inbox] Loaded \(response.items.count) items (total: \(response.total))")
             #endif
-
-            // Also fetch unread counts
-            await loadUnreadCounts()
-        } catch {
-            isLoading = false
+        } else if source == .empty {
             self.error = "Failed to load inbox"
-            #if DEBUG
-            print("[Inbox] Error loading inbox: \(error)")
-            #endif
         }
+
+        isLoading = false
+
+        // Also fetch unread counts
+        await loadUnreadCounts()
     }
 
     // MARK: - Unread Counts

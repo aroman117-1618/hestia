@@ -13,17 +13,24 @@ class MacDeviceManagementViewModel: ObservableObject {
     }
 
     func loadDevices() async {
-        isLoading = true
-        errorMessage = nil
-        do {
-            let response = try await APIClient.shared.getDevices()
-            devices = response.devices
-        } catch {
-            errorMessage = "Failed to load devices"
-            #if DEBUG
-            print("[MacDeviceManagementViewModel] Load failed: \(error)")
-            #endif
+        if !CacheManager.shared.has(forKey: CacheKey.devicesList) {
+            isLoading = true
         }
+        errorMessage = nil
+
+        let (response, source) = await CacheFetcher.load(
+            key: CacheKey.devicesList,
+            ttl: CacheTTL.stable
+        ) {
+            try await APIClient.shared.getDevices()
+        }
+
+        if let response {
+            devices = response.devices
+        } else if source == .empty {
+            errorMessage = "Failed to load devices"
+        }
+
         isLoading = false
     }
 

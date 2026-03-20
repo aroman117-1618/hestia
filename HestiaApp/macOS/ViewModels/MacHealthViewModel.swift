@@ -60,18 +60,23 @@ class MacHealthViewModel: ObservableObject {
     // MARK: - Loading
 
     func loadData() async {
-        isLoading = true
+        if !CacheManager.shared.has(forKey: CacheKey.healthMetrics) {
+            isLoading = true
+        }
         errorMessage = nil
 
-        do {
-            let summary = try await APIClient.shared.getHealthSummary()
+        let (summary, source) = await CacheFetcher.load(
+            key: CacheKey.healthMetrics,
+            ttl: CacheTTL.standard
+        ) {
+            try await APIClient.shared.getHealthSummary()
+        }
+
+        if let summary {
             parseSummary(summary)
             hasData = true
             lastSyncDate = summary.date
-        } catch {
-            #if DEBUG
-            print("[MacHealthViewModel] Summary load failed: \(error)")
-            #endif
+        } else if source == .empty {
             errorMessage = "Unable to load health data"
         }
 

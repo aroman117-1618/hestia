@@ -102,16 +102,18 @@ class MacIntegrationsViewModel: ObservableObject {
     }
 
     private func loadTools() async {
-        do {
-            let response = try await APIClient.shared.getTools()
+        let (response, _) = await CacheFetcher.load(
+            key: CacheKey.integrationsStatus,
+            ttl: CacheTTL.stable
+        ) {
+            try await APIClient.shared.getTools()
+        }
+
+        if let response {
             apiTools = response.tools
             buildIntegrations()
             #if DEBUG
             print("[MacIntegrationsVM] Loaded \(response.count) tools from API")
-            #endif
-        } catch {
-            #if DEBUG
-            print("[MacIntegrationsVM] Failed to load tools: \(error)")
             #endif
         }
     }

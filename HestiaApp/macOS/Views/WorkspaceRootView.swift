@@ -6,6 +6,7 @@ struct WorkspaceRootView: View {
     @Environment(ErrorState.self) private var errorState
     @Environment(CommandPaletteState.self) private var palette
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var networkMonitor: NetworkMonitor
 
     var body: some View {
         GeometryReader { geo in
@@ -35,7 +36,10 @@ struct WorkspaceRootView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                         // Offline banner (persistent while disconnected)
-                        OfflineBanner()
+                        OfflineBanner(
+                            hasCachedData: CacheManager.shared.has(forKey: CacheKey.systemHealth),
+                            lastCacheDate: CacheManager.shared.cachedAt(forKey: CacheKey.systemHealth)
+                        )
 
                         // Global error banner overlay (transient, auto-dismisses)
                         GlobalErrorBanner()
@@ -64,6 +68,12 @@ struct WorkspaceRootView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .hestiaCommandPaletteToggle)) { _ in
                 palette.toggle()
+            }
+            .onChange(of: networkMonitor.isConnected) { wasConnected, isConnected in
+                // Auto-refresh when connectivity restores
+                if !wasConnected && isConnected {
+                    NotificationCenter.default.post(name: .hestiaServerReconnected, object: nil)
+                }
             }
         }
     }

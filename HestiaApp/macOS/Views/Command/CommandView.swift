@@ -28,5 +28,8 @@ struct CommandView: View {
             viewModel.configure(errorState: errorState)
             await viewModel.loadAllData()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .hestiaServerReconnected)) { _ in
+            Task { await viewModel.loadAllData() }
+        }
     }
 }

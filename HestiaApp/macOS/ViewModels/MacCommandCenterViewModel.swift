@@ -59,7 +59,8 @@ class MacCommandCenterViewModel: ObservableObject {
     // MARK: - Data Loading
 
     func loadAllData() async {
-        isLoading = true
+        let hasCachedData = CacheManager.shared.has(forKey: CacheKey.systemHealth)
+        if !hasCachedData { isLoading = true }
         errorMessage = nil
         failedSections = []
 
@@ -75,11 +76,14 @@ class MacCommandCenterViewModel: ObservableObject {
 
         _ = await (healthTask, memoryTask, ordersTask, calendarTask, newsfeedTask, learningTask, investigateTask, healthSummaryTask, tradingTask)
 
-        // If health check failed, server is likely down — show banner
-        if failedSections.contains("health") {
+        // If health check failed AND no cached health data, server is likely down
+        if failedSections.contains("health") && systemHealth == nil {
             let msg = "Can't reach Hestia server"
             errorMessage = msg
             errorState?.show(msg, severity: .error, duration: 10.0)
+        } else if failedSections.contains("health") {
+            // Server down but we have cached data — show softer warning
+            errorState?.show("Server unreachable — showing cached data", severity: .warning, duration: 6.0)
         }
 
         lastUpdated = Date()
@@ -87,37 +91,27 @@ class MacCommandCenterViewModel: ObservableObject {
     }
 
     private func loadHealth() async {
-        do {
-            systemHealth = try await APIClient.shared.getSystemHealth()
-        } catch {
-            failedSections.insert("health")
-            #if DEBUG
-            print("[MacCommandCenterVM] Health load failed: \(error)")
-            #endif
+        let (data, source) = await CacheFetcher.load(key: CacheKey.systemHealth, ttl: CacheTTL.frequent) {
+            try await APIClient.shared.getSystemHealth()
         }
+        systemHealth = data
+        if source == .empty { failedSections.insert("health") }
     }
 
     private func loadPendingMemories() async {
-        do {
-            pendingMemories = try await APIClient.shared.getPendingMemoryReviews()
-        } catch {
-            failedSections.insert("memory")
-            #if DEBUG
-            print("[MacCommandCenterVM] Memory load failed: \(error)")
-            #endif
+        let (data, source) = await CacheFetcher.load(key: CacheKey.pendingMemories, ttl: CacheTTL.standard) {
+            try await APIClient.shared.getPendingMemoryReviews()
         }
+        pendingMemories = data ?? []
+        if source == .empty { failedSections.insert("memory") }
     }
 
     private func loadOrders() async {
-        do {
-            let response = try await APIClient.shared.listOrders(limit: 20)
-            orders = response.orders
-        } catch {
-            failedSections.insert("orders")
-            #if DEBUG
-            print("[MacCommandCenterVM] Orders load failed: \(error)")
-            #endif
+        let (data, source) = await CacheFetcher.load(key: CacheKey.orders, ttl: CacheTTL.frequent) {
+            try await APIClient.shared.listOrders(limit: 20)
         }
+        orders = data?.orders ?? []
+        if source == .empty { failedSections.insert("orders") }
     }
 
     private func loadCalendarEvents() async {
@@ -140,82 +134,58 @@ class MacCommandCenterViewModel: ObservableObject {
     }
 
     private func loadNewsfeed() async {
-        do {
-            let response = try await APIClient.shared.getNewsfeedTimeline(limit: 20)
-            newsfeedItems = response.items
-            unreadCount = response.unreadCount
-        } catch {
-            failedSections.insert("newsfeed")
-            #if DEBUG
-            print("[MacCommandCenterVM] Newsfeed load failed: \(error)")
-            #endif
+        let (data, source) = await CacheFetcher.load(key: CacheKey.newsfeed, ttl: CacheTTL.standard) {
+            try await APIClient.shared.getNewsfeedTimeline(limit: 20)
         }
+        if let data {
+            newsfeedItems = data.items
+            unreadCount = data.unreadCount
+        }
+        if source == .empty { failedSections.insert("newsfeed") }
     }
 
     private func loadLearningMetrics() async {
-        do {
-            let reportResponse = try await APIClient.shared.getLatestMetaMonitorReport()
-            metaMonitorReport = reportResponse.data
-        } catch {
-            failedSections.insert("metaMonitor")
-            #if DEBUG
-            print("[MacCommandCenterVM] MetaMonitor load failed: \(error)")
-            #endif
+        let (report, s1) = await CacheFetcher.load(key: CacheKey.metaMonitorReport, ttl: CacheTTL.standard) {
+            try await APIClient.shared.getLatestMetaMonitorReport()
         }
+        metaMonitorReport = report?.data
+        if s1 == .empty { failedSections.insert("metaMonitor") }
 
-        do {
-            let healthResponse = try await APIClient.shared.getMemoryHealth()
-            memoryHealth = healthResponse.data
-        } catch {
-            failedSections.insert("memoryHealth")
-            #if DEBUG
-            print("[MacCommandCenterVM] Memory health load failed: \(error)")
-            #endif
+        let (health, s2) = await CacheFetcher.load(key: CacheKey.memoryHealth, ttl: CacheTTL.standard) {
+            try await APIClient.shared.getMemoryHealth()
         }
+        memoryHealth = health?.data
+        if s2 == .empty { failedSections.insert("memoryHealth") }
 
-        do {
-            let alertsResponse = try await APIClient.shared.getTriggerAlerts()
-            triggerAlerts = alertsResponse.data
-        } catch {
-            failedSections.insert("alerts")
-            #if DEBUG
-            print("[MacCommandCenterVM] Alerts load failed: \(error)")
-            #endif
+        let (alerts, s3) = await CacheFetcher.load(key: CacheKey.triggerAlerts, ttl: CacheTTL.standard) {
+            try await APIClient.shared.getTriggerAlerts()
         }
+        triggerAlerts = alerts?.data ?? []
+        if s3 == .empty { failedSections.insert("alerts") }
     }
 
     private func loadInvestigations() async {
-        do {
-            let response = try await APIClient.shared.getInvestigationHistory(limit: 20)
-            investigations = response.investigations
-        } catch {
-            failedSections.insert("investigations")
-            #if DEBUG
-            print("[MacCommandCenterVM] Investigations load failed: \(error)")
-            #endif
+        let (data, source) = await CacheFetcher.load(key: CacheKey.investigations, ttl: CacheTTL.standard) {
+            try await APIClient.shared.getInvestigationHistory(limit: 20)
         }
+        investigations = data?.investigations ?? []
+        if source == .empty { failedSections.insert("investigations") }
     }
 
     private func loadHealthSummary() async {
-        do {
-            healthSummary = try await APIClient.shared.getHealthSummary()
-        } catch {
-            failedSections.insert("healthSummary")
-            #if DEBUG
-            print("[MacCommandCenterVM] Health summary load failed: \(error)")
-            #endif
+        let (data, source) = await CacheFetcher.load(key: CacheKey.healthSummary, ttl: CacheTTL.standard) {
+            try await APIClient.shared.getHealthSummary()
         }
+        healthSummary = data
+        if source == .empty { failedSections.insert("healthSummary") }
     }
 
     private func loadTradingSummary() async {
-        do {
-            tradingSummary = try await APIClient.shared.getTradingSummary()
-        } catch {
-            failedSections.insert("trading")
-            #if DEBUG
-            print("[MacCommandCenterVM] Trading summary load failed: \(error)")
-            #endif
+        let (data, source) = await CacheFetcher.load(key: CacheKey.tradingSummary, ttl: CacheTTL.realtime) {
+            try await APIClient.shared.getTradingSummary()
         }
+        tradingSummary = data
+        if source == .empty { failedSections.insert("trading") }
     }
 
     private func requestCalendarAccess() {

@@ -37,7 +37,10 @@ class MacTradingViewModel: ObservableObject {
     // MARK: - Data Loading
 
     func loadAllData() async {
-        isLoading = true
+        let hasCache = CacheManager.shared.has(forKey: CacheKey.tradingPortfolio)
+        if !hasCache {
+            isLoading = true
+        }
         errorMessage = nil
 
         async let portfolioTask: () = loadPortfolio()
@@ -52,69 +55,77 @@ class MacTradingViewModel: ObservableObject {
     }
 
     private func loadPortfolio() async {
-        do {
-            portfolio = try await APIClient.shared.getTradingPortfolio()
-        } catch {
-            #if DEBUG
-            print("[Trading] Portfolio load failed: \(error)")
-            #endif
+        let (data, _) = await CacheFetcher.load(
+            key: CacheKey.tradingPortfolio,
+            ttl: CacheTTL.realtime
+        ) {
+            try await APIClient.shared.getTradingPortfolio()
+        }
+        if let data {
+            portfolio = data
         }
     }
 
     private func loadPositions() async {
-        do {
-            let response = try await APIClient.shared.getTradingPositions()
-            positions = response.positions
-        } catch {
-            #if DEBUG
-            print("[Trading] Positions load failed: \(error)")
-            #endif
+        let (data, _) = await CacheFetcher.load(
+            key: CacheKey.tradingPositions,
+            ttl: CacheTTL.realtime
+        ) {
+            try await APIClient.shared.getTradingPositions()
+        }
+        if let data {
+            positions = data.positions
         }
     }
 
     private func loadTrades() async {
-        do {
-            let response = try await APIClient.shared.getTradingTrades(limit: 20)
-            trades = response.trades
-        } catch {
-            #if DEBUG
-            print("[Trading] Trades load failed: \(error)")
-            #endif
+        let (data, _) = await CacheFetcher.load(
+            key: CacheKey.tradingTrades,
+            ttl: CacheTTL.frequent
+        ) {
+            try await APIClient.shared.getTradingTrades(limit: 20)
+        }
+        if let data {
+            trades = data.trades
         }
     }
 
     private func loadRiskStatus() async {
-        do {
-            riskStatus = try await APIClient.shared.getTradingRiskStatus()
-            killSwitchActive = riskStatus?.killSwitch.active ?? false
-        } catch {
-            #if DEBUG
-            print("[Trading] Risk status load failed: \(error)")
-            #endif
+        let (data, _) = await CacheFetcher.load(
+            key: CacheKey.tradingRiskStatus,
+            ttl: CacheTTL.frequent
+        ) {
+            try await APIClient.shared.getTradingRiskStatus()
+        }
+        if let data {
+            riskStatus = data
+            killSwitchActive = data.killSwitch.active
         }
     }
 
     private func loadWatchlist() async {
-        do {
-            let response = try await APIClient.shared.getTradingWatchlist()
-            watchlist = response.items
-        } catch {
-            #if DEBUG
-            print("[Trading] Watchlist load failed: \(error)")
-            #endif
+        let (data, _) = await CacheFetcher.load(
+            key: CacheKey.tradingWatchlist,
+            ttl: CacheTTL.frequent
+        ) {
+            try await APIClient.shared.getTradingWatchlist()
+        }
+        if let data {
+            watchlist = data.items
         }
     }
 
     private func loadBots() async {
-        do {
-            let response = try await APIClient.shared.getTradingBots()
-            bots = response.bots
+        let (data, _) = await CacheFetcher.load(
+            key: CacheKey.tradingBots,
+            ttl: CacheTTL.frequent
+        ) {
+            try await APIClient.shared.getTradingBots()
+        }
+        if let data {
+            bots = data.bots
             // Sync autonomous trading state from actual bot statuses
             autonomousTradingEnabled = bots.contains { $0.status == "running" }
-        } catch {
-            #if DEBUG
-            print("[Trading] Bots load failed: \(error)")
-            #endif
         }
     }
 

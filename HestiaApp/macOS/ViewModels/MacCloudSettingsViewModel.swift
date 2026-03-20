@@ -57,18 +57,23 @@ class MacCloudSettingsViewModel: ObservableObject {
     // MARK: - Data Loading
 
     func refresh() async {
-        isLoading = true
+        if !CacheManager.shared.has(forKey: CacheKey.cloudProviders) {
+            isLoading = true
+        }
         error = nil
 
-        do {
-            let response = try await client.listCloudProviders()
+        let (response, source) = await CacheFetcher.load(
+            key: CacheKey.cloudProviders,
+            ttl: CacheTTL.stable
+        ) { [client] in
+            try await client.listCloudProviders()
+        }
+
+        if let response {
             providers = response.providers.map { $0.toCloudProvider() }
             effectiveCloudState = response.cloudState
-        } catch {
+        } else if source == .empty {
             self.error = "Failed to load providers"
-            #if DEBUG
-            print("[MacCloudSettingsVM] Error: \(error)")
-            #endif
         }
 
         isLoading = false
