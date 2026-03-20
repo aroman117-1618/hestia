@@ -82,7 +82,7 @@ fi
 
 # 7. Readiness check (server needs ~25s for full manager init)
 echo "--- Checking readiness ---"
-for i in 1 2 3 4 5 6 7 8; do
+for i in $(seq 1 12); do
   sleep 5
   if ! lsof -i :8443 | grep -q LISTEN; then
     echo "::warning::Attempt $i: No process listening on 8443 — server may have crashed"
@@ -95,6 +95,6 @@ for i in 1 2 3 4 5 6 7 8; do
   echo "Attempt $i: not ready, retrying..."
 done
 
-echo "::error::Readiness check failed after 40 seconds"
+echo "::error::Readiness check failed after 60 seconds"
 echo "Manual recovery: ssh andrewroman117@hestia-3.local 'launchctl load ~/Library/LaunchAgents/com.hestia.server.plist'"
 exit 1
