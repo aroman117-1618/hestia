@@ -63,19 +63,16 @@ echo "--- Running integration tests ---"
   echo "::warning::Integration tests failed — check logs above (non-blocking)"
 }
 
-# 5. Kill stale server processes
+# 5. Restart server
+# Kill the process — launchd KeepAlive automatically restarts it.
+# Do NOT use `kickstart -k` after kill: launchd already restarts on death,
+# and kickstart would kill the restarting process a second time.
 echo "--- Restarting server ---"
 lsof -i :8443 | grep LISTEN | awk '{print $2}' | xargs kill -9 2>/dev/null || true
-sleep 2
 
-# 6. Restart via launchd (preferred) or nohup fallback
-if [[ -f ~/Library/LaunchAgents/com.hestia.server.plist ]]; then
-  launchctl kickstart -k "gui/$(id -u)/com.hestia.server" 2>/dev/null || {
-    launchctl unload ~/Library/LaunchAgents/com.hestia.server.plist 2>/dev/null || true
-    sleep 1
-    launchctl load ~/Library/LaunchAgents/com.hestia.server.plist
-  }
-else
+# If no launchd plist, start manually
+if [[ ! -f ~/Library/LaunchAgents/com.hestia.server.plist ]]; then
+  sleep 2
   "$HESTIA_HOME/.venv/bin/python" -m hestia.api.server &
   disown
 fi
