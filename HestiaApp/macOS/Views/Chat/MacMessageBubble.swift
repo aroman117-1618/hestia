@@ -7,6 +7,7 @@ struct MacMessageBubble: View {
     let onReaction: (String) -> Void
     let feedbackState: String?
     let onFeedback: (String, String, String?) -> Void
+    var canShowFeedback: Bool = true
 
     @State private var isHovered: Bool = false
 
@@ -109,8 +110,8 @@ struct MacMessageBubble: View {
                     .padding(.leading, MacSpacing.sm)
             }
 
-            // Outcome feedback (visible on hover or when feedback already submitted)
-            if isHovered || feedbackState != nil {
+            // Outcome feedback (visible on hover or when feedback already submitted, server messages only)
+            if canShowFeedback, isHovered || feedbackState != nil {
                 OutcomeFeedbackRow(
                     messageId: message.id,
                     currentFeedback: feedbackState,

@@ -29,7 +29,8 @@ struct MacChatPanelView: View {
                                             note: note
                                         )
                                     }
-                                }
+                                },
+                                canShowFeedback: viewModel.currentSessionId != nil
                             )
                             .id(message.id)
                         }
@@ -100,7 +101,7 @@ struct MacChatPanelView: View {
             .padding(.leading, 4)
         }
         .task {
-            viewModel.loadInitialGreeting(mode: appState.currentMode)
+            // Empty state — user generates the first message
         }
     }
 
@@ -108,14 +109,7 @@ struct MacChatPanelView: View {
 
     private var thinkingBubble: some View {
         HStack(alignment: .top, spacing: MacSpacing.sm) {
-            Circle()
-                .fill(MacColors.amberAccent.opacity(0.3))
-                .frame(width: 28, height: 28)
-                .overlay {
-                    Image(systemName: "brain")
-                        .font(.system(size: 12))
-                        .foregroundStyle(MacColors.amberAccent)
-                }
+            aiAvatar
 
             HStack(spacing: 4) {
                 ForEach(0..<3, id: \.self) { index in

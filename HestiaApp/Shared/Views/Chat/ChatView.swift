@@ -67,7 +67,7 @@ struct ChatView: View {
                 viewModel.configure(client: apiClientProvider.client)
                 voiceViewModel.configure(client: apiClientProvider.client)
             }
-            viewModel.loadInitialGreeting(mode: appState.currentMode)
+            // Empty state — user generates the first message
         }
         .onChange(of: apiClientProvider.isReady) { isReady in
             // Also configure when client becomes ready later
