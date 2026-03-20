@@ -4,6 +4,12 @@ import HestiaShared
 /// Trading API methods for macOS dashboard.
 extension APIClient {
 
+    // MARK: - Dashboard Summary
+
+    func getTradingSummary() async throws -> TradingSummary {
+        return try await get("/trading/summary")
+    }
+
     // MARK: - Portfolio & Positions
 
     func getTradingPortfolio() async throws -> TradingPortfolioResponse {

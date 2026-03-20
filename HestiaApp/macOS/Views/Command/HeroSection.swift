@@ -5,6 +5,7 @@ struct HeroSection: View {
     @ObservedObject var viewModel: MacCommandCenterViewModel
     let currentMode: HestiaMode
     @Environment(\.layoutMode) private var layoutMode
+    @State private var showNewOrderSheet = false
 
     var body: some View {
         Group {
@@ -36,8 +37,8 @@ struct HeroSection: View {
             // Status badge row
             HStack(spacing: MacSpacing.md) {
                 statusBadge
-                if !layoutMode.isCompact {
-                    Text("Last updated 2 min ago")
+                if !layoutMode.isCompact, let lastUpdated = viewModel.lastUpdated {
+                    Text(lastUpdated, style: .relative)
                         .font(MacTypography.label)
                         .foregroundStyle(MacColors.textSecondary)
                 }
@@ -53,7 +54,7 @@ struct HeroSection: View {
                         .font(MacTypography.heroHeading)
                         .foregroundStyle(MacColors.textPrimaryAlt)
 
-                    Text("Stonehurst is running smoothly. 12 updates since your last session.")
+                    Text(heroSubtitle)
                         .font(MacTypography.body)
                         .foregroundStyle(MacColors.textSecondary)
                         .lineLimit(layoutMode.isCompact ? 2 : nil)
@@ -64,7 +65,7 @@ struct HeroSection: View {
             // Action buttons
             HStack(spacing: MacSpacing.md) {
                 Button {
-                    // New Order action
+                    showNewOrderSheet = true
                 } label: {
                     HStack(spacing: MacSpacing.sm) {
                         Image(systemName: "bolt.fill")
@@ -83,7 +84,12 @@ struct HeroSection: View {
                 .buttonStyle(.hestia)
 
                 Button {
-                    // View Reports action
+                    // Navigate to External > Investigations tab
+                    NotificationCenter.default.post(
+                        name: .activityTabSwitch,
+                        object: nil,
+                        userInfo: ["tab": ActivityFeedTab.external.rawValue]
+                    )
                 } label: {
                     Text("View Reports")
                         .font(MacTypography.bodyMedium)
@@ -96,6 +102,9 @@ struct HeroSection: View {
                 .buttonStyle(.hestia)
             }
             .padding(.top, MacSpacing.md)
+            .sheet(isPresented: $showNewOrderSheet) {
+                NewOrderSheet()
+            }
         }
     }
 
@@ -127,26 +136,102 @@ struct HeroSection: View {
 
     private var progressRings: some View {
         HStack(spacing: layoutMode.isCompact ? MacSpacing.lg : MacSpacing.xl) {
-            ProgressRing(value: 0.992, label: "99.2%", title: "Accuracy", subtitle: "E-commerce Engine", color: MacColors.healthGreen, layoutMode: layoutMode)
-            ProgressRing(value: 0.87, label: "87%", title: "Uptime", subtitle: "Agent Fleet", color: MacColors.amberAccent, layoutMode: layoutMode)
-            ProgressRing(value: 0.18, label: "18%", title: "Improved", subtitle: "Response Time", color: Color(hex: "00D7FF"), layoutMode: layoutMode)
+            ProgressRing(
+                value: internalRingValue,
+                label: "\(viewModel.todayEventCount)",
+                title: "Internal",
+                subtitle: "Your Day",
+                color: MacColors.healthGreen,
+                layoutMode: layoutMode
+            )
+            ProgressRing(
+                value: externalRingValue,
+                label: "\(viewModel.unreadCount)",
+                title: "External",
+                subtitle: "World Activity",
+                color: MacColors.amberAccent,
+                layoutMode: layoutMode
+            )
+            ProgressRing(
+                value: systemRingValue,
+                label: systemRingLabel,
+                title: "System",
+                subtitle: "Hestia Health",
+                color: systemRingColor,
+                layoutMode: layoutMode
+            )
         }
     }
+
+    // MARK: - Ring Computations
+
+    /// Internal ring: calendar event count today, normalized to 0-8 events
+    private var internalRingValue: Double {
+        min(Double(viewModel.todayEventCount) / 8.0, 1.0)
+    }
+
+    /// External ring: unread newsfeed items, normalized to 0-20
+    private var externalRingValue: Double {
+        min(Double(viewModel.unreadCount) / 20.0, 1.0)
+    }
+
+    /// System ring: server health (binary — up or down)
+    private var systemRingValue: Double {
+        viewModel.serverIsReachable ? 1.0 : 0.0
+    }
+
+    private var systemRingLabel: String {
+        viewModel.serverIsReachable ? "OK" : "Down"
+    }
+
+    private var systemRingColor: Color {
+        viewModel.serverIsReachable ? MacColors.healthGreen : MacColors.healthRed
+    }
+
+    // MARK: - Status Badge
 
     private var statusBadge: some View {
         HStack(spacing: MacSpacing.sm) {
             Circle()
-                .fill(MacColors.healthGreen)
+                .fill(statusBadgeColor)
                 .frame(width: 8, height: 8)
-            Text("All systems operational")
+            Text(statusBadgeText)
                 .font(MacTypography.label)
-                .foregroundStyle(MacColors.healthGreen)
+                .foregroundStyle(statusBadgeColor)
                 .lineLimit(1)
         }
         .padding(.horizontal, MacSpacing.md)
         .padding(.vertical, MacSpacing.xs)
-        .background(MacColors.healthGreenBg)
+        .background(statusBadgeColor.opacity(0.15))
         .clipShape(Capsule())
+    }
+
+    private var statusBadgeText: String {
+        if viewModel.isLoading { return "Loading..." }
+        if !viewModel.serverIsReachable { return "Server unreachable" }
+        if viewModel.failedSections.isEmpty { return "All systems operational" }
+        return "\(viewModel.failedSections.count) services degraded"
+    }
+
+    private var statusBadgeColor: Color {
+        if viewModel.isLoading { return MacColors.textSecondary }
+        if !viewModel.serverIsReachable { return MacColors.healthRed }
+        if viewModel.failedSections.isEmpty { return MacColors.healthGreen }
+        return MacColors.amberAccent
+    }
+
+    // MARK: - Hero Subtitle
+
+    private var heroSubtitle: String {
+        let modeName = currentMode.displayName
+        if !viewModel.serverIsReachable {
+            return "\(modeName) is offline. Check your connection."
+        }
+        let updates = viewModel.pendingMemoryCount
+        if updates > 0 {
+            return "\(modeName) is running smoothly. \(updates) update\(updates == 1 ? "" : "s") pending."
+        }
+        return "\(modeName) is running smoothly. All caught up."
     }
 
     private var greetingText: String {

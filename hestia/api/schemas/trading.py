@@ -160,3 +160,15 @@ class WatchlistItemResponse(BaseModel):
 class WatchlistResponse(BaseModel):
     items: List[WatchlistItemResponse]
     total: int
+
+
+# ── Sprint 31: Dashboard Summary ─────────────────────────────
+
+class TradingSummaryResponse(BaseModel):
+    """Lightweight summary for macOS Command Center progress rings."""
+
+    active_bots: int = Field(default=0, description="Number of running bots")
+    total_pnl: float = Field(default=0.0, description="Today's total P&L in USD")
+    win_rate: float = Field(default=0.0, description="Today's win rate (0.0-1.0)")
+    total_trades: int = Field(default=0, description="Today's trade count")
+    kill_switch_active: bool = Field(default=False, description="Whether kill switch is engaged")

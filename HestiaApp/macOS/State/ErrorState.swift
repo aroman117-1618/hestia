@@ -25,7 +25,7 @@ struct AppError: Identifiable, Equatable {
         switch severity {
         case .warning: MacColors.amberAccent
         case .error: MacColors.healthRed
-        case .info: Color(hex: "00D7FF")
+        case .info: MacColors.cyanAccent
         }
     }
 }

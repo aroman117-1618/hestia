@@ -16,7 +16,7 @@ struct MemoryChunkListResponse: Codable {
     let offset: Int
 }
 
-struct MemoryChunkItem: Codable, Identifiable {
+struct MemoryChunkItem: Codable, Identifiable, Equatable {
     let id: String
     let content: String
     let chunkType: String

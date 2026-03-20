@@ -118,6 +118,15 @@ Revise the SWOT and argue/refute sections if Gemini surfaces material contradict
 - Go deeper on the highest-uncertainty areas
 - Quantify where possible (performance numbers, cost estimates, time estimates)
 
+### 5.1 UI/Feature Wiring Verification (when topic involves UI or features)
+If the discovery involves a UI feature, run a targeted wiring check BEFORE recommending an approach. Past audits revealed that "it calls the API" ≠ "it works" — components can exist in the wrong location, buttons can have empty closures, data can be fetched but never displayed. See `docs/discoveries/ui-wiring-audit-methodology-2026-03-19.md` for the full methodology.
+
+Minimum checks when UI is in scope:
+1. **Hardcoded scan:** `grep` for string/numeric literals in View files that look like data, not constants
+2. **Cross-reference:** Check if components exist in `Shared/` that are more complete than the platform-specific version
+3. **Error path:** Trace what happens when the server is down — does the user see an error, or fake data?
+4. **Button audit:** For every button in the relevant views, verify the closure body isn't empty
+
 ## Phase 6: Philosophical Layer & Moonshot
 
 ### 6.1 Ethical Check

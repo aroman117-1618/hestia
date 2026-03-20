@@ -33,7 +33,7 @@ struct HealthMetricsRow: View {
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: "heart.fill")
                     .font(.system(size: 14))
-                    .foregroundStyle(Color(hex: "FF6467"))
+                    .foregroundStyle(MacColors.heartRed)
                 Text("Heart")
                     .font(MacTypography.cardTitle)
                     .foregroundStyle(.white)
@@ -90,7 +90,7 @@ struct HealthMetricsRow: View {
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: "moon.fill")
                     .font(.system(size: 14))
-                    .foregroundStyle(Color(hex: "8B5CF6"))
+                    .foregroundStyle(MacColors.sleepPurple)
                 Text("Sleep")
                     .font(MacTypography.cardTitle)
                     .foregroundStyle(.white)
@@ -118,7 +118,7 @@ struct HealthMetricsRow: View {
 
                         SparklineChart(
                             dataPoints: viewModel.sleepTrend,
-                            lineColor: Color(hex: "8B5CF6")
+                            lineColor: MacColors.sleepPurple
                         )
                         .frame(height: 40)
                     }

@@ -84,11 +84,22 @@ Think like the product manager:
 
 Skip this phase if the plan has no UI component. Otherwise:
 
-- **Design system compliance**: Does the plan use HestiaColors, HestiaTypography, HestiaSpacing?
+- **Design system compliance**: Does the plan use HestiaColors, HestiaTypography, HestiaSpacing? Grep for `Color(hex:)` literals in View files — these should be design tokens.
 - **Interaction model**: Are user flows clear? Any dead ends or confusing states?
 - **Platform divergences**: Does iOS behavior match macOS behavior where appropriate?
 - **Accessibility**: Is the plan accessible? VoiceOver, Dynamic Type?
 - **Empty states**: What does the user see before there's data?
+
+### 6.1 Wiring Verification (CRITICAL — do not skip)
+Past audits revealed that plans can claim features are "built" when they're actually facade-only. Run these checks on any UI the plan touches or claims is already done:
+
+1. **Button audit**: For every button in relevant views, verify the closure body isn't `{ }` or `{ // TODO }`. Use: `grep -n "Button {}" <file>` and `grep -n "// TODO" <file>`
+2. **Data binding check**: For every displayed value, trace it back to the ViewModel. Is it bound to `@Published` state from an API call, or hardcoded? Key pattern: progress rings, status badges, and timestamps are frequent offenders.
+3. **Error path validation**: What happens when the API call fails? Is `errorMessage` set and displayed, or caught-and-swallowed with `#if DEBUG print()`?
+4. **Shared component cross-check**: Before recommending "build X", check if it already exists in `Shared/Views/` or `Shared/ViewModels/`. Previous audits found full components (OrderInlineForm, BriefingCard, MemoryWidget) already built but unused by the target platform.
+5. **Endpoint coverage**: For the feature area, list backend endpoints and verify the client calls them. Flag uncalled endpoints that should be wired.
+
+See `docs/discoveries/ui-wiring-audit-methodology-2026-03-19.md` for the full 4-layer methodology.
 
 ## Phase 7: Infrastructure/SRE Review
 

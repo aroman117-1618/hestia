@@ -15,8 +15,13 @@ class MacCommandCenterViewModel: ObservableObject {
     @Published var unreadCount: Int = 0
     @Published var investigations: [Investigation] = []
     @Published var healthSummary: MacHealthSummaryResponse?
+    @Published var tradingSummary: TradingSummary?
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
+    @Published var lastUpdated: Date?
+
+    // Track which sections failed for graceful degradation
+    @Published var failedSections: Set<String> = []
 
     // Learning metrics
     @Published var metaMonitorReport: MetaMonitorReport?
@@ -28,6 +33,7 @@ class MacCommandCenterViewModel: ObservableObject {
     var pendingMemoryCount: Int { pendingMemories.count }
     var activeOrderCount: Int { orders.filter { $0.status == .active }.count }
     var todayEventCount: Int { calendarEvents.count }
+    var serverIsReachable: Bool { systemHealth != nil }
 
     // Learning derived
     var positiveRatioPercent: Int {
@@ -41,12 +47,21 @@ class MacCommandCenterViewModel: ObservableObject {
     // MARK: - Private
 
     private let eventStore = EKEventStore()
+    private weak var errorState: ErrorState?
+
+    // MARK: - Configuration
+
+    /// Call from the View's onAppear to provide ErrorState reference.
+    func configure(errorState: ErrorState) {
+        self.errorState = errorState
+    }
 
     // MARK: - Data Loading
 
     func loadAllData() async {
         isLoading = true
         errorMessage = nil
+        failedSections = []
 
         async let healthTask: () = loadHealth()
         async let memoryTask: () = loadPendingMemories()
@@ -56,8 +71,18 @@ class MacCommandCenterViewModel: ObservableObject {
         async let learningTask: () = loadLearningMetrics()
         async let investigateTask: () = loadInvestigations()
         async let healthSummaryTask: () = loadHealthSummary()
+        async let tradingTask: () = loadTradingSummary()
 
-        _ = await (healthTask, memoryTask, ordersTask, calendarTask, newsfeedTask, learningTask, investigateTask, healthSummaryTask)
+        _ = await (healthTask, memoryTask, ordersTask, calendarTask, newsfeedTask, learningTask, investigateTask, healthSummaryTask, tradingTask)
+
+        // If health check failed, server is likely down — show banner
+        if failedSections.contains("health") {
+            let msg = "Can't reach Hestia server"
+            errorMessage = msg
+            errorState?.show(msg, severity: .error, duration: 10.0)
+        }
+
+        lastUpdated = Date()
         isLoading = false
     }
 
@@ -65,6 +90,7 @@ class MacCommandCenterViewModel: ObservableObject {
         do {
             systemHealth = try await APIClient.shared.getSystemHealth()
         } catch {
+            failedSections.insert("health")
             #if DEBUG
             print("[MacCommandCenterVM] Health load failed: \(error)")
             #endif
@@ -75,6 +101,7 @@ class MacCommandCenterViewModel: ObservableObject {
         do {
             pendingMemories = try await APIClient.shared.getPendingMemoryReviews()
         } catch {
+            failedSections.insert("memory")
             #if DEBUG
             print("[MacCommandCenterVM] Memory load failed: \(error)")
             #endif
@@ -86,6 +113,7 @@ class MacCommandCenterViewModel: ObservableObject {
             let response = try await APIClient.shared.listOrders(limit: 20)
             orders = response.orders
         } catch {
+            failedSections.insert("orders")
             #if DEBUG
             print("[MacCommandCenterVM] Orders load failed: \(error)")
             #endif
@@ -117,6 +145,7 @@ class MacCommandCenterViewModel: ObservableObject {
             newsfeedItems = response.items
             unreadCount = response.unreadCount
         } catch {
+            failedSections.insert("newsfeed")
             #if DEBUG
             print("[MacCommandCenterVM] Newsfeed load failed: \(error)")
             #endif
@@ -128,6 +157,7 @@ class MacCommandCenterViewModel: ObservableObject {
             let reportResponse = try await APIClient.shared.getLatestMetaMonitorReport()
             metaMonitorReport = reportResponse.data
         } catch {
+            failedSections.insert("metaMonitor")
             #if DEBUG
             print("[MacCommandCenterVM] MetaMonitor load failed: \(error)")
             #endif
@@ -137,6 +167,7 @@ class MacCommandCenterViewModel: ObservableObject {
             let healthResponse = try await APIClient.shared.getMemoryHealth()
             memoryHealth = healthResponse.data
         } catch {
+            failedSections.insert("memoryHealth")
             #if DEBUG
             print("[MacCommandCenterVM] Memory health load failed: \(error)")
             #endif
@@ -146,6 +177,7 @@ class MacCommandCenterViewModel: ObservableObject {
             let alertsResponse = try await APIClient.shared.getTriggerAlerts()
             triggerAlerts = alertsResponse.data
         } catch {
+            failedSections.insert("alerts")
             #if DEBUG
             print("[MacCommandCenterVM] Alerts load failed: \(error)")
             #endif
@@ -157,6 +189,7 @@ class MacCommandCenterViewModel: ObservableObject {
             let response = try await APIClient.shared.getInvestigationHistory(limit: 20)
             investigations = response.investigations
         } catch {
+            failedSections.insert("investigations")
             #if DEBUG
             print("[MacCommandCenterVM] Investigations load failed: \(error)")
             #endif
@@ -167,8 +200,20 @@ class MacCommandCenterViewModel: ObservableObject {
         do {
             healthSummary = try await APIClient.shared.getHealthSummary()
         } catch {
+            failedSections.insert("healthSummary")
             #if DEBUG
             print("[MacCommandCenterVM] Health summary load failed: \(error)")
+            #endif
+        }
+    }
+
+    private func loadTradingSummary() async {
+        do {
+            tradingSummary = try await APIClient.shared.getTradingSummary()
+        } catch {
+            failedSections.insert("trading")
+            #if DEBUG
+            print("[MacCommandCenterVM] Trading summary load failed: \(error)")
             #endif
         }
     }

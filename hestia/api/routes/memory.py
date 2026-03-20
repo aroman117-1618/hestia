@@ -527,6 +527,56 @@ async def set_memory_sensitivity(
         )
 
 
+@router.get(
+    "/chunks/{chunk_id}",
+    responses={
+        404: {"model": ErrorResponse, "description": "Chunk not found"},
+        500: {"model": ErrorResponse, "description": "Internal server error"},
+    },
+    summary="Get a single memory chunk",
+    description="Retrieve a memory chunk by ID.",
+)
+async def get_memory_chunk(
+    chunk_id: str,
+    device_id: str = Depends(get_device_token),
+):
+    """Fetch a single memory chunk by ID."""
+    try:
+        memory = await get_memory_manager()
+        chunk = await memory.database.get_chunk(chunk_id)
+
+        if chunk is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": "chunk_not_found", "message": f"Chunk '{chunk_id}' not found."},
+            )
+
+        return {
+            "id": chunk.id,
+            "content": chunk.content[:200],
+            "chunk_type": chunk.chunk_type.value,
+            "importance": chunk.metadata.confidence,
+            "status": chunk.status.value,
+            "source": chunk.metadata.source,
+            "topics": chunk.tags.topics,
+            "entities": chunk.tags.entities,
+            "created_at": chunk.timestamp.isoformat(),
+            "updated_at": None,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            f"Failed to get memory chunk: {sanitize_for_log(e)}",
+            component=LogComponent.API,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": "internal_error", "message": "Failed to get memory chunk."},
+        )
+
+
 @router.put(
     "/chunks/{chunk_id}",
     response_model=MemoryChunkUpdateResponse,

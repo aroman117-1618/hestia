@@ -3,6 +3,7 @@ import HestiaShared
 
 struct OrdersPanel: View {
     let orders: [OrderResponse]
+    var onViewAll: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: MacSpacing.lg) {
@@ -16,7 +17,7 @@ struct OrdersPanel: View {
                     .foregroundStyle(MacColors.textPrimary)
                 Spacer()
                 Button {
-                    // View all
+                    onViewAll?()
                 } label: {
                     HStack(spacing: MacSpacing.xs) {
                         Text("View all")
@@ -76,13 +77,13 @@ struct OrdersPanel: View {
                 Image(systemName: order.status == .active ? "clock" : "checkmark.circle")
                     .font(.system(size: 12))
                     .foregroundStyle(MacColors.textSecondary)
-                Text(order.status == .active ? "Started 45 min ago" : "Finished yesterday")
+                Text(orderTimestamp(order))
                     .font(MacTypography.caption)
                     .foregroundStyle(MacColors.textSecondary)
             }
 
-            // Progress bar for running orders
-            if order.status == .active {
+            // Progress bar for running orders — based on time elapsed toward next execution
+            if order.status == .active, let progress = orderProgress(order) {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 2)
@@ -90,7 +91,7 @@ struct OrdersPanel: View {
                             .frame(height: MacSize.orderProgressHeight)
                         RoundedRectangle(cornerRadius: 2)
                             .fill(MacColors.amberAccent)
-                            .frame(width: geo.size.width * 0.64, height: MacSize.orderProgressHeight)
+                            .frame(width: geo.size.width * progress, height: MacSize.orderProgressHeight)
                     }
                 }
                 .frame(height: MacSize.orderProgressHeight)
@@ -99,6 +100,27 @@ struct OrdersPanel: View {
         .padding(MacSpacing.md)
         .background(MacColors.searchInputBackground)
         .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
+    }
+
+    /// Show relative timestamp from real order data
+    private func orderTimestamp(_ order: OrderResponse) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        if order.status == .active {
+            return "Started \(formatter.localizedString(for: order.createdAt, relativeTo: Date()))"
+        } else if let lastExec = order.lastExecution {
+            return "Ran \(formatter.localizedString(for: lastExec.timestamp, relativeTo: Date()))"
+        }
+        return "Updated \(formatter.localizedString(for: order.updatedAt, relativeTo: Date()))"
+    }
+
+    /// Compute progress as fraction of time elapsed between createdAt and nextExecution
+    private func orderProgress(_ order: OrderResponse) -> Double? {
+        guard let next = order.nextExecution else { return nil }
+        let total = next.timeIntervalSince(order.createdAt)
+        guard total > 0 else { return nil }
+        let elapsed = Date().timeIntervalSince(order.createdAt)
+        return min(max(elapsed / total, 0.05), 0.95) // Clamp to 5-95% for visual clarity
     }
 
     private func orderStatusBadge(_ status: APIOrderStatus) -> some View {

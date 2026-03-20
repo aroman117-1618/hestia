@@ -49,6 +49,14 @@ struct ActivityFeedView: View {
             }
         }
         .background(MacColors.windowBackground)
+        .onReceive(NotificationCenter.default.publisher(for: .activityTabSwitch)) { notification in
+            if let rawValue = notification.userInfo?["tab"] as? String,
+               let tab = ActivityFeedTab(rawValue: rawValue) {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    selectedTab = tab
+                }
+            }
+        }
     }
 
     // MARK: - Tab Bar

@@ -114,7 +114,7 @@ struct CalendarWeekStrip: View {
             legendItem("Insight", color: MacColors.amberAccent)
             legendItem("News", color: MacColors.amberBright)
             legendItem("Order", color: MacColors.healthGreen)
-            legendItem("Event", color: Color(hex: "026DFF"))
+            legendItem("Event", color: MacColors.blueAccent)
             legendItem("Task", color: MacColors.textSecondary)
         }
     }

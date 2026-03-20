@@ -11,6 +11,7 @@ class MainSplitViewController: NSSplitViewController {
     private let appState = AppState()
     private let errorState = ErrorState()
     private let commandPaletteState = CommandPaletteState()
+    private let networkMonitor = NetworkMonitor()
     private let authService = AuthService()
     private var registrationObserver: NSObjectProtocol?
     private nonisolated(unsafe) var chatToggleObserver: NSObjectProtocol?
@@ -49,6 +50,7 @@ class MainSplitViewController: NSSplitViewController {
             .environment(errorState)
             .environment(commandPaletteState)
             .environmentObject(appState)
+            .environmentObject(networkMonitor)
         let mainHost = NSHostingController(rootView: rootView)
         mainItem = NSSplitViewItem(contentListWithViewController: mainHost)
         mainItem.minimumThickness = 600
@@ -57,6 +59,7 @@ class MainSplitViewController: NSSplitViewController {
         let chatView = MacChatPanelView()
             .environment(workspaceState)
             .environmentObject(appState)
+            .environmentObject(networkMonitor)
         let chatHost = NSHostingController(rootView: chatView)
         chatItem = NSSplitViewItem(contentListWithViewController: chatHost)
         chatItem.minimumThickness = 340

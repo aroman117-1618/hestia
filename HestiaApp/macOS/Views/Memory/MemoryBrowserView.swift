@@ -3,7 +3,16 @@ import HestiaShared
 
 struct MemoryBrowserView: View {
     @StateObject private var viewModel = MacMemoryBrowserViewModel()
+    @Binding var highlightChunkId: String?
     var onChunkEdited: (() -> Void)? = nil
+
+    init(
+        highlightChunkId: Binding<String?> = .constant(nil),
+        onChunkEdited: (() -> Void)? = nil
+    ) {
+        self._highlightChunkId = highlightChunkId
+        self.onChunkEdited = onChunkEdited
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -34,6 +43,9 @@ struct MemoryBrowserView: View {
         }
         .background(MacColors.windowBackground)
         .task {
+            if let chunkId = highlightChunkId {
+                await viewModel.fetchPinnedChunk(id: chunkId)
+            }
             await viewModel.loadChunks()
         }
     }
@@ -155,6 +167,44 @@ struct MemoryBrowserView: View {
     private var chunkList: some View {
         ScrollView {
             LazyVStack(spacing: MacSpacing.sm) {
+                // Pinned chunk from graph navigation (shown above paginated list)
+                if let pinned = viewModel.pinnedChunk {
+                    VStack(alignment: .leading, spacing: MacSpacing.xs) {
+                        HStack(spacing: MacSpacing.xs) {
+                            Image(systemName: "pin.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(MacColors.amberAccent)
+                            Text("From Graph")
+                                .font(MacTypography.captionMedium)
+                                .foregroundStyle(MacColors.amberAccent)
+                            Spacer()
+                            Button {
+                                withAnimation(.easeOut(duration: 0.2)) {
+                                    viewModel.pinnedChunk = nil
+                                    highlightChunkId = nil
+                                }
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(MacColors.textFaint)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, MacSpacing.md)
+                        .padding(.top, MacSpacing.sm)
+
+                        MemoryChunkRow(chunk: pinned, viewModel: viewModel, onChunkEdited: onChunkEdited)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: MacCornerRadius.search)
+                                    .strokeBorder(MacColors.amberAccent, lineWidth: 2)
+                            )
+                    }
+
+                    Divider()
+                        .overlay(MacColors.divider)
+                        .padding(.vertical, MacSpacing.xs)
+                }
+
                 ForEach(viewModel.chunks) { chunk in
                     MemoryChunkRow(chunk: chunk, viewModel: viewModel, onChunkEdited: onChunkEdited)
                 }

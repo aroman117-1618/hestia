@@ -60,7 +60,10 @@ struct AgentDetailSheet: View {
             editColor1 = agent.identity.gradientColor1
             editColor2 = agent.identity.gradientColor2
             editTemperature = agent.identity.temperature
-            Task { await vm.loadAgentPhoto(for: agent) }
+            Task {
+                await vm.loadAgentPhoto(for: agent)
+                await vm.loadPersonality(for: agent)
+            }
         }
     }
 

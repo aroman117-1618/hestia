@@ -8,6 +8,7 @@ struct ResearchView: View {
     @State private var selectedTimeRange: TimeRange = .thirtyDays
     @State private var searchText: String = ""
     @State private var graphNeedsRefresh = false
+    @State private var highlightChunkId: String?
     // activeFilters derived from graphViewModel.activeDataSources
     @State private var hoveredNode: MacNeuralNetViewModel.GraphNode?
     @StateObject private var graphViewModel = MacNeuralNetViewModel()
@@ -33,8 +34,11 @@ struct ResearchView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 case .memory:
-                    MemoryBrowserView(onChunkEdited: { graphNeedsRefresh = true })
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    MemoryBrowserView(
+                        highlightChunkId: $highlightChunkId,
+                        onChunkEdited: { graphNeedsRefresh = true }
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
         }
@@ -130,6 +134,13 @@ struct ResearchView: View {
                         onSelectNode: { node in
                             withAnimation(.easeInOut(duration: 0.15)) {
                                 graphViewModel.selectedNode = node
+                            }
+                        },
+                        onReviewMemory: { chunkId in
+                            highlightChunkId = chunkId
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                graphViewModel.selectedNode = nil
+                                selectedMode = .memory
                             }
                         }
                     )

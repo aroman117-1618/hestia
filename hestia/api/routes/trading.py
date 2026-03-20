@@ -27,6 +27,7 @@ from hestia.api.schemas.trading import (
     TradeFeedbackRequest,
     TradeListResponse,
     TradeTrailResponse,
+    TradingSummaryResponse,
     UpdateBotRequest,
     WatchlistItemRequest,
     WatchlistItemResponse,
@@ -568,6 +569,43 @@ async def get_portfolio(
             data={"error": sanitize_for_log(e)},
         )
         raise HTTPException(status_code=500, detail="Failed to get portfolio")
+
+
+# ── Dashboard Summary (Sprint 31) ─────────────────────────────
+
+@router.get(
+    "/summary",
+    response_model=TradingSummaryResponse,
+    summary="Get trading summary for dashboard",
+)
+async def get_trading_summary(
+    device_id: str = Depends(get_device_token),
+):
+    """Lightweight summary for Command Center progress rings."""
+    try:
+        manager = await get_trading_manager()
+        bots = await manager.list_bots()
+        active_bots = sum(1 for b in bots if b.status == "running")
+
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        summary = await manager.get_daily_summary(today)
+
+        risk_status = manager.get_risk_status()
+
+        return TradingSummaryResponse(
+            active_bots=active_bots,
+            total_pnl=summary["total_pnl"] if summary else 0.0,
+            win_rate=summary["win_rate"] if summary else 0.0,
+            total_trades=summary["total_trades"] if summary else 0,
+            kill_switch_active=risk_status.get("kill_switch", {}).get("active", False),
+        )
+    except Exception as e:
+        logger.error(
+            "Failed to get trading summary",
+            component=LogComponent.TRADING,
+            data={"error": sanitize_for_log(e)},
+        )
+        raise HTTPException(status_code=500, detail="Failed to get trading summary")
 
 
 # ── Decision Trail & Feedback (Sprint 26) ────────────────────

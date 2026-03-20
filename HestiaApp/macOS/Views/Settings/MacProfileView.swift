@@ -142,6 +142,34 @@ struct MacProfileView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("Save profile changes")
+
+                    if vm.canSyncFromApple {
+                        Button {
+                            Task { await vm.syncFromApple() }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "person.crop.circle.badge.checkmark")
+                                    .font(.system(size: 12))
+                                Text("Sync from Apple")
+                                    .font(MacTypography.caption)
+                            }
+                            .foregroundStyle(MacColors.textSecondary)
+                            .padding(.horizontal, MacSpacing.md)
+                            .padding(.vertical, MacSpacing.xs)
+                            .background(MacColors.searchInputBackground)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                        }
+                        .buttonStyle(.plain)
+                        .help("Import name and photo from your Contacts Me card")
+                        .accessibilityLabel("Sync profile from Apple Contacts")
+                    }
+
+                    if vm.appleSyncSuccess {
+                        Text("Synced from Apple")
+                            .font(MacTypography.caption)
+                            .foregroundStyle(MacColors.healthGreen)
+                            .transition(.opacity)
+                    }
                 }
             }
 

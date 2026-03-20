@@ -117,6 +117,16 @@ enum MacColors {
     static let animationNormal: Double = 0.25
     static let animationSlow: Double = 0.4
 
+    // MARK: - Sprint 31 Accent Tokens
+    static let cyanAccent = Color(hex: "00D7FF")
+    static let healthLime = Color(hex: "00FFB2")
+    static let calorieRed = Color(hex: "FF6467")
+    static let heartRed = Color(hex: "FF6467")
+    static let sleepPurple = Color(hex: "8B5CF6")
+    static let editorBackground = Color(hex: "1E1E1E")
+    static let editorBackgroundAlt = Color(hex: "1A1A1A")
+    static let blueAccent = Color(hex: "026DFF")
+
     // MARK: - Mode Accents
     static func accentColor(for mode: HestiaMode) -> Color {
         switch mode {

@@ -6,6 +6,7 @@ extension Notification.Name {
     static let workspaceViewSwitch = Notification.Name("workspaceViewSwitch")
     static let hestiaChatPanelToggle = Notification.Name("hestia.chatPanel.toggle")
     static let hestiaCommandPaletteToggle = Notification.Name("hestia.commandPalette.toggle")
+    static let activityTabSwitch = Notification.Name("hestia.activityTab.switch")
 }
 
 // MARK: - Header Chat Toggle (compact button in chat panel header)

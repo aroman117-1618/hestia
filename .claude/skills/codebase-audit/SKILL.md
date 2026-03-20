@@ -112,6 +112,19 @@ Product quality and usability assessment:
 - Any half-built features lingering?
 - Are all three modes (Tia/Mira/Olly) fully functional?
 
+### UI Wiring Health (4-Layer Audit)
+Run the 4-layer parallel audit methodology (see `docs/discoveries/ui-wiring-audit-methodology-2026-03-19.md`):
+
+**Layer 1 — Hardcoded Values:** `grep` for string literals in View files that look like real data (timestamps, counts, status messages). `grep` for numeric constants in Views that aren't spacing/sizing. `grep` for `Color(hex:)` literals outside DesignSystem files. Verify each in context.
+
+**Layer 2 — Component Cross-Reference:** List all `Shared/` components. Check which are used by macOS (or iOS). Compare completeness of duplicates. Flag "built but not connected" — e.g., a Shared `OrderInlineForm` that exists but the macOS `OrdersPanel` doesn't use.
+
+**Layer 3 — Error & Offline Behavior:** Read all ViewModel `catch` blocks — are errors surfaced or silently swallowed? Check if `errorMessage`/`isLoading` are displayed in Views. Check for `NetworkMonitor` usage. Trace the "server is down" path end-to-end. **Key anti-pattern:** "It calls an API" ≠ "It's wired" — verify the response is actually DISPLAYED, not just fetched.
+
+**Layer 4 — Backend Endpoint Gaps:** List all backend endpoints. List all client-side API calls. Cross-reference for uncalled endpoints relevant to the platform. Flag entire subsystems that are hidden from the UI.
+
+**CRITICAL:** Do NOT trust surface-level "yes it calls the API" checks. Verify with direct file reads. Empty closures (`Button { }`) compile and render but do nothing. Hardcoded fake data displays beautifully. Always spot-check at least 30% of claimed "wired" features.
+
 ### Documentation Quality
 - CLAUDE.md: accurate? comprehensive? up to date?
 - Decision log: recent decisions recorded?

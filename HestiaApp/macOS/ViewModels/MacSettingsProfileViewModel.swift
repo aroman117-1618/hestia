@@ -31,7 +31,10 @@ class MacSettingsProfileViewModel: ObservableObject {
     @Published var isSaving: Bool = false
     @Published var errorMessage: String?
     @Published var fileManifest: [String: Bool] = [:]
+    @Published var canSyncFromApple: Bool = false
+    @Published var appleSyncSuccess: Bool = false
 
+    private var appleIdentity: AppleIdentityProvider.UserIdentity?
     private var saveTask: Task<Void, Never>?
 
     static let profileFiles: [(key: String, label: String, icon: String)] = [
@@ -80,6 +83,9 @@ class MacSettingsProfileViewModel: ObservableObject {
 
         // Load photo
         await loadPhoto()
+
+        // Check if Apple identity has data we can sync
+        await checkAppleIdentity()
     }
 
     private func applyProfile(_ response: UserProfileResponse) {
@@ -189,6 +195,49 @@ class MacSettingsProfileViewModel: ObservableObject {
             #endif
             errorMessage = "Failed to save file"
             return false
+        }
+    }
+
+    // MARK: - Apple Identity Sync
+
+    /// Check if the Apple "Me" card has data we can use.
+    /// Called after profile loads to determine button visibility.
+    func checkAppleIdentity() async {
+        let identity = await AppleIdentityProvider.fetchIdentity()
+        appleIdentity = identity
+
+        let nameIsEmpty = name.trimmingCharacters(in: .whitespaces).isEmpty
+        let appleHasName = identity.fullName != nil
+        let appleHasPhoto = identity.photo != nil
+        let profileMissingPhoto = !hasPhoto
+
+        canSyncFromApple = (nameIsEmpty && appleHasName) || (appleHasPhoto && profileMissingPhoto)
+    }
+
+    /// Sync name and/or photo from the Apple "Me" card into the profile.
+    func syncFromApple() async {
+        guard let identity = appleIdentity else { return }
+
+        let nameIsEmpty = name.trimmingCharacters(in: .whitespaces).isEmpty
+
+        // Auto-populate name if profile has none
+        if nameIsEmpty, let appleName = identity.fullName {
+            name = appleName
+            await saveProfile()
+        }
+
+        // Upload photo if profile has none
+        if !hasPhoto, let photoData = identity.photo {
+            await uploadPhoto(photoData)
+        }
+
+        appleSyncSuccess = true
+        canSyncFromApple = false
+
+        // Dismiss toast after 2 seconds
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            appleSyncSuccess = false
         }
     }
 }

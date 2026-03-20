@@ -16,13 +16,6 @@ struct MacWikiSidebarView: View {
 
             articleList
 
-            MacColors.divider.frame(height: 1)
-                .padding(.horizontal, MacSpacing.md)
-
-            pinnedRoadmapRow
-                .padding(.horizontal, MacSpacing.sm)
-                .padding(.vertical, MacSpacing.sm)
-
             if viewModel.lastUpdatedText != nil {
                 cacheTimestampFooter
             }

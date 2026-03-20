@@ -34,7 +34,10 @@ struct WorkspaceRootView: View {
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                        // Global error banner overlay
+                        // Offline banner (persistent while disconnected)
+                        OfflineBanner()
+
+                        // Global error banner overlay (transient, auto-dismisses)
                         GlobalErrorBanner()
                     }
                     .overlay(alignment: .topTrailing) {

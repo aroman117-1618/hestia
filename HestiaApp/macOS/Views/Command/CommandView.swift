@@ -4,6 +4,7 @@ import HestiaShared
 struct CommandView: View {
     @StateObject private var viewModel = MacCommandCenterViewModel()
     @EnvironmentObject var appState: AppState
+    @Environment(ErrorState.self) private var errorState
     @Environment(\.layoutMode) private var layoutMode
 
     var body: some View {
@@ -24,6 +25,7 @@ struct CommandView: View {
         }
         .background(MacColors.windowBackground)
         .task {
+            viewModel.configure(errorState: errorState)
             await viewModel.loadAllData()
         }
     }

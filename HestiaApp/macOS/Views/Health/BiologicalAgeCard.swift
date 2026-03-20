@@ -91,7 +91,7 @@ struct ActivityCard: View {
                 Circle()
                     .trim(from: 0, to: viewModel.exerciseProgress)
                     .stroke(
-                        LinearGradient(colors: [MacColors.healthGreen, Color(hex: "00FFB2")], startPoint: .leading, endPoint: .trailing),
+                        LinearGradient(colors: [MacColors.healthGreen, MacColors.healthLime], startPoint: .leading, endPoint: .trailing),
                         style: StrokeStyle(lineWidth: 10, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
@@ -138,7 +138,7 @@ struct ActivityCard: View {
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: "flame.fill")
                     .font(.system(size: 12))
-                    .foregroundStyle(Color(hex: "FF6467"))
+                    .foregroundStyle(MacColors.calorieRed)
                 Text("\(viewModel.calories)")
                     .font(MacTypography.smallBody)
                     .foregroundStyle(.white)

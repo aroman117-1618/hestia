@@ -19,6 +19,10 @@ extension APIClient {
         return try await get(path)
     }
 
+    func getChunk(_ id: String) async throws -> MemoryChunkItem {
+        return try await get("/memory/chunks/\(id)")
+    }
+
     func updateChunk(_ id: String, request: MemoryChunkUpdateRequest) async throws -> MemoryChunkItem {
         return try await put("/memory/chunks/\(id)", body: request)
     }

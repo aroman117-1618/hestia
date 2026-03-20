@@ -30,7 +30,7 @@ struct MarkdownEditorView: View {
                 )
             }
         }
-        .background(Color(hex: "1E1E1E"))
+        .background(MacColors.editorBackground)
         .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.treeItem))
         .overlay(
             RoundedRectangle(cornerRadius: MacCornerRadius.treeItem)
@@ -78,7 +78,7 @@ struct MarkdownEditorView: View {
         }
         .padding(.horizontal, MacSpacing.md)
         .padding(.vertical, MacSpacing.sm)
-        .background(Color(hex: "1A1A1A"))
+        .background(MacColors.editorBackgroundAlt)
     }
 
     // MARK: - Preview

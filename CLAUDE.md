@@ -27,6 +27,7 @@
 ### Phase 4: Review
 - Run **@hestia-reviewer** (Sonnet) on all changed files — REQUIRED for any change touching >5 files
 - Not optional when velocity is high — that's exactly when regressions hide
+- **For UI sprints:** Run **@hestia-ui-auditor** (Sonnet) + capture visual validation screenshots of every affected screen. See `docs/discoveries/ui-wiring-audit-methodology-2026-03-19.md`
 - Update affected docs (this file, `docs/api-contract.md`, `docs/hestia-decision-log.md`)
 - **Mark the sprint item "Done" on the GitHub Project board** (`scripts/roadmap-sync.sh status <id> done`)
 - If new work was identified during the session, **create issues** via `scripts/roadmap-sync.sh issue` (see "Add to Roadmap" workflow below)
@@ -43,6 +44,7 @@
 | @hestia-simplifier | Sonnet | Post-Phase 3: Find dead code, over-abstraction, unnecessary complexity |
 | @hestia-preflight-checker | Haiku | Fast environment health dashboard (server, git, processes, Ollama) |
 | @hestia-critic | Sonnet | Strategic adversarial critique of architectural decisions and features |
+| @hestia-ui-auditor | Sonnet | Phase 4: 4-layer UI wiring audit (hardcoded values, component cross-ref, error handling, endpoint gaps) |
 | @hestia-deployer | Sonnet | Deploy to Mac Mini when requested |
 
 Definitions: `.claude/agents/`. Read-only specialists — diagnose and report, never modify code.
@@ -55,6 +57,8 @@ Definitions: `.claude/agents/`. Read-only specialists — diagnose and report, n
 | `scripts/auto-test.sh` | After Python source edits | Runs matching test file automatically |
 | `scripts/roadmap-sync.sh` | Manual / Phase 2+3+4 | Full roadmap sync: issues, labels, dates, board |
 | `scripts/sync-board-from-sprint.sh` | Phase 4 / /handoff | Reconcile board state from SPRINT.md (dry run by default, `--apply` to execute) |
+| `scripts/audit-hardcoded.sh` | Phase 4 (UI sprints) | Layer 1: Find hardcoded values, empty closures, color literals in Views |
+| `scripts/audit-endpoint-gaps.sh` | Phase 4 (UI sprints) | Layer 4: Cross-reference backend endpoints against client API calls |
 
 ### GitHub Project Board & Roadmap Sync
 Hestia roadmap lives at **GitHub Project #1** (`aroman117-1618/hestia`, Projects tab). **Use `scripts/roadmap-sync.sh` for ALL project board operations**.

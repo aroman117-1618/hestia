@@ -101,6 +101,16 @@ struct TradingKillSwitchResponse: Codable {
     let reason: String?
 }
 
+// MARK: - Dashboard Summary (Sprint 31)
+
+struct TradingSummary: Codable {
+    let activeBots: Int
+    let totalPnl: Double
+    let winRate: Double
+    let totalTrades: Int
+    let killSwitchActive: Bool
+}
+
 // MARK: - Decision Feed
 
 struct DecisionFeedEntry: Identifiable {

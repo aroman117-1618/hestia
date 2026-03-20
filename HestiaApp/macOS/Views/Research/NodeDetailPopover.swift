@@ -10,6 +10,7 @@ struct NodeDetailPopover: View {
     @ObservedObject var viewModel: MacNeuralNetViewModel
     let onClose: () -> Void
     let onSelectNode: (MacNeuralNetViewModel.GraphNode) -> Void
+    var onReviewMemory: ((String) -> Void)? = nil
 
     var body: some View {
         ScrollView {
@@ -333,10 +334,12 @@ struct NodeDetailPopover: View {
                 .buttonStyle(.plain)
             }
 
-            // Investigate button (all node types)
-            Button {} label: {
+            // Review in Memory Browser button (all node types)
+            Button {
+                onReviewMemory?(node.id)
+            } label: {
                 HStack {
-                    Text("Investigate in Explorer")
+                    Text("Review Memory")
                     Spacer()
                     Image(systemName: "arrow.right")
                         .font(.system(size: 11))
