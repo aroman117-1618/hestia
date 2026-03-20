@@ -152,6 +152,71 @@ class ImportPipeline:
         return result
 
     @staticmethod
+    def dry_run_openai(
+        export_path: str,
+        output_path: str,
+        exclude_hestia: bool = True,
+        exclude_keywords: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Parse ChatGPT export and output proposed chunks for review.
+
+        Does NOT store anything in the memory system. Outputs a JSON
+        file with proposed chunks, projected importance scores, and
+        summary statistics for human review.
+
+        Args:
+            export_path: Path to conversations JSON file (or directory with
+                         conversations-NNN.json files).
+            output_path: Path to write the review JSON file.
+            exclude_hestia: Skip Hestia-related conversations.
+            exclude_keywords: Custom exclusion keywords (overrides default).
+
+        Returns:
+            Summary dict with counts and stats.
+        """
+        from hestia.memory.importers.openai import OpenAIHistoryParser
+        from hestia.memory.importers.review import DryRunReview
+
+        export = Path(export_path)
+
+        # Load conversations — single file or directory with numbered files
+        all_conversations: List[Dict[str, Any]] = []
+        if export.is_dir():
+            for f in sorted(export.glob("conversations*.json")):
+                with open(f, "r", encoding="utf-8") as fh:
+                    data = json.load(fh)
+                    if isinstance(data, list):
+                        all_conversations.extend(data)
+        else:
+            with open(export, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+                if isinstance(data, list):
+                    all_conversations = data
+
+        # Parse with exclusion filter
+        parser = OpenAIHistoryParser(
+            exclude_keywords=exclude_keywords,
+        )
+        chunks = parser.parse_export(
+            all_conversations, exclude_hestia=exclude_hestia,
+        )
+
+        # Build review and write
+        review = DryRunReview.from_chunks(chunks, all_conversations)
+        review.write_json(output_path)
+
+        logger.info(
+            "Dry run complete: %d chunks from %d conversations → %s",
+            len(chunks), len(all_conversations), output_path,
+        )
+
+        return {
+            "total_chunks": len(review.entries),
+            "conversations_processed": len(all_conversations),
+            "output_path": output_path,
+        }
+
+    @staticmethod
     def _load_json(path: str) -> Any:
         """Load a JSON file from disk."""
         with open(path, "r", encoding="utf-8") as f:
