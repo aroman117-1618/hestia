@@ -198,10 +198,10 @@ async def start_bot(
         if bot is None:
             raise HTTPException(status_code=404, detail="Bot not found")
 
-        # Launch the BotRunner via orchestrator
-        from hestia.trading.orchestrator import get_bot_orchestrator
-        orchestrator = await get_bot_orchestrator()
-        await orchestrator.start_runner(bot)
+        # Enqueue start command for the bot service (separate process)
+        from hestia.trading.database import get_trading_database
+        db = await get_trading_database()
+        await db.enqueue_bot_command(bot_id, "start")
 
         return BotResponse(**bot.to_dict())
     except HTTPException:
@@ -230,10 +230,10 @@ async def stop_bot(
         if bot is None:
             raise HTTPException(status_code=404, detail="Bot not found")
 
-        # Stop the BotRunner via orchestrator
-        from hestia.trading.orchestrator import get_bot_orchestrator
-        orchestrator = await get_bot_orchestrator()
-        await orchestrator.stop_runner(bot_id)
+        # Enqueue stop command for the bot service (separate process)
+        from hestia.trading.database import get_trading_database
+        db = await get_trading_database()
+        await db.enqueue_bot_command(bot_id, "stop")
 
         return BotResponse(**bot.to_dict())
     except HTTPException:

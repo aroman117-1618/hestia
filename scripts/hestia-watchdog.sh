@@ -4,9 +4,10 @@
 #
 # Primary check: /v1/ready (proves full manager stack is initialized).
 # Secondary check: /v1/health (reports degraded components).
-# After 3 consecutive readiness failures, force-restarts via launchctl.
+# After 2 consecutive readiness failures, force-restarts via launchctl.
 #
-# Designed to run as a launchd StartInterval job (every 5 min).
+# Designed to run as a launchd StartInterval job (every 60s).
+# Max silent downtime: 2 failures × 60s = 2 minutes.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
@@ -15,10 +16,17 @@ STATE_FILE="${PROJECT_ROOT}/logs/.watchdog-failures"
 
 mkdir -p "$(dirname "$LOG_FILE")"
 
-MAX_FAILURES=3
+MAX_FAILURES=2
 READY_URL="https://localhost:8443/v1/ready"
 HEALTH_URL="https://localhost:8443/v1/health"
 SERVICE_LABEL="com.hestia.server"
+
+# External monitoring — ping Healthchecks.io on success (dead man's switch)
+# Set this to your check UUID after creating at https://healthchecks.io
+HC_PING_URL="${HESTIA_HC_PING_URL:-}"
+
+# Push notifications via ntfy.sh on restart events
+NTFY_TOPIC="${HESTIA_NTFY_TOPIC:-}"
 
 log() {
     echo "$(date -u +"%Y-%m-%dT%H:%M:%SZ") | $1" >> "$LOG_FILE"
@@ -43,6 +51,11 @@ if echo "$READY_OUTPUT" | grep -q '"ready": true'; then
         log "RECOVERED | Ready check succeeded after ${FAILURES} failure(s)"
     fi
     echo "0" > "$STATE_FILE"
+
+    # Ping Healthchecks.io — dead man's switch (alert if pings stop)
+    if [[ -n "$HC_PING_URL" ]]; then
+        curl -fsS --retry 3 --max-time 5 "$HC_PING_URL" > /dev/null 2>&1 || true
+    fi
 
     # Optional: check /v1/health for degraded status
     HEALTH_OUTPUT=$(curl -sk --max-time 15 "$HEALTH_URL" 2>/dev/null)
@@ -71,5 +84,20 @@ else
 
         # Reset counter after restart attempt
         echo "0" > "$STATE_FILE"
+
+        # Push notification via ntfy.sh
+        if [[ -n "$NTFY_TOPIC" ]]; then
+            curl -fsS --max-time 5 \
+                -H "Title: Hestia Server Restarted" \
+                -H "Priority: high" \
+                -H "Tags: warning" \
+                -d "Watchdog restarted server after ${MAX_FAILURES} consecutive health check failures" \
+                "https://ntfy.sh/${NTFY_TOPIC}" > /dev/null 2>&1 || true
+        fi
+
+        # Ping Healthchecks.io with failure signal
+        if [[ -n "$HC_PING_URL" ]]; then
+            curl -fsS --retry 3 --max-time 5 "${HC_PING_URL}/fail" > /dev/null 2>&1 || true
+        fi
     fi
 fi

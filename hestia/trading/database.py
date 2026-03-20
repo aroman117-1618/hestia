@@ -163,6 +163,18 @@ class TradingDatabase(BaseDatabase):
                 user_id TEXT NOT NULL DEFAULT 'user-default'
             );
             CREATE INDEX IF NOT EXISTS idx_watchlist_user_id ON watchlist(user_id);
+
+            -- Bot command queue (IPC between API server and bot service)
+            CREATE TABLE IF NOT EXISTS bot_commands (
+                id TEXT PRIMARY KEY,
+                bot_id TEXT NOT NULL,
+                command TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                processed_at TEXT,
+                result TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_bot_commands_pending
+                ON bot_commands(processed_at) WHERE processed_at IS NULL;
         """)
 
         # Sprint 26: decision trail + confidence score columns (migration)
@@ -690,6 +702,48 @@ class TradingDatabase(BaseDatabase):
         d["positions"] = json.loads(d.get("positions", "{}"))
         d["strategy_attribution"] = json.loads(d.get("strategy_attribution", "{}"))
         return d
+
+
+    # ── Bot Command Queue ────────────────────────────────────────
+
+    async def enqueue_bot_command(self, bot_id: str, command: str) -> str:
+        """Insert a command for the bot service to process."""
+        import uuid
+        cmd_id = str(uuid.uuid4())
+        now = datetime.now(timezone.utc).isoformat()
+        await self.connection.execute(
+            "INSERT INTO bot_commands (id, bot_id, command, created_at) VALUES (?, ?, ?, ?)",
+            (cmd_id, bot_id, command, now),
+        )
+        await self.connection.commit()
+        return cmd_id
+
+    async def get_pending_commands(self) -> List[Dict[str, Any]]:
+        """Fetch all unprocessed bot commands."""
+        cursor = await self.connection.execute(
+            "SELECT id, bot_id, command, created_at FROM bot_commands WHERE processed_at IS NULL ORDER BY created_at",
+        )
+        rows = await cursor.fetchall()
+        return [dict(r) for r in rows]
+
+    async def mark_command_processed(self, cmd_id: str, result: str = "ok") -> None:
+        """Mark a command as processed."""
+        now = datetime.now(timezone.utc).isoformat()
+        await self.connection.execute(
+            "UPDATE bot_commands SET processed_at = ?, result = ? WHERE id = ?",
+            (now, result, cmd_id),
+        )
+        await self.connection.commit()
+
+    async def cleanup_old_commands(self, max_age_hours: int = 24) -> None:
+        """Delete processed commands older than max_age_hours."""
+        from datetime import timedelta
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=max_age_hours)).isoformat()
+        await self.connection.execute(
+            "DELETE FROM bot_commands WHERE processed_at IS NOT NULL AND created_at < ?",
+            (cutoff,),
+        )
+        await self.connection.commit()
 
 
 async def get_trading_database(db_path: Optional[Path] = None) -> TradingDatabase:
