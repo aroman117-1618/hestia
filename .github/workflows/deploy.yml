@@ -3,125 +3,50 @@ name: Hestia Deploy
 on:
   push:
     branches: [main]
-  workflow_dispatch:  # Manual trigger via GitHub UI or CLI
+  workflow_dispatch:
 
 concurrency:
   group: deploy
-  cancel-in-progress: false  # Never cancel an in-progress deploy
+  cancel-in-progress: false
 
 jobs:
   test:
+    name: "CI Tests (Ubuntu)"
+    # No inputs by design — if adding required inputs to ci.yml,
+    # update this caller too.
     uses: ./.github/workflows/ci.yml
 
   deploy:
-    runs-on: ubuntu-latest
+    name: "Deploy to Mac Mini"
+    runs-on: [self-hosted, macos, hestia]
     needs: [test]
     if: github.ref == 'refs/heads/main'
-    timeout-minutes: 15
+    timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - name: "Checkout code"
+        uses: actions/checkout@v5
 
-      # TODO: Add Tailscale GitHub Action for CI-to-Mini tunnel (weekend task)
-      # Requires: TS_OAUTH_CLIENT_ID, TS_OAUTH_SECRET secrets
-      # See: docs/discoveries/ci-cd-comprehensive-fix-2026-03-17.md
-      #
-      # - name: Connect to Tailscale
-      #   uses: tailscale/github-action@v4
-      #   with:
-      #     oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-      #     oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-      #     tags: tag:ci
-
-      - name: Configure SSH
-        env:
-          MAC_MINI_SSH_KEY: ${{ secrets.MAC_MINI_SSH_KEY }}
-          MAC_MINI_HOST: ${{ secrets.MAC_MINI_HOST }}
+      - name: "Run deploy"
         run: |
-          mkdir -p ~/.ssh
-          echo "$MAC_MINI_SSH_KEY" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H "$MAC_MINI_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
-          cat >> ~/.ssh/config <<SSH_CONFIG
-          Host $MAC_MINI_HOST
-            StrictHostKeyChecking accept-new
-            UserKnownHostsFile ~/.ssh/known_hosts
-            ConnectTimeout 10
-          SSH_CONFIG
+          export REPO_DIR="${{ github.workspace }}"
+          ./scripts/deploy-local.sh
 
-      - name: Deploy to Mac Mini
-        env:
-          MAC_MINI_HOST: ${{ secrets.MAC_MINI_HOST }}
-          MAC_MINI_USER: andrewroman117
-        run: |
-          # Sync codebase (excluding dev artifacts and runtime data)
-          rsync -avz --delete \
-            --exclude '.venv/' \
-            --exclude '__pycache__/' \
-            --exclude '.git/' \
-            --exclude 'logs/' \
-            --exclude 'data/' \
-            --exclude '.build/' \
-            --exclude 'DerivedData/' \
-            --exclude 'node_modules/' \
-            --exclude '.env' \
-            --exclude '.DS_Store' \
-            --exclude '*.pyc' \
-            --exclude '.pytest_cache/' \
-            --exclude '.claude/worktrees/' \
-            -e ssh \
-            ./ "${MAC_MINI_USER}@${MAC_MINI_HOST}:~/hestia/"
-
-      - name: Remote setup and restart
-        env:
-          MAC_MINI_HOST: ${{ secrets.MAC_MINI_HOST }}
-          MAC_MINI_USER: andrewroman117
-        run: |
-          ssh "${MAC_MINI_USER}@${MAC_MINI_HOST}" << 'DEPLOY_SCRIPT'
-            set -e
-            cd ~/hestia
-
-            # Install dependencies
-            source .venv/bin/activate
-            pip install -r requirements.txt -q
-
-            # Run full test suite (including integration — Ollama available here)
-            # Timeout per-test: 120s. Overall pytest may hang on ChromaDB threads;
-            # the 15-minute job timeout catches that.
-            python -m pytest tests/ -v --timeout=120 || {
-              echo "::warning::Tests failed on Mac Mini — deploying anyway (test failures logged)"
-            }
-
-            # Kill stale server processes before restart
-            lsof -i :8443 | grep LISTEN | awk '{print $2}' | xargs kill -9 2>/dev/null || true
-            sleep 2
-
-            # Restart server via launchd (preferred) or nohup fallback
-            if [[ -f ~/Library/LaunchAgents/com.hestia.server.plist ]]; then
-              launchctl unload ~/Library/LaunchAgents/com.hestia.server.plist 2>/dev/null || true
-              sleep 1
-              launchctl load ~/Library/LaunchAgents/com.hestia.server.plist
-            else
-              nohup python -m hestia.api.server > /dev/null 2>&1 &
-            fi
-
-            # Readiness check with retry (server needs ~25s for full manager init)
-            for i in 1 2 3 4 5 6 7 8; do
-              sleep 5
-              if curl -sk https://localhost:8443/v1/ready | grep -q '"ready": true'; then
-                echo "Readiness check passed (attempt $i)"
-                exit 0
-              fi
-              echo "Attempt $i: not ready, retrying..."
-            done
-            echo "::error::Readiness check failed after 40 seconds"
-            exit 1
-          DEPLOY_SCRIPT
-
-      - name: Deployment summary
+      - name: "Deployment summary"
         if: success()
         run: |
-          echo "### Deployment Successful" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Commit:** $(git rev-parse --short HEAD)" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Branch:** main" >> "$GITHUB_STEP_SUMMARY"
-          echo "- **Time:** $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Deployed to Mac Mini" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Commit | \`$(git rev-parse --short HEAD)\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Branch | main |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Time | $(date -u +%Y-%m-%dT%H:%M:%SZ) |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: "Failure summary"
+        if: failure()
+        run: |
+          echo "### Deploy Failed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Check the **Run deploy** step logs for details." >> "$GITHUB_STEP_SUMMARY"
+          echo "Manual recovery: \`ssh andrewroman117@hestia-3.local 'launchctl load ~/Library/LaunchAgents/com.hestia.server.plist'\`" >> "$GITHUB_STEP_SUMMARY"

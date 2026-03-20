@@ -5,23 +5,27 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_call:  # Allow deploy.yml to call this as a reusable workflow
+  # deploy.yml calls this as a reusable workflow.
+  # No inputs by design — keep this interface stable.
+  workflow_call:
 
 jobs:
   test:
+    name: "Lint, Test & Audit"
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v4
+      - name: "Checkout code"
+        uses: actions/checkout@v5
 
-      - name: Set up Python
+      - name: "Set up Python 3.11"
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: Check lockfile freshness
+      - name: "Check lockfile freshness"
         run: |
           pip install pip-tools -q
           pip-compile requirements.in --output-file=/tmp/requirements-check.txt --no-emit-index-url --quiet 2>/dev/null
@@ -29,23 +33,16 @@ jobs:
             echo "::warning::requirements.txt is stale. Run: pip-compile requirements.in --output-file=requirements.txt --no-emit-index-url"
           fi
 
-      - name: Install dependencies
+      - name: "Install dependencies"
         run: pip install -r requirements.txt
 
-      - name: Run tests
+      - name: "Run unit tests"
         run: python -m pytest tests/ --tb=short --timeout=30 -m "not integration" -v 2>&1 | tail -100
-        # Per-test timeout of 30s. Integration tests (Ollama, Keychain)
-        # are skipped — they run on Mac Mini during deploy.
-        # CI MUST fail on test failures — no continue-on-error.
-        # Using -v + tail to see failures while keeping log manageable.
 
-      - name: Verify test collection
+      - name: "Verify test collection"
         run: python -m pytest tests/ --collect-only -q 2>&1 | tail -5
-        # Sanity check: make sure tests can at least be collected (imports work)
 
-      - name: Security audit (pip-audit)
+      - name: "Security audit (pip-audit)"
         run: |
           pip install pip-audit -q
           pip-audit --strict --desc 2>&1 || true
-        # Reports known vulnerabilities in dependencies.
-        # Visible in CI logs for review.
