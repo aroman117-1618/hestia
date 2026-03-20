@@ -116,21 +116,27 @@ class MacCommandCenterViewModel: ObservableObject {
 
     private func loadCalendarEvents() async {
         let status = EKEventStore.authorizationStatus(for: .event)
+        #if DEBUG
+        print("[Calendar] Auth status: \(status.rawValue) (0=notDetermined, 1=restricted, 2=denied, 3=authorized, 4=fullAccess)")
+        #endif
         guard status == .fullAccess || status == .authorized else {
             requestCalendarAccess()
             return
         }
 
+        // Next 7 days from start of today (not ISO week boundary)
         let calendar = Calendar.current
-        let startOfWeek = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: Date())) ?? Date()
-        let endOfWeek = calendar.date(byAdding: .day, value: 7, to: startOfWeek) ?? Date()
+        let startOfToday = calendar.startOfDay(for: Date())
+        let endDate = calendar.date(byAdding: .day, value: 7, to: startOfToday) ?? Date()
 
-        let predicate = eventStore.predicateForEvents(withStart: startOfWeek, end: endOfWeek, calendars: nil)
+        let predicate = eventStore.predicateForEvents(withStart: startOfToday, end: endDate, calendars: nil)
         let events = eventStore.events(matching: predicate)
-            .filter { !$0.isAllDay }
             .sorted { $0.startDate < $1.startDate }
 
         calendarEvents = events
+        #if DEBUG
+        print("[Calendar] Loaded \(events.count) events for next 7 days")
+        #endif
     }
 
     private func loadNewsfeed() async {

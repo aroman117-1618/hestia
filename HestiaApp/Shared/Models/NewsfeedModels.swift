@@ -121,7 +121,7 @@ struct NewsfeedItem: Codable, Identifiable {
 
 // MARK: - API Response Models
 
-struct NewsfeedTimelineResponse: Codable {
+struct NewsfeedTimelineResponse: Codable, Sendable {
     let items: [NewsfeedItem]
     let count: Int
     let unreadCount: Int

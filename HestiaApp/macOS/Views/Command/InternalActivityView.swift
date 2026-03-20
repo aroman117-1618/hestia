@@ -157,21 +157,26 @@ struct InternalActivityView: View {
     // MARK: - Helpers
 
     private func formattedSteps(_ summary: MacHealthSummaryResponse) -> String {
-        if let steps = summary.double(from: summary.activity, key: "steps") {
+        // Backend key: "stepCount" — nested: {"value": N, "samples": N}
+        // AnyCodableValue.doubleValue extracts from nested {"value": N}
+        if let steps = summary.double(from: summary.activity, key: "stepCount") {
             return "\(Int(steps))"
         }
         return "—"
     }
 
     private func formattedHeartRate(_ summary: MacHealthSummaryResponse) -> String {
-        if let hr = summary.double(from: summary.heart, key: "resting_heart_rate") {
+        // Backend key: "restingHeartRate" — nested: {"avg": N, "min": N, "max": N}
+        // AnyCodableValue.doubleValue extracts from nested {"avg": N}
+        if let hr = summary.double(from: summary.heart, key: "restingHeartRate") {
             return "\(Int(hr)) bpm"
         }
         return "—"
     }
 
     private func formattedSleep(_ summary: MacHealthSummaryResponse) -> String {
-        if let hours = summary.double(from: summary.sleep, key: "sleep_hours") {
+        // Backend key: "total_hours" — scalar float
+        if let hours = summary.double(from: summary.sleep, key: "total_hours") {
             let h = Int(hours)
             let m = Int((hours - Double(h)) * 60)
             return "\(h)h \(m)m"

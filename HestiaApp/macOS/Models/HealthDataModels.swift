@@ -4,7 +4,7 @@ import Foundation
 
 /// Mirrors the backend HealthSummaryResponse.
 /// Categories: activity, heart, sleep, body, nutrition, mindfulness.
-struct MacHealthSummaryResponse: Codable {
+struct MacHealthSummaryResponse: Codable, Sendable {
     let date: String
     let activity: [String: AnyCodableValue]
     let heart: [String: AnyCodableValue]
@@ -13,15 +13,10 @@ struct MacHealthSummaryResponse: Codable {
     let nutrition: [String: AnyCodableValue]
     let mindfulness: [String: AnyCodableValue]
 
-    /// Helper to extract a Double from a category dict
+    /// Helper to extract a Double from a category dict.
+    /// Handles scalars (1234), nested value dicts ({"value": 1234}), and nested avg dicts ({"avg": 65.0}).
     func double(from category: [String: AnyCodableValue], key: String) -> Double? {
-        guard let val = category[key] else { return nil }
-        switch val {
-        case .double(let d): return d
-        case .int(let i): return Double(i)
-        case .string(let s): return Double(s)
-        default: return nil
-        }
+        category[key]?.doubleValue
     }
 }
 
@@ -54,15 +49,20 @@ struct MacHealthTrendPoint: Codable {
 // MARK: - AnyCodableValue
 // Required for macOS target — shared definition lives in Shared/Models/APIModels.swift (iOS)
 
-enum AnyCodableValue: Codable {
+enum AnyCodableValue: Codable, Sendable {
     case string(String)
     case int(Int)
     case double(Double)
     case bool(Bool)
+    case dict([String: AnyCodableValue])
+    case array([AnyCodableValue])
     case null
 
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
+        // Try dict first (nested objects like {"value": 1234, "samples": 5})
+        if let v = try? container.decode([String: AnyCodableValue].self) { self = .dict(v); return }
+        if let v = try? container.decode([AnyCodableValue].self) { self = .array(v); return }
         if let v = try? container.decode(Bool.self) { self = .bool(v); return }
         if let v = try? container.decode(Int.self) { self = .int(v); return }
         if let v = try? container.decode(Double.self) { self = .double(v); return }
@@ -78,15 +78,23 @@ enum AnyCodableValue: Codable {
         case .int(let v): try container.encode(v)
         case .double(let v): try container.encode(v)
         case .bool(let v): try container.encode(v)
+        case .dict(let v): try container.encode(v)
+        case .array(let v): try container.encode(v)
         case .null: try container.encodeNil()
         }
     }
 
+    /// Extract a Double from this value — handles scalars and nested {"value": N} dicts
     var doubleValue: Double? {
         switch self {
         case .double(let d): return d
         case .int(let i): return Double(i)
         case .string(let s): return Double(s)
+        case .dict(let d):
+            // Handle nested {"value": N} or {"avg": N} patterns
+            if let val = d["value"]?.doubleValue { return val }
+            if let avg = d["avg"]?.doubleValue { return avg }
+            return nil
         default: return nil
         }
     }

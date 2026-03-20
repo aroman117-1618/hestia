@@ -6,16 +6,21 @@ import HestiaShared
 struct NewsFeedListView: View {
     @ObservedObject var viewModel: MacCommandCenterViewModel
 
+    /// News items filtered for External tab — excludes health insights (belong in Internal)
+    private var externalNewsItems: [NewsfeedItem] {
+        viewModel.newsfeedItems.filter { $0.source != "health" }
+    }
+
     var body: some View {
-        if viewModel.newsfeedItems.isEmpty {
+        if externalNewsItems.isEmpty {
             emptyState
         } else {
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    ForEach(viewModel.newsfeedItems) { item in
+                    ForEach(externalNewsItems) { item in
                         newsfeedRow(item)
 
-                        if item.id != viewModel.newsfeedItems.last?.id {
+                        if item.id != externalNewsItems.last?.id {
                             MacColors.divider
                                 .frame(height: 1)
                                 .padding(.leading, 52)

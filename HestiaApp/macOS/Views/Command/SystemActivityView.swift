@@ -12,6 +12,7 @@ struct SystemActivityView: View {
     }
 
     @State private var ordersTab: OrdersTab = .upcoming
+    @State private var showNewOrderSheet = false
 
     var body: some View {
         ScrollView {
@@ -45,6 +46,9 @@ struct SystemActivityView: View {
                 }
             }
             .padding(.top, MacSpacing.lg)
+        }
+        .sheet(isPresented: $showNewOrderSheet) {
+            NewOrderSheet()
         }
     }
 
@@ -86,7 +90,7 @@ struct SystemActivityView: View {
 
                 // Add Order button
                 Button {
-                    // TODO: Open order creation form
+                    showNewOrderSheet = true
                 } label: {
                     HStack(spacing: MacSpacing.xs) {
                         Image(systemName: "plus")
