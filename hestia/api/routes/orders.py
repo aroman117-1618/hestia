@@ -507,11 +507,19 @@ async def execute_order(
             },
         )
 
+        # Build message from execution result
+        if execution.status == ExecutionStatus.SUCCESS:
+            message = execution.hestia_read or "Order executed successfully"
+        elif execution.status == ExecutionStatus.FAILED:
+            message = f"Execution failed: {execution.error_message or 'Unknown error'}"
+        else:
+            message = f"Execution status: {execution.status.value}"
+
         return OrderExecuteResponse(
             order_id=order_id,
             execution_id=execution.id,
             status=ExecutionStatusEnum(execution.status.value),
-            message="Order execution started",
+            message=message,
         )
 
     except ValueError as e:
