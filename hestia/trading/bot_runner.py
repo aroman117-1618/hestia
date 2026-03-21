@@ -51,6 +51,9 @@ def _create_strategy(strategy_type: StrategyType, config: Dict[str, Any]) -> Bas
     elif strategy_type == StrategyType.SIGNAL_DCA:
         from hestia.trading.strategies.signal_dca import SignalDCAStrategy
         return SignalDCAStrategy(config)
+    elif strategy_type == StrategyType.DUAL_MOMENTUM:
+        from hestia.trading.strategies.dual_momentum import DualMomentumStrategy
+        return DualMomentumStrategy(config=config)
     else:
         raise ValueError(f"Unsupported strategy type: {strategy_type}")
 

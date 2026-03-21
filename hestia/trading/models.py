@@ -76,6 +76,7 @@ class StrategyType(str, Enum):
     MEAN_REVERSION = "mean_reversion"
     SIGNAL_DCA = "signal_dca"
     BOLLINGER_BREAKOUT = "bollinger_breakout"
+    DUAL_MOMENTUM = "dual_momentum"
 
 
 @dataclass
