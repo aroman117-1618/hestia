@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import pandas as pd
 import yaml
 
 from hestia.logging import get_logger, LogComponent
@@ -82,11 +83,32 @@ class TradingManager:
             mode = self._config.get("exchange", {}).get("mode", "paper")
             if mode == "paper":
                 paper_cfg = self._config.get("exchange", {}).get("paper", {})
+
+                # Wire Coinbase public API as market data source for paper trading
+                market_data_source = None
+                primary = self._config.get("exchange", {}).get("primary", "")
+                if primary == "coinbase":
+                    from hestia.trading.backtest.data_loader import DataLoader
+                    _loader = DataLoader()
+
+                    async def _fetch_candles(
+                        pair: str, granularity: str = "1h", days: int = 7,
+                    ) -> Optional[pd.DataFrame]:
+                        from datetime import timedelta
+                        end = datetime.now(timezone.utc)
+                        start = end - timedelta(days=days)
+                        return await _loader.fetch_from_coinbase(
+                            pair=pair, granularity=granularity, start=start, end=end,
+                        )
+
+                    market_data_source = _fetch_candles
+
                 self._exchange = PaperAdapter(
                     initial_balance_usd=paper_cfg.get("initial_balance_usd", 250.0),
                     maker_fee=paper_cfg.get("maker_fee", 0.004),
                     taker_fee=paper_cfg.get("taker_fee", 0.006),
                     slippage=paper_cfg.get("slippage", 0.001),
+                    market_data_source=market_data_source,
                 )
             else:
                 from hestia.trading.exchange.coinbase import CoinbaseAdapter
