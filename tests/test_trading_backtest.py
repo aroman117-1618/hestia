@@ -391,3 +391,190 @@ class TestTrainTestSplit:
             BacktestReport(sharpe_ratio=1.2, total_return_pct=15.0),
         )
         assert "low" in risk.lower()
+
+
+# ── Intra-Candle Exits ────────────────────────────────────────
+
+class _OnceOnlyBuyStrategy(BaseStrategy):
+    """Buys on the first signal opportunity, then holds (no sell signals)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._bought = False
+
+    @property
+    def name(self) -> str:
+        return "OnceOnlyBuy"
+
+    @property
+    def strategy_type(self) -> str:
+        return "once_only_buy"
+
+    def reset(self) -> None:
+        self._bought = False
+
+    def analyze(
+        self,
+        df: pd.DataFrame,
+        portfolio_value: float,
+        timestamp: Optional[datetime] = None,
+    ) -> Signal:
+        if self._bought or len(df) < 2:
+            return Signal()
+        price = float(df.iloc[-1]["close"])
+        qty = portfolio_value / price if price > 0 else 0.0
+        self._bought = True
+        return Signal(
+            signal_type=SignalType.BUY,
+            pair=self.pair,
+            price=price,
+            quantity=qty,
+            confidence=1.0,
+            reason="once-only buy",
+        )
+
+
+def _make_ohlcv_df(
+    prefix_price: float,
+    prefix_n: int,
+    test_rows: list,
+    suffix_n: int = 40,
+) -> pd.DataFrame:
+    """
+    Build an OHLCV DataFrame for intra-candle exit tests.
+
+    Structure:
+      - `prefix_n` flat candles at `prefix_price` (warm-up: builds indicator history,
+        lets the strategy generate exactly one BUY on the last warm-up candle)
+      - `test_rows`: list of (open, high, low, close, volume) — the candles under test
+      - `suffix_n` flat candles at `prefix_price` (pad to meet engine's 60-candle minimum)
+
+    The _OnceOnlyBuyStrategy buys on the very first signal opportunity.  With
+    lookback_shift=1 and len(window)<20 guard, that first opportunity falls at
+    candle index 20.  By making prefix_n=21 the buy occurs at index 20 (price =
+    prefix_price), and test_rows[0] is the first candle AFTER the buy where
+    intra-candle checks can trigger.
+    """
+    flat = [prefix_price, prefix_price, prefix_price, prefix_price, 1.0]
+    rows = [flat] * prefix_n
+    rows += list(test_rows)
+    rows += [flat] * suffix_n
+    df = pd.DataFrame(rows, columns=["open", "high", "low", "close", "volume"])
+    df["timestamp"] = pd.date_range("2024-01-01", periods=len(df), freq="h")
+    return df
+
+
+class TestIntraCandleExits:
+    def test_stop_loss_triggers_on_candle_low(self) -> None:
+        """Stop-loss exits at stop level when candle low breaches it."""
+        # 21 flat candles at 100 → buy at index 20 (price=100)
+        # Next candle: close=99, low=95 (5% dip) → 3% stop triggers at 97
+        # Without intra-candle check: position would be held (close=99, only 1% down)
+        test_rows = [
+            # open,  high,   low, close, volume
+            (100.0, 100.0,  95.0,  99.0, 10.0),   # low hits 3% stop (97)
+        ]
+        df = _make_ohlcv_df(prefix_price=100.0, prefix_n=21, test_rows=test_rows)
+
+        engine = BacktestEngine()
+        strategy = _OnceOnlyBuyStrategy()
+        cfg = BacktestConfig(
+            initial_capital=100.0,
+            slippage=0.0,
+            maker_fee=0.0,
+            taker_fee=0.0,
+            stop_loss_pct=0.03,
+            take_profit_pct=0.0,
+        )
+        _, trade_log = engine._simulate_trades(
+            engine._generate_signals(strategy, df, cfg), df, cfg
+        )
+
+        stop_exits = [t for t in trade_log if t.get("exit_type") == "stop_loss"]
+        assert len(stop_exits) == 1, f"Expected 1 stop-loss exit, got {len(stop_exits)}"
+        # Fill price should be at 97 (100 * 0.97), not 99 (close)
+        assert stop_exits[0]["price"] == pytest.approx(97.0, abs=0.5)
+
+    def test_take_profit_triggers_on_candle_high(self) -> None:
+        """Take-profit exits at target when candle high reaches it."""
+        # Buy at 100, next candle: close=101, high=105 (5% spike)
+        # 2.5% take-profit → should exit at 102.5
+        test_rows = [
+            (100.0, 105.0,  99.0, 101.0, 10.0),   # high hits 2.5% target (102.5)
+        ]
+        df = _make_ohlcv_df(prefix_price=100.0, prefix_n=21, test_rows=test_rows)
+
+        engine = BacktestEngine()
+        strategy = _OnceOnlyBuyStrategy()
+        cfg = BacktestConfig(
+            initial_capital=100.0,
+            slippage=0.0,
+            maker_fee=0.0,
+            taker_fee=0.0,
+            stop_loss_pct=0.0,
+            take_profit_pct=0.025,
+        )
+        _, trade_log = engine._simulate_trades(
+            engine._generate_signals(strategy, df, cfg), df, cfg
+        )
+
+        tp_exits = [t for t in trade_log if t.get("exit_type") == "take_profit"]
+        assert len(tp_exits) == 1, f"Expected 1 take-profit exit, got {len(tp_exits)}"
+        assert tp_exits[0]["price"] == pytest.approx(102.5, abs=0.5)
+
+    def test_stop_loss_before_take_profit_on_same_candle(self) -> None:
+        """If same candle triggers both, stop-loss takes priority."""
+        # Buy at 100. Candle with low=95 AND high=106:
+        # 3% stop = 97, 5% target = 105 — both breached; stop wins.
+        test_rows = [
+            (100.0, 106.0,  95.0, 100.0, 10.0),   # both stop(97) and target(105) breached
+        ]
+        df = _make_ohlcv_df(prefix_price=100.0, prefix_n=21, test_rows=test_rows)
+
+        engine = BacktestEngine()
+        strategy = _OnceOnlyBuyStrategy()
+        cfg = BacktestConfig(
+            initial_capital=100.0,
+            slippage=0.0,
+            maker_fee=0.0,
+            taker_fee=0.0,
+            stop_loss_pct=0.03,
+            take_profit_pct=0.05,
+        )
+        _, trade_log = engine._simulate_trades(
+            engine._generate_signals(strategy, df, cfg), df, cfg
+        )
+
+        exits = [t for t in trade_log if t.get("exit_type") in ("stop_loss", "take_profit")]
+        assert len(exits) == 1, f"Expected exactly 1 intra-candle exit, got {len(exits)}"
+        assert exits[0]["exit_type"] == "stop_loss", (
+            f"Stop-loss should take priority, got {exits[0]['exit_type']}"
+        )
+        assert exits[0]["price"] == pytest.approx(97.0, abs=0.5)
+
+    def test_disabled_when_pct_is_zero(self) -> None:
+        """No intra-candle exits when both pcts are 0 (default behaviour unchanged)."""
+        # Extreme candle that would trigger any active stop/target — but both disabled
+        test_rows = [
+            (100.0, 120.0,  70.0,  80.0, 10.0),   # 20% spike and 30% dip — would trigger anything
+        ]
+        df = _make_ohlcv_df(prefix_price=100.0, prefix_n=21, test_rows=test_rows)
+
+        engine = BacktestEngine()
+        strategy = _OnceOnlyBuyStrategy()
+        cfg = BacktestConfig(
+            initial_capital=100.0,
+            slippage=0.0,
+            maker_fee=0.0,
+            taker_fee=0.0,
+            stop_loss_pct=0.0,
+            take_profit_pct=0.0,
+        )
+        _, trade_log = engine._simulate_trades(
+            engine._generate_signals(strategy, df, cfg), df, cfg
+        )
+
+        intra_exits = [t for t in trade_log if t.get("exit_type") in ("stop_loss", "take_profit")]
+        assert len(intra_exits) == 0, (
+            f"Expected no intra-candle exits with pct=0, got {len(intra_exits)}"
+        )

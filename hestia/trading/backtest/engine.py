@@ -36,6 +36,8 @@ class BacktestConfig:
     slippage: float = 0.001  # 0.10%
     use_post_only: bool = True  # Maker orders by default
     lookback_shift: int = 1  # Shift signals back N candles (anti look-ahead)
+    stop_loss_pct: float = 0.0      # 0 = disabled, 0.03 = 3% stop-loss
+    take_profit_pct: float = 0.0    # 0 = disabled, 0.025 = 2.5% take-profit
 
 
 @dataclass
@@ -400,6 +402,60 @@ class BacktestEngine:
                         "pnl": pnl,
                         "cash_after": cash,
                     })
+
+            # After signal processing, check intra-candle exits for open positions
+            if position_qty > 0 and (cfg.stop_loss_pct > 0 or cfg.take_profit_pct > 0):
+                candle_low = float(df.iloc[i]["low"])
+                candle_high = float(df.iloc[i]["high"])
+                avg_entry = position_cost / position_qty
+
+                # Stop-loss: check first (conservative assumption when both trigger same candle)
+                if cfg.stop_loss_pct > 0:
+                    stop_level = avg_entry * (1 - cfg.stop_loss_pct)
+                    if candle_low <= stop_level:
+                        fill_price = stop_level * (1 - cfg.slippage)
+                        proceeds = fill_price * position_qty
+                        fee = proceeds * fee_rate
+                        net_proceeds = proceeds - fee
+                        pnl = net_proceeds - position_cost
+
+                        cash += net_proceeds
+                        trade_log.append({
+                            "index": i,
+                            "side": "sell",
+                            "price": fill_price,
+                            "quantity": position_qty,
+                            "fee": fee,
+                            "pnl": pnl,
+                            "cash_after": cash,
+                            "exit_type": "stop_loss",
+                        })
+                        position_qty = 0.0
+                        position_cost = 0.0
+
+                # Profit target: only check if position still open (stop may have triggered first)
+                if position_qty > 0 and cfg.take_profit_pct > 0:
+                    target_level = avg_entry * (1 + cfg.take_profit_pct)
+                    if candle_high >= target_level:
+                        fill_price = target_level * (1 - cfg.slippage)
+                        proceeds = fill_price * position_qty
+                        fee = proceeds * fee_rate
+                        net_proceeds = proceeds - fee
+                        pnl = net_proceeds - position_cost
+
+                        cash += net_proceeds
+                        trade_log.append({
+                            "index": i,
+                            "side": "sell",
+                            "price": fill_price,
+                            "quantity": position_qty,
+                            "fee": fee,
+                            "pnl": pnl,
+                            "cash_after": cash,
+                            "exit_type": "take_profit",
+                        })
+                        position_qty = 0.0
+                        position_cost = 0.0
 
             # Equity = cash + position market value
             equity = cash + (position_qty * current_price)
