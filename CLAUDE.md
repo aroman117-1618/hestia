@@ -143,7 +143,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 **Active: Trading Module (Sprints 21-30).** Sprints 21-26 COMPLETE. Sprint 27 (Go-Live) IN PROGRESS — safety hardening complete, paper soak ready.
 
-2763 tests (2628 backend + 135 CLI), 86 test files. Full details: `python -m pytest tests/ -v --timeout=30`
+2779 tests (2644 backend + 135 CLI), 87 test files. Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 

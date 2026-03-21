@@ -1,60 +1,82 @@
-# Session Handoff — 2026-03-20 (Night)
+# Session Handoff — 2026-03-21
 
 ## Mission
-Launch the Visual Workflow Orchestrator — run /discovery, /second-opinion, write P0 implementation plan, and execute P0 (handler adapter + orders execution wire-up).
+Fix Command Center bugs (ghost badge, empty Tia response), run second opinion on ChatGPT history backfill plan, build OpenAI parser + dry-run review tool, import deep segment, fix principle distillation pipeline, add principle edit with diff logging. Ship v1.1.4 and v1.1.6.
 
 ## Completed
-- `/discovery` for Visual Workflow Orchestrator (`docs/discoveries/visual-workflow-orchestrator-2026-03-20.md`) — SWOT, n8n feature parity analysis, revised phase plan (P0-P4, 91-127h)
-- `/second-opinion` with Gemini 2.5 Pro + @hestia-critic (`docs/plans/visual-workflow-orchestrator-second-opinion-2026-03-20.md`) — APPROVE WITH CONDITIONS. Key finding: use WebView + React Flow for canvas (P2), not custom SwiftUI.
-- P0 implementation plan (`docs/plans/workflow-orchestrator-p0-implementation-2026-03-20.md`) — 8 tasks, TDD, reviewed and approved
-- **P0 fully executed** — 7 commits, 3 new files, 4 modified files, 18 new tests:
-  - `82243fe` feat(workflow): add WORKFLOW to RequestSource and LogComponent enums
-  - `051dc38` feat(workflow): add SessionStrategy enum and WorkflowExecutionConfig
-  - `a6a83a9` feat(workflow): WorkflowHandlerAdapter with session strategy and memory scope
-  - `02469f7` feat(workflow): wire execute_order() to WorkflowHandlerAdapter — replaces stub (ADR-021)
-  - `2dad6c0` feat(workflow): wire OrderScheduler callback to real execution pipeline
-  - `f13d7d6` feat(workflow): update execute route to return real handler response
-  - `e14da21` chore: add workflow module to auto-test.sh mapping
+
+### Command Center Bug Fixes (v1.1.4)
+- Ghost badge: `externalUnreadCount` excludes health items from ring + badges (4 Swift files)
+- Empty Tia response: guard in `handler.py` after `clear_stream` falls back to raw tool result
+- Council synthesis: silent `except` now logs `type(e).__name__`
+- Pre-push: 240s to 360s timeout, tag-only pushes skip validation
+- Commits: `2b1beaa`, `20722eb`, `7365b75`
+
+### ChatGPT History Backfill — Second Opinion
+- Full audit: `docs/plans/chatgpt-history-backfill-second-opinion-2026-03-20.md`
+- Verdict: APPROVE WITH CONDITIONS (Claude) / REJECT (Gemini)
+- Key: Hestia conversations are highest RISK not value. All chunks typed OBSERVATION.
+
+### OpenAI Parser + Dry-Run Tool
+- `hestia/memory/importers/openai.py` — DAG flattener, Hestia exclusion, OBSERVATION type
+- `hestia/memory/importers/review.py` — dry-run outputs proposed chunks with projected importance
+- `tests/test_import_openai.py` — 32 tests, all passing
+- `data/import-reviews/openai-dry-run-review.html` — interactive review dashboard
+- Commits: `70f8456`, `7c10426`, `c97c0ff`
+
+### Deep Segment Import
+- 2,627 chunks stored from 41 deep conversations (batch: `openai-deep-dbd1ebeb`)
+- Hestia-related excluded by keyword filter
+
+### Principle Distillation Fix
+- Root cause: `generate()` never existed on InferenceClient — silently failed since module was written
+- Fixed to `chat()` with Message objects, cloud-first fallback, 600s timeout
+- 5 principles distilled and stored as PENDING
+- DistillResponse Swift model fixed (camelCase)
+- Commits: `19911a0`, `22f9bc8`
+
+### Principle Edit + Diff Logging
+- `principle_edits` table logs original/edited/removed_fragment
+- Edit button on pending cards with inline TextEditor
+- Commit: `d39e1a4`
+
+### Releases
+- v1.1.4 (build 8), v1.1.6 (build 10)
 
 ## In Progress
-- **Sprint 27 paper soak** still running on Mac Mini (started 2026-03-19, 72h window ends ~2026-03-22)
-- **Workflow Orchestrator P1** not yet started — needs implementation plan written
+- **Alpaca API keys** — dashboard returns 403. Sprint 28 blocked.
+- **ChatGPT import review** — HTML dashboard ready, Andrew needs to scan and provide feedback
+- **Anthropic API key** — 401 on dev Mac. Cloud distillation unavailable until refreshed.
 
 ## Decisions Made
-- **Handler Adapter pattern (Option C)** for workflow execution — configurable session strategy, memory scope, agent routing per node. Chosen over direct inference bypass (too dumb) and separate pipeline (duplication risk).
-- **WebView + React Flow** for canvas UI in P2 — Gemini's strong recommendation, Andrew approved. Eliminates highest-risk SwiftUI item.
-- **Full build authorized** — P0-P4, not waiting for Sprint 28. Andrew confirmed "it is urgent."
-- **Node limit starts at 20** (not 50) — raise based on real usage.
-- **LearningScheduler migration explicitly deferred** — works fine as asyncio loops, migrate opportunistically never forced.
+- All imported chunks typed OBSERVATION (no DECISION/PREFERENCE) — prevents stale persistence
+- Hestia conversations excluded from automated import
+- Distillation: cloud-first, local fallback
+- macOS default environment changed to `.local` for dev
+- Pre-push skips tag-only pushes
 
 ## Test Status
-- 131 passing across affected modules (workflow adapter, orders, orchestration, server lifecycle)
-- 2628 backend + 135 CLI = 2763 total
-- Known pre-existing: ChromaDB timeout in test_memory.py (threading hang, not related to changes)
+- 2779 total (2644 backend + 135 CLI), 87 test files, all passing
 
 ## Uncommitted Changes
-- `hestia/research/principle_store.py` — pre-existing modification (not from this session)
-- Several untracked doc files (discovery, second-opinion, P0 plan, etc.) — should be committed
-- `SPRINT.md`, `CLAUDE.md` — updated with P0 results, need committing
+None committed. Untracked: plan docs, second-opinion doc, implementation plan, data dir artifacts.
 
 ## Known Issues / Landmines
-- **Mode enum mapping**: Plan said `Mode.ARTEMIS` / `Mode.APOLLO`, actual codebase uses `Mode.MIRA` / `Mode.OLLY`. The implementer correctly adapted. Future plan docs for P1+ should use the real enum values.
-- **`memory_write` context hint not yet consumed**: The adapter passes `context_hints["memory_write"]` to the handler, but the handler doesn't read it yet. P1 should add a check in `_store_conversation()` to skip memory storage when `memory_write=False`. Currently harmless — the default is False and the handler stores everything regardless.
-- **Server running on :8443** — local dev server, PID 21670. Next session should verify it's running latest code or restart.
-- **`principle_store.py` has uncommitted changes** from a prior session — investigate before committing.
+- **macOS UserDefaults sandbox**: App reads from `~/Library/Containers/com.andrewlonati.hestia-macos/Data/Library/Preferences/`. CLI `defaults write` goes to `~/Library/Preferences/`. Must write BOTH + `killall cfprefsd`.
+- **App set to `local`** — reset both plists to `tailscale` when done local testing
+- **Anthropic API key** — 401 on dev Mac. Cloud distillation falls back to local.
+- **2,627 imported chunks** in memory from deep segment. Search results may include imported ChatGPT content.
+- **Configuration debug prints** in `Configuration.swift` init — remove when environment switching is stable.
+- **Server not running** — start with `python -m hestia.api.server`
 
 ## Process Learnings
-- **First-pass success: 7/8 tasks (88%)** — Task 4's test mocks needed a fix during plan review (mocking DB layer vs manager layer). Caught by plan reviewer, not during execution.
-- **Top blocker: ChromaDB test hang** — full test suite can't run cleanly. The `--timeout=30` flag helps but ChromaDB background threads still prevent process exit. Workaround: run targeted test modules instead of full suite.
-- **Agent orchestration**: @hestia-explorer was used effectively for Phase 1 research (2 parallel agents). @hestia-critic provided genuinely useful adversarial input. Gemini dispatch required manual Bash (subagent couldn't get permissions) — consider a dedicated Gemini dispatch skill or hook.
-- **Subagent-driven dev worked well**: Tasks 1-3 batched into one subagent (tightly coupled), Tasks 4-7 batched into another. Fresh context per batch prevented confusion. Two batches completed the entire P0 in ~7 minutes of execution time.
+- **First-pass**: 8/10 tasks on first try. Rework: UserDefaults sandbox (4 iterations), distillation generate() bug (3 iterations)
+- **Top blocker**: macOS UserDefaults sandboxing — document dual-write pattern
+- **Proposal**: Create `scripts/set-macos-env.sh local|tailscale` for one-command switching
 
-### Proposals (for Andrew's approval)
-1. **SKILL**: Create a `/gemini` skill that handles the temp file + CLI dispatch pattern (saves 2-3 minutes per second-opinion). Frequency: every /second-opinion. Effort: 30 min.
-2. **CLAUDE.MD**: Add `Mode.MIRA` / `Mode.OLLY` as the canonical names alongside the user-facing `@artemis` / `@apollo` aliases. Prevents future plan docs from using wrong enum values. Effort: 5 min.
-3. **SCRIPT**: Add a `scripts/run-tests-safe.sh` that uses the `run_with_timeout` pattern from pre-push.sh for interactive use. Prevents ChromaDB hang from blocking session workflows. Effort: 15 min.
-
-## Next Step
-1. Commit the session's doc changes: `git add docs/discoveries/visual-workflow-orchestrator-2026-03-20.md docs/plans/visual-workflow-orchestrator-second-opinion-2026-03-20.md docs/plans/workflow-orchestrator-p0-implementation-2026-03-20.md SPRINT.md CLAUDE.md && git commit -m "docs: workflow orchestrator P0 — discovery, second opinion, implementation plan, sprint update"`
-2. Write the **P1 implementation plan** (`docs/plans/workflow-orchestrator-p1-implementation.md`) covering: DAG executor, SQLite tables, WorkflowManager, 4 action nodes, 2 trigger nodes, If/Else condition, migration script, 12 API endpoints, SSE endpoint, inference semaphore, cycle detection, retention policy, list-based macOS UI
-3. Execute P1 via subagent-driven development
+## Next Steps
+1. Review `data/import-reviews/openai-dry-run-review.html` — scan Deep tier, provide feedback
+2. Refresh Anthropic API key for cloud distillation
+3. Approve/reject/edit the 5 pending principles in macOS app Principles tab
+4. Sprint 28 (Alpaca) — retry API key generation
+5. Reset macOS app to Tailscale when done local testing
