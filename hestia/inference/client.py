@@ -91,8 +91,8 @@ class InferenceConfig:
     retry_base_delay: float = 1.0  # seconds
     retry_max_delay: float = 30.0  # seconds
 
-    # Timeout settings (generous for model cold starts on M1)
-    request_timeout: float = 300.0  # seconds (5 min for cold start + generation)
+    # Timeout settings (generous for model cold starts + distillation on M1)
+    request_timeout: float = 600.0  # seconds (10 min: cold start + long prompts like distillation)
     connect_timeout: float = 30.0   # seconds (allow time for Ollama to start)
 
     @classmethod
@@ -255,7 +255,13 @@ class InferenceClient:
         self._cli_available = shutil.which("claude") is not None
 
     async def _get_client(self, timeout: Optional[float] = None) -> httpx.AsyncClient:
-        """Get or create HTTP client with optional custom timeout."""
+        """Get or create HTTP client with optional custom timeout.
+
+        If a custom timeout is requested and differs from the cached client's
+        timeout, returns a fresh client with the requested timeout. This
+        prevents long-running operations (distillation, synthesis) from
+        inheriting a shorter default timeout.
+        """
         request_timeout = timeout or self.config.request_timeout
 
         if self._http_client is None or self._http_client.is_closed:
@@ -267,6 +273,21 @@ class InferenceClient:
                     pool=request_timeout,
                 )
             )
+            self._http_client_timeout = request_timeout
+            return self._http_client
+
+        # If custom timeout requested and differs, create a one-off client
+        cached_timeout = getattr(self, '_http_client_timeout', self.config.request_timeout)
+        if timeout and timeout != cached_timeout:
+            return httpx.AsyncClient(
+                timeout=httpx.Timeout(
+                    connect=self.config.connect_timeout,
+                    read=request_timeout,
+                    write=request_timeout,
+                    pool=request_timeout,
+                )
+            )
+
         return self._http_client
 
     async def close(self) -> None:

@@ -235,7 +235,7 @@ class PrincipleStore:
         if inference_client is None:
             try:
                 from hestia.inference import get_inference_client
-                inference_client = await get_inference_client()
+                inference_client = get_inference_client()
             except Exception as e:
                 logger.warning(
                     f"Cannot get inference client for distillation: {type(e).__name__}",
@@ -244,11 +244,25 @@ class PrincipleStore:
                 return []
 
         try:
-            response = await inference_client.generate(
-                prompt=prompt,
-                system_prompt="You are analyzing user interactions to extract behavioral principles.",
-                max_tokens=1000,
-            )
+            from hestia.inference import Message
+            messages = [
+                Message(role="system", content="You are analyzing user interactions to extract behavioral principles."),
+                Message(role="user", content=prompt),
+            ]
+            # Try cloud first (local models struggle with long distillation prompts),
+            # fall back to local if cloud unavailable
+            try:
+                inference_response = await inference_client.chat(
+                    messages=messages,
+                    max_tokens=1000,
+                    force_cloud=True,
+                )
+            except Exception:
+                inference_response = await inference_client.chat(
+                    messages=messages,
+                    max_tokens=1000,
+                )
+            response = inference_response.content
         except Exception as e:
             logger.warning(
                 f"Principle distillation LLM call failed: {type(e).__name__}",
