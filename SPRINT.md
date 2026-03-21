@@ -1,3 +1,46 @@
+# Sprint 27.5: Infrastructure + Backtest Validation (2026-03-21) — IN PROGRESS
+
+**Started:** 2026-03-21
+**Plan:** `docs/plans/wall-street-portfolio-manager-second-opinion-2026-03-21.md`
+**Discovery:** `docs/discoveries/wall-street-grade-autonomous-portfolio-manager-2026-03-21.md`
+
+## Scope
+Validate the foundation before expanding scope. Three reviews (Claude + Gemini + @hestia-critic) all converged: prove existing strategies work before adding complexity.
+
+### Workstreams
+- **WS1: Backtest Validation** (~3h) — Run all 4 strategies against 1yr BTC-USD hourly data. Validate Sharpe, drawdown, win rate.
+- **WS2: Multi-Bot Soak** (~2h) — Deploy all 4 strategies on Mac Mini (not just Mean Reversion). Portfolio effect only shows when all run simultaneously.
+- **WS3: Infrastructure Hardening** (~3h) — Python 3.12 upgrade on Mac Mini, data quality checks, portfolio-level risk fix (cross-exchange exposure gap).
+
+### Capital Gate
+After S27.5 validates: flip to live with $25 across all 4 strategies. Run 30+ fills (2-6 weeks) before S28.
+
+---
+
+# Revised Trading Roadmap (2026-03-21) — APPROVED
+
+**Discovery:** `docs/discoveries/wall-street-grade-autonomous-portfolio-manager-2026-03-21.md`
+**Second Opinion:** `docs/plans/wall-street-portfolio-manager-second-opinion-2026-03-21.md`
+**Verdict:** APPROVE WITH CONDITIONS — Claude + Gemini + @hestia-critic converged
+
+| Sprint | Scope | Hours | Status |
+|--------|-------|-------|--------|
+| S27.5 | Infrastructure + Backtest Validation | 8h | IN PROGRESS |
+| S28 | Rule-Based Regime Detection + Strategy Router | 15h | TODO (after 30+ live fills) |
+| S29 | Alpaca Multi-Asset + Wash Sale Tracking | 20h | TODO |
+| S30 | Portfolio Optimization + Rebalancing + Dashboard | 18h | TODO |
+| S31 | Universe Screening (deferred to $5K+) | 12h | DEFERRED |
+| S33 | Walk-Forward Optimization (deferred to 3+ months data) | 15h | DEFERRED |
+| S34 | Execution Quality — TWAP/VWAP (when capital >$50K) | TBD | FUTURE |
+
+**Key decisions:**
+- Rule-based regime detection (ADX + SMA + ATR), NOT HMM. HMM runs as parallel research track.
+- Sentiment sprint (S32) CUT — decayed alpha, M1 can't run FinBERT, both models agreed.
+- Realistic timeline: 12-14 weeks for S27.5-S30 (~61h active engineering).
+- Capital gates: $25→$500→$1K→$2.5K→$5K+ tied to sprint milestones.
+
+---
+
 # Workflow Orchestrator P0: Handler Adapter (2026-03-20) — COMPLETE
 
 **Started:** 2026-03-20
