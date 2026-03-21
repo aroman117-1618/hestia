@@ -143,7 +143,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 **Active: Trading Module (Sprints 21-30).** Sprints 21-26 COMPLETE. Sprint 27 (Go-Live) IN PROGRESS — safety hardening complete, paper soak ready.
 
-2745 tests (2610 backend + 135 CLI), 85 test files. Full details: `python -m pytest tests/ -v --timeout=30`
+2763 tests (2628 backend + 135 CLI), 86 test files. Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -240,6 +240,7 @@ hestia/
 │   ├── learning/                    # MetaMonitor, Memory Health, Trigger Metrics, Scheduling
 │   ├── verification/                # Response verification module
 │   ├── trading/                     # Autonomous crypto trading (Sprint 21+)
+│   ├── workflows/                   # Workflow orchestration engine (P0 complete, P1-P4 planned)
 │   ├── research/                    # Knowledge graph + PrincipleStore + Temporal Facts + Episodic Nodes
 │   ├── investigate/                 # URL content analysis (web articles, YouTube)
 │   ├── api/                         # FastAPI — 218 endpoints, 29 route modules

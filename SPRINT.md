@@ -1,3 +1,38 @@
+# Workflow Orchestrator P0: Handler Adapter (2026-03-20) — COMPLETE
+
+**Started:** 2026-03-20
+**Plan:** `docs/plans/workflow-orchestrator-p0-implementation-2026-03-20.md`
+**Discovery:** `docs/discoveries/visual-workflow-orchestrator-2026-03-20.md`
+**Second Opinion:** `docs/plans/visual-workflow-orchestrator-second-opinion-2026-03-20.md`
+
+## What Was Built
+- **WorkflowHandlerAdapter** (`hestia/workflows/adapter.py`) — bridge between workflow engine and RequestHandler with configurable session strategy (ephemeral/per-run/persistent), memory scope, agent routing, tool access
+- **Workflow models** (`hestia/workflows/models.py`) — `SessionStrategy` enum, `WorkflowExecutionConfig` dataclass
+- **Orders execution wired** — `execute_order()` now sends prompts through the full handler pipeline (replacing ADR-021 stub)
+- **OrderScheduler callback wired** — APScheduler triggers route through real execution
+- **Execute API updated** — `/v1/orders/{id}/execute` returns real LLM response content
+- **Enums added** — `RequestSource.WORKFLOW`, `LogComponent.WORKFLOW`
+
+## Decisions Made
+- **Handler Adapter pattern (Option C)** chosen over direct inference bypass or separate pipeline. Gives full handler capabilities with per-node configuration.
+- **WebView + React Flow** for canvas UI (P2) — not custom SwiftUI Canvas. Eliminates highest-risk item.
+- **Full build approved** — P0-P4, estimated 102-135h
+
+### Key Commits
+- `82243fe` feat(workflow): add WORKFLOW to RequestSource and LogComponent enums
+- `051dc38` feat(workflow): add SessionStrategy enum and WorkflowExecutionConfig
+- `a6a83a9` feat(workflow): WorkflowHandlerAdapter with session strategy and memory scope
+- `02469f7` feat(workflow): wire execute_order() to WorkflowHandlerAdapter — replaces stub (ADR-021)
+- `2dad6c0` feat(workflow): wire OrderScheduler callback to real execution pipeline
+- `f13d7d6` feat(workflow): update execute route to return real handler response
+- `e14da21` chore: add workflow module to auto-test.sh mapping
+
+### Test Results
+- 18 new tests in `test_workflow_adapter.py`, all passing
+- 2628 backend + 135 CLI = 2763 total
+
+---
+
 # Sprint 27A: ChatGPT History Backfill (2026-03-20) — PROPOSED
 
 **Started:** 2026-03-20
