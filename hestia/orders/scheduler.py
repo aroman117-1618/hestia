@@ -254,33 +254,30 @@ class OrderScheduler:
     # =========================================================================
 
     async def _execute_order(self, order_id: str) -> None:
-        """
-        Execute an order (called by scheduler).
-
-        Args:
-            order_id: Order to execute.
-        """
+        """APScheduler callback — execute an order through the handler pipeline."""
         try:
-            execution = await self.manager.execute_order(order_id)
+            order = await self.manager.get_order(order_id)
+            if not order or order.status != OrderStatus.ACTIVE:
+                self.logger.warning(
+                    f"Skipping execution — order inactive or not found",
+                    component=LogComponent.EXECUTION,
+                    data={"order_id": order_id},
+                )
+                return
 
             self.logger.info(
-                f"Scheduled execution started: {execution.id}",
+                f"Scheduled execution triggered: {order.name}",
                 component=LogComponent.EXECUTION,
-                data={
-                    "execution_id": execution.id,
-                    "order_id": order_id,
-                },
+                data={"order_id": order_id},
             )
 
-            # Orchestration integration deferred (see ADR-021).
-            # Currently starts execution only; completion/failure handled
-            # when orders→orchestration pipeline is wired.
+            await self.manager.execute_order(order_id)
 
         except Exception as e:
             self.logger.error(
-                f"Failed to execute order {order_id}: {type(e).__name__}",
+                f"Scheduled execution failed: {type(e).__name__}",
                 component=LogComponent.EXECUTION,
-                data={"order_id": order_id, "error_type": type(e).__name__},
+                data={"order_id": order_id},
             )
 
     def get_next_execution_time(self, order_id: str) -> Optional[datetime]:

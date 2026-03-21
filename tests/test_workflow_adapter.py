@@ -267,3 +267,17 @@ class TestOrderExecution:
         manager.fail_execution.assert_called_once()
         call_args = manager.fail_execution.call_args
         assert "Ollama unavailable" in call_args[1]["error_message"]
+
+
+class TestSchedulerCallback:
+    @pytest.mark.asyncio
+    async def test_scheduler_callback_calls_execute_order(self):
+        from hestia.orders.scheduler import OrderScheduler
+        mock_manager = AsyncMock()
+        mock_manager.execute_order = AsyncMock()
+        mock_manager.get_order = AsyncMock(return_value=MagicMock(
+            status=OrderStatus.ACTIVE
+        ))
+        scheduler = OrderScheduler(manager=mock_manager)
+        await scheduler._execute_order("order-test123")
+        mock_manager.execute_order.assert_called_once_with("order-test123")
