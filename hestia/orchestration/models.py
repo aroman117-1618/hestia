@@ -49,6 +49,7 @@ class RequestSource(Enum):
     CLI = "cli"                 # Command line
     IOS_SHORTCUT = "ios_shortcut"  # iOS Shortcut integration
     QUICK_CHAT = "quick_chat"   # Quick chat widget
+    WORKFLOW = "workflow"       # Background workflow/order execution
 
 
 class ResponseType(Enum):
