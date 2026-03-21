@@ -1,5 +1,6 @@
 """Tests for the WorkflowHandlerAdapter and supporting models."""
 import pytest
+from unittest.mock import AsyncMock, MagicMock
 from hestia.workflows.models import SessionStrategy, WorkflowExecutionConfig
 
 
@@ -41,3 +42,119 @@ class TestWorkflowModels:
             session_strategy=SessionStrategy.PER_RUN
         )
         assert config.session_id is None
+
+
+class TestWorkflowHandlerAdapter:
+    """Test the handler adapter for workflow execution."""
+
+    @pytest.fixture
+    def mock_handler(self):
+        handler = AsyncMock()
+        handler.handle = AsyncMock(return_value=MagicMock(
+            content="Test response from Hestia",
+            request_id="req-test123",
+            tokens_in=10,
+            tokens_out=20,
+            duration_ms=150.0,
+        ))
+        return handler
+
+    @pytest.fixture
+    def adapter(self, mock_handler):
+        from hestia.workflows.adapter import WorkflowHandlerAdapter
+        return WorkflowHandlerAdapter(handler=mock_handler)
+
+    @pytest.mark.asyncio
+    async def test_execute_basic_prompt(self, adapter, mock_handler):
+        from hestia.orchestration.models import RequestSource
+        result = await adapter.execute("What's on my calendar today?")
+        mock_handler.handle.assert_called_once()
+        call_request = mock_handler.handle.call_args[0][0]
+        assert call_request.content == "What's on my calendar today?"
+        assert call_request.source == RequestSource.WORKFLOW
+        assert result.content == "Test response from Hestia"
+
+    @pytest.mark.asyncio
+    async def test_ephemeral_session_generates_unique_id(self, adapter, mock_handler):
+        await adapter.execute("prompt 1")
+        await adapter.execute("prompt 2")
+        calls = mock_handler.handle.call_args_list
+        session_1 = calls[0][0][0].session_id
+        session_2 = calls[1][0][0].session_id
+        assert session_1 != session_2
+        assert session_1.startswith("wf-eph-")
+
+    @pytest.mark.asyncio
+    async def test_per_run_session_uses_run_id(self, adapter, mock_handler):
+        config = WorkflowExecutionConfig(
+            session_strategy=SessionStrategy.PER_RUN,
+            run_id="run-abc123",
+        )
+        await adapter.execute("prompt", config=config)
+        call_request = mock_handler.handle.call_args[0][0]
+        assert call_request.session_id == "wf-run-run-abc123"
+
+    @pytest.mark.asyncio
+    async def test_persistent_session_reuses_id(self, adapter, mock_handler):
+        config = WorkflowExecutionConfig(
+            session_strategy=SessionStrategy.PERSISTENT,
+            session_id="wf-morning-brief",
+        )
+        await adapter.execute("day 1", config=config)
+        await adapter.execute("day 2", config=config)
+        calls = mock_handler.handle.call_args_list
+        assert calls[0][0][0].session_id == "wf-morning-brief"
+        assert calls[1][0][0].session_id == "wf-morning-brief"
+
+    @pytest.mark.asyncio
+    async def test_force_local_propagates(self, adapter, mock_handler):
+        config = WorkflowExecutionConfig(force_local=True)
+        await adapter.execute("prompt", config=config)
+        call_request = mock_handler.handle.call_args[0][0]
+        assert call_request.force_local is True
+
+    @pytest.mark.asyncio
+    async def test_agent_mode_sets_request_mode(self, adapter, mock_handler):
+        from hestia.orchestration.models import Mode
+        config = WorkflowExecutionConfig(agent_mode="artemis")
+        await adapter.execute("analyze this", config=config)
+        call_request = mock_handler.handle.call_args[0][0]
+        # artemis maps to Mode.MIRA (analysis persona)
+        assert call_request.mode == Mode.MIRA
+
+    @pytest.mark.asyncio
+    async def test_context_hints_include_workflow_metadata(self, adapter, mock_handler):
+        config = WorkflowExecutionConfig(
+            workflow_id="wf-abc123",
+            workflow_name="Morning Brief",
+            node_id="node-xyz",
+            run_id="run-456",
+        )
+        await adapter.execute("prompt", config=config)
+        call_request = mock_handler.handle.call_args[0][0]
+        assert call_request.context_hints["workflow_id"] == "wf-abc123"
+        assert call_request.context_hints["workflow_name"] == "Morning Brief"
+        assert call_request.context_hints["node_id"] == "node-xyz"
+        assert call_request.context_hints["run_id"] == "run-456"
+        assert call_request.context_hints["source_type"] == "workflow"
+
+    @pytest.mark.asyncio
+    async def test_handler_error_returns_error_response(self, adapter, mock_handler):
+        mock_handler.handle.side_effect = Exception("Inference failed")
+        result = await adapter.execute("prompt")
+        assert result.content == ""
+        assert result.error_code == "workflow_execution_error"
+        assert "Inference failed" in result.error_message
+
+    @pytest.mark.asyncio
+    async def test_memory_write_config_in_context_hints(self, adapter, mock_handler):
+        config = WorkflowExecutionConfig(memory_write=True)
+        await adapter.execute("remember this", config=config)
+        call_request = mock_handler.handle.call_args[0][0]
+        assert call_request.context_hints.get("memory_write") is True
+
+    @pytest.mark.asyncio
+    async def test_default_config_disables_memory_write(self, adapter, mock_handler):
+        await adapter.execute("don't remember this")
+        call_request = mock_handler.handle.call_args[0][0]
+        assert call_request.context_hints.get("memory_write") is False
