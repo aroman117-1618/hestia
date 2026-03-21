@@ -77,9 +77,9 @@ struct PrincipleListResponse: Codable {
 }
 
 struct DistillResponse: Codable {
-    let principles_extracted: Int
+    let principlesExtracted: Int
     let new: Int
-    let input_chunks: Int?
+    let inputChunks: Int?
 }
 
 struct PrincipleActionResponse: Codable {

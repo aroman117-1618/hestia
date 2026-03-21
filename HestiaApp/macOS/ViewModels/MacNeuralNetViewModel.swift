@@ -478,7 +478,7 @@ class MacNeuralNetViewModel: ObservableObject {
         do {
             let result = try await APIClient.shared.distillPrinciples()
             #if DEBUG
-            print("[MacNeuralNetViewModel] Distilled \(result.principles_extracted) principles")
+            print("[MacNeuralNetViewModel] Distilled \(result.principlesExtracted) principles")
             #endif
             await loadPrinciples()
         } catch {
