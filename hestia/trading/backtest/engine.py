@@ -175,6 +175,9 @@ class BacktestEngine:
                 "windows": [],
             }
 
+        # 200 candles covers any indicator lookback (RSI-14, SMA-200, etc.)
+        warmup_size = 200
+
         windows = []
         start = 0
 
@@ -182,12 +185,39 @@ class BacktestEngine:
             train_data = data.iloc[start:start + train_size].reset_index(drop=True)
             test_data = data.iloc[start + train_size:start + window_size].reset_index(drop=True)
 
-            # Run strategy on test data (indicators need lookback from train data)
-            combined = pd.concat([train_data, test_data], ignore_index=True)
-            test_result = self.run(strategy, combined, cfg)
+            # Reset any accumulated strategy state (e.g. DCA interval gate) so
+            # each test window begins as if the strategy were freshly instantiated.
+            strategy.reset()
 
-            # Only count performance from the test period
-            test_equity = test_result.equity_curve[train_size:] if len(test_result.equity_curve) > train_size else test_result.equity_curve
+            # Prepend the tail of training data as warmup so indicators (RSI, SMA,
+            # Bollinger, etc.) are fully primed when the test period starts.
+            # Warmup candles are used for indicator calculation only — we generate
+            # signals across the full warmup+test frame but only execute the signals
+            # that fall within the test portion.  This gives each window a fresh
+            # initial_capital baseline free of any training-period position state.
+            actual_warmup = min(warmup_size, len(train_data))
+            warmup_data = train_data.iloc[-actual_warmup:] if actual_warmup > 0 else pd.DataFrame()
+            test_with_warmup = pd.concat([warmup_data, test_data], ignore_index=True)
+
+            # Compute indicators once for the full warmup+test frame.
+            df_combined = add_all_indicators(
+                test_with_warmup[["open", "high", "low", "close", "volume"]].copy()
+            )
+
+            # Generate signals across the combined frame (indicators are valid throughout).
+            all_signals = self._generate_signals(strategy, df_combined, cfg)
+
+            # Only execute signals from the test portion — warmup signals are discarded.
+            # Re-index signals so that candle index 0 maps to the start of the test slice.
+            test_signals = [
+                {**s, "index": s["index"] - actual_warmup}
+                for s in all_signals
+                if s["index"] >= actual_warmup
+            ]
+
+            # Simulate trades on the test candles only, starting with fresh capital.
+            test_df = df_combined.iloc[actual_warmup:].reset_index(drop=True)
+            test_equity, _ = self._simulate_trades(test_signals, test_df, cfg)
 
             if len(test_equity) >= 2:
                 test_return = (test_equity[-1] - test_equity[0]) / test_equity[0] if test_equity[0] > 0 else 0.0
@@ -200,7 +230,8 @@ class BacktestEngine:
                 "test_start": start + train_size,
                 "test_end": start + window_size,
                 "test_return": test_return,
-                "test_trades": len([s for s in test_result.signals if s.get("signal_type") != "hold"]),
+                "test_first_equity": test_equity[0] if test_equity else None,
+                "test_trades": len([s for s in test_signals if s.get("signal_type") != "hold"]),
             })
 
             start += test_size  # Slide forward by test_size

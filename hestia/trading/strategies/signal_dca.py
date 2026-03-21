@@ -36,6 +36,10 @@ class SignalDCAStrategy(BaseStrategy):
         self.buy_interval_hours = self.config.get("buy_interval_hours", 24)
         self._last_buy_time: Optional[datetime] = None
 
+    def reset(self) -> None:
+        """Clear the interval gate so each walk-forward window starts fresh."""
+        self._last_buy_time = None
+
     @property
     def name(self) -> str:
         return "Signal-Enhanced DCA"

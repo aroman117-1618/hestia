@@ -7,11 +7,46 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from datetime import datetime
+from typing import Any, Dict, Optional
+
 from hestia.trading.backtest.data_loader import DataLoader
 from hestia.trading.backtest.engine import BacktestConfig, BacktestEngine, BacktestResult
 from hestia.trading.backtest.report import BacktestReport, generate_report
+from hestia.trading.strategies.base import BaseStrategy, Signal, SignalType
 from hestia.trading.strategies.grid import GridStrategy
 from hestia.trading.strategies.mean_reversion import MeanReversionStrategy
+
+
+class AlwaysBuyStrategy(BaseStrategy):
+    """Test stub: always emits a BUY signal (guarantees open position at train end)."""
+
+    @property
+    def name(self) -> str:
+        return "AlwaysBuy"
+
+    @property
+    def strategy_type(self) -> str:
+        return "always_buy"
+
+    def analyze(
+        self,
+        df: pd.DataFrame,
+        portfolio_value: float,
+        timestamp: Optional[datetime] = None,
+    ) -> Signal:
+        if len(df) < 2:
+            return Signal()
+        price = float(df.iloc[-1]["close"])
+        qty = (portfolio_value * 0.10) / price if price > 0 else 0.0
+        return Signal(
+            signal_type=SignalType.BUY,
+            pair=self.pair,
+            price=price,
+            quantity=qty,
+            confidence=1.0,
+            reason="always buy",
+        )
 
 
 def _synthetic_data(n: int = 500, trend: float = 0.0, seed: int = 42) -> pd.DataFrame:
@@ -283,6 +318,37 @@ class TestWalkForward:
         grid = GridStrategy(config={"num_levels": 5, "spacing_pct": 0.01})
         result = engine.walk_forward(grid, data, train_days=30, test_days=7)
         assert "consistent" in result
+
+    def test_walk_forward_test_windows_start_with_fresh_capital(self):
+        """
+        Each test window must begin with initial_capital equity.
+
+        If training ends with an open position, the old (broken) approach carries
+        that position's unrealized P&L into the test slice.  The fixed approach
+        runs each test window as an independent backtest so the first equity
+        point always equals initial_capital.
+        """
+        # Need enough candles: train=5d*24 + test=2d*24 + one slide = 504 candles
+        data = _synthetic_data(1200)
+        cfg = BacktestConfig(initial_capital=250.0)
+        engine = BacktestEngine(cfg)
+        # AlwaysBuyStrategy guarantees training ends with an open position
+        strategy = AlwaysBuyStrategy()
+        result = engine.walk_forward(
+            strategy, data, train_days=5, test_days=2, config=cfg
+        )
+
+        assert result["valid"] is True
+        assert result["total_windows"] >= 1
+
+        # Every test window's reported first equity == initial_capital
+        for window in result["windows"]:
+            first_equity = window.get("test_first_equity")
+            assert first_equity is not None, "walk_forward must expose test_first_equity per window"
+            assert first_equity == pytest.approx(cfg.initial_capital, abs=1.0), (
+                f"Window {window['window']}: test started at {first_equity:.2f}, "
+                f"expected {cfg.initial_capital:.2f} — position state leaked from training"
+            )
 
 
 # ── Train/Test Split ──────────────────────────────────────────

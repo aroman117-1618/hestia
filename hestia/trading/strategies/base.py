@@ -94,6 +94,16 @@ class BaseStrategy(ABC):
         """
         ...
 
+    def reset(self) -> None:
+        """
+        Reset any accumulated instance state between walk-forward windows.
+
+        Called by the backtesting engine before each test window so that
+        time-gated or stateful strategies (e.g. DCA interval tracking)
+        start each window clean.  The default implementation is a no-op;
+        subclasses with mutable state MUST override this.
+        """
+
     def validate_config(self) -> List[str]:
         """
         Validate strategy configuration. Returns list of warnings.
