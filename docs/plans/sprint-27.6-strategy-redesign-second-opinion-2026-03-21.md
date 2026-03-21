@@ -148,16 +148,47 @@ Signal DCA should be fixed (it's a bug) but deprioritized as a core strategy. Bo
 11. Multi-asset diversification (5+ assets) — revisit at $1K+ capital
 12. Complex regime detection (HMM) — the simple 200-SMA filter handles most of this
 
-## Revised S27.6 Workstreams
+## Critical Additions from @hestia-critic
 
-| WS | Scope | Hours | Priority |
-|----|-------|:---:|:---:|
-| WS1 | Fix Signal DCA bug | 2h | P0 |
-| WS2 | Implement Dual Momentum strategy (replaces SMA crossover) | 5h | P0 |
-| WS3 | Mean Reversion — profit targets, tighter stops | 3h | P0 |
-| WS4 | Simple regime filter (BTC > 200-SMA) | 2h | P1 |
-| WS5 | Fixed fractional position sizing (1-2% risk/trade) | 2h | P1 |
-| WS6 | Shelve Grid + update config | 1h | P0 |
-| WS7 | Multi-asset backtests (90d/30d walk-forward) | 3h | P0 |
-| WS8 | Bollinger fade redesign (if time) | 3h | P2 (defer) |
-| **Total** | | **~21h** (P0+P1) | |
+### Finding 1: Backtest Engine Cannot Validate Profit Targets
+`_simulate_trades()` processes signals at candle close prices ONLY. No intra-candle high/low checks. If a profit target is hit during a candle, the engine misses it. **Any backtest of profit targets or trailing stops will be systematically wrong.** The engine needs intra-candle exit simulation BEFORE stateful exit strategies can be tested.
+
+### Finding 2: Walk-Forward Position-State Contamination
+`walk_forward()` combines train+test data and runs the full strategy, then slices equity at `train_size`. Open positions from training contaminate test returns. This is look-ahead bias on position state — may explain inconsistent walk-forward results.
+
+### Finding 3: Best Mean Reversion Used NO Volume Filter
+The +56% ETH result used `volume_confirmation=1.0` (effectively disabled). Adding more filters (profit targets, trailing stops) runs counter to the empirical evidence. Fewer filters = better results on this data.
+
+### Finding 4: Signal DCA Root Cause Confirmed
+`signal_dca.py:82` uses `datetime.now(timezone.utc)` (wall-clock time) instead of candle timestamp. In backtesting, elapsed time between candles is ~0 seconds, permanently blocking the interval gate after the first buy. Fix: pass candle timestamp to `analyze()`.
+
+## FINAL Revised S27.6 Workstreams (All 3 Reviewers Synthesized)
+
+### Phase 1: Fix the Foundation (BEFORE strategy work)
+
+| WS | Scope | Hours | Why |
+|----|-------|:---:|---|
+| WS1 | Fix Signal DCA wall-clock bug — pass candle timestamp to analyze() | 0.5h | Code bug, confirmed root cause |
+| WS2 | Fix walk-forward position-state contamination — reset at test boundary | 2h | Invalidates ALL walk-forward results |
+| WS3 | Add intra-candle exit simulation to backtest engine (high/low checks) | 3h | BLOCKER for profit targets and trailing stops |
+
+### Phase 2: Validate What Works
+
+| WS | Scope | Hours | Why |
+|----|-------|:---:|---|
+| WS4 | Systematic Mean Reversion sweep with FIXED engine (RSI 5/7/9 × oversold 15/20/25 × volume on/off, 5 assets, 90d/30d walk-forward) | 2h | Find params with real edge, not overfit |
+| WS5 | Implement Dual Momentum strategy (Antonacci) — daily timeframe, absolute + relative momentum | 5h | Gemini's top recommendation, decades of evidence |
+
+### Phase 3: Configure & Validate
+
+| WS | Scope | Hours | Why |
+|----|-------|:---:|---|
+| WS6 | Shelve Grid + update config | 1h | Confirmed non-viable by all reviewers |
+| WS7 | Full re-backtest all strategies (90d/30d walk-forward, 5 assets) | 2h | Validate with fixed engine |
+| **Total** | | **~15.5h** | |
+
+### Deferred (to S27.7 or S28)
+- Mean Reversion profit targets + trailing stops (requires WS3 complete)
+- Bollinger fade redesign
+- Simple regime filter (Dual Momentum provides built-in regime filtering)
+- Fixed fractional position sizing
