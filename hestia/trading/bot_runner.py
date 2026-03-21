@@ -175,7 +175,12 @@ class BotRunner:
             )
 
     def _publish_decision(self, source: str, message: str, data: Optional[Dict] = None) -> None:
-        """Publish a reasoning event to the decision feed."""
+        """Publish a reasoning event to the decision feed and log it."""
+        logger.info(
+            f"[{source}] {message}",
+            component=LogComponent.TRADING,
+            data={"bot_id": self.bot.id, **(data or {})},
+        )
         if self._event_bus:
             self._event_bus.publish(TradingEvent(
                 event_type="decision",
