@@ -1,3 +1,22 @@
+# Sprint 27A: ChatGPT History Backfill (2026-03-20) — PROPOSED
+
+**Started:** 2026-03-20
+**Plan:** `docs/plans/chatgpt-history-backfill-plan.md`
+**Parallel to:** Sprint 27 Go-Live (paper soak)
+
+## Scope
+Import 518 ChatGPT conversations (89MB, Dec 2022–Mar 2026) into Hestia's memory pipeline.
+
+### Workstreams
+- **WS1: OpenAI Parser + Pipeline** (~4h) — DAG flattener, turn extractor, API endpoint, tests
+- **WS2: Conversation Summarizer** (~3h) — LLM distillation for high-volume convos (>50 messages)
+- **WS3: Import Execution + Validation** (~2h) — Phased import (high-value first), dedup, spot-check
+
+### Phase 1 Target: 71 high-value conversations (Hestia project + personal preferences)
+### Phase 2 Target: ~380 medium-value conversations (technical, professional, creative)
+
+---
+
 # Sprint 27: Go-Live (2026-03-19) — IN PROGRESS (Paper Soak)
 
 **Started:** 2026-03-19
