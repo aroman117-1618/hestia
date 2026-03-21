@@ -110,19 +110,24 @@ public final class Configuration: ObservableObject {
 
     private init() {
         // Load saved environment
-        if let savedEnv = UserDefaults.standard.string(forKey: Keys.environment),
-           let env = HestiaEnvironment(rawValue: savedEnv) {
+        let savedEnv = UserDefaults.standard.string(forKey: Keys.environment)
+        #if DEBUG
+        print("[Configuration] UserDefaults hestia_environment = \(savedEnv ?? "nil")")
+        print("[Configuration] Bundle ID = \(Bundle.main.bundleIdentifier ?? "nil")")
+        #endif
+        if let savedEnv, let env = HestiaEnvironment(rawValue: savedEnv) {
             self.environment = env
         } else {
-            // Default to Tailscale for physical devices, local for simulator and macOS
-            #if targetEnvironment(simulator)
+            // Default to local for macOS development, Tailscale for iOS devices
+            #if os(macOS) || targetEnvironment(simulator)
             self.environment = .local
-            #elseif os(macOS)
-            self.environment = .tailscale  // macOS app connects to Mac Mini via Tailscale
             #else
             self.environment = .tailscale
             #endif
         }
+        #if DEBUG
+        print("[Configuration] Resolved environment = \(environment.rawValue) → \(environment.apiBaseURL)")
+        #endif
 
         // Load custom tailscale host
         self.customTailscaleHost = UserDefaults.standard.string(forKey: Keys.customTailscaleHost)

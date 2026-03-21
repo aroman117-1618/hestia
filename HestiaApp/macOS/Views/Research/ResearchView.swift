@@ -585,6 +585,8 @@ struct FlowLayout: Layout {
 
 struct ResearchPrinciplesView: View {
     @ObservedObject var viewModel: MacNeuralNetViewModel
+    @State private var editingPrincipleId: String?
+    @State private var editText: String = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -733,11 +735,21 @@ struct ResearchPrinciplesView: View {
                     .foregroundStyle(MacColors.textFaint)
             }
 
-            // Content
-            Text(principle.content)
-                .font(.system(size: 13))
-                .foregroundStyle(MacColors.textPrimary)
-                .fixedSize(horizontal: false, vertical: true)
+            // Content — editable when in edit mode
+            if editingPrincipleId == principle.id {
+                TextEditor(text: $editText)
+                    .font(.system(size: 13))
+                    .foregroundStyle(MacColors.textPrimary)
+                    .scrollContentBackground(.hidden)
+                    .background(MacColors.searchInputBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
+                    .frame(minHeight: 60, maxHeight: 120)
+            } else {
+                Text(principle.content)
+                    .font(.system(size: 13))
+                    .foregroundStyle(MacColors.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             // Source info
             HStack(spacing: MacSpacing.sm) {
@@ -772,46 +784,106 @@ struct ResearchPrinciplesView: View {
                 }
             }
 
-            // Approve/Reject buttons (pending only)
+            // Action buttons (pending only)
             if showActions {
-                HStack(spacing: MacSpacing.sm) {
-                    Button {
-                        Task { await viewModel.approvePrinciple(principle.id) }
-                    } label: {
-                        HStack(spacing: MacSpacing.xs) {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 11))
-                            Text("Approve")
-                                .font(.system(size: 12, weight: .medium))
+                if editingPrincipleId == principle.id {
+                    // Edit mode: Save / Cancel
+                    HStack(spacing: MacSpacing.sm) {
+                        Button {
+                            Task {
+                                await viewModel.updatePrincipleContent(principle.id, content: editText)
+                                editingPrincipleId = nil
+                            }
+                        } label: {
+                            HStack(spacing: MacSpacing.xs) {
+                                Image(systemName: "checkmark.circle")
+                                    .font(.system(size: 11))
+                                Text("Save Edit")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundStyle(MacColors.buttonTextDark)
+                            .padding(.horizontal, MacSpacing.md)
+                            .padding(.vertical, MacSpacing.sm)
+                            .background(MacColors.amberAccent)
+                            .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
                         }
-                        .foregroundStyle(MacColors.buttonTextDark)
-                        .padding(.horizontal, MacSpacing.md)
-                        .padding(.vertical, MacSpacing.sm)
-                        .background(MacColors.healthGreen)
-                        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
-                    }
-                    .buttonStyle(.plain)
+                        .buttonStyle(.plain)
+                        .disabled(editText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || editText == principle.content)
 
-                    Button {
-                        Task { await viewModel.rejectPrinciple(principle.id) }
-                    } label: {
-                        HStack(spacing: MacSpacing.xs) {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 11))
-                            Text("Reject")
+                        Button {
+                            editingPrincipleId = nil
+                        } label: {
+                            Text("Cancel")
                                 .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(MacColors.textSecondary)
+                                .padding(.horizontal, MacSpacing.md)
+                                .padding(.vertical, MacSpacing.sm)
                         }
-                        .foregroundStyle(MacColors.healthRed)
-                        .padding(.horizontal, MacSpacing.md)
-                        .padding(.vertical, MacSpacing.sm)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: MacCornerRadius.search)
-                                .strokeBorder(MacColors.healthRed.opacity(0.3), lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(.plain)
+                        .buttonStyle(.plain)
 
-                    Spacer()
+                        Spacer()
+                    }
+                } else {
+                    // Normal mode: Approve / Edit / Reject
+                    HStack(spacing: MacSpacing.sm) {
+                        Button {
+                            Task { await viewModel.approvePrinciple(principle.id) }
+                        } label: {
+                            HStack(spacing: MacSpacing.xs) {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 11))
+                                Text("Approve")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundStyle(MacColors.buttonTextDark)
+                            .padding(.horizontal, MacSpacing.md)
+                            .padding(.vertical, MacSpacing.sm)
+                            .background(MacColors.healthGreen)
+                            .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            editText = principle.content
+                            editingPrincipleId = principle.id
+                        } label: {
+                            HStack(spacing: MacSpacing.xs) {
+                                Image(systemName: "pencil")
+                                    .font(.system(size: 11))
+                                Text("Edit")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundStyle(MacColors.amberAccent)
+                            .padding(.horizontal, MacSpacing.md)
+                            .padding(.vertical, MacSpacing.sm)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: MacCornerRadius.search)
+                                    .strokeBorder(MacColors.amberAccent.opacity(0.3), lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            Task { await viewModel.rejectPrinciple(principle.id) }
+                        } label: {
+                            HStack(spacing: MacSpacing.xs) {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 11))
+                                Text("Reject")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundStyle(MacColors.healthRed)
+                            .padding(.horizontal, MacSpacing.md)
+                            .padding(.vertical, MacSpacing.sm)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: MacCornerRadius.search)
+                                    .strokeBorder(MacColors.healthRed.opacity(0.3), lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(.plain)
+
+                        Spacer()
+                    }
                 }
             }
         }

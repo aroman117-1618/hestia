@@ -926,9 +926,9 @@ class TestPrincipleDistillation:
         store._collection = None  # ChromaDB not available
 
         mock_inference = AsyncMock()
-        mock_inference.generate = AsyncMock(
-            return_value="[general] User prefers concise responses"
-        )
+        mock_chat_response = AsyncMock()
+        mock_chat_response.content = "[general] User prefers concise responses"
+        mock_inference.chat = AsyncMock(return_value=mock_chat_response)
 
         # Should not raise, just return empty (store fails)
         results = await store.distill_principles(

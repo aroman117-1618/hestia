@@ -516,6 +516,18 @@ class MacNeuralNetViewModel: ObservableObject {
         }
     }
 
+    func updatePrincipleContent(_ id: String, content: String) async {
+        do {
+            _ = try await APIClient.shared.updatePrinciple(id, content: content)
+            await loadPrinciples()
+            CacheManager.shared.invalidate(forKey: CacheKey.researchPrinciples)
+        } catch {
+            #if DEBUG
+            print("[MacNeuralNetViewModel] Update principle failed: \(error)")
+            #endif
+        }
+    }
+
     /// Mark a fact as outdated/superseded via the research API.
     func markFactOutdated(_ id: String) async {
         do {

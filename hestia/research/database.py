@@ -76,6 +76,17 @@ class ResearchDatabase(BaseDatabase):
             CREATE INDEX IF NOT EXISTS idx_principles_status ON principles(status);
             CREATE INDEX IF NOT EXISTS idx_principles_domain ON principles(domain);
 
+            CREATE TABLE IF NOT EXISTS principle_edits (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                principle_id TEXT NOT NULL,
+                original_content TEXT NOT NULL,
+                edited_content TEXT NOT NULL,
+                removed_fragment TEXT,
+                edited_at TEXT NOT NULL,
+                FOREIGN KEY (principle_id) REFERENCES principles(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_principle_edits_principle ON principle_edits(principle_id);
+
             CREATE TABLE IF NOT EXISTS entities (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -348,8 +359,13 @@ class ResearchDatabase(BaseDatabase):
     async def update_principle_content(
         self, principle_id: str, content: str
     ) -> Optional[Principle]:
-        """Update a principle's content."""
+        """Update a principle's content and log the edit diff."""
         if not self._connection:
+            return None
+
+        # Fetch original content for diff logging
+        original = await self.get_principle(principle_id)
+        if not original:
             return None
 
         now = datetime.now(timezone.utc).isoformat()
@@ -357,8 +373,36 @@ class ResearchDatabase(BaseDatabase):
             "UPDATE principles SET content = ?, updated_at = ? WHERE id = ?",
             (content, now, principle_id),
         )
+
+        # Log the edit with before/after and auto-extracted removed fragment
+        removed = self._extract_removed_fragment(original.content, content)
+        await self._connection.execute(
+            """INSERT INTO principle_edits
+               (principle_id, original_content, edited_content, removed_fragment, edited_at)
+               VALUES (?, ?, ?, ?, ?)""",
+            (principle_id, original.content, content, removed, now),
+        )
+
         await self._connection.commit()
         return await self.get_principle(principle_id)
+
+    @staticmethod
+    def _extract_removed_fragment(original: str, edited: str) -> Optional[str]:
+        """Extract the text that was removed during an edit.
+
+        Simple approach: find the longest substring of original that's
+        not present in edited. Good enough for single-edit trimming.
+        """
+        if edited in original:
+            # Simple case: edited is a substring of original
+            removed = original.replace(edited, "").strip()
+            # Clean up conjunctions left behind
+            for prefix in [" and ", " but ", ", and ", ", but "]:
+                removed = removed.removeprefix(prefix).removesuffix(prefix)
+            return removed if removed else None
+
+        # Fallback: just note what changed
+        return None
 
     async def delete_principle(self, principle_id: str) -> bool:
         """Delete a principle by ID."""
