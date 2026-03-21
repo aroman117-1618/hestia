@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import pytest_asyncio
+from datetime import datetime, timedelta, timezone
 
 from hestia.trading.data.indicators import add_all_indicators
 from hestia.trading.strategies.base import BaseStrategy, Signal, SignalType
@@ -372,3 +373,92 @@ class TestPaperIntegration:
             assert result.status in ("filled", "failed")
 
         await adapter.disconnect()
+
+
+# ── Signal DCA Strategy ────────────────────────────────────────
+
+class TestSignalDCAStrategy:
+    """Tests for Signal-Enhanced DCA strategy."""
+
+    @pytest.mark.asyncio
+    async def test_signal_dca_multiple_buys_across_days(self) -> None:
+        """DCA generates multiple buys when candle timestamps are 24h+ apart."""
+        from hestia.trading.strategies.signal_dca import SignalDCAStrategy
+
+        strategy = SignalDCAStrategy(config={
+            "rsi_threshold": 50,
+            "buy_interval_hours": 24,
+            "ma_period": 20,
+            "rsi_period": 14,
+        })
+
+        # Create 100 candles with oversold conditions (declining price, below MA)
+        np.random.seed(42)
+        n = 100
+        timestamps = [
+            datetime(2025, 1, 1, tzinfo=timezone.utc) + timedelta(hours=i)
+            for i in range(n)
+        ]
+        prices = [50000.0 - i * 10 for i in range(n)]  # Steady decline
+
+        df = pd.DataFrame({
+            "timestamp": timestamps,
+            "open": prices,
+            "high": [p + 100 for p in prices],
+            "low": [p - 100 for p in prices],
+            "close": prices,
+            "volume": [1000.0] * n,
+        })
+
+        # Compute indicators on OHLCV columns, then re-attach timestamps
+        df_with_indicators = add_all_indicators(
+            df[["open", "high", "low", "close", "volume"]].copy()
+        )
+        df_with_indicators["timestamp"] = timestamps
+
+        buy_signals = []
+        for i in range(30, len(df_with_indicators)):
+            window = df_with_indicators.iloc[:i + 1]
+            ts = timestamps[i]
+            signal = strategy.analyze(window, 1000.0, timestamp=ts)
+            if signal.signal_type == SignalType.BUY:
+                buy_signals.append(i)
+
+        # 100 hourly candles = ~4 days; 24h interval → expect at least 2 buys
+        assert len(buy_signals) >= 2, (
+            f"Expected >= 2 buys but got {len(buy_signals)}: {buy_signals}"
+        )
+
+    def test_signal_dca_interval_gate_blocks_without_timestamp(self) -> None:
+        """Without timestamp override, second call within 24h is blocked (wall-clock)."""
+        from hestia.trading.strategies.signal_dca import SignalDCAStrategy
+
+        strategy = SignalDCAStrategy(config={
+            "rsi_threshold": 50,
+            "buy_interval_hours": 24,
+            "ma_period": 20,
+            "rsi_period": 14,
+        })
+
+        n = 60
+        prices = [50000.0 - i * 10 for i in range(n)]
+        df = pd.DataFrame({
+            "open": prices,
+            "high": [p + 100 for p in prices],
+            "low": [p - 100 for p in prices],
+            "close": prices,
+            "volume": [1000.0] * n,
+        })
+        df = add_all_indicators(df)
+
+        # First call — no timestamp passed, should buy
+        signal1 = strategy.analyze(df, 1000.0)
+        assert signal1.signal_type == SignalType.BUY, (
+            f"Expected first call to be BUY, got {signal1.reason}"
+        )
+
+        # Immediate second call — wall-clock hasn't moved, gate should block
+        signal2 = strategy.analyze(df, 1000.0)
+        assert signal2.signal_type == SignalType.HOLD, (
+            f"Expected interval gate to block second call, got {signal2.signal_type}"
+        )

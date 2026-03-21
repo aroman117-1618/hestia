@@ -9,6 +9,7 @@ Grid width must be >= 2x ATR to prevent being "gapped" by volatility.
 """
 
 import math
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
@@ -92,7 +93,7 @@ class GridStrategy(BaseStrategy):
         min_width = current_atr * self.grid_width_atr_multiple
         return grid_width >= min_width
 
-    def analyze(self, df: pd.DataFrame, portfolio_value: float) -> Signal:
+    def analyze(self, df: pd.DataFrame, portfolio_value: float, timestamp: Optional[datetime] = None) -> Signal:
         """
         Analyze price position relative to grid and generate signals.
 

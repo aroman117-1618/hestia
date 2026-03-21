@@ -268,7 +268,14 @@ class BacktestEngine:
             if len(window) < 20:
                 continue
 
-            signal = strategy.analyze(window, portfolio_value)
+            # Pass candle timestamp so time-gated strategies (e.g. DCA) use simulation time
+            ts: Optional[datetime] = None
+            if "timestamp" in df.columns:
+                ts = df.iloc[i]["timestamp"]
+                if hasattr(ts, "to_pydatetime"):
+                    ts = ts.to_pydatetime()
+
+            signal = strategy.analyze(window, portfolio_value, timestamp=ts)
             signals.append({
                 "index": i,
                 "signal_type": signal.signal_type.value,

@@ -10,6 +10,7 @@ Entry requires:
 3. Trend filter: 50-period SMA direction check (avoid momentum traps)
 """
 
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
@@ -46,7 +47,7 @@ class MeanReversionStrategy(BaseStrategy):
     def strategy_type(self) -> str:
         return "mean_reversion"
 
-    def analyze(self, df: pd.DataFrame, portfolio_value: float) -> Signal:
+    def analyze(self, df: pd.DataFrame, portfolio_value: float, timestamp: Optional[datetime] = None) -> Signal:
         """
         Generate mean reversion signals with triple confirmation.
 

@@ -77,13 +77,17 @@ class BaseStrategy(ABC):
         ...
 
     @abstractmethod
-    def analyze(self, df: pd.DataFrame, portfolio_value: float) -> Signal:
+    def analyze(self, df: pd.DataFrame, portfolio_value: float, timestamp: Optional[datetime] = None) -> Signal:
         """
         Analyze market data and produce a signal.
 
         Args:
             df: OHLCV DataFrame with indicators already computed.
             portfolio_value: Current portfolio value for position sizing.
+            timestamp: Simulation time for the current candle. When provided,
+                strategies that use time-based gates (e.g. DCA interval) should
+                use this instead of wall-clock time. Live trading passes None,
+                which falls back to datetime.now(timezone.utc).
 
         Returns:
             Signal with buy/sell/hold recommendation.

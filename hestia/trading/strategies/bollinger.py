@@ -10,6 +10,7 @@ reversion. It profits from sustained directional moves after volatility
 contraction (the "squeeze").
 """
 
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
@@ -42,7 +43,7 @@ class BollingerBreakoutStrategy(BaseStrategy):
     def strategy_type(self) -> str:
         return "bollinger_breakout"
 
-    def analyze(self, df: pd.DataFrame, portfolio_value: float) -> Signal:
+    def analyze(self, df: pd.DataFrame, portfolio_value: float, timestamp: Optional[datetime] = None) -> Signal:
         """
         Generate breakout signals from Bollinger Band violations.
 

@@ -44,7 +44,7 @@ class SignalDCAStrategy(BaseStrategy):
     def strategy_type(self) -> str:
         return "signal_dca"
 
-    def analyze(self, df: pd.DataFrame, portfolio_value: float) -> Signal:
+    def analyze(self, df: pd.DataFrame, portfolio_value: float, timestamp: Optional[datetime] = None) -> Signal:
         """
         Generate DCA buy signals with RSI + MA confirmation.
 
@@ -78,8 +78,8 @@ class SignalDCAStrategy(BaseStrategy):
                 metadata={"rsi": current_rsi, "sma": current_sma, "price": current_price},
             )
 
-        # Check interval gate
-        now = datetime.now(timezone.utc)
+        # Check interval gate — use candle timestamp in backtests, wall-clock in live trading
+        now = timestamp or datetime.now(timezone.utc)
         if self._last_buy_time is not None:
             min_interval = timedelta(hours=self.buy_interval_hours)
             elapsed = now - self._last_buy_time
