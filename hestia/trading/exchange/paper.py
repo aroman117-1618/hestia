@@ -7,7 +7,7 @@ with realistic slippage and fee modeling.
 
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import pandas as pd
 
@@ -41,11 +41,13 @@ class PaperAdapter(AbstractExchangeAdapter):
         maker_fee: float = DEFAULT_MAKER_FEE,
         taker_fee: float = DEFAULT_TAKER_FEE,
         slippage: float = DEFAULT_SLIPPAGE,
+        market_data_source: Optional[Callable] = None,
     ) -> None:
         self._connected = False
         self._maker_fee = maker_fee
         self._taker_fee = taker_fee
         self._slippage = slippage
+        self._market_data_source = market_data_source
 
         # Virtual balances
         self._balances: Dict[str, AccountBalance] = {
@@ -204,6 +206,16 @@ class PaperAdapter(AbstractExchangeAdapter):
         return dict(self._balances)
 
     async def get_ticker(self, pair: str = "BTC-USD") -> Dict[str, Any]:
+        """Use market data source for live spot price if available."""
+        if self._market_data_source:
+            try:
+                df = await self._market_data_source(pair=pair, granularity="1h", days=1)
+                if df is not None and not df.empty:
+                    price = float(df.iloc[-1]["close"])
+                    self._current_prices[pair] = price
+            except Exception:
+                pass  # Fall through to cached price
+
         price = self._current_prices.get(pair, 0.0)
         return {
             "pair": pair,
@@ -220,7 +232,18 @@ class PaperAdapter(AbstractExchangeAdapter):
         granularity: str = "1h",
         days: int = 7,
     ) -> Optional[pd.DataFrame]:
-        """Paper adapter has no live data source."""
+        """Delegate to market data source if available."""
+        if self._market_data_source:
+            try:
+                return await self._market_data_source(
+                    pair=pair, granularity=granularity, days=days
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Market data source failed: {type(e).__name__}",
+                    component=LogComponent.TRADING,
+                    data={"pair": pair},
+                )
         return None
 
     async def get_order_book(self, pair: str = "BTC-USD", depth: int = 10) -> Dict[str, Any]:

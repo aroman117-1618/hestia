@@ -278,7 +278,87 @@ class TestABCInterface:
         assert "get_candles" in AbstractExchangeAdapter.__abstractmethods__
 
     @pytest.mark.asyncio
-    async def test_paper_adapter_get_candles_returns_none(self, paper):
+    async def test_paper_adapter_get_candles_returns_none_without_source(self, paper):
         """Paper adapter stub returns None (no live data source)."""
         result = await paper.get_candles("BTC-USD")
         assert result is None
+
+
+class TestMarketDataSource:
+    """Tests for PaperAdapter with injected market data source."""
+
+    @pytest.mark.asyncio
+    async def test_get_candles_with_source(self):
+        """When market_data_source is set, get_candles delegates to it."""
+        import pandas as pd
+        from datetime import datetime, timezone
+
+        fake_df = pd.DataFrame([{
+            "timestamp": datetime.now(timezone.utc),
+            "open": 84000.0, "high": 84500.0,
+            "low": 83500.0, "close": 84200.0,
+            "volume": 100.0,
+        }])
+
+        async def mock_source(pair, granularity="1h", days=7):
+            return fake_df
+
+        adapter = PaperAdapter(market_data_source=mock_source)
+        await adapter.connect()
+        result = await adapter.get_candles("BTC-USD")
+        assert result is not None
+        assert len(result) == 1
+        assert float(result.iloc[0]["close"]) == 84200.0
+        await adapter.disconnect()
+
+    @pytest.mark.asyncio
+    async def test_get_candles_without_source(self):
+        """When no market_data_source, get_candles returns None (backward compat)."""
+        adapter = PaperAdapter()
+        await adapter.connect()
+        result = await adapter.get_candles("BTC-USD")
+        assert result is None
+        await adapter.disconnect()
+
+    @pytest.mark.asyncio
+    async def test_get_candles_source_failure_returns_none(self):
+        """When market_data_source raises, get_candles returns None gracefully."""
+        async def failing_source(pair, granularity="1h", days=7):
+            raise ConnectionError("API down")
+
+        adapter = PaperAdapter(market_data_source=failing_source)
+        await adapter.connect()
+        result = await adapter.get_candles("BTC-USD")
+        assert result is None
+        await adapter.disconnect()
+
+    @pytest.mark.asyncio
+    async def test_get_ticker_updates_price_from_source(self):
+        """get_ticker uses last candle close to update _current_prices."""
+        import pandas as pd
+        from datetime import datetime, timezone
+
+        fake_df = pd.DataFrame([{
+            "timestamp": datetime.now(timezone.utc),
+            "open": 84000.0, "high": 84500.0,
+            "low": 83500.0, "close": 84200.0,
+            "volume": 100.0,
+        }])
+
+        async def mock_source(pair, granularity="1h", days=7):
+            return fake_df
+
+        adapter = PaperAdapter(market_data_source=mock_source)
+        await adapter.connect()
+        ticker = await adapter.get_ticker("BTC-USD")
+        assert ticker["price"] == 84200.0
+        await adapter.disconnect()
+
+    @pytest.mark.asyncio
+    async def test_get_ticker_fallback_without_source(self):
+        """Without market_data_source, get_ticker uses hardcoded defaults."""
+        adapter = PaperAdapter()
+        await adapter.connect()
+        ticker = await adapter.get_ticker("BTC-USD")
+        assert ticker["price"] == 65000.0
+        await adapter.disconnect()
