@@ -7,11 +7,15 @@ capital:
   starting_usd: 250.0
   default_pair: "BTC-USD"
   # Strategy allocation percentages (must sum to 1.0)
+  # REVISED S27.6 (2026-03-21): Grid shelved — backtests showed -90% avg across all assets.
+  # Dual Momentum added as primary trend-following strategy.
+  # Bollinger kept at reduced allocation pending fade redesign.
   allocation:
-    grid: 0.35           # $87.50 — Grid Trading (geometric)
-    mean_reversion: 0.20 # $50.00 — Mean Reversion (RSI-7/9)
-    signal_dca: 0.25     # $62.50 — Signal-Enhanced DCA
-    bollinger: 0.20      # $50.00 — Bollinger Breakout
+    grid: 0.00           # SHELVED — structural flaw, not viable at any capital level
+    dual_momentum: 0.40  # $100.00 — Dual Momentum (Antonacci) — trend + regime filter
+    mean_reversion: 0.30 # $75.00 — Mean Reversion (RSI-based)
+    signal_dca: 0.20     # $50.00 — Signal-Enhanced DCA (accumulation)
+    bollinger: 0.10      # $25.00 — Bollinger Breakout (reduced, pending redesign)
 
 # ── Risk Management ───────────────────────────────────────────
 risk:
