@@ -9,6 +9,7 @@ from datetime import datetime, time, timezone
 from typing import Any, Dict, List, Optional, Set
 
 from hestia.logging import get_logger, LogComponent
+from hestia.workflows.models import SessionStrategy, WorkflowExecutionConfig
 
 from .models import (
     Order,
@@ -468,45 +469,90 @@ class OrderManager:
     # =========================================================================
 
     async def execute_order(self, order_id: str) -> OrderExecution:
-        """
-        Execute an order immediately.
+        """Execute an order by sending its prompt through the handler pipeline.
 
-        This method starts the execution and returns immediately.
-        The actual prompt execution is handled asynchronously.
-
-        In the full implementation, this would:
-        1. Start execution tracking
-        2. Call the orchestration handler with the prompt
-        3. Use the specified MCP resources
-        4. Complete or fail the execution based on result
-
-        Args:
-            order_id: Order to execute.
-
-        Returns:
-            New OrderExecution.
+        Uses the WorkflowHandlerAdapter to construct a synthetic Request
+        and route it through the full handler pipeline (council, memory,
+        agent routing, tool execution).
         """
         order = await self.database.get_order(order_id)
         if order is None:
             raise ValueError(f"Order not found: {order_id}")
 
-        # Start execution
-        execution = await self.start_execution(order_id)
-
-        # Orchestration integration deferred (see ADR-021).
-        # Currently simulates execution; full pipeline pending.
         self.logger.info(
-            f"Order execution triggered: {order.name}",
+            f"Executing order: {order.name}",
             component=LogComponent.EXECUTION,
-            data={
-                "order_id": order_id,
-                "execution_id": execution.id,
-                "prompt_preview": order.prompt[:100],
-                "resources": [r.value for r in order.resources],
-            },
+            data={"order_id": order_id, "status": order.status.value},
         )
 
-        return execution
+        execution = await self.start_execution(order_id)
+
+        try:
+            adapter = await self._get_adapter()
+
+            config = WorkflowExecutionConfig(
+                session_strategy=SessionStrategy.PER_RUN,
+                run_id=execution.id,
+                workflow_id=order_id,
+                workflow_name=order.name,
+                memory_write=False,
+                memory_read=True,
+            )
+
+            response = await adapter.execute(order.prompt, config=config)
+
+            if response.error_code:
+                execution = await self.fail_execution(
+                    execution.id,
+                    error_message=response.error_message or "Unknown error",
+                )
+                return execution
+
+            hestia_read = response.content[:500] if response.content else ""
+
+            execution = await self.complete_execution(
+                execution.id,
+                hestia_read=hestia_read,
+                full_response=response.content,
+            )
+
+            self.logger.info(
+                f"Order executed successfully: {order.name}",
+                component=LogComponent.EXECUTION,
+                data={
+                    "order_id": order_id,
+                    "execution_id": execution.id,
+                    "tokens_in": response.tokens_in,
+                    "tokens_out": response.tokens_out,
+                    "duration_ms": response.duration_ms,
+                },
+            )
+
+            return execution
+
+        except Exception as e:
+            self.logger.error(
+                f"Order execution failed: {type(e).__name__}",
+                component=LogComponent.EXECUTION,
+                data={"order_id": order_id, "execution_id": execution.id},
+            )
+            execution = await self.fail_execution(
+                execution.id,
+                error_message=f"{type(e).__name__}: {e}",
+            )
+            return execution
+
+    async def _get_adapter(self) -> "WorkflowHandlerAdapter":
+        """Get or create the workflow handler adapter."""
+        if hasattr(self, "_workflow_adapter") and self._workflow_adapter:
+            return self._workflow_adapter
+
+        from hestia.orchestration.handler import get_request_handler
+        from hestia.workflows.adapter import WorkflowHandlerAdapter
+
+        handler = await get_request_handler()
+        self._workflow_adapter = WorkflowHandlerAdapter(handler=handler)
+        return self._workflow_adapter
 
 
 # Module-level singleton

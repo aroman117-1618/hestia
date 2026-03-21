@@ -158,3 +158,112 @@ class TestWorkflowHandlerAdapter:
         await adapter.execute("don't remember this")
         call_request = mock_handler.handle.call_args[0][0]
         assert call_request.context_hints.get("memory_write") is False
+
+
+from hestia.orders.models import Order, OrderStatus, OrderFrequency, FrequencyType
+from hestia.orchestration.models import RequestSource
+
+
+class TestOrderExecution:
+    """Test that Orders wire through the adapter to the handler.
+
+    These tests mock at the manager level (start_execution, complete_execution,
+    fail_execution) rather than the DB layer, because the manager methods have
+    internal get_execution calls that would need deep DB mocking.
+    """
+
+    @pytest.fixture
+    def mock_order_db(self):
+        db = AsyncMock()
+        db.get_order = AsyncMock(return_value=Order(
+            id="order-test123",
+            name="Morning Brief",
+            prompt="Summarize my calendar and email for today",
+            scheduled_time="08:00",
+            frequency=OrderFrequency(type=FrequencyType.DAILY),
+            resources=set(),
+            status=OrderStatus.ACTIVE,
+            created_at="2026-03-20T00:00:00Z",
+            updated_at="2026-03-20T00:00:00Z",
+        ))
+        return db
+
+    @pytest.fixture
+    def mock_handler(self):
+        handler = AsyncMock()
+        handler.handle = AsyncMock(return_value=MagicMock(
+            content="Good morning! Here's your brief: 3 meetings today...",
+            request_id="req-test123",
+            tokens_in=50,
+            tokens_out=100,
+            duration_ms=1200.0,
+            error_code=None,
+        ))
+        return handler
+
+    @pytest.fixture
+    def mock_execution(self):
+        from hestia.orders.models import OrderExecution, ExecutionStatus
+        return OrderExecution(
+            id="exec-abc123",
+            order_id="order-test123",
+            timestamp="2026-03-20T08:00:00Z",
+            status=ExecutionStatus.RUNNING,
+        )
+
+    @pytest.mark.asyncio
+    async def test_execute_order_calls_handler_with_prompt(
+        self, mock_order_db, mock_handler, mock_execution
+    ):
+        from hestia.orders.manager import OrderManager
+        from hestia.workflows.adapter import WorkflowHandlerAdapter
+        manager = OrderManager(database=mock_order_db)
+        adapter = WorkflowHandlerAdapter(handler=mock_handler)
+        manager._workflow_adapter = adapter
+        manager.start_execution = AsyncMock(return_value=mock_execution)
+        manager.complete_execution = AsyncMock(return_value=mock_execution)
+
+        execution = await manager.execute_order("order-test123")
+
+        mock_handler.handle.assert_called_once()
+        call_request = mock_handler.handle.call_args[0][0]
+        assert "Summarize my calendar and email" in call_request.content
+        assert call_request.source == RequestSource.WORKFLOW
+
+    @pytest.mark.asyncio
+    async def test_execute_order_records_success(
+        self, mock_order_db, mock_handler, mock_execution
+    ):
+        from hestia.orders.manager import OrderManager
+        from hestia.workflows.adapter import WorkflowHandlerAdapter
+        manager = OrderManager(database=mock_order_db)
+        adapter = WorkflowHandlerAdapter(handler=mock_handler)
+        manager._workflow_adapter = adapter
+        manager.start_execution = AsyncMock(return_value=mock_execution)
+        manager.complete_execution = AsyncMock(return_value=mock_execution)
+
+        await manager.execute_order("order-test123")
+
+        manager.complete_execution.assert_called_once()
+        call_kwargs = manager.complete_execution.call_args
+        assert call_kwargs[1]["full_response"] == "Good morning! Here's your brief: 3 meetings today..."
+        assert call_kwargs[1]["hestia_read"] is not None
+
+    @pytest.mark.asyncio
+    async def test_execute_order_records_failure(
+        self, mock_order_db, mock_handler, mock_execution
+    ):
+        mock_handler.handle.side_effect = Exception("Ollama unavailable")
+        from hestia.orders.manager import OrderManager
+        from hestia.workflows.adapter import WorkflowHandlerAdapter
+        manager = OrderManager(database=mock_order_db)
+        adapter = WorkflowHandlerAdapter(handler=mock_handler)
+        manager._workflow_adapter = adapter
+        manager.start_execution = AsyncMock(return_value=mock_execution)
+        manager.fail_execution = AsyncMock(return_value=mock_execution)
+
+        await manager.execute_order("order-test123")
+
+        manager.fail_execution.assert_called_once()
+        call_args = manager.fail_execution.call_args
+        assert "Ollama unavailable" in call_args[1]["error_message"]
