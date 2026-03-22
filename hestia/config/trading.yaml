@@ -6,16 +6,26 @@
 capital:
   starting_usd: 250.0
   default_pair: "BTC-USD"
-  # Strategy allocation percentages (must sum to 1.0)
-  # REVISED S27.6 (2026-03-21): Grid shelved — backtests showed -90% avg across all assets.
-  # Dual Momentum added as primary trend-following strategy.
-  # Bollinger kept at reduced allocation pending fade redesign.
+  # REVISED S27.6 (2026-03-21): Per-asset Mean Reversion portfolio.
+  # Backtested across bull (2024-2025) + bear (2025-2026): +20.9% combined avg.
+  # Corrected methodology: OPEN-price execution, 0.5% fees. Edge survives.
+  # Sharpe-weighted allocation across 4 profitable assets:
+  #
+  # Per-asset RSI-3 configs (bot-level, not here):
+  #   ETH-USD: RSI-3 20/80  (+33.9% combined)
+  #   BTC-USD: RSI-3 15/85  (+18.3% combined)
+  #   SOL-USD: RSI-3 25/70  (+19.4% combined)
+  #   DOGE-USD: RSI-3 25/75 (+19.6% combined)
+  #   AVAX-USD: excluded (-2.4%)
+  #
+  # Grid, Bollinger: SHELVED. Dual Momentum: position bug, deferred.
+  # Signal DCA: bug fixed but accumulation-only, deferred.
   allocation:
-    grid: 0.00           # SHELVED — structural flaw, not viable at any capital level
-    dual_momentum: 0.40  # $100.00 — Dual Momentum (Antonacci) — trend + regime filter
-    mean_reversion: 0.30 # $75.00 — Mean Reversion (RSI-based)
-    signal_dca: 0.20     # $50.00 — Signal-Enhanced DCA (accumulation)
-    bollinger: 0.10      # $25.00 — Bollinger Breakout (reduced, pending redesign)
+    mean_reversion: 1.00 # All capital — 4 MR bots with per-asset params
+    grid: 0.00           # SHELVED
+    dual_momentum: 0.00  # Deferred (0-trade bug)
+    signal_dca: 0.00     # Deferred (accumulation-only)
+    bollinger: 0.00      # SHELVED
 
 # ── Risk Management ───────────────────────────────────────────
 risk:
