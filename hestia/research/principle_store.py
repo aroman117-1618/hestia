@@ -212,17 +212,15 @@ class PrincipleStore:
         all_topics: List[str] = []
         all_entities: List[str] = []
 
-        for result in memory_chunks[:20]:  # Limit to 20 chunks per distillation
+        # Keep prompt compact to stay on PRIMARY model tier (<500 tokens)
+        # and avoid expensive model swaps on resource-constrained hardware.
+        # Distill in small batches; callers can invoke multiple times for coverage.
+        for result in memory_chunks[:5]:
             chunk = result.chunk
-            # Include source metadata for source-aware distillation
-            source_label = ""
-            if chunk.metadata and chunk.metadata.source:
-                source_label = f" (source: {chunk.metadata.source})"
-            date_label = ""
-            if chunk.timestamp:
-                date_label = f" [{chunk.timestamp.strftime('%Y-%m-%d')}]"
+            source_label = f" ({chunk.metadata.source})" if chunk.metadata and chunk.metadata.source else ""
+            date_label = f" [{chunk.timestamp.strftime('%Y-%m-%d')}]" if chunk.timestamp else ""
             excerpts.append(
-                f"[{chunk.chunk_type.value}]{source_label}{date_label} {chunk.content[:300]}"
+                f"[{chunk.chunk_type.value}]{source_label}{date_label} {chunk.content[:150]}"
             )
             source_chunk_ids.append(chunk.id)
             if chunk.tags:
@@ -265,8 +263,9 @@ class PrincipleStore:
             response = inference_response.content
         except Exception as e:
             logger.warning(
-                f"Principle distillation LLM call failed: {type(e).__name__}",
+                f"Principle distillation LLM call failed: {type(e).__name__}: {e}",
                 component=LogComponent.RESEARCH,
+                data={"error": type(e).__name__, "detail": str(e)[:200]},
             )
             return []
 
