@@ -545,11 +545,19 @@ async def get_portfolio(
         cash_bal = balances.get("USD")
         cash_value = (cash_bal.available + cash_bal.hold) if cash_bal else 0.0
 
+        _STABLECOINS = {"USDC", "USDT", "DAI", "BUSD"}
         positions_value = 0.0
         for currency, balance in balances.items():
-            if currency != "USD" and balance.total > 0:
-                ticker = await manager.exchange.get_ticker(f"{currency}-USD")
-                positions_value += balance.total * ticker.get("price", 0.0)
+            if currency == "USD" or balance.total <= 0:
+                continue
+            if currency in _STABLECOINS:
+                cash_value += balance.total  # Stablecoins count as cash
+            else:
+                try:
+                    ticker = await manager.exchange.get_ticker(f"{currency}-USD")
+                    positions_value += balance.total * ticker.get("price", 0.0)
+                except Exception:
+                    pass  # Skip currencies without a USD pair
 
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         summary = await manager.get_daily_summary(today)
