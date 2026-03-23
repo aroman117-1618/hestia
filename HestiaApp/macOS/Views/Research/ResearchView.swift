@@ -633,6 +633,8 @@ struct ResearchPrinciplesView: View {
                 ProgressView()
                     .controlSize(.regular)
                 Spacer()
+            } else if viewModel.principles.isEmpty, let error = viewModel.principlesLoadError {
+                principlesErrorState(error)
             } else if viewModel.principles.isEmpty {
                 principlesEmptyState
             } else {
@@ -644,7 +646,44 @@ struct ResearchPrinciplesView: View {
         }
     }
 
-    // MARK: - Empty State
+    // MARK: - Empty & Error States
+
+    private func principlesErrorState(_ message: String) -> some View {
+        VStack(spacing: MacSpacing.md) {
+            Spacer()
+            Image(systemName: "wifi.slash")
+                .font(.system(size: 48))
+                .foregroundStyle(MacColors.statusWarning.opacity(0.4))
+            Text(message)
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(MacColors.textSecondary)
+            Text("Check that the Hestia server is running\nand your connection is active.")
+                .font(.system(size: 13))
+                .foregroundStyle(MacColors.textFaint)
+                .multilineTextAlignment(.center)
+            Button {
+                Task { await viewModel.loadPrinciples() }
+            } label: {
+                HStack(spacing: MacSpacing.xs) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 12))
+                    Text("Retry")
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .foregroundStyle(MacColors.textPrimary)
+                .padding(.horizontal, MacSpacing.lg)
+                .padding(.vertical, MacSpacing.sm)
+                .background(MacColors.panelBackground)
+                .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
+                .overlay(
+                    RoundedRectangle(cornerRadius: MacCornerRadius.search)
+                        .stroke(MacColors.cardBorder, lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
+            Spacer()
+        }
+    }
 
     private var principlesEmptyState: some View {
         VStack(spacing: MacSpacing.md) {

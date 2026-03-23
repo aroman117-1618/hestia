@@ -127,6 +127,7 @@ class MacNeuralNetViewModel: ObservableObject {
     @Published var isLoadingPrinciples = false
     @Published var isDistilling = false
     @Published var principlesTotal: Int = 0
+    @Published var principlesLoadError: String?
 
     // MARK: - Types
 
@@ -283,10 +284,15 @@ class MacNeuralNetViewModel: ObservableObject {
 
         } catch {
             #if DEBUG
-            print("[MacNeuralNetViewModel] Server graph failed: \(error), using mock")
+            print("[MacNeuralNetViewModel] Server graph failed: \(error), using cache/mock")
             #endif
             if nodes.isEmpty {
-                loadMockGraph()
+                // Try stale cache before falling back to mock
+                if let stale = CacheManager.shared.getStale(ResearchGraphResponse.self, forKey: CacheKey.researchGraph) {
+                    applyGraphResponse(stale)
+                } else {
+                    loadMockGraph()
+                }
             }
         }
     }
@@ -453,21 +459,33 @@ class MacNeuralNetViewModel: ObservableObject {
         isLoadingPrinciples = true
         defer { isLoadingPrinciples = false }
 
-        // Cached first
+        // Fresh cache → show immediately
         if let cached = CacheManager.shared.get(PrincipleListResponse.self, forKey: CacheKey.researchPrinciples) {
             principles = cached.principles
             principlesTotal = cached.total
+            principlesLoadError = nil
         }
 
         do {
             let response = try await APIClient.shared.getPrinciples(status: status)
             principles = response.principles
             principlesTotal = response.total
-            CacheManager.shared.cache(response, forKey: CacheKey.researchPrinciples, ttl: 120)
+            principlesLoadError = nil
+            CacheManager.shared.cache(response, forKey: CacheKey.researchPrinciples, ttl: 300)
         } catch {
             #if DEBUG
             print("[MacNeuralNetViewModel] Failed to load principles: \(error)")
             #endif
+            // Stale cache fallback — better to show old data than nothing
+            if principles.isEmpty,
+               let stale = CacheManager.shared.getStale(PrincipleListResponse.self, forKey: CacheKey.researchPrinciples),
+               !stale.principles.isEmpty {
+                principles = stale.principles
+                principlesTotal = stale.total
+                principlesLoadError = nil
+            } else if principles.isEmpty {
+                principlesLoadError = "Could not reach server"
+            }
         }
     }
 
