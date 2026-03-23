@@ -271,9 +271,29 @@ class GraphBuilder:
                         weight=0.3,
                     ))
 
+        # ── Build principle nodes (approved only) ──────────
+        principle_nodes = await self._build_principle_nodes()
+
+        # ── Build hybrid edges (principles ↔ entities) ────
+        hybrid_edges = self._build_hybrid_edges(principle_nodes, entity_nodes)
+
         # ── Assemble all nodes and edges ────────────────
-        all_nodes = entity_nodes + community_nodes + episode_nodes
-        all_edges = relationship_edges + member_edges + episode_edges
+        all_nodes = entity_nodes + community_nodes + episode_nodes + principle_nodes
+        all_edges = relationship_edges + member_edges + episode_edges + hybrid_edges
+
+        # ── Degree centrality sizing ──────────────────────
+        degree: Counter = Counter()
+        for edge in all_edges:
+            degree[edge.from_id] += 1
+            degree[edge.to_id] += 1
+        max_degree = max(degree.values()) if degree else 1
+
+        for node in all_nodes:
+            d = degree.get(node.id, 0)
+            # Blend: 70% degree centrality + 30% original weight (confidence/durability)
+            centrality_weight = (d / max_degree) if max_degree > 0 else 0.2
+            node.weight = centrality_weight * 0.7 + node.weight * 0.3
+            node.weight = max(node.weight, 0.15)  # Minimum so isolated nodes are visible
 
         # ── BFS filter by center_entity ─────────────────
         if center_entity:
@@ -408,6 +428,53 @@ class GraphBuilder:
                 ))
 
         return clusters
+
+    def _build_hybrid_edges(
+        self,
+        principle_nodes: List[GraphNode],
+        entity_nodes: List[GraphNode],
+    ) -> List[GraphEdge]:
+        """Build hybrid edges: principle↔principle via shared topics, principle↔entity via shared entity names."""
+        edges: List[GraphEdge] = []
+        seen: Set[Tuple[str, str]] = set()
+
+        # Principle↔Principle via shared topics
+        for i, p_a in enumerate(principle_nodes):
+            for p_b in principle_nodes[i + 1:]:
+                shared = set(t.lower() for t in p_a.topics) & set(t.lower() for t in p_b.topics)
+                if shared:
+                    pair = (min(p_a.id, p_b.id), max(p_a.id, p_b.id))
+                    if pair not in seen:
+                        seen.add(pair)
+                        edges.append(GraphEdge(
+                            from_id=p_a.id,
+                            to_id=p_b.id,
+                            edge_type=EdgeType.TOPIC_LINK,
+                            weight=min(len(shared) / 3.0, 1.0),
+                            count=len(shared),
+                        ))
+
+        # Principle↔Entity via shared entity names
+        entity_name_to_id: Dict[str, str] = {}
+        for en in entity_nodes:
+            for name in en.entities:
+                entity_name_to_id[name.lower()] = en.id
+
+        for p_node in principle_nodes:
+            for entity_name in p_node.entities:
+                entity_graph_id = entity_name_to_id.get(entity_name.lower())
+                if entity_graph_id:
+                    pair = (min(p_node.id, entity_graph_id), max(p_node.id, entity_graph_id))
+                    if pair not in seen:
+                        seen.add(pair)
+                        edges.append(GraphEdge(
+                            from_id=p_node.id,
+                            to_id=entity_graph_id,
+                            edge_type=EdgeType.SHARED_ENTITY,
+                            weight=0.6,
+                        ))
+
+        return edges
 
     async def build_graph(
         self,

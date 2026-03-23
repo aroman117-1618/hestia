@@ -190,17 +190,32 @@ struct NodeDetailPopover: View {
     @ViewBuilder
     private var tagsSection: some View {
         if !node.topics.isEmpty || !node.entities.isEmpty {
-            VStack(alignment: .leading, spacing: MacSpacing.sm) {
-                Text("Tags")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(MacColors.textFaint)
+            VStack(alignment: .leading, spacing: MacSpacing.md) {
+                if !node.topics.isEmpty {
+                    VStack(alignment: .leading, spacing: MacSpacing.sm) {
+                        Text("Topics")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(MacColors.textFaint)
 
-                FlowLayout(spacing: MacSpacing.xs) {
-                    ForEach(node.topics, id: \.self) { topic in
-                        tagPill(topic, color: node.swiftUIColor)
+                        FlowLayout(spacing: MacSpacing.xs) {
+                            ForEach(node.topics, id: \.self) { topic in
+                                tagPill(topic, color: MacColors.amberAccent, backgroundOpacity: 0.15)
+                            }
+                        }
                     }
-                    ForEach(node.entities, id: \.self) { entity in
-                        tagPill(entity, color: MacColors.amberAccent)
+                }
+
+                if !node.entities.isEmpty {
+                    VStack(alignment: .leading, spacing: MacSpacing.sm) {
+                        Text("Entities")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(MacColors.textFaint)
+
+                        FlowLayout(spacing: MacSpacing.xs) {
+                            ForEach(node.entities, id: \.self) { entity in
+                                entityPill(entity)
+                            }
+                        }
                     }
                 }
             }
@@ -359,13 +374,23 @@ struct NodeDetailPopover: View {
 
     // strippingBracketPrefixes moved to String extension (StringExtensions.swift)
 
-    private func tagPill(_ text: String, color: Color) -> some View {
+    private func tagPill(_ text: String, color: Color, backgroundOpacity: Double = 0.12) -> some View {
         Text(text)
             .font(.system(size: 10, weight: .medium))
             .foregroundStyle(color)
             .padding(.horizontal, MacSpacing.sm)
             .padding(.vertical, 3)
-            .background(color.opacity(0.12))
+            .background(color.opacity(backgroundOpacity))
+            .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
+    }
+
+    private func entityPill(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 10, weight: .medium))
+            .foregroundStyle(MacColors.textSecondary)
+            .padding(.horizontal, MacSpacing.sm)
+            .padding(.vertical, 3)
+            .background(MacColors.searchInputBackground)
             .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
     }
 }

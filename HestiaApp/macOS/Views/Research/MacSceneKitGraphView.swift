@@ -190,6 +190,7 @@ struct MacSceneKitGraphView: NSViewRepresentable {
             let node = SCNNode(geometry: sphere)
             node.position = SCNVector3(graphNode.position.x, graphNode.position.y, graphNode.position.z)
             node.name = graphNode.id
+            addBillboardLabel(to: node, graphNode: graphNode)
             return node  // skip standard material — custom translucent
 
         case "episode":
@@ -242,7 +243,38 @@ struct MacSceneKitGraphView: NSViewRepresentable {
         ])
         node.runAction(SCNAction.repeatForever(pulse))
 
+        addBillboardLabel(to: node, graphNode: graphNode)
+
         return node
+    }
+
+    private func addBillboardLabel(to node: SCNNode, graphNode: MacNeuralNetViewModel.GraphNode) {
+        let labelStr = String(graphNode.label.prefix(25))
+        guard !labelStr.isEmpty else { return }
+
+        let labelText = SCNText(string: labelStr, extrusionDepth: 0.005)
+        labelText.font = NSFont.systemFont(ofSize: 0.12, weight: .medium)
+        labelText.flatness = 0.3
+        let labelMaterial = SCNMaterial()
+        labelMaterial.diffuse.contents = NSColor(white: 0.92, alpha: 0.9)
+        labelMaterial.lightingModel = .constant
+        labelText.materials = [labelMaterial]
+
+        let labelNode = SCNNode(geometry: labelText)
+        let (minBound, maxBound) = labelNode.boundingBox
+        let textWidth = CGFloat(maxBound.x) - CGFloat(minBound.x)
+        labelNode.position = SCNVector3(
+            -textWidth / 2,
+            CGFloat(graphNode.radius) + 0.1,
+            0
+        )
+        labelNode.scale = SCNVector3(1, 1, 0.1)
+
+        let billboard = SCNBillboardConstraint()
+        billboard.freeAxes = .all
+        labelNode.constraints = [billboard]
+
+        node.addChildNode(labelNode)
     }
 
     // MARK: - Edge Creation (styled by edgeType)

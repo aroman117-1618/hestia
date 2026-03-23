@@ -34,6 +34,7 @@ class EdgeType(str, Enum):
     RELATIONSHIP = "relationship"
     SUPERSEDES = "supersedes"
     COMMUNITY_MEMBER = "community_member"
+    TOPIC_LINK = "topic_link"
 
 
 class PrincipleStatus(str, Enum):

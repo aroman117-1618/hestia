@@ -29,8 +29,8 @@ enum GraphMode: String, CaseIterable {
     /// Facts: entity-relationship focus.
     var defaultNodeTypes: Set<String> {
         switch self {
-        case .legacy: return ["principle", "fact", "topic", "entity", "community"]
-        case .facts:  return ["entity", "community", "episode", "fact"]
+        case .legacy: return ["memory", "topic", "entity", "principle"]
+        case .facts:  return ["entity", "community", "principle", "fact"]
         }
     }
 }
@@ -95,14 +95,14 @@ class MacNeuralNetViewModel: ObservableObject {
 
     // MARK: - Published State (Mode & Filters)
 
-    @Published var graphMode: GraphMode = .legacy {
+    @Published var graphMode: GraphMode = .facts {
         didSet {
             if oldValue != graphMode {
                 nodeTypeFilter = graphMode.defaultNodeTypes
             }
         }
     }
-    @Published var nodeTypeFilter: Set<String> = GraphMode.legacy.defaultNodeTypes
+    @Published var nodeTypeFilter: Set<String> = GraphMode.facts.defaultNodeTypes
     @Published var focusTopic: String = ""
     @Published var depthLimit: Int = 3
     @Published var activeDataSources: Set<String> = Set(["conversation", "mail", "notes", "calendar", "reminders", "health"])
