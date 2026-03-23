@@ -353,15 +353,21 @@ class TradingManager:
 
     async def _estimate_portfolio_value(self, user_id: str) -> float:
         """Estimate total portfolio value from exchange balances."""
+        _STABLECOINS = {"USDC", "USDT", "DAI", "BUSD"}
         if self._exchange:
             balances = await self._exchange.get_balances()
             total = 0.0
             for currency, balance in balances.items():
                 if currency == "USD":
                     total += balance.total
-                else:
-                    ticker = await self._exchange.get_ticker(f"{currency}-USD")
-                    total += balance.total * ticker.get("price", 0.0)
+                elif currency in _STABLECOINS:
+                    total += balance.total
+                elif balance.total > 0:
+                    try:
+                        ticker = await self._exchange.get_ticker(f"{currency}-USD")
+                        total += balance.total * ticker.get("price", 0.0)
+                    except Exception:
+                        pass
             return total
         return 0.0
 

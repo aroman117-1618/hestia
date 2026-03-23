@@ -502,10 +502,13 @@ async def get_positions(
         manager = await get_trading_manager()
         if not manager.exchange:
             return {"positions": {}, "total_exposure": 0.0}
+        _STABLECOINS = {"USDC", "USDT", "DAI", "BUSD"}
         balances = await manager.exchange.get_balances()
         positions: Dict[str, Any] = {}
         for currency, balance in balances.items():
-            if currency != "USD" and balance.total > 0:
+            if currency == "USD" or currency in _STABLECOINS or balance.total <= 0:
+                continue
+            try:
                 ticker = await manager.exchange.get_ticker(f"{currency}-USD")
                 price = ticker.get("price", 0.0)
                 positions[f"{currency}-USD"] = {
@@ -515,6 +518,8 @@ async def get_positions(
                     "price": price,
                     "value": balance.total * price,
                 }
+            except Exception:
+                pass  # Skip currencies without a USD pair
         total = sum(p["value"] for p in positions.values())
         return {"positions": positions, "total_exposure": total}
     except Exception as e:
