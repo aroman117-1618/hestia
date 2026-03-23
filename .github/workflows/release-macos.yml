@@ -67,6 +67,15 @@ jobs:
             -scheme HestiaWorkspace \
             -clonedSourcePackagesDirPath ../spm-cache
 
+      - name: Clean build cache
+        run: |
+          cd HestiaApp
+          xcodebuild clean \
+            -scheme HestiaWorkspace \
+            -configuration Release \
+            -clonedSourcePackagesDirPath ../spm-cache || true
+          rm -rf build/
+
       - name: Build and archive
         run: |
           cd HestiaApp
@@ -75,6 +84,7 @@ jobs:
             -archivePath build/Hestia.xcarchive \
             -configuration Release \
             -clonedSourcePackagesDirPath ../spm-cache \
+            -derivedDataPath build/DerivedData \
             CODE_SIGN_IDENTITY="Developer ID Application" \
             DEVELOPMENT_TEAM=563968AM8L \
             CODE_SIGN_STYLE=Manual \

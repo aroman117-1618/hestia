@@ -72,6 +72,8 @@ targets:
     info:
       path: iOS/Info.plist
       properties:
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         CFBundleDisplayName: Hestia
         UILaunchScreen:
           UIColorName: LaunchScreenBackground
@@ -133,6 +135,8 @@ targets:
     info:
       path: macOS/Info.plist
       properties:
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         CFBundleDisplayName: Hestia
         NSPrincipalClass: NSApplication
         LSMinimumSystemVersion: "15.0"
