@@ -23,7 +23,7 @@ from .models import Community, Entity, EntityType, FactStatus, SourceCategory
 logger = get_logger()
 
 MAX_LP_ITERATIONS = 20
-FUZZY_MATCH_THRESHOLD = 0.88
+FUZZY_MATCH_THRESHOLD = 0.93
 
 
 def _normalize_name(name: str) -> str:
