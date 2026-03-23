@@ -40,6 +40,10 @@ class SignalDCAStrategy(BaseStrategy):
         """Clear the interval gate so each walk-forward window starts fresh."""
         self._last_buy_time = None
 
+    def indicator_periods(self) -> Dict[str, int]:
+        """Signal DCA uses RSI-14 and SMA-50 (not the crypto RSI-7 default)."""
+        return {"rsi_period": self.rsi_period, "sma_period": self.ma_period}
+
     @property
     def name(self) -> str:
         return "Signal-Enhanced DCA"

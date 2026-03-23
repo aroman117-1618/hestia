@@ -141,7 +141,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 **All foundation work complete** (MVP phases 0-7, Intelligence WS1-4, UI phases 1-4, Frontend Wiring sprints 1-5, CLI sprints 1-5, Stability sprints 6-7+12, HealthKit, Wiki, macOS app). See `SPRINT.md` for full history.
 
-**Active: Trading Module (Sprints 21-30).** Sprints 21-26 COMPLETE. Sprint 27 (Go-Live) IN PROGRESS — safety hardening complete, paper soak ready.
+**Active: Trading Module (Sprints 21-30).** Sprints 21-27 COMPLETE. Paper soak LIVE on Mac Mini since 2026-03-19. Coinbase adapter live-ready. Alpaca (stocks) paused — API key pending with support team.
 
 2779 tests (2644 backend + 135 CLI), 87 test files. Full details: `python -m pytest tests/ -v --timeout=30`
 
@@ -283,17 +283,18 @@ Full API details: `docs/api-contract.md` or `/docs` (Swagger)
 ## Active Roadmap
 
 ### Trading Module — Sprints 21–30 (APPROVED 2026-03-18)
-Sprints 21-26 COMPLETE (foundation, strategies, risk, backtesting, Coinbase live, dashboard).
+Sprints 21-27 COMPLETE. Paper soak LIVE on Mac Mini since 2026-03-19. Coinbase adapter live-ready.
 
 | Sprint | Status | Scope |
 |--------|--------|-------|
-| Sprint 27: Go-Live | IN PROGRESS | Paper soak running, S27 hardening complete, awaiting validation Mar 22 |
-| Sprint 28: Alpaca + Stocks | TODO | AlpacaAdapter, market hours, PDT rule, stock strategies, Bollinger/DCA backtests |
-| Sprint 29: Multi-Asset Intelligence | TODO | Regime detection, wash sale/tax-loss harvesting, CoinGecko feed |
-| Sprint 30: Optimization + On-Chain | TODO | Optuna optimizer, walk-forward validation, CryptoQuant/Dune signals |
+| Sprint 27: Go-Live | LIVE (paper soak) | Mean Reversion bots running on BTC/ETH/SOL/DOGE, 8-layer risk armed |
+| Sprint 27.5: Validation | WS1 DONE, WS2-3 TODO | Backtest validation complete (strategy issues found), infra hardening remaining |
+| Sprint 28: Regime Detection | TODO (after 30+ fills) | Rule-based regime detection (ADX+SMA+ATR), strategy router |
+| Sprint 29: Alpaca + Stocks | BLOCKED | Alpaca API key pending — Andrew working with support team |
+| Sprint 30: Portfolio Optimization | TODO | Rebalancing, dashboard, walk-forward validation |
 
 **Plan:** `docs/discoveries/trading-module-research-and-plan.md`
-**Critical path:** S21-S26 (done) → S27 (Go-Live) → S28-S30 (enhancements on live data).
+**Critical path:** S27.5 remaining → $25 live capital → 30+ fills → S28. Alpaca (S29) unblocked when API key resolves.
 
 ### Known Issues (Mac Mini)
 - Council needs `qwen2.5:0.5b` pulled on Mac Mini

@@ -104,6 +104,18 @@ class BaseStrategy(ABC):
         subclasses with mutable state MUST override this.
         """
 
+    def indicator_periods(self) -> Dict[str, int]:
+        """
+        Return strategy-specific indicator periods for the backtest engine.
+
+        The engine calls add_all_indicators() with these values so
+        that pre-computed indicators match what the strategy expects.
+        Override in subclasses that use non-default periods.
+
+        Keys: rsi_period, sma_period, bb_period, atr_period, adx_period.
+        """
+        return {}
+
     def validate_config(self) -> List[str]:
         """
         Validate strategy configuration. Returns list of warnings.

@@ -109,8 +109,11 @@ class BacktestEngine:
         if len(data) < 60:
             result.warnings.append(f"Only {len(data)} candles — results may be unreliable")
 
-        # Compute indicators
-        df = add_all_indicators(data[["open", "high", "low", "close", "volume"]].copy())
+        # Compute indicators with strategy-specific periods
+        df = add_all_indicators(
+            data[["open", "high", "low", "close", "volume"]].copy(),
+            **strategy.indicator_periods(),
+        )
 
         # Generate signals with look-ahead bias prevention
         signals = self._generate_signals(strategy, df, cfg)
@@ -203,7 +206,8 @@ class BacktestEngine:
 
             # Compute indicators once for the full warmup+test frame.
             df_combined = add_all_indicators(
-                test_with_warmup[["open", "high", "low", "close", "volume"]].copy()
+                test_with_warmup[["open", "high", "low", "close", "volume"]].copy(),
+                **strategy.indicator_periods(),
             )
 
             # Generate signals across the combined frame (indicators are valid throughout).

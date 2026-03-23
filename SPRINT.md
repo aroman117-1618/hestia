@@ -1,19 +1,30 @@
-# Sprint 27.5: Infrastructure + Backtest Validation (2026-03-21) — IN PROGRESS
+# Trading Module — Live Status (2026-03-23)
 
-**Started:** 2026-03-21
-**Plan:** `docs/plans/wall-street-portfolio-manager-second-opinion-2026-03-21.md`
-**Discovery:** `docs/discoveries/wall-street-grade-autonomous-portfolio-manager-2026-03-21.md`
+**Paper soak LIVE** on Mac Mini since 2026-03-19. Mean Reversion bots running across BTC/ETH/SOL/DOGE.
+**Infrastructure complete:** 36 source files, 25 API endpoints, 70+ tests, 8-layer risk, BotService on launchd.
+**Coinbase adapter ready** for live trading — flip `trading.yaml mode: paper → live` once soak validates.
 
-## Scope
-Validate the foundation before expanding scope. Three reviews (Claude + Gemini + @hestia-critic) all converged: prove existing strategies work before adding complexity.
+## Backtest Validation Results (S27.5 WS1 — COMPLETE)
 
-### Workstreams
-- **WS1: Backtest Validation** (~3h) — Run all 4 strategies against 1yr BTC-USD hourly data. Validate Sharpe, drawdown, win rate.
-- **WS2: Multi-Bot Soak** (~2h) — Deploy all 4 strategies on Mac Mini (not just Mean Reversion). Portfolio effect only shows when all run simultaneously.
-- **WS3: Infrastructure Hardening** (~3h) — Python 3.12 upgrade on Mac Mini, data quality checks, portfolio-level risk fix (cross-exchange exposure gap).
+696 parameter combos tested across 5 assets (1yr hourly data, bear market):
 
-### Capital Gate
-After S27.5 validates: flip to live with $25 across all 4 strategies. Run 30+ fills (2-6 weeks) before S28.
+| Strategy | Result | Issue |
+|----------|--------|-------|
+| **Mean Reversion** | MARGINAL | +56% ETH, negative on BTC/SOL/DOGE/AVAX. No exit logic — holds winners until reversal |
+| **Signal DCA** | BROKEN | 0 trades across 1,080 combos. Code bug: entry conditions never simultaneously met |
+| **Bollinger Breakout** | -30% avg | Buys fakeout breakouts. No exit logic. 32% win rate |
+| **Grid Trading** | -90% avg | Accumulates losers in downtrend. 0.4% fees bleed capital. Needs tight oscillation range |
+
+**Key insight:** All 4 strategies are mean-reversion biased (buy dips). Zero trend-following or downside protection.
+
+## Current Sprint: S27.5 Remaining Work
+
+- **WS1: Backtest Validation** — COMPLETE (results above)
+- **WS2: Multi-Bot Soak** (~2h) — TODO. Only Mean Reversion active; need all viable strategies running simultaneously
+- **WS3: Infrastructure Hardening** (~3h) — TODO. Python 3.12 upgrade on Mac Mini, data quality checks
+
+## Capital Gate
+After soak validates: flip to live with $25 across viable strategies. Run 30+ fills (2-6 weeks) before S28.
 
 ---
 
@@ -25,9 +36,9 @@ After S27.5 validates: flip to live with $25 across all 4 strategies. Run 30+ fi
 
 | Sprint | Scope | Hours | Status |
 |--------|-------|-------|--------|
-| S27.5 | Infrastructure + Backtest Validation | 8h | IN PROGRESS |
+| S27.5 | Infrastructure + Backtest Validation | 8h | WS1 DONE, WS2-3 TODO |
 | S28 | Rule-Based Regime Detection + Strategy Router | 15h | TODO (after 30+ live fills) |
-| S29 | Alpaca Multi-Asset + Wash Sale Tracking | 20h | TODO |
+| S29 | Alpaca Multi-Asset + Wash Sale Tracking | 20h | BLOCKED — Alpaca API key pending (working with support) |
 | S30 | Portfolio Optimization + Rebalancing + Dashboard | 18h | TODO |
 | S31 | Universe Screening (deferred to $5K+) | 12h | DEFERRED |
 | S33 | Walk-Forward Optimization (deferred to 3+ months data) | 15h | DEFERRED |
@@ -38,6 +49,7 @@ After S27.5 validates: flip to live with $25 across all 4 strategies. Run 30+ fi
 - Sentiment sprint (S32) CUT — decayed alpha, M1 can't run FinBERT, both models agreed.
 - Realistic timeline: 12-14 weeks for S27.5-S30 (~61h active engineering).
 - Capital gates: $25→$500→$1K→$2.5K→$5K+ tied to sprint milestones.
+- **Alpaca paused** — Andrew working with Alpaca support team on API key access. S29 blocked until resolved.
 
 ---
 
@@ -95,7 +107,7 @@ Import 518 ChatGPT conversations (89MB, Dec 2022–Mar 2026) into Hestia's memor
 
 ---
 
-# Sprint 27: Go-Live (2026-03-19) — IN PROGRESS (Paper Soak)
+# Sprint 27: Go-Live (2026-03-19) — LIVE (Paper Soak Running)
 
 **Started:** 2026-03-19
 **Plan:** `docs/discoveries/sprint-27-go-live-2026-03-18.md`

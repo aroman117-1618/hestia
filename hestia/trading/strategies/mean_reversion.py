@@ -35,9 +35,21 @@ class MeanReversionStrategy(BaseStrategy):
         self.rsi_period = self.config.get("rsi_period", 7)
         self.rsi_oversold = self.config.get("rsi_oversold", 20)
         self.rsi_overbought = self.config.get("rsi_overbought", 80)
+        self.rsi_exit_buy = self.config.get("rsi_exit_buy", 70)  # Take profit after BUY
+        self.rsi_exit_sell = self.config.get("rsi_exit_sell", 30)  # Take profit after SELL
         self.volume_confirmation = self.config.get("volume_confirmation", 1.5)
         self.trend_filter_period = self.config.get("trend_filter_period", 50)
         self.stop_loss_pct = self.config.get("stop_loss_pct", 0.03)  # 3% hard stop
+        # Track open position for exit logic
+        self._last_entry: Optional[Dict[str, Any]] = None  # {side, price, quantity}
+
+    def reset(self) -> None:
+        """Clear open position state for walk-forward windows."""
+        self._last_entry = None
+
+    def indicator_periods(self) -> Dict[str, int]:
+        """Expose RSI and SMA periods for the backtest engine."""
+        return {"rsi_period": self.rsi_period, "sma_period": self.trend_filter_period}
 
     @property
     def name(self) -> str:
@@ -66,6 +78,87 @@ class MeanReversionStrategy(BaseStrategy):
         current_rsi = float(current.get("rsi", 50.0))
         current_volume_ratio = float(current.get("volume_ratio", 1.0))
         current_sma = float(current.get("sma", current_price))
+
+        # ── Exit logic: check open position first ────────────
+        if self._last_entry is not None:
+            entry = self._last_entry
+
+            if entry["side"] == "buy":
+                # Stop-loss: hard exit if price drops below entry - stop_loss_pct
+                stop_price = entry["price"] * (1 - self.stop_loss_pct)
+                if current_price <= stop_price:
+                    self._last_entry = None
+                    return Signal(
+                        signal_type=SignalType.SELL,
+                        pair=self.pair,
+                        price=current_price,
+                        quantity=entry["quantity"],
+                        confidence=0.9,
+                        reason=f"Stop-loss hit: price ${current_price:,.2f} <= "
+                               f"stop ${stop_price:,.2f} ({self.stop_loss_pct:.0%} from entry)",
+                        metadata={"exit_type": "stop_loss", "entry_price": entry["price"]},
+                    )
+
+                # Profit exit: RSI reverted above exit threshold
+                if current_rsi > self.rsi_exit_buy:
+                    self._last_entry = None
+                    pnl_pct = (current_price - entry["price"]) / entry["price"]
+                    return Signal(
+                        signal_type=SignalType.SELL,
+                        pair=self.pair,
+                        price=current_price,
+                        quantity=entry["quantity"],
+                        confidence=0.8,
+                        reason=f"Mean reverted: RSI={current_rsi:.1f} > {self.rsi_exit_buy}, "
+                               f"P&L={pnl_pct:+.1%}",
+                        metadata={
+                            "exit_type": "mean_reversion_profit",
+                            "entry_price": entry["price"],
+                            "pnl_pct": pnl_pct,
+                        },
+                    )
+
+            elif entry["side"] == "sell":
+                # Stop-loss for short: price rises above entry + stop_loss_pct
+                stop_price = entry["price"] * (1 + self.stop_loss_pct)
+                if current_price >= stop_price:
+                    self._last_entry = None
+                    return Signal(
+                        signal_type=SignalType.BUY,
+                        pair=self.pair,
+                        price=current_price,
+                        quantity=entry["quantity"],
+                        confidence=0.9,
+                        reason=f"Stop-loss hit: price ${current_price:,.2f} >= "
+                               f"stop ${stop_price:,.2f} ({self.stop_loss_pct:.0%} from entry)",
+                        metadata={"exit_type": "stop_loss", "entry_price": entry["price"]},
+                    )
+
+                # Profit exit: RSI reverted below exit threshold
+                if current_rsi < self.rsi_exit_sell:
+                    self._last_entry = None
+                    pnl_pct = (entry["price"] - current_price) / entry["price"]
+                    return Signal(
+                        signal_type=SignalType.BUY,
+                        pair=self.pair,
+                        price=current_price,
+                        quantity=entry["quantity"],
+                        confidence=0.8,
+                        reason=f"Mean reverted: RSI={current_rsi:.1f} < {self.rsi_exit_sell}, "
+                               f"P&L={pnl_pct:+.1%}",
+                        metadata={
+                            "exit_type": "mean_reversion_profit",
+                            "entry_price": entry["price"],
+                            "pnl_pct": pnl_pct,
+                        },
+                    )
+
+            # Still in position, no exit triggered
+            return Signal(
+                reason=f"Holding {entry['side']} from ${entry['price']:,.2f} — "
+                       f"RSI={current_rsi:.1f}, waiting for exit",
+                metadata={"holding": entry["side"], "entry_price": entry["price"]},
+            )
 
         # ── Filter 1: RSI extreme ──────────────────────────────
         is_oversold = current_rsi < self.rsi_oversold
@@ -109,6 +202,9 @@ class MeanReversionStrategy(BaseStrategy):
             per_trade_value = portfolio_value * 0.10  # 10% per mean reversion trade
             quantity = per_trade_value / current_price if current_price > 0 else 0.0
 
+            # Track entry for exit logic
+            self._last_entry = {"side": "buy", "price": current_price, "quantity": quantity}
+
             return Signal(
                 signal_type=SignalType.BUY,
                 pair=self.pair,
@@ -139,6 +235,9 @@ class MeanReversionStrategy(BaseStrategy):
             confidence = self._calculate_confidence(current_rsi, current_volume_ratio, is_buy=False)
             per_trade_value = portfolio_value * 0.10
             quantity = per_trade_value / current_price if current_price > 0 else 0.0
+
+            # Track entry for exit logic
+            self._last_entry = {"side": "sell", "price": current_price, "quantity": quantity}
 
             return Signal(
                 signal_type=SignalType.SELL,
