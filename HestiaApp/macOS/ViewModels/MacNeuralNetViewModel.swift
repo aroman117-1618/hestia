@@ -30,7 +30,7 @@ enum GraphMode: String, CaseIterable {
     var defaultNodeTypes: Set<String> {
         switch self {
         case .legacy: return ["memory", "topic", "entity", "principle"]
-        case .facts:  return ["entity", "community", "principle", "fact"]
+        case .facts:  return ["entity", "principle", "fact"]
         }
     }
 }

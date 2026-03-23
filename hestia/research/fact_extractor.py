@@ -27,7 +27,7 @@ MAX_TEXT_LENGTH = 2000
 EXTRACTION_PROMPT = """\
 Extract entity-relationship-entity triplets from this text.
 Return JSON: {"triplets": [{"source": "...", "source_type": "person|tool|concept|place|project|organization", "relation": "SCREAMING_SNAKE_CASE", "target": "...", "target_type": "person|tool|concept|place|project|organization", "fact": "natural language sentence", "confidence": 0.0-1.0}]}
-Rules: only factual relationships, specific names not pronouns, max 5 per text."""
+Rules: only factual relationships, specific names not pronouns, max 5 per text. Exclude conversational fragments, greetings, UI descriptions, and instructions."""
 
 # ── 3-Phase Staged Extraction (Sprint 20A) ─────────────────────
 
@@ -35,7 +35,8 @@ PHASE1_ENTITY_PROMPT = """\
 List all named entities in this text. For each, classify as:
 - person, tool, concept, place, project, organization
 Return JSON: {"entities": [{"name": "...", "type": "person|tool|concept|place|project|organization"}]}
-Only include specific named entities, not pronouns or generic references. Max 10."""
+Only include specific named entities, not pronouns or generic references. Max 10.
+EXCLUDE: conversational fragments, filler phrases, instructions, greetings, thinking-out-loud, color descriptions, UI element descriptions, file paths, or device IDs. Only extract entities that would appear in an encyclopedia or professional directory."""
 
 PHASE2_SIGNIFICANCE_PROMPT = """\
 For each entity, determine if it is a CORE ACTOR (directly relevant to the user's knowledge, decisions, or relationships) or BACKGROUND DETAIL (mentioned incidentally).
@@ -63,7 +64,7 @@ SECTIONS: Return exactly:
 }}
 
 METRICS: Assign confidence reflecting your certainty. Durability: 3=always true, 2=true for months/years, 1=true for weeks, 0=true only now.
-Skip entirely if text is procedural or thinking-out-loud. Max 5 triples."""
+REJECTION: Return {{"triples": []}} if the text is: conversational exchange with no factual content, instructions or commands, stream-of-consciousness or brainstorming without conclusions, meta-commentary about the conversation, UI descriptions, color/style preferences, or greetings. Max 5 triples."""
 
 CONTRADICTION_PROMPT = """\
 Given a new fact and existing facts between the same entities, determine if the new fact contradicts any existing fact.

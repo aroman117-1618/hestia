@@ -259,6 +259,22 @@ struct ResearchView: View {
                 }
             }
 
+            // Show entity sub-type breakdown in facts mode
+            if graphViewModel.graphMode == .facts && graphViewModel.activeNodeTypes.contains("entity") {
+                MacColors.divider
+                    .frame(height: 1)
+                    .padding(.vertical, 2)
+                Text("Entity types:")
+                    .font(.system(size: 9).italic())
+                    .foregroundStyle(MacColors.textFaint)
+                legendColorDot(color: Color(hex: "#FF9F0A"), label: "Person")
+                legendColorDot(color: Color(hex: "#30D158"), label: "Tool")
+                legendColorDot(color: Color(hex: "#64D2FF"), label: "Concept")
+                legendColorDot(color: Color(hex: "#5AC8FA"), label: "Project")
+                legendColorDot(color: Color(hex: "#BF5AF2"), label: "Organization")
+                legendColorDot(color: Color(hex: "#FF375F"), label: "Place")
+            }
+
             // Also show memory chunk type breakdown when memory nodes are present
             if graphViewModel.activeNodeTypes.contains("memory") {
                 MacColors.divider

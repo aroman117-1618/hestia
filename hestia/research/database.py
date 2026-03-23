@@ -480,6 +480,16 @@ class ResearchDatabase(BaseDatabase):
         row = await cursor.fetchone()
         return self._row_to_entity(row) if row else None
 
+    async def find_entity_by_id(self, entity_id: str) -> Optional[Entity]:
+        """Find an entity by its ID."""
+        if not self._connection:
+            return None
+        cursor = await self._connection.execute(
+            "SELECT * FROM entities WHERE id = ?", (entity_id,)
+        )
+        row = await cursor.fetchone()
+        return self._row_to_entity(row) if row else None
+
     async def find_entity_by_name(self, canonical_name: str) -> Optional[Entity]:
         """Find an entity by its canonical (lowercase) name."""
         if not self._connection:

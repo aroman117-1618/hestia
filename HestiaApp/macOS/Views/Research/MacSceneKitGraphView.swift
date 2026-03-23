@@ -168,9 +168,27 @@ struct MacSceneKitGraphView: NSViewRepresentable {
             geometry = sphere
 
         case "entity":
-            // Cube
-            let side = r * 1.6  // cube side length ~ diameter of equivalent sphere
-            geometry = SCNBox(width: side, height: side, length: side, chamferRadius: side * 0.1)
+            // Shape varies by entity sub-type (category field)
+            switch graphNode.category {
+            case "person":
+                let sphere = SCNSphere(radius: r)
+                sphere.segmentCount = 24
+                geometry = sphere
+            case "tool":
+                let side = r * 1.6
+                geometry = SCNBox(width: side, height: side, length: side, chamferRadius: side * 0.1)
+            case "project":
+                geometry = SCNCapsule(capRadius: r * 0.6, height: r * 2.2)
+            case "organization":
+                let side = r * 1.6
+                geometry = SCNBox(width: side, height: side, length: side, chamferRadius: side * 0.3)
+            case "place":
+                geometry = SCNCylinder(radius: r * 0.9, height: r * 1.2)
+            default: // concept and unknown
+                let sphere = SCNSphere(radius: r)
+                sphere.segmentCount = 4  // diamond-like
+                geometry = sphere
+            }
 
         case "principle":
             // Torus — distinctive ring shape
@@ -190,7 +208,6 @@ struct MacSceneKitGraphView: NSViewRepresentable {
             let node = SCNNode(geometry: sphere)
             node.position = SCNVector3(graphNode.position.x, graphNode.position.y, graphNode.position.z)
             node.name = graphNode.id
-            addBillboardLabel(to: node, graphNode: graphNode)
             return node  // skip standard material — custom translucent
 
         case "episode":
@@ -242,8 +259,6 @@ struct MacSceneKitGraphView: NSViewRepresentable {
             SCNAction.scale(to: 0.95, duration: 1.5)
         ])
         node.runAction(SCNAction.repeatForever(pulse))
-
-        addBillboardLabel(to: node, graphNode: graphNode)
 
         return node
     }
