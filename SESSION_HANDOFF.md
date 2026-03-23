@@ -1,74 +1,78 @@
-# Session Handoff — 2026-03-21 (Trading Strategy Validation)
+# Session Handoff — 2026-03-23
 
 ## Mission
-Validate the trading module's strategy foundation through comprehensive backtesting, fix backtest engine bugs, optimize strategies, and deploy a 4-asset per-parameter portfolio on the Mac Mini.
+Fix the broken Research tab (empty Principles, disconnected Graph nodes) and broken Trading module ($250 paper mode, bots not executing trades). Then redesign the knowledge graph visualization.
 
 ## Completed
 
-### S27.5: Backtest Validation
-- **Initial backtests:** ALL 4 strategies lose money on BTC over 1yr. Grid -90%, Bollinger -30%, MR -3%, DCA 0 trades (bug). (`scripts/run-backtests.py`)
-- **Multi-asset sweep:** 696 combos × 5 assets. Mean Reversion only viable strategy. (`scripts/optimize-multi-asset.py`)
-- **Bull vs bear:** MR-fast-moderate +15.4% bull, +4.0% bear = +9.7% combined avg. Buy-and-hold was -15%. (`scripts/run-backtests-bull-market.py`, `a1ef95d`)
+### Research Tab Fixes
+- **Principles stale cache fallback** — `getStale()` fallback when server unreachable, error state UI with Retry button (`5495622`)
+- **Distillation prompt sizing** — Reduced to 5 chunks x 150 chars (~428 tokens) to stay on PRIMARY model tier, avoiding model swap timeouts on Mac Mini (`db94061`)
+- **Knowledge graph redesign** — Principles + Facts as nodes, hybrid edges (TOPIC_LINK + SHARED_ENTITY), degree centrality sizing, billboard text labels, topics/entities detail panel, default mode switched to facts (`854bbc5`)
 
-### S27.6: Engine Fixes + Strategy Redesign
-- **Signal DCA bug:** wall-clock → candle timestamp for interval gate (`d152557`)
-- **Walk-forward fix:** fresh capital per test window, no position contamination (`3e7d403`)
-- **Intra-candle exits:** stop-loss/take-profit check high/low prices (`4ae6c13`)
-- **Dual Momentum strategy:** new `DualMomentumStrategy` — has 0-trade bug, deferred (`f55004d`)
-- **Grid shelved:** allocation 0% (`92aabdb`)
+### Trading Module Fixes
+- **USDC-USD stablecoin crash** — `_get_portfolio_value()` crashed on `get_ticker("USDC-USD")`, returning 0 and silently skipping ALL bot trading cycles. Fixed in bot_runner, portfolio endpoint, positions endpoint, and manager (`fc2e424`, `a34fa01`, `c0f5975`)
+- **Live mode switch** — Changed `trading.yaml` from `mode: "paper"` to `mode: "live"` (`a2d03f5`)
+- **Bot service restart** — Restarted via launchd on Mac Mini, all 4 bots evaluating signals (currently HOLD — RSI in neutral zones)
 
-### Aggressive Optimization + Methodology Audit
-- **Per-asset RSI-3:** 245 combos × 5 assets × 2 periods = +22.8% combined (`62a72c5`)
-- **Independent verification:** 15/15 numbers match exactly (`fb4fe51`)
-- **Gemini methodology audit:** close-price bias = ZERO. Fee impact = 9%. Uniform params = 99% degradation (overfitting confirmed). (`e9e236b`)
-- **Corrected backtests:** OPEN price + 0.5% fee. Per-asset: **+20.9%**. Uniform: +0.2%. (`0a2ea8e`)
-
-### Deployment
-- **4 bots deployed on Mac Mini:** ETH ($85, RSI-3 20/80), BTC ($82.50, RSI-3 15/85), SOL ($50, RSI-3 25/70), DOGE ($32.50, RSI-3 25/75). All running. (`10137bc`)
-
-### Key Commits (this session)
-- `d152557` fix: Signal DCA wall-clock bug
-- `3e7d403` fix: walk-forward position-state contamination
-- `4ae6c13` feat: intra-candle exit simulation
-- `f55004d` feat: Dual Momentum strategy
-- `92aabdb` feat: shelve Grid, update allocation
-- `62a72c5` feat: aggressive MR optimization (+22.8%)
-- `fb4fe51` feat: independent verification (15/15 match)
-- `0a2ea8e` feat: corrected backtests (+20.9% survives)
-- `10137bc` feat: deploy 4-asset portfolio
+### Releases
+- **v1.1.8** (build 12) — Principles cache fix
+- **v1.1.9** (build 13) — Full graph redesign + trading fixes
 
 ## In Progress
-- **4-asset paper soak** — started 02:29 UTC Mar 22. All HOLD (RSI neutral). Waiting for oversold/overbought.
-- **Dual Momentum 0-trade bug** — deferred. Position state doesn't interact correctly with backtest engine.
+- **Fact extraction pipeline** — The 3-phase LLM extraction (`fact_extractor.py`) fails silently on Mac Mini. Same root cause as distillation: long prompts get routed to COMPLEX tier (deepseek-r1:14b), triggering model swaps that timeout. Needs the same fix applied to distillation (reduce prompt size or force PRIMARY tier). **File:** `hestia/research/fact_extractor.py`, methods `_phase1_entities()`, `_phase2_significance()`, `_phase3_prism()`. **Current state:** 0 facts, 0 entities, 0 communities on Mac Mini. 4 pending principles exist.
+- **Community detection** — Depends on facts/entities existing first. API endpoint works (`POST /v1/research/communities/detect`), but needs data.
 
 ## Decisions Made
-- **Per-asset RSI-3 over uniform:** +20.9% vs +0.2%. Accept partial overfitting, validate with live capital gates.
-- **No stop-losses:** ALL stop configs reduce returns (19-47%). Risk managed by 8-layer risk manager.
-- **Shelve Grid, Bollinger, DCA, Dual Momentum:** Only MR shows reliable returns across both market regimes.
-- **Sharpe-weighted allocation:** ETH 34%, BTC 33%, SOL 20%, DOGE 13%.
+- **Hybrid edge model** — Principle-to-Principle via shared topics, Principle-to-Fact via shared entities, Fact-to-Fact via shared entities (not topics — Facts lack topic tags in the data model). Documented in `docs/plans/research-graph-redesign-second-opinion-2026-03-23.md`
+- **Degree centrality for node sizing** — 70% connections + 30% original weight. Gemini + critic both agreed.
+- **Keep 3D SceneKit, add labels** — Both reviewers suggested 2D pivot, but 3D is built. Billboard labels mitigate readability gap.
+- **Trading live mode** — Paper soak complete, switched to live Coinbase trading with $270.75 actual balance.
 
 ## Test Status
-- 2779 total (2644 backend + 135 CLI), 87 test files, all passing
+- 2644+ backend tests passing (100%)
+- macOS build clean (HestiaWorkspace scheme)
+- CLI tests have import path issue (pre-existing, not from this session)
 
 ## Uncommitted Changes
-- None from this session.
+None — all committed and pushed. Untracked files pre-date this session:
+- `HestiaApp/iOS/steward-icon-knot-v3-teal-dark.png`
+- `docs/mockups/`
+- `docs/plans/consumer-product-strategy.md`
 
 ## Known Issues / Landmines
-- **Per-asset params partially overfit** — walk-forward fails 3/4 assets. Live validation essential.
-- **BTC RSI-3 15/85 = very few trades** (21-25/yr). Small sample, unreliable stats.
-- **DOGE highest risk** — 54.7% max drawdown in bull period. Monitor closely.
-- **Dual Momentum 0-trade bug** — exists as code, doesn't work in backtests.
-- **Mac Mini macOS app → localhost** — reset: `defaults write com.andrewlonati.hestia-macos hestia_environment tailscale`
-- **Alpaca API keys still 403** — S29 blocked.
+- **Mac Mini fact extraction is broken** — `POST /v1/research/facts/extract` returns `facts_created: 0` because the 3-phase LLM pipeline routes to COMPLEX tier and times out. The graph will be sparse (only 4 principles, no facts) until this is fixed.
+- **Bot service uses launchd** — After code deploys, the bot service needs manual restart: `launchctl unload ~/Library/LaunchAgents/com.hestia.trading-bots.plist && pkill -9 -f bot_service && launchctl load ~/Library/LaunchAgents/com.hestia.trading-bots.plist`
+- **Multiple stale Python processes on Mac Mini** — Previous debug sessions left orphaned Python processes. Check with `ps aux | grep python | grep -v grep` and kill stale ones.
+- **App update delivery** — v1.1.9 is pushed but GitHub Actions needs to complete build/sign/notarize before Sparkle delivers it. User runs `/Applications/Hestia.app` (installed), NOT the Xcode build.
+- **Trading bots all HOLD** — RSI values are in neutral zones for all 4 pairs. This is correct behavior — trades will execute when RSI hits oversold/overbought thresholds. No action needed.
 
 ## Process Learnings
-- **First-pass success: 12/15 (80%)** — rework from zsh heredoc issues and backtest execution time
-- **@hestia-critic was the MVP** — found backtest engine bugs that no one else caught
-- **Gemini methodology audit was invaluable** — caught overfitting (valid) and false-alarmed on close-price bias
-- **Backtest execution time is the bottleneck** — each sweep takes 10-20 min. Multiple sweeps = hours.
+- **Config in git = deploy overwrites**: `sed` changes to `trading.yaml` on Mac Mini were overwritten by `git pull`. Config changes must be committed to git, not applied locally.
+- **Local server causes confusion**: Starting the local dev server while the app points at Mac Mini creates auth mismatches (different JWT secrets). Always test against Mac Mini directly.
+- **Stablecoin handling was missing everywhere**: The USDC-USD bug existed in 4 places (bot_runner, portfolio endpoint, positions endpoint, manager). Pattern: any code that iterates exchange balances and calls `get_ticker(f"{currency}-USD")` needs stablecoin guards.
+- **First-pass success**: 6/8 tasks completed on first try. Rework caused by: (1) wrong MacColors tokens, (2) local-vs-mini server confusion.
 
-## Next Step
-1. **Check soak tomorrow:** `ssh andrewroman117@hestia-3.local "grep trading ~/hestia/logs/hestia.log | tail -40"` — look for BUY/SELL across 4 assets
-2. **If signals firing:** let run 72h through ~Mar 25
-3. **If no signals after 48h:** widen bands (RSI thresholds less restrictive)
-4. **Next session:** Fix Dual Momentum bug, iOS app audit, flip to live ($25) if soak validates
+## Next Session: Fix Fact Extraction Pipeline
+
+### Exact steps:
+
+1. **Read** `hestia/research/fact_extractor.py` — understand the 3-phase pipeline (`_phase1_entities`, `_phase2_significance`, `_phase3_prism`)
+
+2. **Diagnose** — Each phase sends a long prompt that exceeds the 500-token `complex_token_threshold`, routing to deepseek-r1:14b (COMPLEX tier). Apply the same fix as distillation: reduce prompt size to stay under 500 tokens on PRIMARY tier (qwen3.5:9b, already loaded).
+
+3. **Fix Phase 1** (`_phase1_entities`): Truncate input text to ~150 chars. Target: <500 tokens total prompt.
+
+4. **Fix Phase 2** (`_phase2_significance`): Reduce text excerpt and limit entity count.
+
+5. **Fix Phase 3** (`_phase3_prism`): Reduce text excerpt, limit entity list, keep output format compact.
+
+6. **Test locally**: `python -m pytest tests/test_research.py -v --timeout=30`
+
+7. **Deploy to Mac Mini**: `git push` + restart server
+
+8. **Trigger extraction**: `curl -X POST https://hestia-3.local:8443/v1/research/facts/extract -H "X-Hestia-Device-Token: $TOKEN" -d '{"time_range_days": 30}'`
+
+9. **Trigger community detection**: `curl -X POST https://hestia-3.local:8443/v1/research/communities/detect -H "X-Hestia-Device-Token: $TOKEN"`
+
+10. **Verify graph**: Open Research tab — should now show principles + facts + entities with edges and community clustering
