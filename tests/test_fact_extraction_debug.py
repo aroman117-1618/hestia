@@ -44,7 +44,6 @@ class TestFactExtractionDiagnostic:
 
         with patch(
             'hestia.research.fact_extractor._get_inference_client',
-            new_callable=AsyncMock,
             return_value=mock_client,
         ):
             facts = await extractor.extract_from_text(
@@ -84,7 +83,6 @@ class TestFactExtractionDiagnostic:
 
         with patch(
             'hestia.research.fact_extractor._get_inference_client',
-            new_callable=AsyncMock,
             return_value=mock_client,
         ):
             facts = await extractor.extract_from_text(
@@ -92,7 +90,7 @@ class TestFactExtractionDiagnostic:
                 source_chunk_id="test-chunk-2",
             )
 
-        # Should have called generate twice: once for phase 1 (failed), once for legacy
+        # Should have called complete twice: once for phase 1 (failed), once for legacy
         assert mock_client.complete.call_count == 2
         assert mock_db.create_fact.called, "Legacy fallback should have created facts"
 
@@ -113,7 +111,6 @@ class TestFactExtractionDiagnostic:
 
         with patch(
             'hestia.research.fact_extractor._get_inference_client',
-            new_callable=AsyncMock,
             return_value=mock_client,
         ):
             facts = await extractor.extract_from_text(
@@ -132,7 +129,6 @@ class TestFactExtractionDiagnostic:
 
         with patch(
             'hestia.research.fact_extractor._get_inference_client',
-            new_callable=AsyncMock,
             side_effect=RuntimeError("Ollama not running"),
         ):
             facts = await extractor.extract_from_text(

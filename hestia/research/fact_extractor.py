@@ -74,10 +74,10 @@ Only mark contradiction if the new fact makes an existing fact UNTRUE. Additive 
 _VALID_ENTITY_TYPES = {t.value for t in EntityType}
 
 
-async def _get_inference_client() -> Any:
+def _get_inference_client() -> Any:
     """Lazy import to avoid circular dependencies."""
     from hestia.inference import get_inference_client
-    return await get_inference_client()
+    return get_inference_client()
 
 
 class FactExtractor:
@@ -120,7 +120,7 @@ class FactExtractor:
         )
         client = None
         try:
-            client = await _get_inference_client()
+            client = _get_inference_client()
         except Exception as e:
             logger.error(
                 "Inference client unavailable",
@@ -388,7 +388,7 @@ class FactExtractor:
         )
 
         try:
-            client = await _get_inference_client()
+            client = _get_inference_client()
             response = await client.complete(
                 prompt=prompt,
                 system=CONTRADICTION_PROMPT,

@@ -885,7 +885,7 @@ class TestFactExtractorIntegration:
 
         with patch(
             "hestia.research.fact_extractor._get_inference_client",
-            new=AsyncMock(return_value=mock_inference),
+            return_value=mock_inference,
         ):
             facts = await extractor.extract_from_text(
                 "Andrew builds Hestia using FastAPI for the backend.",
@@ -982,7 +982,7 @@ class TestFactExtractorIntegration:
 
         with patch(
             "hestia.research.fact_extractor._get_inference_client",
-            new=AsyncMock(return_value=mock_inference),
+            return_value=mock_inference,
         ):
             facts = await extractor.extract_from_text(
                 "Andrew left Acme Corp last month."
@@ -1007,7 +1007,7 @@ class TestFactExtractorIntegration:
 
         with patch(
             "hestia.research.fact_extractor._get_inference_client",
-            new=AsyncMock(return_value=mock_inference),
+            return_value=mock_inference,
         ):
             facts = await extractor.extract_from_text("Some text here")
 
