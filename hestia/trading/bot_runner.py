@@ -323,18 +323,25 @@ class BotRunner:
 
     async def _get_portfolio_value(self) -> float:
         """Estimate current portfolio value from exchange balances."""
+        _STABLECOINS = {"USDC", "USDT", "DAI", "BUSD"}
         try:
             balances = await self._exchange.get_balances()
             total = 0.0
             for currency, balance in balances.items():
                 if currency == "USD":
                     total += balance.total
+                elif currency in _STABLECOINS:
+                    # Stablecoins are ~$1 each, no ticker needed
+                    total += balance.total
                 elif balance.total > 0:
-                    ticker = await self._exchange.get_ticker(f"{currency}-USD")
-                    total += balance.total * ticker.get("price", 0.0)
-            return total
+                    try:
+                        ticker = await self._exchange.get_ticker(f"{currency}-USD")
+                        total += balance.total * ticker.get("price", 0.0)
+                    except Exception:
+                        pass  # Skip currencies without a USD pair
+            return total if total > 0 else self._bot.capital_allocated
         except Exception:
-            return 0.0
+            return self._bot.capital_allocated
 
     async def _record_trade(self, result: Dict[str, Any], signal: Signal) -> None:
         """Record a filled trade via the trading manager."""
