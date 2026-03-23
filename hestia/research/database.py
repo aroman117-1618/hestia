@@ -193,6 +193,19 @@ class ResearchDatabase(BaseDatabase):
                     data={"error": type(e).__name__},
                 )
 
+        # Add rejected column to entities table (feedback loop)
+        try:
+            await self._connection.execute(
+                "ALTER TABLE entities ADD COLUMN rejected INTEGER DEFAULT 0"
+            )
+        except Exception as e:
+            if "duplicate column name" not in str(e):
+                logger.warning(
+                    "Schema migration issue",
+                    component=LogComponent.RESEARCH,
+                    data={"error": type(e).__name__},
+                )
+
     # ── Graph Cache ─────────────────────────────────────────
 
     async def get_cached_graph(self, cache_key: str) -> Optional[Dict[str, Any]]:
@@ -490,6 +503,17 @@ class ResearchDatabase(BaseDatabase):
         row = await cursor.fetchone()
         return self._row_to_entity(row) if row else None
 
+    async def set_entity_rejected(self, entity_id: str, rejected: bool) -> Optional[Entity]:
+        """Mark an entity as rejected (or unreject it). Returns updated entity."""
+        if not self._connection:
+            return None
+        await self._connection.execute(
+            "UPDATE entities SET rejected = ? WHERE id = ?",
+            (1 if rejected else 0, entity_id),
+        )
+        await self._connection.commit()
+        return await self.find_entity_by_id(entity_id)
+
     async def find_entity_by_name(self, canonical_name: str) -> Optional[Entity]:
         """Find an entity by its canonical (lowercase) name."""
         if not self._connection:
@@ -607,6 +631,14 @@ class ResearchDatabase(BaseDatabase):
         except (ValueError, IndexError):
             pass
 
+        # rejected column added via ALTER TABLE — may not exist on old DBs
+        rejected = False
+        try:
+            if len(row) > 10 and row[10]:
+                rejected = bool(row[10])
+        except (ValueError, IndexError):
+            pass
+
         return Entity(
             id=row[0],
             name=row[1],
@@ -618,6 +650,7 @@ class ResearchDatabase(BaseDatabase):
             user_id=row[6],
             created_at=created_at,
             updated_at=updated_at,
+            rejected=rejected,
         )
 
     # ── Facts CRUD ───────────────────────────────────────

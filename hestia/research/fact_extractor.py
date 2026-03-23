@@ -36,12 +36,14 @@ List all named entities in this text. For each, classify as:
 - person, tool, concept, place, project, organization
 Return JSON: {"entities": [{"name": "...", "type": "person|tool|concept|place|project|organization"}]}
 Only include specific named entities, not pronouns or generic references. Max 10.
-EXCLUDE: conversational fragments, filler phrases, instructions, greetings, thinking-out-loud, color descriptions, UI element descriptions, file paths, device IDs, software module names (e.g. MemoryManager, GraphBuilder), internal system components, API endpoints, Python/Swift class names, configuration parameters, database table names. Only extract entities that a non-technical person would recognize."""
+GOOD examples: people's names, company names, product names, programming languages, frameworks, services, cities, universities.
+EXCLUDE: conversational filler ("okay", "let me think"), greetings ("hi boss"), UI descriptions ("dark mode with warm colors"), file paths, device IDs, variable/class names (e.g. MemoryManager, get_user), and sentence fragments."""
 
 PHASE2_SIGNIFICANCE_PROMPT = """\
 For each entity, determine if it is a CORE ACTOR (directly relevant to the user's knowledge, decisions, or relationships) or BACKGROUND DETAIL (mentioned incidentally).
 Only CORE ACTORS proceed to triple extraction.
-BACKGROUND entities include: software components, system modules, configuration settings, AI assistant internal names when discussed in a development context, and any entity only meaningful to developers.
+BACKGROUND: entities mentioned only in passing with no relationship to the user or other entities.
+CORE: people the user knows, tools they use, companies they work with, projects they're building, concepts they're learning about.
 Return JSON: {"core": ["Entity1", "Entity2"], "background": ["Entity3"]}"""
 
 PHASE3_PRISM_PROMPT = """\

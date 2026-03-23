@@ -413,6 +413,7 @@ class Entity:
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     user_id: str = "default"
+    rejected: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize for API response. camelCase keys for Swift frontend."""
@@ -427,6 +428,7 @@ class Entity:
             "createdAt": self.created_at.isoformat() if self.created_at else None,
             "updatedAt": self.updated_at.isoformat() if self.updated_at else None,
             "userId": self.user_id,
+            "rejected": self.rejected,
         }
 
     @classmethod

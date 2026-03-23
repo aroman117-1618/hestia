@@ -143,7 +143,8 @@ class GraphBuilder:
         if source_categories is not None:
             facts = [f for f in facts if f.source_category in source_categories]
 
-        # ── Build entity nodes ──────────────────────────
+        # ── Build entity nodes (exclude rejected) ──────────────────────────
+        entities = [e for e in entities if not e.rejected]
         entity_id_set = {e.id for e in entities}
         fact_counts: Counter = Counter()
         for fact in facts:

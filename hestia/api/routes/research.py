@@ -264,6 +264,52 @@ async def list_entities(
         )
 
 
+@router.post("/entities/{entity_id}/reject")
+async def reject_entity(
+    entity_id: str,
+    device_token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """Reject an entity — marks it as low-quality for extraction feedback."""
+    try:
+        manager = await get_research_manager()
+        entity = await manager.set_entity_rejected(entity_id, rejected=True)
+        if not entity:
+            raise HTTPException(status_code=404, detail="Entity not found")
+        return entity
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Reject entity error",
+            component=LogComponent.RESEARCH,
+            data={"error": sanitize_for_log(e)},
+        )
+        raise HTTPException(status_code=500, detail="Failed to reject entity")
+
+
+@router.post("/entities/{entity_id}/unreject")
+async def unreject_entity(
+    entity_id: str,
+    device_token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """Un-reject an entity."""
+    try:
+        manager = await get_research_manager()
+        entity = await manager.set_entity_rejected(entity_id, rejected=False)
+        if not entity:
+            raise HTTPException(status_code=404, detail="Entity not found")
+        return entity
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Unreject entity error",
+            component=LogComponent.RESEARCH,
+            data={"error": sanitize_for_log(e)},
+        )
+        raise HTTPException(status_code=500, detail="Failed to unreject entity")
+
+
 # =============================================================================
 # Community Endpoints
 # =============================================================================

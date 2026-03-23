@@ -276,6 +276,15 @@ class ResearchManager:
             "total": total,
         }
 
+    async def set_entity_rejected(
+        self, entity_id: str, rejected: bool
+    ) -> Optional[Dict[str, Any]]:
+        """Mark an entity as rejected or un-rejected."""
+        if not self._database:
+            return None
+        entity = await self._database.set_entity_rejected(entity_id, rejected)
+        return entity.to_dict() if entity else None
+
     async def get_facts(
         self,
         status: Optional[str] = None,
