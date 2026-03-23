@@ -16,7 +16,8 @@ import functools
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 
@@ -38,6 +39,17 @@ KEYCHAIN_API_SECRET = "coinbase-api-secret"
 # Key rotation reminder (90 days)
 KEY_ROTATION_DAYS = 90
 
+# File-based credentials (survives keychain locks on headless servers)
+_CREDENTIALS_DIR = Path.home() / ".hestia"
+_CREDENTIALS_FILE = _CREDENTIALS_DIR / "coinbase-credentials"
+
+
+def save_coinbase_credentials(api_key: str, api_secret: str) -> None:
+    """Store Coinbase credentials in ~/.hestia/coinbase-credentials (chmod 600)."""
+    _CREDENTIALS_DIR.mkdir(mode=0o700, exist_ok=True)
+    _CREDENTIALS_FILE.write_text(f"{api_key}\n{api_secret}")
+    _CREDENTIALS_FILE.chmod(0o600)
+
 
 class CoinbaseAdapter(AbstractExchangeAdapter):
     """
@@ -55,19 +67,46 @@ class CoinbaseAdapter(AbstractExchangeAdapter):
         self._health = HealthMonitor()
         self._key_loaded_at: Optional[datetime] = None
 
+    @staticmethod
+    def _load_from_file() -> Tuple[Optional[str], Optional[str]]:
+        """Load credentials from ~/.hestia/coinbase-credentials."""
+        if not _CREDENTIALS_FILE.exists():
+            return None, None
+        try:
+            lines = _CREDENTIALS_FILE.read_text().strip().split("\n")
+            if len(lines) >= 2:
+                return lines[0].strip(), "\n".join(lines[1:]).strip()
+        except Exception:
+            pass
+        return None, None
+
     async def _run_sync(self, func, *args, **kwargs):
-        """Run a synchronous SDK call in a thread pool to avoid blocking the event loop."""
+        """Run a synchronous SDK call in a thread pool to avoid blocking the event loop.
+
+        Coinbase SDK returns typed response objects (not dicts). Convert via
+        to_dict() so downstream code can use .get() safely.
+        """
         loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, functools.partial(func, *args, **kwargs))
+        result = await loop.run_in_executor(None, functools.partial(func, *args, **kwargs))
+        if hasattr(result, "to_dict"):
+            return result.to_dict()
+        return result
 
     async def connect(self) -> None:
-        """Load credentials from Keychain and initialize SDK client."""
+        """Load credentials from credentials file or Keychain."""
         try:
-            from hestia.security.credential_manager import get_credential_manager
+            # Primary: file-based credentials (survives keychain locks on headless servers)
+            self._api_key, self._api_secret = self._load_from_file()
 
-            cred_mgr = await get_credential_manager()
-            self._api_key = await cred_mgr.get_credential(KEYCHAIN_API_KEY)
-            self._api_secret = await cred_mgr.get_credential(KEYCHAIN_API_SECRET)
+            # Fallback: Keychain (works in interactive sessions)
+            if not self._api_key or not self._api_secret:
+                try:
+                    from hestia.security.credential_manager import get_credential_manager
+                    cred_mgr = get_credential_manager()
+                    self._api_key = self._api_key or cred_mgr.retrieve_operational(KEYCHAIN_API_KEY)
+                    self._api_secret = self._api_secret or cred_mgr.retrieve_operational(KEYCHAIN_API_SECRET)
+                except Exception:
+                    pass  # Keychain unavailable (locked, launchd context)
 
             if not self._api_key or not self._api_secret:
                 logger.warning(

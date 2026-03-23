@@ -36,8 +36,8 @@ class TradingAlerter:
             return
         try:
             from hestia.security.credential_manager import get_credential_manager
-            cred_mgr = await get_credential_manager()
-            self._webhook_url = await cred_mgr.get_credential("discord-trading-webhook")
+            cred_mgr = get_credential_manager()
+            self._webhook_url = cred_mgr.retrieve_operational("discord-trading-webhook")
             if self._webhook_url:
                 logger.info(
                     "Discord trading webhook configured",

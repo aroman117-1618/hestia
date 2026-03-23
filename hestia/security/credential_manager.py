@@ -107,20 +107,63 @@ class CredentialManager:
         return Fernet(self._master_key)
 
     def _store_in_keychain(self, key: str, value: str, service: str) -> None:
-        """Store value in macOS Keychain."""
-        keyring.set_password(service, key, value)
+        """Store value in macOS Keychain. Falls back to security CLI for launchd services."""
+        try:
+            keyring.set_password(service, key, value)
+        except Exception:
+            # Fallback: security CLI works from launchd services
+            # -U updates if exists, adds if not
+            result = subprocess.run(
+                ["security", "add-generic-password",
+                 "-s", service, "-a", key, "-w", value, "-U"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode != 0:
+                raise RuntimeError(
+                    f"Keychain store failed via both keyring and security CLI: {result.stderr.strip()}"
+                )
 
     def _get_from_keychain(self, key: str, service: str) -> Optional[str]:
-        """Get value from macOS Keychain."""
-        return keyring.get_password(service, key)
+        """Get value from macOS Keychain. Falls back to security CLI for launchd services."""
+        try:
+            result = keyring.get_password(service, key)
+            if result is not None:
+                return result
+        except Exception:
+            pass
+
+        # Fallback: security CLI works from launchd services
+        try:
+            result = subprocess.run(
+                ["security", "find-generic-password",
+                 "-s", service, "-a", key, "-w"],
+                capture_output=True, text=True, timeout=10,
+            )
+            if result.returncode == 0:
+                return result.stdout.strip()
+        except subprocess.TimeoutExpired:
+            pass
+
+        return None
 
     def _delete_from_keychain(self, key: str, service: str) -> bool:
-        """Delete value from macOS Keychain."""
+        """Delete value from macOS Keychain. Falls back to security CLI for launchd services."""
         try:
             keyring.delete_password(service, key)
             return True
         except keyring.errors.PasswordDeleteError:
             return False
+        except Exception:
+            # Fallback: security CLI
+            try:
+                result = subprocess.run(
+                    ["security", "delete-generic-password",
+                     "-s", service, "-a", key],
+                    capture_output=True, text=True, timeout=10,
+                )
+                return result.returncode == 0
+            except subprocess.TimeoutExpired:
+                return False
 
     def _get_service_for_tier(self, tier: CredentialTier) -> str:
         """Get keychain service name for tier."""

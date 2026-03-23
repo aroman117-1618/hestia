@@ -555,13 +555,14 @@ async def get_portfolio(
         summary = await manager.get_daily_summary(today)
         daily_pnl = summary["total_pnl"] if summary else 0.0
 
-        return {
+        result = {
             "total_value": cash_value + positions_value,
             "cash": cash_value,
             "positions_value": positions_value,
             "daily_pnl": daily_pnl,
             "risk_status": manager.get_risk_status(),
         }
+        return result
     except Exception as e:
         logger.error(
             "Failed to get portfolio",

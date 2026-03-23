@@ -9,6 +9,7 @@ import json
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Optional
 
 from fastapi import Header, HTTPException, status
@@ -28,23 +29,47 @@ TOKEN_EXPIRE_DAYS = 90  # 3 months - balanced security vs convenience
 INVITE_EXPIRE_MINUTES = 10  # Short-lived invite tokens
 
 
+_SECRETS_DIR = Path.home() / ".hestia"
+_JWT_SECRET_FILE = _SECRETS_DIR / "jwt-secret"
+_SETUP_SECRET_FILE = _SECRETS_DIR / "setup-secret"
+
+
+def _read_secret_file(path: Path) -> Optional[str]:
+    """Read a secret from a chmod-600 file."""
+    if path.exists():
+        try:
+            return path.read_text().strip()
+        except Exception:
+            pass
+    return None
+
+
+def _write_secret_file(path: Path, value: str) -> None:
+    """Write a secret to a chmod-600 file."""
+    _SECRETS_DIR.mkdir(mode=0o700, exist_ok=True)
+    path.write_text(value)
+    path.chmod(0o600)
+
+
 def get_secret_key() -> str:
     """
     Get or generate the JWT secret key.
 
     Priority:
     1. Environment variable (HESTIA_JWT_SECRET)
-    2. macOS Keychain via CredentialManager
-    3. Generate new and store in Keychain
+    2. File-based (~/.hestia/jwt-secret) — survives keychain locks
+    3. macOS Keychain via CredentialManager
+    4. Generate new and persist to file
     """
     global _SECRET_KEY
 
     if _SECRET_KEY is None:
-        # Try environment variable first (useful for deployment/testing)
         _SECRET_KEY = os.environ.get("HESTIA_JWT_SECRET")
 
         if not _SECRET_KEY:
-            # Try Keychain via CredentialManager
+            _SECRET_KEY = _read_secret_file(_JWT_SECRET_FILE)
+
+        if not _SECRET_KEY:
             try:
                 from hestia.security import get_credential_manager
                 cred_manager = get_credential_manager()
@@ -52,6 +77,8 @@ def get_secret_key() -> str:
                     "jwt_secret",
                     reason="API authentication initialization"
                 )
+                if _SECRET_KEY:
+                    _write_secret_file(_JWT_SECRET_FILE, _SECRET_KEY)
             except Exception as e:
                 logger.warning(
                     f"Keychain JWT secret retrieval failed: {type(e).__name__}",
@@ -59,21 +86,8 @@ def get_secret_key() -> str:
                 )
 
         if not _SECRET_KEY:
-            # Generate new key and persist to Keychain
             _SECRET_KEY = secrets.token_urlsafe(32)
-            try:
-                from hestia.security import get_credential_manager
-                cred_manager = get_credential_manager()
-                cred_manager.store_sensitive(
-                    "jwt_secret",
-                    _SECRET_KEY,
-                    reason="Initial JWT secret generation for API authentication"
-                )
-            except Exception as e:
-                logger.warning(
-                    f"Keychain JWT secret storage failed, using in-memory only: {type(e).__name__}",
-                    component=LogComponent.SECURITY,
-                )
+            _write_secret_file(_JWT_SECRET_FILE, _SECRET_KEY)
 
     return _SECRET_KEY
 
@@ -82,18 +96,19 @@ def get_setup_secret() -> str:
     """
     Get or generate the setup secret for invite-based onboarding.
 
-    The setup secret is generated on first boot and stored in Keychain.
-    It's used to authenticate invite generation requests from the server owner.
-
     Priority:
     1. Environment variable (HESTIA_SETUP_SECRET) — for testing
-    2. macOS Keychain via CredentialManager
-    3. Generate new and store in Keychain
+    2. File-based (~/.hestia/setup-secret) — survives keychain locks
+    3. macOS Keychain via CredentialManager
+    4. Generate new and persist to file
     """
     global _SETUP_SECRET
 
     if _SETUP_SECRET is None:
         _SETUP_SECRET = os.environ.get("HESTIA_SETUP_SECRET")
+
+        if not _SETUP_SECRET:
+            _SETUP_SECRET = _read_secret_file(_SETUP_SECRET_FILE)
 
         if not _SETUP_SECRET:
             try:
@@ -103,21 +118,14 @@ def get_setup_secret() -> str:
                     "setup_secret",
                     reason="Invite system initialization"
                 )
+                if _SETUP_SECRET:
+                    _write_secret_file(_SETUP_SECRET_FILE, _SETUP_SECRET)
             except Exception:
                 pass
 
         if not _SETUP_SECRET:
             _SETUP_SECRET = secrets.token_urlsafe(32)
-            try:
-                from hestia.security import get_credential_manager
-                cred_manager = get_credential_manager()
-                cred_manager.store_sensitive(
-                    "setup_secret",
-                    _SETUP_SECRET,
-                    reason="Initial setup secret generation for invite onboarding"
-                )
-            except Exception:
-                pass
+            _write_secret_file(_SETUP_SECRET_FILE, _SETUP_SECRET)
 
     return _SETUP_SECRET
 
