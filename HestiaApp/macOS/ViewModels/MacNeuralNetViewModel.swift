@@ -25,12 +25,12 @@ enum GraphMode: String, CaseIterable {
     }
 
     /// Default visible node types per mode.
-    /// Legacy: principle-centric (P/F/D primary + structural connectors).
-    /// Facts: entity-relationship focus.
+    /// Both modes show Entity + Principle by default.
+    /// Other types available via filter panel toggle.
     var defaultNodeTypes: Set<String> {
         switch self {
-        case .legacy: return ["memory", "topic", "entity", "principle"]
-        case .facts:  return ["entity", "principle", "fact"]
+        case .legacy: return ["entity", "principle"]
+        case .facts:  return ["entity", "principle"]
         }
     }
 }

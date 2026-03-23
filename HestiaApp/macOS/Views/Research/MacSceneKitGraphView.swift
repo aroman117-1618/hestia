@@ -127,6 +127,10 @@ struct MacSceneKitGraphView: NSViewRepresentable {
         cameraNode.camera?.zNear = 0.1
         cameraNode.camera?.zFar = 200
         cameraNode.camera?.fieldOfView = 50
+        cameraNode.camera?.wantsHDR = true
+        cameraNode.camera?.bloomIntensity = 0.8
+        cameraNode.camera?.bloomThreshold = 0.5
+        cameraNode.camera?.bloomBlurRadius = 10.0
         cameraNode.position = SCNVector3(0, 0, 20)
         cameraNode.look(at: SCNVector3Zero)
         scene.rootNode.addChildNode(cameraNode)
@@ -158,72 +162,11 @@ struct MacSceneKitGraphView: NSViewRepresentable {
 
     private func createNodeGeometry(for graphNode: MacNeuralNetViewModel.GraphNode) -> SCNNode {
         let r = CGFloat(graphNode.radius)
-        let geometry: SCNGeometry
 
-        switch graphNode.nodeType {
-        case "topic":
-            // Diamond / octahedron — using a low-segment sphere approximation
-            let sphere = SCNSphere(radius: r)
-            sphere.segmentCount = 4  // creates a diamond-like shape
-            geometry = sphere
-
-        case "entity":
-            // Shape varies by entity sub-type (category field)
-            switch graphNode.category {
-            case "person":
-                let sphere = SCNSphere(radius: r)
-                sphere.segmentCount = 24
-                geometry = sphere
-            case "tool":
-                let side = r * 1.6
-                geometry = SCNBox(width: side, height: side, length: side, chamferRadius: side * 0.1)
-            case "project":
-                geometry = SCNCapsule(capRadius: r * 0.6, height: r * 2.2)
-            case "organization":
-                let side = r * 1.6
-                geometry = SCNBox(width: side, height: side, length: side, chamferRadius: side * 0.3)
-            case "place":
-                geometry = SCNCylinder(radius: r * 0.9, height: r * 1.2)
-            default: // concept and unknown
-                let sphere = SCNSphere(radius: r)
-                sphere.segmentCount = 4  // diamond-like
-                geometry = sphere
-            }
-
-        case "principle":
-            // Torus — distinctive ring shape
-            geometry = SCNTorus(ringRadius: r * 1.0, pipeRadius: r * 0.35)
-
-        case "community":
-            // Large translucent sphere — bigger than other nodes
-            let sphere = SCNSphere(radius: r * 2.0)
-            sphere.segmentCount = 32
-            let material = SCNMaterial()
-            material.diffuse.contents = graphNode.color.withAlphaComponent(0.15)
-            material.emission.contents = graphNode.color.withAlphaComponent(0.08)
-            material.lightingModel = .constant
-            material.isDoubleSided = true
-            sphere.materials = [material]
-
-            let node = SCNNode(geometry: sphere)
-            node.position = SCNVector3(graphNode.position.x, graphNode.position.y, graphNode.position.z)
-            node.name = graphNode.id
-            return node  // skip standard material — custom translucent
-
-        case "episode":
-            // Capsule / pill shape — elongated
-            geometry = SCNCapsule(capRadius: r * 0.6, height: r * 2.5)
-
-        case "fact":
-            // Small cylinder / disk
-            geometry = SCNCylinder(radius: r * 0.8, height: r * 0.4)
-
-        default:
-            // Memory nodes: standard sphere
-            let sphere = SCNSphere(radius: r)
-            sphere.segmentCount = 24
-            geometry = sphere
-        }
+        // All nodes are spheres — color and size differentiate type
+        let sphere = SCNSphere(radius: r)
+        sphere.segmentCount = 24
+        let geometry: SCNGeometry = sphere
 
         // Sprint 20A: Visual weight system
         // Opacity maps to confidence (0.3–1.0) — low-confidence nodes fade
@@ -294,18 +237,49 @@ struct MacSceneKitGraphView: NSViewRepresentable {
 
     // MARK: - Edge Creation (styled by edgeType)
 
+    // MARK: - Synapse Edge Shader
+
+    /// Metal shader modifier for synapse-style pulsing edges.
+    /// Produces a traveling light packet with overall brightness throbbing.
+    /// Per-edge uniforms: u_pulseSpeed, u_baseBrightness, u_travelSpeed, u_edgeLength.
+    private static let synapseShaderCode = """
+    #pragma body
+
+    float timePulseFactor = (sin(scn_frame.time * u_pulseSpeed) * 0.5 + 0.5);
+    float maxGlow = u_baseBrightness + 0.4;
+    float overallEmission = mix(u_baseBrightness, maxGlow, timePulseFactor);
+
+    float normalizedPos = (_surface.position.y / u_edgeLength) + 0.5;
+    float ramp = fract(normalizedPos - scn_frame.time * u_travelSpeed);
+    float packet = pow(sin(ramp * 3.14159), 30.0);
+
+    float finalEmission = (packet * 0.9) + (overallEmission * 0.1);
+    _surface.emission.rgb = float3(0.92, 0.92, 0.95) * finalEmission;
+    """
+
     private func createEdgeNode(from: SIMD3<Float>, to: SIMD3<Float>, edge: MacNeuralNetViewModel.GraphEdge) -> SCNNode {
         let delta = to - from
         let distance = simd_length(delta)
         guard distance > 0.01 else { return SCNNode() }
 
-        // Edge styling varies by type
-        let styling = edgeStyling(for: edge.edgeType, weight: edge.weight)
+        let weight = edge.weight
+        let radius: Float = 0.008 + weight * 0.012
 
-        let cylinder = SCNCylinder(radius: CGFloat(styling.radius), height: CGFloat(distance))
+        let cylinder = SCNCylinder(radius: CGFloat(radius), height: CGFloat(distance))
         let material = SCNMaterial()
-        material.diffuse.contents = styling.color
+
+        // Additive blending: black diffuse + emission = pure glow
+        material.blendMode = .add
+        material.diffuse.contents = NSColor.black
         material.lightingModel = .constant
+
+        // Synapse shader with per-edge uniforms
+        material.shaderModifiers = [.surface: Self.synapseShaderCode]
+        material.setValue(Float(1.0 + weight * 4.0), forKey: "u_pulseSpeed")
+        material.setValue(Float(0.1 + weight * 0.3), forKey: "u_baseBrightness")
+        material.setValue(Float(1.0 + weight * 2.0), forKey: "u_travelSpeed")
+        material.setValue(Float(distance), forKey: "u_edgeLength")
+
         cylinder.materials = [material]
 
         let edgeNode = SCNNode(geometry: cylinder)
@@ -330,44 +304,7 @@ struct MacSceneKitGraphView: NSViewRepresentable {
         return edgeNode
     }
 
-    /// Returns (radius, color) for a given edge type.
-    private func edgeStyling(for edgeType: String, weight: Float) -> (radius: Float, color: NSColor) {
-        switch edgeType {
-        case "relationship":
-            // Entity-to-entity fact relationship: solid, thick, warm
-            let r = 0.012 + weight * 0.015
-            return (r, NSColor(red: 1.0, green: 0.6, blue: 0.2, alpha: CGFloat(0.15 + weight * 0.25)))
-
-        case "supersedes":
-            // Superseded fact: red tint, medium
-            return (0.012, NSColor(red: 1.0, green: 0.2, blue: 0.2, alpha: 0.3))
-
-        case "principle_source":
-            // Principle to source chunk: purple, medium
-            return (0.010, NSColor(red: 0.75, green: 0.35, blue: 0.95, alpha: 0.25))
-
-        case "community_member":
-            // Entity to community: thin, subtle
-            return (0.005, NSColor(red: 1.0, green: 0.2, blue: 0.37, alpha: 0.15))
-
-        case "topic_membership":
-            // Memory to topic: thin, yellow tint
-            return (0.005, NSColor(red: 1.0, green: 0.84, blue: 0.04, alpha: 0.15))
-
-        case "entity_membership":
-            // Memory to entity: thin, green tint
-            return (0.005, NSColor(red: 0.19, green: 0.82, blue: 0.35, alpha: 0.15))
-
-        case "semantic":
-            // Episode to entity or semantic link: medium, blue
-            return (0.008, NSColor(red: 0.35, green: 0.78, blue: 0.98, alpha: 0.20))
-
-        default:
-            // shared_topic / shared_entity: original white styling
-            let r = 0.008 + weight * 0.012
-            return (r, NSColor.white.withAlphaComponent(CGFloat(0.08 + weight * 0.15)))
-        }
-    }
+    // edgeStyling removed — synapse shader handles all edge styling uniformly
 
     // MARK: - Coordinator (Click + Hover)
 

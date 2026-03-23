@@ -259,43 +259,13 @@ struct ResearchView: View {
                 }
             }
 
-            // Show entity sub-type breakdown in facts mode
-            if graphViewModel.graphMode == .facts && graphViewModel.activeNodeTypes.contains("entity") {
-                MacColors.divider
-                    .frame(height: 1)
-                    .padding(.vertical, 2)
-                Text("Entity types:")
-                    .font(.system(size: 9).italic())
-                    .foregroundStyle(MacColors.textFaint)
-                legendColorDot(color: Color(hex: "#FF9F0A"), label: "Person")
-                legendColorDot(color: Color(hex: "#30D158"), label: "Tool")
-                legendColorDot(color: Color(hex: "#64D2FF"), label: "Concept")
-                legendColorDot(color: Color(hex: "#5AC8FA"), label: "Project")
-                legendColorDot(color: Color(hex: "#BF5AF2"), label: "Organization")
-                legendColorDot(color: Color(hex: "#FF375F"), label: "Place")
-            }
-
-            // Also show memory chunk type breakdown when memory nodes are present
-            if graphViewModel.activeNodeTypes.contains("memory") {
-                MacColors.divider
-                    .frame(height: 1)
-                    .padding(.vertical, 2)
-                Text("Memory types:")
-                    .font(.system(size: 9).italic())
-                    .foregroundStyle(MacColors.textFaint)
-                legendColorDot(color: Color(red: 0.353, green: 0.784, blue: 0.980), label: "Chat")
-                legendColorDot(color: Color(red: 0.557, green: 0.557, blue: 0.576), label: "Insight")
-                legendColorDot(color: Color(red: 1.0, green: 0.584, blue: 0.0), label: "Preference")
-                legendColorDot(color: Color(red: 0.298, green: 0.851, blue: 0.392), label: "Fact")
-                legendColorDot(color: Color(red: 1.0, green: 0.231, blue: 0.188), label: "Decision")
-                legendColorDot(color: Color(red: 0.686, green: 0.322, blue: 0.871), label: "Action")
-                legendColorDot(color: Color(red: 0.0, green: 0.478, blue: 1.0), label: "Research")
-            }
-
             MacColors.divider
                 .frame(height: 1)
                 .padding(.vertical, 2)
             Text("Node size = importance")
+                .font(.system(size: 10).italic())
+                .foregroundStyle(MacColors.textFaint)
+            Text("Edge brightness = connection strength")
                 .font(.system(size: 10).italic())
                 .foregroundStyle(MacColors.textFaint)
         }

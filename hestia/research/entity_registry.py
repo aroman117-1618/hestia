@@ -288,7 +288,13 @@ class EntityRegistry:
                 prompt=f"Entities in this cluster: {names_str}",
                 system=(
                     "Generate a 2-4 word descriptive label that captures the common theme "
-                    "of these related entities. Return JSON: {\"label\": \"...\"}"
+                    "of these related entities. Return JSON: {\"label\": \"...\"}\n\n"
+                    "Examples:\n"
+                    "Entities: Andrew, Sarah, Mike -> {\"label\": \"Social Circle\"}\n"
+                    "Entities: Python, FastAPI, SQLite -> {\"label\": \"Tech Stack\"}\n"
+                    "Entities: Apple, Google, Anthropic -> {\"label\": \"Tech Companies\"}\n"
+                    "Entities: Running, Cycling, Swimming -> {\"label\": \"Fitness Activities\"}\n"
+                    "Entities: Bitcoin, Ethereum, Coinbase -> {\"label\": \"Crypto Ecosystem\"}"
                 ),
                 think=False,
                 force_tier="primary",
