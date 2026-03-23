@@ -164,10 +164,12 @@ class FactExtractor:
         )
 
         try:
-            response = await client.generate(
+            response = await client.complete(
                 prompt=f"Text:\n{truncated}",
                 system=system_prompt,
                 format="json",
+                think=False,
+                force_tier="primary",
             )
         except Exception as e:
             logger.error(
@@ -195,10 +197,12 @@ class FactExtractor:
     ) -> Optional[List[Dict[str, str]]]:
         """Phase 1: Extract named entities from text. Returns None on failure."""
         try:
-            response = await client.generate(
+            response = await client.complete(
                 prompt=f"Text:\n{text}",
                 system=PHASE1_ENTITY_PROMPT,
                 format="json",
+                think=False,
+                force_tier="primary",
             )
             data = json.loads(response.content)
             entities = data.get("entities", [])
@@ -220,10 +224,12 @@ class FactExtractor:
         prompt = f"Entities found: {entity_list}\n\nOriginal text:\n{text}"
 
         try:
-            response = await client.generate(
+            response = await client.complete(
                 prompt=prompt,
                 system=PHASE2_SIGNIFICANCE_PROMPT,
                 format="json",
+                think=False,
+                force_tier="primary",
             )
             data = json.loads(response.content)
             core = data.get("core", [])
@@ -250,10 +256,12 @@ class FactExtractor:
     ) -> List[Fact]:
         """Legacy single-prompt extraction (fallback when staged pipeline fails)."""
         try:
-            response = await client.generate(
+            response = await client.complete(
                 prompt=f"Text:\n{text}",
                 system=EXTRACTION_PROMPT,
                 format="json",
+                think=False,
+                force_tier="primary",
             )
         except Exception as e:
             logger.error(
@@ -381,10 +389,12 @@ class FactExtractor:
 
         try:
             client = await _get_inference_client()
-            response = await client.generate(
+            response = await client.complete(
                 prompt=prompt,
                 system=CONTRADICTION_PROMPT,
                 format="json",
+                think=False,
+                force_tier="primary",
             )
         except Exception as e:
             logger.warning(

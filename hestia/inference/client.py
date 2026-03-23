@@ -348,6 +348,7 @@ class InferenceClient:
         timeout: Optional[float] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
         think: Optional[bool] = None,
+        format: Optional[str] = None,
     ) -> InferenceResponse:
         """Make request to Ollama API."""
         # Create client with appropriate timeout
@@ -368,6 +369,10 @@ class InferenceClient:
         # Thinking tokens count against num_predict, so disable for short/structured outputs
         if think is not None:
             request_data["think"] = think
+
+        # Ollama JSON mode: constrains output to valid JSON
+        if format is not None:
+            request_data["format"] = format
 
         # Use chat endpoint if messages provided, otherwise generate
         if messages:
@@ -438,6 +443,8 @@ class InferenceClient:
         tools: Optional[List[Dict[str, Any]]] = None,
         force_cloud: bool = False,
         think: Optional[bool] = None,
+        force_tier: Optional[str] = None,
+        format: Optional[str] = None,
     ) -> InferenceResponse:
         """
         Call inference with smart model routing (local + cloud).
@@ -478,6 +485,7 @@ class InferenceClient:
             prompt=prompt or (messages[-1].content if messages else ""),
             token_count=token_count,
             has_tools=bool(tools),
+            force_tier=ModelTier(force_tier) if force_tier else None,
         )
 
         self.logger.info(
@@ -528,6 +536,7 @@ class InferenceClient:
                         tier=routing.fallback_tier,
                         tools=tools,
                         think=think,
+                        format=format,
                     )
                 raise LocalModelFailed(
                     f"Cloud inference failed and no local fallback: {cloud_error}"
@@ -546,6 +555,7 @@ class InferenceClient:
                 tier=routing.tier,
                 tools=tools if routing.model_config.supports_tools else None,
                 think=think,
+                format=format,
             )
         except LocalModelFailed as local_error:
             # Local failed — try cloud fallback if available
@@ -589,6 +599,7 @@ class InferenceClient:
         tier: ModelTier,
         tools: Optional[List[Dict[str, Any]]] = None,
         think: Optional[bool] = None,
+        format: Optional[str] = None,
     ) -> InferenceResponse:
         """
         Call local Ollama model with retry logic.
@@ -622,6 +633,7 @@ class InferenceClient:
                     timeout=timeout,
                     tools=tools,
                     think=think,
+                    format=format,
                 )
                 response.tier = tier.value
                 self.router.record_success(tier)
@@ -945,6 +957,8 @@ class InferenceClient:
         max_tokens: Optional[int] = None,
         validate: bool = True,
         think: Optional[bool] = None,
+        force_tier: Optional[str] = None,
+        format: Optional[str] = None,
     ) -> InferenceResponse:
         """
         Generate completion for prompt.
@@ -990,6 +1004,8 @@ class InferenceClient:
                 temperature=temperature,
                 max_tokens=max_tokens,
                 think=think,
+                force_tier=force_tier,
+                format=format,
             )
 
             # Validate response

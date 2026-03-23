@@ -879,7 +879,7 @@ class TestFactExtractorIntegration:
         })
 
         mock_inference = AsyncMock()
-        mock_inference.generate = AsyncMock(
+        mock_inference.complete = AsyncMock(
             return_value=MagicMock(content=llm_response)
         )
 
@@ -971,7 +971,7 @@ class TestFactExtractorIntegration:
 
         mock_inference = AsyncMock()
         # 4 calls: Phase 1 entities, Phase 2 significance, Phase 3 PRISM, contradiction check
-        mock_inference.generate = AsyncMock(
+        mock_inference.complete = AsyncMock(
             side_effect=[
                 MagicMock(content=phase1_response),
                 MagicMock(content=phase2_response),
@@ -1003,7 +1003,7 @@ class TestFactExtractorIntegration:
         extractor = FactExtractor(database=db, registry=registry)
 
         mock_inference = AsyncMock()
-        mock_inference.generate = AsyncMock(side_effect=RuntimeError("LLM down"))
+        mock_inference.complete = AsyncMock(side_effect=RuntimeError("LLM down"))
 
         with patch(
             "hestia.research.fact_extractor._get_inference_client",

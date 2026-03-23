@@ -221,7 +221,7 @@ class ResearchManager:
         try:
             from hestia.memory import get_memory_manager
             memory_mgr = await get_memory_manager()
-            results = await memory_mgr.search(query="*", limit=50, semantic_threshold=0.0)
+            results = await memory_mgr.search(query="*", limit=15, semantic_threshold=0.0)
         except Exception as e:
             logger.warning(
                 f"Cannot search memory for fact extraction: {type(e).__name__}",

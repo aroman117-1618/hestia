@@ -40,7 +40,7 @@ class TestFactExtractionDiagnostic:
         phase3_resp.content = '{"triples": [{"source": "Hestia", "source_type": "project", "relation": "USES", "target": "PostgreSQL", "target_type": "tool", "fact": "Hestia uses PostgreSQL", "confidence": 0.9, "durability": 2, "temporal_type": "static"}]}'
 
         mock_client = AsyncMock()
-        mock_client.generate = AsyncMock(side_effect=[phase1_resp, phase2_resp, phase3_resp])
+        mock_client.complete = AsyncMock(side_effect=[phase1_resp, phase2_resp, phase3_resp])
 
         with patch(
             'hestia.research.fact_extractor._get_inference_client',
@@ -52,8 +52,8 @@ class TestFactExtractionDiagnostic:
                 source_chunk_id="test-chunk-1",
             )
 
-        assert mock_client.generate.call_count == 3, (
-            f"Expected 3 LLM calls (phase 1/2/3), got {mock_client.generate.call_count}"
+        assert mock_client.complete.call_count == 3, (
+            f"Expected 3 LLM calls (phase 1/2/3), got {mock_client.complete.call_count}"
         )
         assert mock_db.create_fact.called, "create_fact was never called"
         assert len(facts) == 1, f"Expected 1 fact, got {len(facts)}"
@@ -80,7 +80,7 @@ class TestFactExtractionDiagnostic:
         legacy_resp.content = '{"triplets": [{"source": "Hestia", "source_type": "project", "relation": "RUNS_ON", "target": "Mac Mini", "target_type": "tool", "fact": "Hestia runs on Mac Mini", "confidence": 0.8}]}'
 
         mock_client = AsyncMock()
-        mock_client.generate = AsyncMock(side_effect=[phase1_resp, legacy_resp])
+        mock_client.complete = AsyncMock(side_effect=[phase1_resp, legacy_resp])
 
         with patch(
             'hestia.research.fact_extractor._get_inference_client',
@@ -93,7 +93,7 @@ class TestFactExtractionDiagnostic:
             )
 
         # Should have called generate twice: once for phase 1 (failed), once for legacy
-        assert mock_client.generate.call_count == 2
+        assert mock_client.complete.call_count == 2
         assert mock_db.create_fact.called, "Legacy fallback should have created facts"
 
     async def test_no_core_entities_returns_empty(self) -> None:
@@ -109,7 +109,7 @@ class TestFactExtractionDiagnostic:
         phase2_resp.content = '{"core": [], "background": ["SomeThing"]}'
 
         mock_client = AsyncMock()
-        mock_client.generate = AsyncMock(side_effect=[phase1_resp, phase2_resp])
+        mock_client.complete = AsyncMock(side_effect=[phase1_resp, phase2_resp])
 
         with patch(
             'hestia.research.fact_extractor._get_inference_client',
