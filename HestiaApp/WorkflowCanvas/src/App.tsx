@@ -59,7 +59,17 @@ const globalStyles = `
   .react-flow__controls { background: #1a1408; border: 1px solid rgba(254, 154, 0, 0.15); border-radius: 8px; }
   .react-flow__controls-button { background: #1a1408; border-bottom: 1px solid rgba(254, 154, 0, 0.1); fill: #E4DFD7; }
   .react-flow__controls-button:hover { background: rgba(238, 203, 160, 0.15); }
-  .react-flow__handle { width: 8px; height: 8px; }
+  .react-flow__handle {
+    width: 10px;
+    height: 10px;
+    z-index: 10;
+    cursor: crosshair;
+  }
+  .react-flow__handle:hover {
+    width: 14px;
+    height: 14px;
+    transition: width 0.15s, height 0.15s;
+  }
 `
 
 const defaultEdgeOptions: DefaultEdgeOptions = {
