@@ -129,7 +129,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | Hardware | Mac Mini M1 (16GB) |
 | Model | Qwen 3.5 9B (Hestia) + DeepSeek-R1-14B (Artemis) + Qwen 3 8B (Apollo) + cloud (Anthropic/OpenAI/Google) |
 | SLM | qwen2.5:0.5b (council intent classification, ~100ms) |
-| Backend | Python 3.12, FastAPI, 238 endpoints across 31 route modules |
+| Backend | Python 3.12, FastAPI, 238 endpoints across 30 route modules |
 | Storage | ChromaDB (vectors) + SQLite (structured) + macOS Keychain (credentials) |
 | App | Native Swift/SwiftUI (iOS 26.0+, macOS 15.0+) |
 | API | REST on port 8443 with JWT auth, HTTPS with self-signed cert |
@@ -141,9 +141,9 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 **All foundation work complete** (MVP phases 0-7, Intelligence WS1-4, UI phases 1-4, Frontend Wiring sprints 1-5, CLI sprints 1-5, Stability sprints 6-7+12, HealthKit, Wiki, macOS app). See `SPRINT.md` for full history.
 
-**Active: Trading Module (Sprints 21-30).** Sprints 21-27 COMPLETE. Paper soak LIVE on Mac Mini since 2026-03-19. Coinbase adapter live-ready. Alpaca (stocks) paused — API key pending with support team.
+**Active: Trading Module (Sprints 21-30).** Sprints 21-27 COMPLETE. **Live trading active on Mac Mini since 2026-03-24** — 4 Mean Reversion bots (BTC/ETH/SOL/DOGE) running via `bot_service.py` launchd service, market orders on Coinbase. Alpaca (stocks) paused — API key pending with support team.
 
-2829 tests (2694 backend + 135 CLI), 88 test files. Full details: `python -m pytest tests/ -v --timeout=30`
+2829 tests (2694 backend + 135 CLI), 89 test files. Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -244,7 +244,7 @@ hestia/
 │   ├── research/                    # Knowledge graph + PrincipleStore + Temporal Facts + Episodic Nodes
 │   ├── investigate/                 # URL content analysis (web articles, YouTube)
 │   ├── workflows/                   # DAG workflow engine (executor, nodes, scheduler, migration, interpolation)
-│   ├── api/                         # FastAPI — 238 endpoints, 31 route modules
+│   ├── api/                         # FastAPI — 238 endpoints, 30 route modules
 │   └── config/                      # inference.yaml, execution.yaml, memory.yaml, triggers.yaml, wiki.yaml, workflow.yaml
 ├── hestia-cli/                      # Python CLI (REPL, auth, bootstrap, context, renderer)
 ├── hestia-cli-tools/                # Swift CLIs (keychain, calendar, reminders, notes)
@@ -289,7 +289,7 @@ Sprints 21-27 COMPLETE. Paper soak LIVE on Mac Mini since 2026-03-19. Coinbase a
 
 | Sprint | Status | Scope |
 |--------|--------|-------|
-| Sprint 27: Go-Live | LIVE (paper soak) | Mean Reversion bots running on BTC/ETH/SOL/DOGE, 8-layer risk armed |
+| Sprint 27: Go-Live | LIVE (Coinbase) | 4 MR bots live since 2026-03-24, market orders, 8-layer risk armed |
 | Sprint 27.5: Validation | WS1 DONE, WS2-3 TODO | Backtest validation complete (strategy issues found), infra hardening remaining |
 | Sprint 28: Regime Detection | TODO (after 30+ fills) | Rule-based regime detection (ADX+SMA+ATR), strategy router |
 | Sprint 29: Alpaca + Stocks | BLOCKED | Alpaca API key pending — Andrew working with support team |

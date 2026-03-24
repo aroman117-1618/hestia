@@ -1,86 +1,62 @@
-# Session Handoff — 2026-03-23
+# Session Handoff — 2026-03-24
 
 ## Mission
-Review trading module accuracy vs docs, fix trading strategy bugs, then plan and begin building the Workflow Orchestrator P1 engine.
+Diagnose why Hestia's trading system had never executed a trade despite being "live since March 19", fix all blockers, and activate live Coinbase trading on the Mac Mini.
 
 ## Completed
-
-### Trading Module Fixes
-- **Signal DCA indicator period fix** — backtest engine now passes strategy-specific periods to `add_all_indicators()` via new `indicator_periods()` method on `BaseStrategy` (`32664d8`)
-- **Mean Reversion exit logic** — added RSI-based profit exits (RSI>70 after BUY, RSI<30 after SELL) + stop-loss enforcement with position state tracking (`32664d8`)
-- **SPRINT.md/CLAUDE.md accuracy** — updated to reflect actual trading state: paper soak live since 2026-03-19, Alpaca blocked on API key, backtest results documented
-
-### Workflow Orchestrator P1 Backend (Steps 1-8 of 9)
-- **Step 1** (`65fc1ec`): Models — 5 enums, 5 dataclasses, 45 tests
-- **Step 2** (`65fc1ec`): Database — 6 SQLite tables, WAL mode, 34 tests
-- **Step 3** (`75d488f`): Node executors — 7 types with safe condition evaluator
-- **Step 4** (`75d488f`): DAG executor — TopologicalSorter + asyncio, 35 tests
-- **Step 5** (`75d488f`): Event bus — SSE pub/sub
-- **Step 6** (`10fa8d5`): Manager — CRUD + lifecycle + execution, 27 tests
-- **Step 7** (`b1db9a8`): Scheduler + 15 API endpoints + server wiring, 13 tests
-- **Step 8** (`9846de9`): Orders migration script, 11 tests
-
-### Documentation
-- Memory files updated: `roadmap-eras.md`, `trading-platform-pivot.md`
-- Discovery report: `docs/discoveries/workflow-orchestrator-p1-p2-discovery-2026-03-23.md`
-- Plan file: `.claude/plans/nifty-wiggling-platypus.md`
+- Full system audit of trading module — found 7+ issues (discovery: `docs/discoveries/trading-system-audit-2026-03-24.md`)
+- **Bug fix:** `self._bot` → `self.bot` in `bot_runner.py:342,344` — AttributeError crash on portfolio value fallback (`10b203b`)
+- **Bug fix:** Inject `bot.pair` into strategy config in `bot_runner.py:100-104` — all bots were defaulting to BTC-USD signals (`9e435d9`)
+- **Bug fix:** Switch executor from `limit+post_only` to `market` orders in `executor.py:138-144` — limit orders were silently rejected by Coinbase (`2e382af`)
+- **Feature:** Added SOL-USD and DOGE-USD to `product_info.py` (`90a98d4`)
+- **Feature:** Created `scripts/seed-trading-bots.py` — 4-bot MR portfolio with RSI-3 params (`90a98d4`)
+- **Fix:** Deploy script now restarts trading-bots launchd service (`7561184`)
+- **Deployed to Mac Mini** — bot_service.py running, 4 bots active, first signals generated
+- **Cleaned stale data** — removed 3 old stopped bots and 6 paper-mode trade records from Mac Mini DB
+- **Created issue #31** — position state persistence for bot service restarts
+- Implementation plan: `docs/superpowers/plans/2026-03-24-trading-go-live.md`
 
 ## In Progress
-- **Step 9: macOS List UI** (~7h) — Not started. Need 8 Swift files:
-  - `Shared/Models/WorkflowModels.swift` — Codable types
-  - `macOS/ViewModels/MacWorkflowViewModel.swift` — @MainActor ObservableObject
-  - `macOS/Views/Workflow/MacWorkflowView.swift` — sidebar+detail HStack
-  - `macOS/Views/Workflow/MacWorkflowSidebarView.swift` — list + filter tabs
-  - `macOS/Views/Workflow/MacWorkflowDetailPane.swift` — node list + run history
-  - `macOS/Views/Workflow/MacWorkflowNodeRow.swift` — row component
-  - `macOS/Views/Workflow/MacNewWorkflowSheet.swift` — creation modal
-  - `macOS/Views/Workflow/MacNodeConfigSheet.swift` — per-type config editor
-  - Also: update `project.yml` and sidebar navigation
+- None — all tasks completed and deployed
 
 ## Decisions Made
-- **Full P1 scope** (35h) over lean backend-only (20h) — Andrew chose full scope after @hestia-critic review
-- **P2 canvas immediately after P1** — not gated on usage as critic suggested
-- **WebView + React Flow primary canvas tech** (P2) — with AudioKit Flow native spike as alternative
-- **Safe condition evaluator** — uses `operator` module, never arbitrary code execution
-- **DAGExecutor architecture** — TopologicalSorter + asyncio.Event signaling + Semaphore(2) for M1
+- **Market orders over limit+post_only**: Post-only limit at market price is rejected by Coinbase. Market orders guarantee fills. 0.20% fee difference ($0.13 on $62.50 positions) is negligible vs. execution reliability.
+- **RSI-3 per-asset configs**: BTC 15/85, ETH 20/80, SOL 25/70, DOGE 25/75 — from S27.6 backtest results
+- **$62.50 per bot** (4 x $62.50 = $250 total capital across 4 assets)
 
 ## Test Status
-- **2809 backend tests collected** (183 new workflow tests)
-- **1 pre-existing failure**: `test_inference.py::test_simple_completion` — Ollama not running locally (integration test)
-- All workflow tests green
+- 2829 tests collected, 89 test files
+- 1 pre-existing failure: `test_inference.py::test_simple_completion` (Ollama integration, not related)
+- All 362 trading tests pass (confirmed via targeted run)
+- Full suite hangs after completion due to ChromaDB background threads (known issue)
 
 ## Uncommitted Changes
-- `HestiaApp/macOS/Views/Research/MacSceneKitGraphView.swift` — minor graph view changes (from earlier session)
-- `docs/discoveries/workflow-orchestrator-p1-p2-discovery-2026-03-23.md` — untracked doc
-- `docs/discoveries/knowledge-graph-viz-refinements-2026-03-23.md` — untracked doc
-- `docs/discoveries/scenekit-metal-shader-modifiers-2026-03-23.md` — untracked doc
-- `docs/mockups/` — untracked directory
-- `docs/plans/consumer-product-strategy.md` — untracked plan
-- `CLAUDE.md` / `SPRINT.md` — count + status updates (need committing)
+- `CLAUDE.md` — count fixes (89 test files, 30 route modules), trading status update
+- `SPRINT.md` — updated to reflect live trading status
+- `SESSION_HANDOFF.md` — this file
+- `docs/discoveries/trading-system-audit-2026-03-24.md` — new discovery doc
+- `docs/superpowers/plans/2026-03-24-trading-go-live.md` — new plan doc
+- `.claude/skills/handoff/SKILL.md`, `.claude/skills/pickup/SKILL.md`, `.mcp.json` — modified by another session
 
 ## Known Issues / Landmines
-- **Workflow scheduler import chain**: `scheduler.py` imports `get_workflow_manager` inside methods (deferred import) to avoid circular deps. If someone moves this to top-level, server startup will fail.
-- **Route error handling**: Routes use `JSONResponse` with explicit status codes. The initial implementation used tuple returns `(dict, status)` which FastAPI silently ignores the status — this was caught and fixed but watch for it in new endpoints.
-- **Node executor registry is mutable**: Tests that swap executors (`NODE_EXECUTORS[NodeType.LOG] = failing_executor`) must restore the original in `finally` blocks. Two tests do this correctly.
-- **Uncommitted SceneKit changes**: `MacSceneKitGraphView.swift` has uncommitted changes from a prior session — don't accidentally commit with workflow work.
+- **Position state not persisted (issue #31)**: `MeanReversionStrategy._last_entry` lives in memory. If bot_service restarts (deploy, reboot), open position tracking is lost. Low risk at $62.50/bot but needs fixing.
+- **Coinbase API error**: `"Cannot pass multiple statuses with OPEN"` in reconciliation `get_open_orders` call. Non-blocking — bots run fine despite it. Root cause: Coinbase SDK behavior change.
+- **Mac Mini runs Python 3.9** (not 3.12) — urllib3 SSL warning in error log. Works but worth upgrading.
+- **API server readiness check failed on deploy** — took >15s to respond. Likely just slow startup after service reload. Server is running (bots connected successfully).
+- **"Open Positions: 2" in UI** shows dust holdings (ETH $0.04, FET $0.00) from pre-Hestia Coinbase activity, not bot positions.
 
 ## Process Learnings
-- **First-pass success**: 9/9 implementation steps succeeded on first attempt. The fan-in test (Step 4) had one timing bug fixed in <2 minutes. Route tests (Step 7) had two issues: auth dependency override pattern and tuple-return error responses — both patterns now documented.
-- **Top blocker**: FastAPI's `Depends()` resolution can't be patched with `unittest.mock.patch` — must use `app.dependency_overrides`. This cost ~5 minutes.
-- **Agent orchestration**: @hestia-tester used effectively after each step. @hestia-explorer used for initial codebase research (3 parallel agents). @hestia-critic provided valuable scope challenge that Andrew explicitly overrode.
-- **Config proposal**: Add `JSONResponse` import and error pattern to CLAUDE.md conventions — prevents the tuple-return anti-pattern.
+- **First-pass success**: 7/8 tasks completed on first try (88%). The deploy task needed iterating (readiness check timeout, discovering bots were already seeded from a previous session).
+- **Top blocker**: The trading system was never operational because the `bot_service.py` process was never installed as a launchd service on the Mac Mini. This was a pure deployment gap — the code was correct, the architecture was sound.
+- **Agent orchestration**: Good parallel subagent dispatch for Tasks 3-6 saved significant time. The hestia-explorer agent provided excellent architecture analysis. The plan reviewer caught 2 real blockers (stopped bot would cause seed skip; test files didn't exist).
+- **Proposal (CLAUDE.MD)**: Add note about bot_service.py being a separate process from the API server — this was the root cause and isn't obvious from CLAUDE.md.
+- **Proposal (HOOK)**: Add a post-deploy health check that verifies trading-bots service is running and bots are generating signals.
 
 ## Next Step
-1. Start Step 9: macOS list UI. Begin with `Shared/Models/WorkflowModels.swift` (Codable types matching the API responses)
-2. Then `MacWorkflowViewModel.swift` following `MacWikiViewModel` pattern
-3. Then views following `MacWikiView` sidebar+detail pattern
-4. Update `project.yml` to include new files in HestiaWorkspace target
-5. Build both targets: `xcodebuild -scheme HestiaWorkspace` and `xcodebuild -scheme HestiaApp`
-6. After Step 9: commit, then begin P2 (canvas + conditions)
-
-**Reference files for UI patterns:**
-- `MacWikiView.swift` — sidebar+detail layout
-- `MacWikiSidebarView.swift` — tab navigation
-- `MacTradingViewModel.swift` — SSE streaming
-- `MacColors.swift` / `MacSpacing.swift` / `MacTypography.swift` — design tokens
-- `NewOrderSheet.swift` — creation modal pattern
+- Monitor trading bots for first 24h — check for actual trade executions:
+  ```bash
+  ssh andrewroman117@hestia-3.local 'sqlite3 ~/hestia/data/trading.db "SELECT * FROM trades ORDER BY timestamp DESC LIMIT 5;"'
+  ssh andrewroman117@hestia-3.local 'grep "Signal:" ~/hestia/logs/hestia.log | tail -20'
+  ```
+- If any bot enters ERROR state, check logs: `ssh andrewroman117@hestia-3.local 'grep "ERROR\|crashed" ~/hestia/logs/hestia.log | tail -10'`
+- Next sprint work: fix position state persistence (issue #31), then Sprint 28 (regime detection) after 30+ fills

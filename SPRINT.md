@@ -1,8 +1,9 @@
-# Trading Module — Live Status (2026-03-23)
+# Trading Module — Live Status (2026-03-24)
 
-**Paper soak LIVE** on Mac Mini since 2026-03-19. Mean Reversion bots running across BTC/ETH/SOL/DOGE.
+**LIVE TRADING on Coinbase** since 2026-03-24. 4 Mean Reversion bots (BTC/ETH/SOL/DOGE) executing market orders.
 **Infrastructure complete:** 36 source files, 25 API endpoints, 70+ tests, 8-layer risk, BotService on launchd.
-**Coinbase adapter ready** for live trading — flip `trading.yaml mode: paper → live` once soak validates.
+**Bugs fixed this session:** `self._bot` crash, pair injection, limit→market orders, SOL/DOGE product info, deploy script.
+**Known gap:** Position state (`_last_entry`) not persisted — see issue #31.
 
 ## Backtest Validation Results (S27.5 WS1 — COMPLETE)
 
