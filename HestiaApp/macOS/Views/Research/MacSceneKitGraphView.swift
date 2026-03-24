@@ -127,10 +127,12 @@ struct MacSceneKitGraphView: NSViewRepresentable {
         cameraNode.camera?.zNear = 0.1
         cameraNode.camera?.zFar = 200
         cameraNode.camera?.fieldOfView = 50
-        cameraNode.camera?.wantsHDR = true
-        cameraNode.camera?.bloomIntensity = 0.8
-        cameraNode.camera?.bloomThreshold = 0.5
-        cameraNode.camera?.bloomBlurRadius = 10.0
+        // HDR bloom disabled — was bleeding node colors onto edges
+        // Re-enable with tuned threshold after edge colors are confirmed working
+        // cameraNode.camera?.wantsHDR = true
+        // cameraNode.camera?.bloomIntensity = 0.8
+        // cameraNode.camera?.bloomThreshold = 0.5
+        // cameraNode.camera?.bloomBlurRadius = 10.0
         cameraNode.position = SCNVector3(0, 0, 20)
         cameraNode.look(at: SCNVector3Zero)
         scene.rootNode.addChildNode(cameraNode)
@@ -244,17 +246,11 @@ struct MacSceneKitGraphView: NSViewRepresentable {
     /// Per-edge uniforms: u_pulseSpeed, u_baseBrightness, u_travelSpeed, u_edgeLength.
     private static let synapseShaderCode = """
     #pragma body
-
-    float timePulseFactor = (sin(scn_frame.time * u_pulseSpeed) * 0.5 + 0.5);
-    float maxGlow = u_baseBrightness + 0.4;
-    float overallEmission = mix(u_baseBrightness, maxGlow, timePulseFactor);
-
-    float normalizedPos = (_surface.position.y / u_edgeLength) + 0.5;
-    float ramp = fract(normalizedPos - scn_frame.time * u_travelSpeed);
-    float packet = pow(sin(ramp * 3.14159), 30.0);
-
-    float finalEmission = (packet * 0.9) + (overallEmission * 0.1);
-    _surface.emission.rgb = float3(0.92, 0.92, 0.95) * finalEmission;
+    float speed = u_pulseSpeed;
+    float base = u_baseBrightness;
+    float pulse = (sin(scn_frame.time * speed) * 0.5 + 0.5);
+    float glow = mix(base, base + 0.5, pulse);
+    _surface.emission = float4(0.92, 0.92, 0.95, 1.0) * glow;
     """
 
     private func createEdgeNode(from: SIMD3<Float>, to: SIMD3<Float>, edge: MacNeuralNetViewModel.GraphEdge) -> SCNNode {
@@ -268,17 +264,11 @@ struct MacSceneKitGraphView: NSViewRepresentable {
         let cylinder = SCNCylinder(radius: CGFloat(radius), height: CGFloat(distance))
         let material = SCNMaterial()
 
-        // Additive blending: black diffuse + emission = pure glow
-        material.blendMode = .add
-        material.diffuse.contents = NSColor.black
+        // White starlight edges — shader modifier removed (was causing magenta error)
+        let brightness = CGFloat(0.3 + weight * 0.5)
+        material.diffuse.contents = NSColor(white: brightness, alpha: 0.8)
+        material.emission.contents = NSColor(white: brightness * 0.6, alpha: 1.0)
         material.lightingModel = .constant
-
-        // Synapse shader with per-edge uniforms
-        material.shaderModifiers = [.surface: Self.synapseShaderCode]
-        material.setValue(Float(1.0 + weight * 4.0), forKey: "u_pulseSpeed")
-        material.setValue(Float(0.1 + weight * 0.3), forKey: "u_baseBrightness")
-        material.setValue(Float(1.0 + weight * 2.0), forKey: "u_travelSpeed")
-        material.setValue(Float(distance), forKey: "u_edgeLength")
 
         cylinder.materials = [material]
 

@@ -359,6 +359,11 @@ class MacNeuralNetViewModel: ObservableObject {
             )
         }
 
+        // Filter nodes by active node type filter
+        if !nodeTypeFilter.isEmpty {
+            nodes = nodes.filter { nodeTypeFilter.contains($0.nodeType) }
+        }
+
         // Sprint 20A: Client-side durability filter
         if minDurabilityFilter > 0 {
             nodes = nodes.filter { $0.maxDurability >= minDurabilityFilter }
