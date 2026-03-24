@@ -4,6 +4,8 @@ Tools routes for Hestia API.
 Lists available tools and their definitions.
 """
 
+from typing import Dict
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from hestia.api.etag import etag_response
@@ -19,6 +21,22 @@ from hestia.logging import get_logger, LogComponent
 
 router = APIRouter(prefix="/v1/tools", tags=["tools"])
 logger = get_logger()
+
+# Human-readable labels and SF Symbol icons for the Step Builder resource picker
+TOOL_CATEGORY_META: Dict[str, Dict[str, str]] = {
+    "calendar": {"label": "Calendar", "icon": "calendar"},
+    "reminders": {"label": "Reminders", "icon": "checklist"},
+    "notes": {"label": "Notes", "icon": "note.text"},
+    "mail": {"label": "Mail", "icon": "envelope"},
+    "file": {"label": "Files", "icon": "folder"},
+    "code": {"label": "Code", "icon": "chevron.left.forwardslash.chevron.right"},
+    "git": {"label": "Git", "icon": "arrow.triangle.branch"},
+    "shell": {"label": "Shell", "icon": "terminal"},
+    "health": {"label": "Health", "icon": "heart.fill"},
+    "trading": {"label": "Trading", "icon": "chart.line.uptrend.xyaxis"},
+    "investigate": {"label": "Web", "icon": "globe"},
+    "general": {"label": "General", "icon": "wrench"},
+}
 
 
 @router.get(
@@ -96,23 +114,40 @@ async def list_categories(
     device_id: str = Depends(get_device_token),
 ) -> dict:
     """
-    List all tool categories with tool counts.
+    List all tool categories with tool details, labels, and icons.
 
-    Returns a dictionary mapping category names to the number of
-    tools in each category.
+    Returns a structured array of categories, each with human-readable
+    metadata and full tool schemas for the workflow Step Builder.
     """
     registry = get_tool_registry()
 
-    categories = {}
+    # Group tools by category
+    groups: Dict[str, list] = {}
     for tool in registry.list_tools():
-        category = tool.category
-        if category not in categories:
-            categories[category] = {
-                "count": 0,
-                "tools": [],
-            }
-        categories[category]["count"] += 1
-        categories[category]["tools"].append(tool.name)
+        cat = tool.category or "general"
+        if cat not in groups:
+            groups[cat] = []
+        groups[cat].append({
+            "name": tool.name,
+            "description": tool.description,
+            "parameters": {
+                name: param.to_json_schema()
+                for name, param in tool.parameters.items()
+            },
+            "requires_approval": tool.requires_approval,
+        })
+
+    # Build response with metadata
+    categories = []
+    for cat_id, tools in sorted(groups.items()):
+        meta = TOOL_CATEGORY_META.get(cat_id, {"label": cat_id.title(), "icon": "wrench"})
+        categories.append({
+            "id": cat_id,
+            "label": meta["label"],
+            "icon": meta["icon"],
+            "tools": sorted(tools, key=lambda t: t["name"]),
+            "count": len(tools),
+        })
 
     return {
         "categories": categories,
