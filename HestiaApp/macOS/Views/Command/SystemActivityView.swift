@@ -17,13 +17,13 @@ struct SystemActivityView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: MacSpacing.lg) {
-                // Active Workflows / Orders
+                // Workflows
                 CollapsibleSection(
-                    title: "Active Workflows",
-                    icon: "arrow.clockwise",
-                    count: viewModel.orders.count
+                    title: "Workflows",
+                    icon: "arrow.triangle.branch",
+                    count: viewModel.activeWorkflowCount
                 ) {
-                    ordersContent
+                    workflowsContent
                 }
 
                 // Memory Activity
@@ -52,7 +52,80 @@ struct SystemActivityView: View {
         }
     }
 
-    // MARK: - Orders
+    // MARK: - Workflows
+
+    @ViewBuilder
+    private var workflowsContent: some View {
+        if viewModel.activeWorkflows.isEmpty {
+            sectionEmptyState(icon: "arrow.triangle.branch", message: "No workflows created")
+        } else {
+            VStack(spacing: MacSpacing.sm) {
+                ForEach(viewModel.activeWorkflows, id: \.id) { workflow in
+                    workflowCard(workflow)
+                }
+            }
+        }
+    }
+
+    private func workflowCard(_ workflow: WorkflowSummary) -> some View {
+        let isActive = workflow.status == "active"
+        let statusColor = isActive ? MacColors.healthGreen : MacColors.healthAmber
+        let statusLabel = workflow.status.capitalized
+
+        return VStack(alignment: .leading, spacing: MacSpacing.sm) {
+            HStack {
+                Text(workflow.name)
+                    .font(MacTypography.label)
+                    .foregroundStyle(MacColors.textPrimary)
+                    .lineLimit(1)
+                Spacer()
+                Text(statusLabel)
+                    .font(MacTypography.metadata)
+                    .foregroundStyle(statusColor)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(statusColor.opacity(0.15))
+                    .clipShape(Capsule())
+            }
+
+            HStack(spacing: MacSpacing.md) {
+                // Trigger type
+                HStack(spacing: 4) {
+                    Image(systemName: workflow.triggerType == "schedule" ? "clock" : "hand.tap")
+                        .font(.system(size: 11))
+                        .foregroundStyle(MacColors.textFaint)
+                    Text(workflow.triggerType.capitalized)
+                        .font(MacTypography.caption)
+                        .foregroundStyle(MacColors.textSecondary)
+                }
+
+                Spacer()
+
+                // Run count
+                if workflow.runCount > 0 {
+                    HStack(spacing: 4) {
+                        Text("\(workflow.runCount) runs")
+                            .font(MacTypography.caption)
+                            .foregroundStyle(MacColors.textFaint)
+                        let rate = workflow.successRate
+                        Text(String(format: "%.0f%%", rate * 100))
+                            .font(MacTypography.caption)
+                            .foregroundStyle(rate > 0.8 ? MacColors.healthGreen : MacColors.healthAmber)
+                    }
+                }
+            }
+        }
+        .padding(MacSpacing.md)
+        .background(MacColors.searchInputBackground)
+        .overlay(alignment: .leading) {
+            Rectangle()
+                .fill(statusColor)
+                .frame(width: 3)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
+    }
+
+    // MARK: - Orders (Legacy)
 
     @ViewBuilder
     private var ordersContent: some View {

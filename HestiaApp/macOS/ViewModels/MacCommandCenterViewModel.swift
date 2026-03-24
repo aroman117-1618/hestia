@@ -10,6 +10,7 @@ class MacCommandCenterViewModel: ObservableObject {
     @Published var systemHealth: SystemHealth?
     @Published var pendingMemories: [MemoryChunk] = []
     @Published var orders: [OrderResponse] = []
+    @Published var activeWorkflows: [WorkflowSummary] = []
     @Published var calendarEvents: [EKEvent] = []
     @Published var newsfeedItems: [NewsfeedItem] = []
     @Published var unreadCount: Int = 0
@@ -32,6 +33,7 @@ class MacCommandCenterViewModel: ObservableObject {
     var healthStatus: String { systemHealth?.status.displayText ?? "Unknown" }
     var pendingMemoryCount: Int { pendingMemories.count }
     var activeOrderCount: Int { orders.filter { $0.status == .active }.count }
+    var activeWorkflowCount: Int { activeWorkflows.filter { $0.status == "active" }.count }
     var todayEventCount: Int { calendarEvents.count }
     var serverIsReachable: Bool { systemHealth != nil }
 
@@ -72,6 +74,7 @@ class MacCommandCenterViewModel: ObservableObject {
         async let healthTask: () = loadHealth()
         async let memoryTask: () = loadPendingMemories()
         async let ordersTask: () = loadOrders()
+        async let workflowsTask: () = loadWorkflows()
         async let calendarTask: () = loadCalendarEvents()
         async let newsfeedTask: () = loadNewsfeed()
         async let learningTask: () = loadLearningMetrics()
@@ -79,7 +82,7 @@ class MacCommandCenterViewModel: ObservableObject {
         async let healthSummaryTask: () = loadHealthSummary()
         async let tradingTask: () = loadTradingSummary()
 
-        _ = await (healthTask, memoryTask, ordersTask, calendarTask, newsfeedTask, learningTask, investigateTask, healthSummaryTask, tradingTask)
+        _ = await (healthTask, memoryTask, ordersTask, workflowsTask, calendarTask, newsfeedTask, learningTask, investigateTask, healthSummaryTask, tradingTask)
 
         // If health check failed AND no cached health data, server is likely down
         if failedSections.contains("health") && systemHealth == nil {
@@ -117,6 +120,18 @@ class MacCommandCenterViewModel: ObservableObject {
         }
         orders = data?.orders ?? []
         if source == .empty { failedSections.insert("orders") }
+    }
+
+    private func loadWorkflows() async {
+        do {
+            let response = try await APIClient.shared.getWorkflows()
+            activeWorkflows = response.workflows
+        } catch {
+            #if DEBUG
+            print("[CommandCenter] Failed to load workflows: \(error)")
+            #endif
+            failedSections.insert("workflows")
+        }
     }
 
     private func loadCalendarEvents() async {
