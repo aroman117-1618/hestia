@@ -53,6 +53,40 @@ After soak validates: flip to live with $25 across viable strategies. Run 30+ fi
 
 ---
 
+# Workflow Orchestrator P1: Engine + List UI (2026-03-23) — IN PROGRESS
+
+**Started:** 2026-03-23
+**Plan:** `.claude/plans/nifty-wiggling-platypus.md`
+**Discovery:** `docs/discoveries/workflow-orchestrator-p1-p2-discovery-2026-03-23.md`
+
+## What Was Built (Steps 1-8 COMPLETE)
+- **Models** (`models.py`) — 5 enums + 5 dataclasses with full serialization (45 tests)
+- **Database** (`database.py`) — 6 SQLite tables, WAL mode, CRUD, cascade deletes, purge (34 tests)
+- **Node Executors** (`nodes.py`) — 7 node types (run_prompt, call_tool, notify, log, if_else, schedule, manual)
+- **DAG Executor** (`executor.py`) — TopologicalSorter + asyncio with Event signaling, Semaphore(2), if_else branching (35 tests)
+- **Event Bus** (`event_bus.py`) — SSE pub/sub mirroring TradingEventBus pattern
+- **Manager** (`manager.py`) — CRUD + lifecycle + execution with cycle detection (27 tests)
+- **Scheduler** (`scheduler.py`) — APScheduler integration for cron/interval triggers
+- **API Routes** (`routes/workflows.py`) — 15 endpoints under /v1/workflows (13 tests)
+- **Migration** (`migration.py`) — Idempotent orders-to-workflows conversion (11 tests)
+- **Server wired** — Phase 2 manager init, Phase 3 scheduler, shutdown in reverse order
+
+## Remaining
+- **Step 9: macOS List UI** (~7h) — 8 Swift files: WorkflowModels, ViewModel, Views (sidebar+detail), sheets
+
+### Key Commits
+- `65fc1ec` feat(workflow): P1 Step 1-2 — models + database layer
+- `75d488f` feat(workflow): P1 Step 3-5 — node executors, event bus, DAG executor
+- `10fa8d5` feat(workflow): P1 Step 6 — workflow manager
+- `b1db9a8` feat(workflow): P1 Step 7 — scheduler, API routes, server wiring
+- `9846de9` feat(workflow): P1 Step 8 — migration script
+
+### Test Results
+- 183 new workflow tests, all passing
+- 2809 backend total (up from 2644)
+
+---
+
 # Workflow Orchestrator P0: Handler Adapter (2026-03-20) — COMPLETE
 
 **Started:** 2026-03-20
