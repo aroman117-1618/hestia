@@ -3,14 +3,14 @@
   <channel>
     <title>Hestia Updates</title>
     <item>
-      <title>Version 1.4.0</title>
-      <sparkle:version>1.4.0</sparkle:version>
-      <sparkle:shortVersionString>1.4.0</sparkle:shortVersionString>
-      <pubDate>Tue, 24 Mar 2026 12:41:33 -0400</pubDate>
+      <title>Version 1.5.0</title>
+      <sparkle:version>1.5.0</sparkle:version>
+      <sparkle:shortVersionString>1.5.0</sparkle:shortVersionString>
+      <pubDate>Tue, 24 Mar 2026 17:47:17 -0400</pubDate>
       <enclosure
-        url="https://github.com/aroman117-1618/hestia/releases/download/v1.4.0/Hestia-1.4.0.zip"
-        sparkle:edSignature="GJ8GheZNIKABSt71H2r77Q8fA6gPXur/fLmYVFgEsBepdS9/Aicd2PZKt0J3TBFgU6/Awn1hIPfJu0GDloyrBA=="
-        length="12297629"
+        url="https://github.com/aroman117-1618/hestia/releases/download/v1.5.0/Hestia-1.5.0.zip"
+        sparkle:edSignature="eLU6qsI4xlmdv242avsfVAz3+siHPf+9j9lWDQ3JQ9IL/LZA+SPkqnQd6WADH5OQEaPlCO5rFJuTxR5heNVXDg=="
+        length="12526890"
         type="application/octet-stream" />
     </item>
   </channel>
