@@ -53,26 +53,34 @@ After soak validates: flip to live with $25 across viable strategies. Run 30+ fi
 
 ---
 
-# Workflow Orchestrator P1: Engine + List UI (2026-03-23) — IN PROGRESS
+# Workflow Orchestrator P1+P2 (2026-03-23 → 2026-03-24) — COMPLETE
 
-**Started:** 2026-03-23
-**Plan:** `.claude/plans/nifty-wiggling-platypus.md`
-**Discovery:** `docs/discoveries/workflow-orchestrator-p1-p2-discovery-2026-03-23.md`
+**P1 Started:** 2026-03-23 | **P2 Completed:** 2026-03-24
+**Plan (P2):** `docs/superpowers/plans/2026-03-24-workflow-orchestrator-p2.md`
+**Discovery (P2):** `docs/discoveries/workflow-orchestrator-p2-canvas-conditions-2026-03-24.md`
+**Second Opinion:** `docs/plans/workflow-orchestrator-p2-second-opinion-2026-03-24.md`
 
-## What Was Built (Steps 1-8 COMPLETE)
-- **Models** (`models.py`) — 5 enums + 5 dataclasses with full serialization (45 tests)
-- **Database** (`database.py`) — 6 SQLite tables, WAL mode, CRUD, cascade deletes, purge (34 tests)
-- **Node Executors** (`nodes.py`) — 7 node types (run_prompt, call_tool, notify, log, if_else, schedule, manual)
-- **DAG Executor** (`executor.py`) — TopologicalSorter + asyncio with Event signaling, Semaphore(2), if_else branching (35 tests)
-- **Event Bus** (`event_bus.py`) — SSE pub/sub mirroring TradingEventBus pattern
-- **Manager** (`manager.py`) — CRUD + lifecycle + execution with cycle detection (27 tests)
-- **Scheduler** (`scheduler.py`) — APScheduler integration for cron/interval triggers
-- **API Routes** (`routes/workflows.py`) — 15 endpoints under /v1/workflows (13 tests)
-- **Migration** (`migration.py`) — Idempotent orders-to-workflows conversion (11 tests)
-- **Server wired** — Phase 2 manager init, Phase 3 scheduler, shutdown in reverse order
+## P1: Engine + List UI (COMPLETE)
+- **Models** — 6 enums + 5 dataclasses (45 tests)
+- **Database** — 6 SQLite tables, WAL mode, CRUD, cascade deletes, purge (34 tests)
+- **Node Executors** — 8 node types (run_prompt, call_tool, notify, log, if_else, switch, schedule, manual)
+- **DAG Executor** — TopologicalSorter + asyncio, Semaphore(2), if_else + switch branching (35 tests)
+- **Event Bus** — SSE pub/sub
+- **Manager** — CRUD + lifecycle + execution + cycle detection (27 tests)
+- **Scheduler** — APScheduler integration for cron/interval triggers
+- **API Routes** — 16 endpoints under /v1/workflows (15 tests)
+- **Migration** — Idempotent orders-to-workflows conversion (11 tests)
+- **macOS List UI** — sidebar+detail, filter tabs, creation sheet, CRUD actions
 
-## Remaining
-- **Step 9: macOS List UI** (~7h) — 8 Swift files: WorkflowModels, ViewModel, Views (sidebar+detail), sheets
+## P2: Visual Canvas + Conditions (COMPLETE)
+- **Variable Interpolation** — `{{node_id.field}}` mustache-style resolution in node configs (8 tests)
+- **Switch Node** — N-ary branching with generalized dead-path marking (7 tests)
+- **Batch Layout Endpoint** — `PATCH /v1/workflows/{id}/layout` for canvas drag updates (2 tests)
+- **React Flow Canvas** — Vite + vite-plugin-singlefile, 389KB bundled index.html
+- **Swift-JS Bridge** — WorkflowCanvasWebView with bidirectional WKScriptMessageHandler (7 message types)
+- **Canvas Integration** — List/canvas toggle in detail pane, bridge wiring to ViewModel
+- **Node Inspector** — Native SwiftUI sidebar with per-type config editing (7 node types)
+- **Execution Overlay** — SSE subscription → canvas node status coloring (pending/running/success/failed/skipped)
 
 ### Key Commits
 - `65fc1ec` feat(workflow): P1 Step 1-2 — models + database layer

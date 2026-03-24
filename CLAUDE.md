@@ -129,7 +129,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | Hardware | Mac Mini M1 (16GB) |
 | Model | Qwen 3.5 9B (Hestia) + DeepSeek-R1-14B (Artemis) + Qwen 3 8B (Apollo) + cloud (Anthropic/OpenAI/Google) |
 | SLM | qwen2.5:0.5b (council intent classification, ~100ms) |
-| Backend | Python 3.12, FastAPI, 237 endpoints across 31 route modules |
+| Backend | Python 3.12, FastAPI, 238 endpoints across 31 route modules |
 | Storage | ChromaDB (vectors) + SQLite (structured) + macOS Keychain (credentials) |
 | App | Native Swift/SwiftUI (iOS 26.0+, macOS 15.0+) |
 | API | REST on port 8443 with JWT auth, HTTPS with self-signed cert |
@@ -143,7 +143,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 **Active: Trading Module (Sprints 21-30).** Sprints 21-27 COMPLETE. Paper soak LIVE on Mac Mini since 2026-03-19. Coinbase adapter live-ready. Alpaca (stocks) paused — API key pending with support team.
 
-2809 tests (2674 backend + 135 CLI), 86 test files. Full details: `python -m pytest tests/ -v --timeout=30`
+2829 tests (2694 backend + 135 CLI), 88 test files. Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -243,16 +243,17 @@ hestia/
 │   ├── workflows/                   # Workflow orchestration engine (P0 complete, P1-P4 planned)
 │   ├── research/                    # Knowledge graph + PrincipleStore + Temporal Facts + Episodic Nodes
 │   ├── investigate/                 # URL content analysis (web articles, YouTube)
-│   ├── workflows/                   # DAG workflow engine (executor, nodes, scheduler, migration)
-│   ├── api/                         # FastAPI — 237 endpoints, 31 route modules
+│   ├── workflows/                   # DAG workflow engine (executor, nodes, scheduler, migration, interpolation)
+│   ├── api/                         # FastAPI — 238 endpoints, 31 route modules
 │   └── config/                      # inference.yaml, execution.yaml, memory.yaml, triggers.yaml, wiki.yaml, workflow.yaml
 ├── hestia-cli/                      # Python CLI (REPL, auth, bootstrap, context, renderer)
 ├── hestia-cli-tools/                # Swift CLIs (keychain, calendar, reminders, notes)
 ├── HestiaApp/                       # iOS + macOS SwiftUI app
 │   ├── Shared/                      # Cross-platform: App, DesignSystem, Models, Services, ViewModels, Views
-│   ├── macOS/                       # macOS app (146 files): Views, ViewModels, Models, Services, DesignSystem
+│   ├── macOS/                       # macOS app: Views, ViewModels, Models, Services, DesignSystem
+│   ├── WorkflowCanvas/              # React Flow + Vite project (bundled → macOS/Resources/WorkflowCanvas/index.html)
 │   └── project.yml                  # xcodegen config (iOS 26.0, macOS 15.0, Swift 6.1)
-├── tests/                           # 2809 tests, 86 files
+├── tests/                           # 2829 tests, 88 files
 ├── scripts/                         # deploy, test-api, auto-test, validate-security, ollama
 ├── docs/                            # api-contract, decision-log, security-architecture
 └── data/ + logs/                    # Runtime storage
