@@ -19,6 +19,7 @@ class WorkflowViewModel: ObservableObject {
     @Published var showCanvas = false
     @Published var selectedNodeId: String?
     @Published var nodeStatuses: [String: String] = [:]  // nodeId → "running" | "success" | "failed"
+    @Published var toolCategories: [ToolCategory] = []
 
     // MARK: - SSE
 
@@ -108,6 +109,24 @@ class WorkflowViewModel: ObservableObject {
         )
         do {
             let created = try await client.createWorkflow(request)
+
+            // Auto-create trigger node so canvas is never empty
+            let triggerNodeType = triggerType == .schedule ? "schedule" : "manual"
+            let triggerRequest = NodeCreateRequest(
+                nodeType: triggerNodeType,
+                label: triggerType == .schedule ? "Scheduled Trigger" : "Manual Trigger",
+                config: [:],
+                positionX: 250,
+                positionY: 50
+            )
+            do {
+                _ = try await client.createNode(created.id, request: triggerRequest)
+            } catch {
+                #if DEBUG
+                print("[WorkflowVM] Auto-trigger creation failed: \(error)")
+                #endif
+            }
+
             await loadWorkflows()
             selectWorkflow(created)
             return true
@@ -333,6 +352,62 @@ class WorkflowViewModel: ObservableObject {
                 print("[WorkflowVM] Failed to delete edge: \(error)")
                 #endif
             }
+        }
+    }
+
+    // MARK: - Step Builder (canvas → API → inspector)
+
+    func addStepFromCanvas(
+        workflowId: String,
+        stepType: String,
+        title: String,
+        positionX: Double,
+        positionY: Double,
+        afterNodeId: String?
+    ) async {
+        do {
+            let prompt: String? = stepType == "run_prompt" ? "Configure this step's prompt" : nil
+
+            let request = StepCreateRequest(
+                title: title,
+                prompt: prompt,
+                trigger: "immediate",
+                delaySeconds: nil,
+                resources: nil,
+                positionX: positionX,
+                positionY: positionY,
+                afterNodeId: afterNodeId
+            )
+
+            let response = try await client.createNodeFromStep(
+                selectedWorkflowId ?? workflowId,
+                step: request
+            )
+
+            // Reload workflow to sync canvas
+            await loadWorkflowDetail(workflowId)
+
+            // Auto-select first created node to open inspector
+            if let firstNode = response.nodes.first {
+                selectedNodeId = firstNode.id
+            }
+        } catch {
+            #if DEBUG
+            print("[WorkflowVM] Failed to add step: \(error)")
+            #endif
+            errorMessage = "Failed to add step"
+        }
+    }
+
+    func fetchToolCategories() async {
+        guard toolCategories.isEmpty else { return }
+        do {
+            let response = try await client.getToolCategories()
+            toolCategories = response.categories
+        } catch {
+            #if DEBUG
+            print("[WorkflowVM] Failed to fetch tool categories: \(error)")
+            #endif
         }
     }
 }

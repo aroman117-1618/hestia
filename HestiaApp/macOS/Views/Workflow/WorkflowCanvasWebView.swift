@@ -14,6 +14,7 @@ struct WorkflowCanvasWebView: NSViewRepresentable {
     let onEdgeCreated: (String, String, String?) -> Void  // source, target, sourceHandle
     let onNodeDeleted: (String) -> Void
     let onEdgeDeleted: (String) -> Void
+    var onAddStep: ((String, String, Double, Double, String?) -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
@@ -21,7 +22,8 @@ struct WorkflowCanvasWebView: NSViewRepresentable {
             onNodesMoved: onNodesMoved,
             onEdgeCreated: onEdgeCreated,
             onNodeDeleted: onNodeDeleted,
-            onEdgeDeleted: onEdgeDeleted
+            onEdgeDeleted: onEdgeDeleted,
+            onAddStep: onAddStep
         )
     }
 
@@ -98,19 +100,22 @@ struct WorkflowCanvasWebView: NSViewRepresentable {
         let onEdgeCreated: (String, String, String?) -> Void
         let onNodeDeleted: (String) -> Void
         let onEdgeDeleted: (String) -> Void
+        var onAddStep: ((String, String, Double, Double, String?) -> Void)?
 
         init(
             onNodeSelected: @escaping (String) -> Void,
             onNodesMoved: @escaping ([(id: String, x: Double, y: Double)]) -> Void,
             onEdgeCreated: @escaping (String, String, String?) -> Void,
             onNodeDeleted: @escaping (String) -> Void,
-            onEdgeDeleted: @escaping (String) -> Void
+            onEdgeDeleted: @escaping (String) -> Void,
+            onAddStep: ((String, String, Double, Double, String?) -> Void)? = nil
         ) {
             self.onNodeSelected = onNodeSelected
             self.onNodesMoved = onNodesMoved
             self.onEdgeCreated = onEdgeCreated
             self.onNodeDeleted = onNodeDeleted
             self.onEdgeDeleted = onEdgeDeleted
+            self.onAddStep = onAddStep
         }
 
         // MARK: - WKScriptMessageHandler
@@ -173,6 +178,14 @@ struct WorkflowCanvasWebView: NSViewRepresentable {
                    let edgeId = dict["edgeId"] as? String {
                     onEdgeDeleted(edgeId)
                 }
+            case "addStep":
+                guard let dict = payload as? [String: Any],
+                      let stepType = dict["stepType"] as? String,
+                      let title = dict["title"] as? String,
+                      let posX = dict["positionX"] as? Double,
+                      let posY = dict["positionY"] as? Double else { return }
+                let afterNodeId = dict["afterNodeId"] as? String
+                onAddStep?(stepType, title, posX, posY, afterNodeId)
             default:
                 #if DEBUG
                 print("[CanvasWebView] Unknown action: \(type)")
@@ -189,11 +202,23 @@ struct WorkflowCanvasWebView: NSViewRepresentable {
             // Convert WorkflowDetail to React Flow format
             var rfNodes: [[String: Any]] = []
             for node in detail.nodes {
+                // Build config as plain [String: Any] for JSON serialization
+                var configDict: [String: Any] = [:]
+                for (key, val) in node.config {
+                    if let encoded = try? JSONEncoder().encode(val),
+                       let obj = try? JSONSerialization.jsonObject(with: encoded) {
+                        configDict[key] = obj
+                    }
+                }
                 rfNodes.append([
                     "id": node.id,
-                    "type": "default",
+                    "type": node.nodeType,  // Maps to custom node components
                     "position": ["x": node.positionX, "y": node.positionY],
-                    "data": ["label": node.label, "nodeType": node.nodeType],
+                    "data": [
+                        "label": node.label,
+                        "nodeType": node.nodeType,
+                        "config": configDict,
+                    ] as [String: Any],
                 ])
             }
 

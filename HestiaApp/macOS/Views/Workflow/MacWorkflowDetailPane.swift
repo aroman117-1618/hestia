@@ -59,7 +59,19 @@ struct MacWorkflowDetailPane: View {
                         onNodesMoved: { viewModel.handleNodesMoved($0) },
                         onEdgeCreated: { s, t, h in viewModel.handleEdgeCreated(s, t, h) },
                         onNodeDeleted: { viewModel.handleNodeDeleted($0) },
-                        onEdgeDeleted: { viewModel.handleEdgeDeleted($0) }
+                        onEdgeDeleted: { viewModel.handleEdgeDeleted($0) },
+                        onAddStep: { stepType, title, posX, posY, afterNodeId in
+                            Task {
+                                await viewModel.addStepFromCanvas(
+                                    workflowId: viewModel.selectedWorkflowId ?? "",
+                                    stepType: stepType,
+                                    title: title,
+                                    positionX: posX,
+                                    positionY: posY,
+                                    afterNodeId: afterNodeId
+                                )
+                            }
+                        }
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
