@@ -35,15 +35,23 @@ struct MacNodeInspectorView: View {
     @State private var delayUnit: DelayUnit = .minutes
 
     enum DelayUnit: String, CaseIterable {
-        case seconds = "Seconds"
         case minutes = "Minutes"
         case hours = "Hours"
+        case days = "Days"
 
         var multiplier: Double {
             switch self {
-            case .seconds: return 1
             case .minutes: return 60
             case .hours: return 3600
+            case .days: return 86400
+            }
+        }
+
+        var maxValue: Double {
+            switch self {
+            case .minutes: return 180 * 24 * 60  // 180 days in minutes
+            case .hours: return 180 * 24          // 180 days in hours
+            case .days: return 180
             }
         }
     }
@@ -291,9 +299,12 @@ struct MacNodeInspectorView: View {
         case .delay:
             fieldGroup("Duration") {
                 HStack(spacing: MacSpacing.sm) {
-                    TextField("0", value: $delayValue, format: .number)
+                    TextField("1", value: $delayValue, format: .number)
                         .textFieldStyle(.roundedBorder)
                         .frame(maxWidth: 70)
+                        .onChange(of: delayValue) {
+                            delayValue = max(1, min(delayValue, delayUnit.maxValue))
+                        }
                     Picker("Unit", selection: $delayUnit) {
                         ForEach(DelayUnit.allCases, id: \.self) { unit in
                             Text(unit.rawValue).tag(unit)
@@ -303,7 +314,7 @@ struct MacNodeInspectorView: View {
                     .labelsHidden()
                 }
             }
-            Text("Max: 1 hour")
+            Text("Min: 1, Max: 180 days")
                 .font(.system(size: 10))
                 .foregroundStyle(MacColors.textFaint)
 
@@ -424,15 +435,18 @@ struct MacNodeInspectorView: View {
             if case .double(let d) = node.config["delay_seconds"] { rawSeconds = d }
             else if case .int(let i) = node.config["delay_seconds"] { rawSeconds = Double(i) }
             else { rawSeconds = 0 }
-            if rawSeconds >= 3600, rawSeconds.truncatingRemainder(dividingBy: 3600) == 0 {
+            if rawSeconds >= 86400, rawSeconds.truncatingRemainder(dividingBy: 86400) == 0 {
+                delayUnit = .days
+                delayValue = rawSeconds / 86400
+            } else if rawSeconds >= 3600, rawSeconds.truncatingRemainder(dividingBy: 3600) == 0 {
                 delayUnit = .hours
                 delayValue = rawSeconds / 3600
-            } else if rawSeconds >= 60, rawSeconds.truncatingRemainder(dividingBy: 60) == 0 {
+            } else if rawSeconds >= 60 {
                 delayUnit = .minutes
                 delayValue = rawSeconds / 60
             } else {
-                delayUnit = .seconds
-                delayValue = rawSeconds
+                delayUnit = .minutes
+                delayValue = max(1, rawSeconds / 60)
             }
         case .switchNode:
             conditionField = stringConfig("field")
@@ -505,8 +519,8 @@ struct MacNodeInspectorView: View {
         case .schedule, .manual:
             break
         case .delay:
-            let totalSeconds = delayValue * delayUnit.multiplier
-            if totalSeconds > 0 { config["delay_seconds"] = .double(min(totalSeconds, 3600)) }
+            let totalSeconds = max(60, min(delayValue * delayUnit.multiplier, 180 * 86400))
+            config["delay_seconds"] = .double(totalSeconds)
         case .switchNode:
             if !conditionField.isEmpty { config["field"] = .string(conditionField) }
         }

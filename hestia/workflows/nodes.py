@@ -300,14 +300,15 @@ async def execute_delay(
     Execute a Delay node — pauses execution for configured seconds.
 
     Config keys:
-        delay_seconds (float): How long to wait (max 3600, default 0)
+        delay_seconds (float): How long to wait (max 180 days, default 0)
 
     Returns input_data passthrough plus delay metadata.
     """
     import time
 
+    max_delay = 180 * 86400  # 180 days in seconds
     delay = float(config.get("delay_seconds", 0))
-    delay = max(0, min(delay, 3600))  # Cap at 1 hour
+    delay = max(0, min(delay, max_delay))
 
     start = time.monotonic()
     if delay > 0:

@@ -35,12 +35,13 @@ class TestDelayNode:
 
     @pytest.mark.asyncio
     async def test_delay_max_capped(self):
-        """Delay should be capped at 3600 seconds (1 hour)."""
-        config = {"delay_seconds": 99999}
+        """Delay should be capped at 180 days (15552000 seconds)."""
+        config = {"delay_seconds": 99999999}
+        max_delay = 180 * 86400  # 15552000
         with patch("hestia.workflows.nodes.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             result = await execute_delay(config, {})
-        assert result["delay_seconds"] == 3600
-        mock_sleep.assert_awaited_once_with(3600.0)
+        assert result["delay_seconds"] == max_delay
+        mock_sleep.assert_awaited_once_with(float(max_delay))
 
     @pytest.mark.asyncio
     async def test_delay_passes_input_through(self):
