@@ -365,31 +365,81 @@ class WorkflowViewModel: ObservableObject {
         positionY: Double,
         afterNodeId: String?
     ) async {
+        let wfId = selectedWorkflowId ?? workflowId
         do {
-            let prompt: String? = stepType == "run_prompt" ? "Configure this step's prompt" : nil
+            var newNodeId: String?
 
-            let request = StepCreateRequest(
-                title: title,
-                prompt: prompt,
-                trigger: "immediate",
-                delaySeconds: nil,
-                resources: nil,
-                positionX: positionX,
-                positionY: positionY,
-                afterNodeId: afterNodeId
-            )
+            if stepType == "prompt" {
+                // Prompt steps use the translation endpoint (handles resources, delay)
+                let request = StepCreateRequest(
+                    title: title,
+                    prompt: "Configure this step's prompt",
+                    trigger: "immediate",
+                    delaySeconds: nil,
+                    resources: nil,
+                    positionX: positionX,
+                    positionY: positionY,
+                    afterNodeId: afterNodeId
+                )
+                let response = try await client.createNodeFromStep(wfId, step: request)
+                newNodeId = response.nodes.first?.id
+            } else {
+                // Non-prompt types use direct node creation
+                let nodeType: String
+                var config: [String: AnyCodableValue] = [:]
+                switch stepType {
+                case "notify":
+                    nodeType = "notify"
+                    config["title"] = .string("Notification")
+                    config["body"] = .string("")
+                case "condition":
+                    nodeType = "if_else"
+                    config["condition"] = .dict([
+                        "field": .string("response"),
+                        "operator": .string("contains"),
+                        "value": .string("")
+                    ])
+                case "tool":
+                    nodeType = "call_tool"
+                    config["tool_name"] = .string("")
+                case "delay":
+                    nodeType = "delay"
+                    config["delay_seconds"] = .double(60)
+                default:
+                    nodeType = "run_prompt"
+                }
 
-            let response = try await client.createNodeFromStep(
-                selectedWorkflowId ?? workflowId,
-                step: request
-            )
+                let request = NodeCreateRequest(
+                    nodeType: nodeType,
+                    label: title,
+                    config: config,
+                    positionX: positionX,
+                    positionY: positionY
+                )
+                let response = try await client.createNode(wfId, request: request)
+                newNodeId = response.node.id
+
+                // Create edge from afterNodeId if provided
+                if let afterId = afterNodeId, let nId = newNodeId {
+                    struct EdgeReq: Codable {
+                        let sourceNodeId: String
+                        let targetNodeId: String
+                        let edgeLabel: String
+                    }
+                    let edgeReq = EdgeReq(sourceNodeId: afterId, targetNodeId: nId, edgeLabel: "")
+                    let _: [String: AnyCodableValue] = try await client.post(
+                        "/workflows/\(wfId)/edges",
+                        body: edgeReq
+                    )
+                }
+            }
 
             // Reload workflow to sync canvas
-            await loadWorkflowDetail(workflowId)
+            await loadWorkflowDetail(wfId)
 
-            // Auto-select first created node to open inspector
-            if let firstNode = response.nodes.first {
-                selectedNodeId = firstNode.id
+            // Auto-select the new node to open inspector
+            if let nodeId = newNodeId {
+                selectedNodeId = nodeId
             }
         } catch {
             #if DEBUG
