@@ -10,6 +10,7 @@ struct MacNodeInspectorView: View {
     // run_prompt
     @State private var prompt: String = ""
     @State private var model: String = ""
+    @State private var selectedResources: Set<String> = []
 
     // call_tool
     @State private var toolName: String = ""
@@ -30,6 +31,22 @@ struct MacNodeInspectorView: View {
 
     // delay
     @State private var delaySeconds: String = ""
+    @State private var delayValue: Double = 0
+    @State private var delayUnit: DelayUnit = .minutes
+
+    enum DelayUnit: String, CaseIterable {
+        case seconds = "Seconds"
+        case minutes = "Minutes"
+        case hours = "Hours"
+
+        var multiplier: Double {
+            switch self {
+            case .seconds: return 1
+            case .minutes: return 60
+            case .hours: return 3600
+            }
+        }
+    }
 
     @State private var isSaving = false
     @State private var saveError: String?
@@ -72,7 +89,10 @@ struct MacNodeInspectorView: View {
         .padding(MacSpacing.lg)
         .frame(width: 260)
         .background(MacColors.panelBackground)
-        .onAppear { loadFromNode() }
+        .onAppear {
+            loadFromNode()
+            Task { await viewModel.fetchToolCategories() }
+        }
         .onChange(of: node.id) { _, _ in loadFromNode() }
     }
 
@@ -124,6 +144,40 @@ struct MacNodeInspectorView: View {
             fieldGroup("Model") {
                 TextField("e.g. qwen3.5:9b", text: $model)
                     .textFieldStyle(.roundedBorder)
+            }
+            if !viewModel.toolCategories.isEmpty {
+                fieldGroup("Resources") {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 90))], spacing: 6) {
+                        ForEach(viewModel.toolCategories) { category in
+                            let isSelected = selectedResources.contains(category.id)
+                            Button {
+                                if isSelected {
+                                    selectedResources.remove(category.id)
+                                } else {
+                                    selectedResources.insert(category.id)
+                                }
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: category.icon)
+                                        .font(.system(size: 10))
+                                    Text(category.label)
+                                        .font(.system(size: 10, weight: .medium))
+                                        .lineLimit(1)
+                                }
+                                .foregroundStyle(isSelected ? MacColors.buttonTextDark : MacColors.textSecondary)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 4)
+                                .background(isSelected ? MacColors.amberAccent : Color.clear)
+                                .clipShape(RoundedRectangle(cornerRadius: 5))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 5)
+                                        .stroke(isSelected ? MacColors.amberAccent : MacColors.cardBorder, lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(.hestia)
+                        }
+                    }
+                }
             }
 
         case .callTool:
@@ -218,10 +272,23 @@ struct MacNodeInspectorView: View {
             }
 
         case .delay:
-            fieldGroup("Delay (seconds)") {
-                TextField("e.g. 60", text: $delaySeconds)
-                    .textFieldStyle(.roundedBorder)
+            fieldGroup("Duration") {
+                HStack(spacing: MacSpacing.sm) {
+                    TextField("0", value: $delayValue, format: .number)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 70)
+                    Picker("Unit", selection: $delayUnit) {
+                        ForEach(DelayUnit.allCases, id: \.self) { unit in
+                            Text(unit.rawValue).tag(unit)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                }
             }
+            Text("Max: 1 hour")
+                .font(.system(size: 10))
+                .foregroundStyle(MacColors.textFaint)
 
         case .switchNode:
             fieldGroup("Switch Field") {
@@ -299,6 +366,17 @@ struct MacNodeInspectorView: View {
         case .runPrompt:
             prompt = stringConfig("prompt")
             model = stringConfig("model")
+            // Reverse-map allowed_tools back to category IDs
+            if case .array(let tools) = node.config["allowed_tools"] {
+                let toolNames = tools.compactMap { if case .string(let s) = $0 { return s } else { return nil } }
+                selectedResources = Set(
+                    viewModel.toolCategories
+                        .filter { cat in cat.tools.contains { toolNames.contains($0.name) } }
+                        .map(\.id)
+                )
+            } else {
+                selectedResources = []
+            }
         case .callTool:
             toolName = stringConfig("tool_name")
             toolArguments = jsonConfig("arguments")
@@ -323,6 +401,21 @@ struct MacNodeInspectorView: View {
             break
         case .delay:
             delaySeconds = stringConfig("delay_seconds")
+            // Parse delay_seconds and pick the most readable unit
+            let rawSeconds: Double
+            if case .double(let d) = node.config["delay_seconds"] { rawSeconds = d }
+            else if case .int(let i) = node.config["delay_seconds"] { rawSeconds = Double(i) }
+            else { rawSeconds = 0 }
+            if rawSeconds >= 3600, rawSeconds.truncatingRemainder(dividingBy: 3600) == 0 {
+                delayUnit = .hours
+                delayValue = rawSeconds / 3600
+            } else if rawSeconds >= 60, rawSeconds.truncatingRemainder(dividingBy: 60) == 0 {
+                delayUnit = .minutes
+                delayValue = rawSeconds / 60
+            } else {
+                delayUnit = .seconds
+                delayValue = rawSeconds
+            }
         case .switchNode:
             conditionField = stringConfig("field")
         }
@@ -362,6 +455,14 @@ struct MacNodeInspectorView: View {
         case .runPrompt:
             config["prompt"] = .string(prompt)
             if !model.isEmpty { config["model"] = .string(model) }
+            // Expand selected category IDs to individual tool names
+            let allowedTools = viewModel.toolCategories
+                .filter { selectedResources.contains($0.id) }
+                .flatMap(\.tools)
+                .map { AnyCodableValue.string($0.name) }
+            if !allowedTools.isEmpty {
+                config["allowed_tools"] = .array(allowedTools)
+            }
         case .callTool:
             config["tool_name"] = .string(toolName)
             // Parse arguments back to dict if valid JSON, else store as string
@@ -386,7 +487,8 @@ struct MacNodeInspectorView: View {
         case .schedule, .manual:
             break
         case .delay:
-            if let secs = Double(delaySeconds) { config["delay_seconds"] = .double(secs) }
+            let totalSeconds = delayValue * delayUnit.multiplier
+            if totalSeconds > 0 { config["delay_seconds"] = .double(min(totalSeconds, 3600)) }
         case .switchNode:
             if !conditionField.isEmpty { config["field"] = .string(conditionField) }
         }
