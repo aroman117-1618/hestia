@@ -53,4 +53,25 @@ extension APIClient {
     func getWorkflowRuns(_ workflowId: String, limit: Int = 20, offset: Int = 0) async throws -> WorkflowRunListResponse {
         return try await get("/v1/workflows/\(workflowId)/runs?limit=\(limit)&offset=\(offset)")
     }
+
+    // MARK: - Layout
+
+    func batchUpdateLayout(_ workflowId: String, positions: [(nodeId: String, x: Double, y: Double)]) async throws {
+        struct Position: Codable {
+            let nodeId: String
+            let positionX: Double
+            let positionY: Double
+        }
+        struct LayoutRequest: Codable {
+            let positions: [Position]
+        }
+        struct LayoutResponse: Codable {
+            let updated: Int
+            let workflowId: String
+        }
+        let req = LayoutRequest(positions: positions.map {
+            Position(nodeId: $0.nodeId, positionX: $0.x, positionY: $0.y)
+        })
+        let _: LayoutResponse = try await patch("/v1/workflows/\(workflowId)/layout", body: req)
+    }
 }

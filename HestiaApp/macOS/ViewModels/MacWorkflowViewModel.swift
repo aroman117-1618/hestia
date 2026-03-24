@@ -16,6 +16,8 @@ class WorkflowViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var statusFilter: WorkflowStatus?
     @Published var showingNewWorkflowSheet = false
+    @Published var showCanvas = false
+    @Published var selectedNodeId: String?
 
     // MARK: - Computed Properties
 
@@ -167,6 +169,88 @@ class WorkflowViewModel: ObservableObject {
             #if DEBUG
             print("[WorkflowVM] Failed to trigger: \(error)")
             #endif
+        }
+    }
+
+    // MARK: - Canvas Bridge Handlers
+
+    func handleNodeSelected(_ nodeId: String) {
+        selectedNodeId = nodeId
+    }
+
+    func handleNodesMoved(_ positions: [(id: String, x: Double, y: Double)]) {
+        guard let workflowId = selectedWorkflowId else { return }
+        Task {
+            do {
+                try await client.batchUpdateLayout(
+                    workflowId,
+                    positions: positions.map { (nodeId: $0.id, x: $0.x, y: $0.y) }
+                )
+            } catch {
+                #if DEBUG
+                print("[WorkflowVM] Failed to save layout: \(error)")
+                #endif
+            }
+        }
+    }
+
+    func handleEdgeCreated(_ source: String, _ target: String, _ sourceHandle: String?) {
+        guard let workflowId = selectedWorkflowId else { return }
+        Task {
+            do {
+                struct EdgeReq: Codable {
+                    let sourceNodeId: String
+                    let targetNodeId: String
+                    let edgeLabel: String
+                }
+                let req = EdgeReq(
+                    sourceNodeId: source,
+                    targetNodeId: target,
+                    edgeLabel: sourceHandle ?? ""
+                )
+                let _: [String: AnyCodableValue] = try await client.post(
+                    "/v1/workflows/\(workflowId)/edges",
+                    body: req
+                )
+                // Refresh detail to get server-assigned edge ID
+                await loadWorkflowDetail(workflowId)
+            } catch {
+                #if DEBUG
+                print("[WorkflowVM] Failed to create edge: \(error)")
+                #endif
+            }
+        }
+    }
+
+    func handleNodeDeleted(_ nodeId: String) {
+        guard let workflowId = selectedWorkflowId else { return }
+        Task {
+            do {
+                let _: [String: AnyCodableValue] = try await client.delete(
+                    "/v1/workflows/\(workflowId)/nodes/\(nodeId)"
+                )
+                await loadWorkflowDetail(workflowId)
+            } catch {
+                #if DEBUG
+                print("[WorkflowVM] Failed to delete node: \(error)")
+                #endif
+            }
+        }
+    }
+
+    func handleEdgeDeleted(_ edgeId: String) {
+        guard let workflowId = selectedWorkflowId else { return }
+        Task {
+            do {
+                let _: [String: AnyCodableValue] = try await client.delete(
+                    "/v1/workflows/\(workflowId)/edges/\(edgeId)"
+                )
+                await loadWorkflowDetail(workflowId)
+            } catch {
+                #if DEBUG
+                print("[WorkflowVM] Failed to delete edge: \(error)")
+                #endif
+            }
         }
     }
 }

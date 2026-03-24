@@ -39,30 +39,47 @@ struct MacWorkflowDetailPane: View {
     // MARK: - Detail Content
 
     private func detailContent(_ detail: WorkflowDetail) -> some View {
-        ScrollView {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header + action bar always visible
             VStack(alignment: .leading, spacing: MacSpacing.xl) {
-                // Header
                 detailHeader(detail)
-
-                // Action buttons
                 actionBar(detail)
-
                 Divider().foregroundStyle(MacColors.cardBorder)
-
-                // Metadata
-                metadataSection(detail)
-
-                // Nodes
-                if !detail.nodes.isEmpty {
-                    nodesSection(detail)
-                }
-
-                // Run history
-                if !viewModel.runs.isEmpty {
-                    runsSection
-                }
             }
             .padding(MacSpacing.xl)
+            .padding(.bottom, 0)
+
+            // Canvas / List content
+            if viewModel.showCanvas {
+                WorkflowCanvasWebView(
+                    workflowDetail: detail,
+                    onNodeSelected: { viewModel.handleNodeSelected($0) },
+                    onNodesMoved: { viewModel.handleNodesMoved($0) },
+                    onEdgeCreated: { s, t, h in viewModel.handleEdgeCreated(s, t, h) },
+                    onNodeDeleted: { viewModel.handleNodeDeleted($0) },
+                    onEdgeDeleted: { viewModel.handleEdgeDeleted($0) }
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: MacSpacing.xl) {
+                        // Metadata
+                        metadataSection(detail)
+
+                        // Nodes
+                        if !detail.nodes.isEmpty {
+                            nodesSection(detail)
+                        }
+
+                        // Run history
+                        if !viewModel.runs.isEmpty {
+                            runsSection
+                        }
+                    }
+                    .padding(MacSpacing.xl)
+                    .padding(.top, MacSpacing.md)
+                }
+            }
         }
     }
 
@@ -85,6 +102,22 @@ struct MacWorkflowDetailPane: View {
                     .padding(.vertical, 4)
                     .background(statusColor(detail.statusEnum).opacity(0.15))
                     .clipShape(RoundedRectangle(cornerRadius: 6))
+
+                // Canvas/List toggle
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        viewModel.showCanvas.toggle()
+                    }
+                } label: {
+                    Image(systemName: viewModel.showCanvas ? "list.bullet" : "square.grid.3x3")
+                        .font(.system(size: 13))
+                        .foregroundStyle(MacColors.textSecondary)
+                        .frame(width: 28, height: 28)
+                        .background(MacColors.searchInputBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.treeItem))
+                }
+                .buttonStyle(.hestia)
+                .help(viewModel.showCanvas ? "Switch to list view" : "Switch to canvas view")
             }
 
             if !detail.description.isEmpty {
