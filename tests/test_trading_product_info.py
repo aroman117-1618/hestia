@@ -83,8 +83,8 @@ class TestGetProductInfo:
         assert info.base_min_size == 0.001
 
     def test_unknown_pair_falls_back(self) -> None:
-        info = get_product_info("DOGE-USD")
-        assert info.pair == "DOGE-USD"
+        info = get_product_info("XYZ-USD")
+        assert info.pair == "XYZ-USD"
         # Falls back to BTC-USD defaults
         assert info.base_min_size == 0.0001
 

@@ -27,6 +27,18 @@ _PRODUCT_DEFAULTS: Dict[str, Dict[str, float]] = {
         "quote_increment": 0.01,
         "base_max_size": 10000.0,
     },
+    "SOL-USD": {
+        "base_min_size": 0.01,
+        "base_increment": 0.01,
+        "quote_increment": 0.01,
+        "base_max_size": 100000.0,
+    },
+    "DOGE-USD": {
+        "base_min_size": 1.0,
+        "base_increment": 1.0,
+        "quote_increment": 0.00001,
+        "base_max_size": 10000000.0,
+    },
 }
 
 # Equity defaults — fractional shares, zero commission via Alpaca

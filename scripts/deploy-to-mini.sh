@@ -134,6 +134,15 @@ else
     nohup python -m hestia.api.server > /dev/null 2>&1 &
 fi
 
+# Reload trading-bots service (if configured)
+if [[ -f ~/Library/LaunchAgents/com.hestia.trading-bots.plist ]]; then
+    echo "Reloading trading-bots service..."
+    launchctl unload ~/Library/LaunchAgents/com.hestia.trading-bots.plist 2>/dev/null || true
+    sleep 1
+    launchctl load ~/Library/LaunchAgents/com.hestia.trading-bots.plist 2>/dev/null || true
+    echo "✓ Trading-bots service reloaded via launchd"
+fi
+
 # Health check with retry (server may need a moment after reload)
 # Uses -k for self-signed cert; set HESTIA_CA_CERT for proper TLS verification
 HEALTH_CURL_OPTS="-sf"
