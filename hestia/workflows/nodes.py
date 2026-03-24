@@ -5,6 +5,7 @@ Each executor takes (node_config, input_data) and returns a result dict.
 The DAGExecutor calls these through the NODE_EXECUTORS registry.
 """
 
+import asyncio
 import operator
 from typing import Any, Callable, Coroutine, Dict, Optional
 
@@ -290,6 +291,37 @@ async def execute_trigger_noop(
     return {"triggered": True}
 
 
+async def execute_delay(
+    config: Dict[str, Any],
+    input_data: Dict[str, Any],
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """
+    Execute a Delay node — pauses execution for configured seconds.
+
+    Config keys:
+        delay_seconds (float): How long to wait (max 3600, default 0)
+
+    Returns input_data passthrough plus delay metadata.
+    """
+    import time
+
+    delay = float(config.get("delay_seconds", 0))
+    delay = max(0, min(delay, 3600))  # Cap at 1 hour
+
+    start = time.monotonic()
+    if delay > 0:
+        await asyncio.sleep(delay)
+    elapsed_ms = int((time.monotonic() - start) * 1000)
+
+    return {
+        "delayed": True,
+        "delay_seconds": delay,
+        "elapsed_ms": elapsed_ms,
+        "input_data": input_data,
+    }
+
+
 # ── Registry ─────────────────────────────────────────────────────────
 
 NODE_EXECUTORS: Dict[NodeType, NodeExecutorFn] = {
@@ -301,4 +333,5 @@ NODE_EXECUTORS: Dict[NodeType, NodeExecutorFn] = {
     NodeType.SWITCH: execute_switch,
     NodeType.SCHEDULE: execute_trigger_noop,
     NodeType.MANUAL: execute_trigger_noop,
+    NodeType.DELAY: execute_delay,
 }

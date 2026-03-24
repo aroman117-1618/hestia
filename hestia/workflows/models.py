@@ -64,6 +64,8 @@ class NodeType(str, Enum):
     # Trigger nodes
     SCHEDULE = "schedule"
     MANUAL = "manual"
+    # Timing nodes
+    DELAY = "delay"
 
 
 class TriggerType(str, Enum):
