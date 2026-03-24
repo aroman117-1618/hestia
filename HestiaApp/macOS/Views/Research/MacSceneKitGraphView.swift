@@ -244,13 +244,18 @@ struct MacSceneKitGraphView: NSViewRepresentable {
     /// Metal shader modifier for synapse-style pulsing edges.
     /// Produces a traveling light packet with overall brightness throbbing.
     /// Per-edge uniforms: u_pulseSpeed, u_baseBrightness, u_travelSpeed, u_edgeLength.
+    /// Metal shader modifier for synapse-style pulsing edges.
+    /// _surface.emission is float3 (rgb), not float4 — the previous float4 assignment
+    /// caused a Metal compilation error and SceneKit rendered magenta.
     private static let synapseShaderCode = """
+    #pragma arguments
+    float u_pulseSpeed;
+    float u_baseBrightness;
+
     #pragma body
-    float speed = u_pulseSpeed;
-    float base = u_baseBrightness;
-    float pulse = (sin(scn_frame.time * speed) * 0.5 + 0.5);
-    float glow = mix(base, base + 0.5, pulse);
-    _surface.emission = float4(0.92, 0.92, 0.95, 1.0) * glow;
+    float pulse = sin(scn_frame.time * u_pulseSpeed) * 0.5 + 0.5;
+    float glow = mix(0.02, 2.0, pulse);
+    _surface.emission.rgb = float3(0.92, 0.92, 0.95) * glow;
     """
 
     private func createEdgeNode(from: SIMD3<Float>, to: SIMD3<Float>, edge: MacNeuralNetViewModel.GraphEdge) -> SCNNode {
@@ -264,11 +269,15 @@ struct MacSceneKitGraphView: NSViewRepresentable {
         let cylinder = SCNCylinder(radius: CGFloat(radius), height: CGFloat(distance))
         let material = SCNMaterial()
 
-        // White starlight edges — shader modifier removed (was causing magenta error)
-        let brightness = CGFloat(0.3 + weight * 0.5)
-        material.diffuse.contents = NSColor(white: brightness, alpha: 0.8)
-        material.emission.contents = NSColor(white: brightness * 0.6, alpha: 1.0)
+        // Dark base + emission-driven glow via shader
+        material.diffuse.contents = NSColor(white: 0.05, alpha: 1.0)
+        material.emission.contents = NSColor(white: 0.2, alpha: 1.0)
         material.lightingModel = .constant
+
+        // Synapse pulse shader — brightness and speed scale with edge weight
+        material.shaderModifiers = [.surface: Self.synapseShaderCode]
+        material.setValue(NSNumber(value: 1.0 + weight * 3.0), forKey: "u_pulseSpeed")
+        material.setValue(NSNumber(value: 0.3 + weight * 0.5), forKey: "u_baseBrightness")
 
         cylinder.materials = [material]
 
