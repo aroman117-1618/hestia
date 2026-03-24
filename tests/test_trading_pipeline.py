@@ -288,7 +288,7 @@ class TestTradeExecutor:
         )
         result = await executor.execute_signal(signal, portfolio_value=1000.0)
         assert result["result"] == "filled"
-        assert result["fill"]["price"] == 65000.0
+        assert result["fill"]["price"] == pytest.approx(65000.0, rel=0.01)  # market orders include slippage
 
     @pytest.mark.asyncio
     async def test_execute_hold_skipped(self, executor):

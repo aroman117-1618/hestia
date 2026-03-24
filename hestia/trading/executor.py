@@ -134,14 +134,13 @@ class TradeExecutor:
             )
             return audit
 
-        # Step 4: Execute on exchange
+        # Step 4: Execute on exchange — market orders for guaranteed fills
         order = OrderRequest(
             pair=signal.pair,
             side=signal.signal_type.value,
-            order_type="limit",
+            order_type="market",
             quantity=quantity,
-            price=signal.price,
-            post_only=signal.metadata.get("post_only", True),
+            price=signal.price,  # Reference price for audit trail only
         )
 
         try:

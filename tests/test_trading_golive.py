@@ -825,7 +825,7 @@ class TestPartialFillHandling:
             quantity=quantity,
             confidence=0.8,
             reason="test signal",
-            metadata={"post_only": True},
+            metadata={},
         )
 
     @pytest.mark.asyncio
