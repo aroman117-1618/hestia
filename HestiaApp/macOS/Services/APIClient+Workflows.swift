@@ -54,6 +54,15 @@ extension APIClient {
         return try await get("/v1/workflows/\(workflowId)/runs?limit=\(limit)&offset=\(offset)")
     }
 
+    // MARK: - Node Update
+
+    func patchNode(_ workflowId: String, nodeId: String, request: NodeUpdateRequest) async throws {
+        let _: [String: AnyCodableValue] = try await patch(
+            "/v1/workflows/\(workflowId)/nodes/\(nodeId)",
+            body: request
+        )
+    }
+
     // MARK: - Layout
 
     func batchUpdateLayout(_ workflowId: String, positions: [(nodeId: String, x: Double, y: Double)]) async throws {

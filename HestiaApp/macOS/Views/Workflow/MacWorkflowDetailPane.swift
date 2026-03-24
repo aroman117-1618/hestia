@@ -51,15 +51,26 @@ struct MacWorkflowDetailPane: View {
 
             // Canvas / List content
             if viewModel.showCanvas {
-                WorkflowCanvasWebView(
-                    workflowDetail: detail,
-                    onNodeSelected: { viewModel.handleNodeSelected($0) },
-                    onNodesMoved: { viewModel.handleNodesMoved($0) },
-                    onEdgeCreated: { s, t, h in viewModel.handleEdgeCreated(s, t, h) },
-                    onNodeDeleted: { viewModel.handleNodeDeleted($0) },
-                    onEdgeDeleted: { viewModel.handleEdgeDeleted($0) }
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                HStack(spacing: 0) {
+                    WorkflowCanvasWebView(
+                        workflowDetail: detail,
+                        onNodeSelected: { viewModel.handleNodeSelected($0) },
+                        onNodesMoved: { viewModel.handleNodesMoved($0) },
+                        onEdgeCreated: { s, t, h in viewModel.handleEdgeCreated(s, t, h) },
+                        onNodeDeleted: { viewModel.handleNodeDeleted($0) },
+                        onEdgeDeleted: { viewModel.handleEdgeDeleted($0) }
+                    )
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    // Node inspector sidebar — shown when a node is selected
+                    if let nodeId = viewModel.selectedNodeId,
+                       let node = detail.nodes.first(where: { $0.id == nodeId }) {
+                        Divider()
+                        MacNodeInspectorView(viewModel: viewModel, node: node)
+                            .transition(.move(edge: .trailing).combined(with: .opacity))
+                    }
+                }
+                .animation(.easeInOut(duration: 0.15), value: viewModel.selectedNodeId)
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: MacSpacing.xl) {

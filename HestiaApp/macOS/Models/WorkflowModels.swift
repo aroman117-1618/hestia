@@ -208,6 +208,22 @@ struct WorkflowUpdateRequest: Codable, Sendable {
     let sessionStrategy: String?
 }
 
+struct NodeUpdateRequest: Codable, Sendable {
+    let label: String?
+    let config: [String: AnyCodableValue]?
+    let nodeType: String?
+    let positionX: Double?
+    let positionY: Double?
+
+    init(label: String? = nil, config: [String: AnyCodableValue]? = nil, nodeType: String? = nil, positionX: Double? = nil, positionY: Double? = nil) {
+        self.label = label
+        self.config = config
+        self.nodeType = nodeType
+        self.positionX = positionX
+        self.positionY = positionY
+    }
+}
+
 // MARK: - Lifecycle Responses
 
 struct WorkflowLifecycleResponse: Codable, Sendable {
