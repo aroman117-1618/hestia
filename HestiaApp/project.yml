@@ -114,6 +114,9 @@ targets:
       - path: macOS/Resources/WikiResources
         type: folder
         buildPhase: resources
+      - path: macOS/Resources/WorkflowCanvas
+        type: folder
+        buildPhase: resources
     dependencies:
       - package: HestiaShared
       - package: Sparkle
