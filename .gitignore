@@ -93,3 +93,6 @@ commercial-exports/
 .cache/
 data/credentials/
 .claude/worktrees/
+
+# React/Node
+HestiaApp/WorkflowCanvas/node_modules/
