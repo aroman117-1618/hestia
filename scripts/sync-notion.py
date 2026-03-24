@@ -39,11 +39,9 @@ DOCS_ROOT = PROJECT_ROOT / "docs"
 
 # Notion database/page IDs
 DATABASES = {
-    "documentation_hub": "3aa5bcff-d66e-485c-b5d6-8c68bdbf94f9",
+    "planning_logs": "32d5d244-5f31-813d-a693-db7821dbeb2e",
     "adr_registry": "5b0e4074-eca7-4d9c-be40-0e7486a7f362",
     "sprints": "20e6158d-9d21-4e4d-be40-11e08f6932c3",
-    "discoveries": "7af2fe3b-8cf2-440d-ad44-68e67f9e500d",
-    "retrospectives": "032afae6-c8a4-4ab0-93c2-8e29565b959f",
     "archive": "feb292cc-621d-4982-942a-ea99dcf62e44",
 }
 WHITEBOARD_PAGE_ID = "e739da68-2b62-49ae-a4d1-979019771961"
@@ -423,20 +421,21 @@ class MarkdownToBlocks:
 class DocMapper:
     """Map git file paths to Notion databases and extract properties."""
 
-    # Path pattern → (database_key, category)
+    # Path pattern → (database_key, type)
+    # All planning/research docs route to planning_logs with a Type tag
     ROUTING: list[tuple[str, str, Optional[str]]] = [
-        ("docs/plans/", "documentation_hub", "Plan"),
-        ("docs/discoveries/", "discoveries", None),
-        ("docs/audits/", "documentation_hub", "Metrics"),
-        ("docs/retrospectives/", "retrospectives", None),
-        ("docs/reference/", "documentation_hub", "Reference"),
-        ("docs/architecture/", "documentation_hub", "Architecture"),
+        ("docs/plans/", "planning_logs", "Plan"),
+        ("docs/discoveries/", "planning_logs", "Discovery"),
+        ("docs/audits/", "planning_logs", "Audit"),
+        ("docs/retrospectives/", "planning_logs", "Retrospective"),
+        ("docs/reference/", "planning_logs", "Reference"),
+        ("docs/architecture/", "planning_logs", "Architecture"),
         ("docs/archive/", "archive", None),
-        ("docs/hestia-security-architecture.md", "documentation_hub", "Security"),
-        ("docs/hestia-development-plan.md", "documentation_hub", "Plan"),
-        ("docs/metrics/", "documentation_hub", "Metrics"),
-        ("docs/superpowers/plans/", "documentation_hub", "Plan"),
-        ("docs/superpowers/specs/", "documentation_hub", "Architecture"),
+        ("docs/hestia-security-architecture.md", "planning_logs", "Security"),
+        ("docs/hestia-development-plan.md", "planning_logs", "Plan"),
+        ("docs/metrics/", "planning_logs", "Metrics"),
+        ("docs/superpowers/plans/", "planning_logs", "Plan"),
+        ("docs/superpowers/specs/", "planning_logs", "Spec"),
     ]
 
     @staticmethod
@@ -507,38 +506,21 @@ class DocMapper:
         rel_path = str(filepath.relative_to(PROJECT_ROOT))
         now = datetime.now(timezone.utc).isoformat()
 
-        if db_key == "documentation_hub":
+        if db_key == "planning_logs":
             props: dict[str, Any] = {
                 "Title": {"title": [{"text": {"content": title}}]},
                 "Git Path": {"rich_text": [{"text": {"content": rel_path}}]},
                 "Last Synced": {"date": {"start": now}},
+                "Status": {"select": {"name": "Active"}},
             }
             if category:
-                props["Category"] = {"select": {"name": category}}
-            return props
-
-        elif db_key == "discoveries":
-            props = {
-                "Title": {"title": [{"text": {"content": title}}]},
-                "Git Path": {"rich_text": [{"text": {"content": rel_path}}]},
-                "Last Synced": {"date": {"start": now}},
-                "Validation Status": {"select": {"name": "Draft"}},
-            }
+                props["Type"] = {"select": {"name": category}}
             if date:
                 props["Date"] = {"date": {"start": date}}
+            # Auto-detect topics for all planning_logs entries
             topics = DocMapper.extract_discovery_topics(content)
             if topics:
                 props["Topic"] = {"multi_select": [{"name": t} for t in topics]}
-            return props
-
-        elif db_key == "retrospectives":
-            props = {
-                "Title": {"title": [{"text": {"content": title}}]},
-                "Git Path": {"rich_text": [{"text": {"content": rel_path}}]},
-                "Last Synced": {"date": {"start": now}},
-            }
-            if date:
-                props["Date"] = {"date": {"start": date}}
             return props
 
         elif db_key == "archive":
@@ -801,6 +783,110 @@ def cmd_status(state: SyncState) -> None:
     print(f"Stale (need sync): {stale}")
 
 
+def cmd_push_adrs(client: NotionClient, state: SyncState) -> None:
+    """Parse hestia-decision-log.md and push/update individual ADRs."""
+    decision_log = PROJECT_ROOT / "docs" / "hestia-decision-log.md"
+    if not decision_log.exists():
+        print("Error: docs/hestia-decision-log.md not found", file=sys.stderr)
+        return
+
+    content = decision_log.read_text(encoding="utf-8")
+    adr_pattern = re.compile(r'^### (ADR-(\d+):\s*(.+))$', re.MULTILINE)
+    matches = list(adr_pattern.finditer(content))
+
+    domain_keywords = {
+        "Inference": ["model", "inference", "ollama", "qwen", "llm", "cloud", "routing"],
+        "Memory": ["memory", "chromadb", "vector", "chunk", "consolidat", "prun"],
+        "Security": ["security", "auth", "credential", "keychain", "encrypt", "jwt"],
+        "Architecture": ["architecture", "module", "pattern", "config", "startup"],
+        "Council": ["council", "intent", "slm", "bypass"],
+        "UI": ["ui", "swiftui", "ios", "macos", "frontend"],
+        "Trading": ["trading", "bot", "exchange", "coinbase", "strategy"],
+        "Orchestration": ["orchestrat", "agent", "handler", "workflow"],
+        "API": ["api", "endpoint", "route", "rest"],
+    }
+
+    db_id = DATABASES["adr_registry"]
+    created = 0
+    updated = 0
+    unchanged = 0
+    errors = 0
+
+    for i, match in enumerate(matches):
+        adr_num = int(match.group(2))
+        title = match.group(3).strip()
+        full_title = f"ADR-{adr_num:03d}: {title}"
+
+        start = match.end()
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(content)
+        adr_content = re.sub(r'\n---\s*$', '', content[start:end].strip())
+
+        # Check hash
+        adr_key = f"adr:{adr_num:03d}"
+        if not state.needs_sync(adr_key, adr_content):
+            unchanged += 1
+            continue
+
+        # Extract metadata
+        date_match = re.search(r'\*\*Date\*\*:\s*(\d{4}-\d{2}-\d{2})', adr_content)
+        date = date_match.group(1) if date_match else None
+
+        status_match = re.search(r'\*\*Status\*\*:\s*(.+?)(?:\n|$)', adr_content)
+        raw_status = status_match.group(1).strip() if status_match else "Accepted"
+        if "deprecated" in raw_status.lower():
+            status = "Deprecated"
+        elif "superseded" in raw_status.lower():
+            status = "Superseded"
+        elif "proposed" in raw_status.lower():
+            status = "Proposed"
+        else:
+            status = "Accepted"
+
+        lower_text = (full_title + " " + adr_content)[:1000].lower()
+        domains = [d for d, kws in domain_keywords.items() if any(k in lower_text for k in kws)][:3]
+
+        now = datetime.now(timezone.utc).isoformat()
+        props = {
+            "Title": {"title": [{"text": {"content": full_title}}]},
+            "ADR Number": {"number": adr_num},
+            "Status": {"select": {"name": status}},
+            "Last Synced": {"date": {"start": now}},
+        }
+        if date:
+            props["Date"] = {"date": {"start": date}}
+        if domains:
+            props["Domain"] = {"multi_select": [{"name": d} for d in domains]}
+
+        blocks = MarkdownToBlocks.convert(adr_content)
+
+        try:
+            existing_page_id = state.get_page_id(adr_key)
+            if existing_page_id:
+                client.update_page(existing_page_id, props)
+                client.replace_page_content(existing_page_id, blocks)
+                page_id = existing_page_id
+                action = "updated"
+                updated += 1
+            else:
+                result = client.create_page(
+                    parent={"database_id": db_id},
+                    properties=props,
+                    children=blocks,
+                )
+                page_id = result["id"]
+                action = "created"
+                created += 1
+
+            state.record_sync(adr_key, adr_content, page_id)
+            print(f"  [{action}] {full_title}")
+        except Exception as e:
+            errors += 1
+            print(f"  [error] {full_title}: {e}", file=sys.stderr)
+
+    state.save()
+    print(f"\nADR sync: {created} created, {updated} updated, {unchanged} unchanged, {errors} errors")
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -821,6 +907,9 @@ def main() -> None:
     push_parser.add_argument("--force", action="store_true", help="Force push even if unchanged")
     push_parser.add_argument("--incremental", action="store_true", help="Only push changed files")
 
+    # push-adrs
+    subparsers.add_parser("push-adrs", help="Parse decision log and push ADRs to Notion")
+
     # status
     subparsers.add_parser("status", help="Show sync status")
 
@@ -840,6 +929,8 @@ def main() -> None:
             cmd_read_whiteboard(client)
         elif args.command == "push":
             cmd_push(client, state, args.path, args.force, args.incremental)
+        elif args.command == "push-adrs":
+            cmd_push_adrs(client, state)
         elif args.command == "status":
             cmd_status(state)
     finally:

@@ -164,9 +164,10 @@ Push any docs changed during this session to the Notion knowledge base:
 
 ```bash
 source .venv/bin/activate && python scripts/sync-notion.py push --incremental 2>&1
+source .venv/bin/activate && python scripts/sync-notion.py push-adrs 2>&1
 ```
 
-If the push fails (missing NOTION_TOKEN, API errors), note the failure in SESSION_HANDOFF.md under Known Issues — do NOT block the rest of the handoff.
+If either push fails (missing NOTION_TOKEN, API errors), note the failure in SESSION_HANDOFF.md under Known Issues — do NOT block the rest of the handoff.
 
 ## Phase 6: Update SPRINT.md
 
