@@ -504,3 +504,29 @@ class TestValidateDAG:
     def test_disconnected_is_valid(self) -> None:
         nodes = [_node("a"), _node("b")]
         validate_dag(nodes, [])  # Disconnected nodes are valid
+
+
+class TestVariableInterpolationIntegration:
+    @pytest.mark.asyncio
+    async def test_interpolation_in_linear_chain(self) -> None:
+        """Node B's config references Node A's output via {{a.message}}."""
+        nodes = [
+            _node("a", NodeType.LOG, message="hello from A"),
+            _node("b", NodeType.LOG, message="A said: {{a.message}}"),
+        ]
+        edges = [_edge("a", "b")]
+        run = _run()
+
+        node_executions: Dict[str, NodeExecution] = {}
+
+        async def on_complete(ne: NodeExecution, action: str) -> None:
+            if action == "update" and ne.status == NodeExecutionStatus.SUCCESS:
+                node_executions[ne.node_id] = ne
+
+        executor = DAGExecutor()
+        result = await executor.execute(nodes, edges, run, on_node_complete=on_complete)
+
+        assert result.status == RunStatus.SUCCESS
+        b_exec = node_executions["b"]
+        assert b_exec.status == NodeExecutionStatus.SUCCESS
+        assert b_exec.output_data["message"] == "A said: hello from A"

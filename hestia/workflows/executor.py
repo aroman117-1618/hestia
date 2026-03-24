@@ -25,6 +25,7 @@ from hestia.workflows.models import (
     WorkflowNode,
     WorkflowRun,
 )
+from hestia.workflows.interpolation import interpolate_config
 from hestia.workflows.nodes import NODE_EXECUTORS, NodeExecutorFn
 
 logger = get_logger()
@@ -217,6 +218,9 @@ class DAGExecutor:
             if executor_fn is None:
                 raise ValueError(f"No executor for node type: {node.node_type}")
 
+            # Interpolate config with prior node results
+            interpolated_config = interpolate_config(node.config, results)
+
             # Determine timeout
             timeout = (
                 self._prompt_timeout
@@ -228,12 +232,12 @@ class DAGExecutor:
             if node.node_type == NodeType.RUN_PROMPT:
                 async with self._semaphore:
                     output = await asyncio.wait_for(
-                        executor_fn(node.config, input_data),
+                        executor_fn(interpolated_config, input_data),
                         timeout=timeout,
                     )
             else:
                 output = await asyncio.wait_for(
-                    executor_fn(node.config, input_data),
+                    executor_fn(interpolated_config, input_data),
                     timeout=timeout,
                 )
 
