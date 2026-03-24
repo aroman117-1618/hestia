@@ -129,7 +129,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | Hardware | Mac Mini M1 (16GB) |
 | Model | Qwen 3.5 9B (Hestia) + DeepSeek-R1-14B (Artemis) + Qwen 3 8B (Apollo) + cloud (Anthropic/OpenAI/Google) |
 | SLM | qwen2.5:0.5b (council intent classification, ~100ms) |
-| Backend | Python 3.12, FastAPI, 238 endpoints across 30 route modules |
+| Backend | Python 3.12, FastAPI, 240 endpoints across 30 route modules |
 | Storage | ChromaDB (vectors) + SQLite (structured) + macOS Keychain (credentials) |
 | App | Native Swift/SwiftUI (iOS 26.0+, macOS 15.0+) |
 | API | REST on port 8443 with JWT auth, HTTPS with self-signed cert |
@@ -149,6 +149,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 ## Code Conventions
 
+- **"Orders" = "Workflows"**: The user-facing term is **Orders** (sidebar, Command Center, sheets). The backend module, API paths, and Swift types use `workflow`/`Workflow` internally. Never introduce "Workflow" in user-visible strings.
 - **Type hints**: Always. Every function signature.
 - **Async/await**: For all I/O (database, inference, network).
 - **Logging**: `logger = get_logger()` — no arguments. Never `HestiaLogger(component=...)` or `get_logger(component=...)`. Import: `from hestia.logging import get_logger`. LogComponent enum: ORCHESTRATION, MEMORY, INFERENCE, EXECUTION, SECURITY, API, SYSTEM, VOICE, COUNCIL, HEALTH, WIKI, EXPLORER, NEWSFEED, INVESTIGATE, RESEARCH, FILE, INBOX, OUTCOMES, APPLE_CACHE, LEARNING, VERIFICATION, TRADING, NOTIFICATION. (23 components total)
@@ -244,7 +245,7 @@ hestia/
 │   ├── research/                    # Knowledge graph + PrincipleStore + Temporal Facts + Episodic Nodes
 │   ├── investigate/                 # URL content analysis (web articles, YouTube)
 │   ├── workflows/                   # DAG workflow engine (executor, nodes, scheduler, migration, interpolation)
-│   ├── api/                         # FastAPI — 238 endpoints, 30 route modules
+│   ├── api/                         # FastAPI — 240 endpoints, 30 route modules
 │   └── config/                      # inference.yaml, execution.yaml, memory.yaml, triggers.yaml, wiki.yaml, workflow.yaml
 ├── hestia-cli/                      # Python CLI (REPL, auth, bootstrap, context, renderer)
 ├── hestia-cli-tools/                # Swift CLIs (keychain, calendar, reminders, notes)
