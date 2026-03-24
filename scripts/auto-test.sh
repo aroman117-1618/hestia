@@ -160,7 +160,7 @@ get_test_file() {
         *hestia/api/routes/trading*|*hestia/api/schemas/trading*)
             echo "tests/test_trading_models.py tests/test_trading_database.py tests/test_trading_risk.py tests/test_trading_adapter.py" ;;
         *hestia/workflows/*)
-            echo "tests/test_workflow_adapter.py" ;;
+            echo "tests/test_workflow_adapter.py tests/test_workflow_models.py tests/test_workflow_database.py tests/test_workflow_executor.py tests/test_workflow_manager.py tests/test_workflow_routes.py" ;;
 
         # No mapping found
         *)

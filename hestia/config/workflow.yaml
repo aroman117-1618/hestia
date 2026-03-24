@@ -1,0 +1,15 @@
+# Workflow orchestrator configuration
+
+execution:
+  max_concurrent_llm: 2          # Semaphore limit (M1 single GPU)
+  node_timeout_prompt_s: 120     # RunPrompt node timeout
+  node_timeout_default_s: 30     # Other node types timeout
+  max_nodes_per_workflow: 50     # Guard against overly complex DAGs
+
+retention:
+  purge_executions_days: 30      # Auto-purge node_executions for PII safety
+
+scheduler:
+  misfire_grace_time: 3600       # 1 hour grace for missed runs
+  coalesce: true                 # Combine missed runs into one
+  max_instances: 1               # One execution per workflow at a time

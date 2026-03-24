@@ -82,6 +82,7 @@ from hestia.api.routes import (
     inbox_router,
     outcomes_router,
     ws_chat_router,
+    workflows_router,
 )
 from hestia.api.routes.agents_v2 import router as agents_v2_router
 from hestia.api.routes.learning import router as learning_router
@@ -245,8 +246,9 @@ async def lifespan(app: FastAPI):
             "invite_store", "explorer_manager", "newsfeed_manager",
             "investigate_manager", "research_manager", "file_manager",
             "inbox_manager", "outcome_manager", "apple_cache_manager",
-            "notification_manager",
+            "notification_manager", "workflow_manager",
         ]
+        from hestia.workflows.manager import get_workflow_manager
         phase2_coroutines = [
             get_task_manager(), get_order_manager(), get_agent_manager(),
             get_user_manager(), get_cloud_manager(), get_health_manager(),
@@ -255,7 +257,7 @@ async def lifespan(app: FastAPI):
             get_investigate_manager(), get_research_manager(),
             get_file_manager(), get_inbox_manager(),
             get_outcome_manager(), get_apple_cache_manager(),
-            get_notification_manager(),
+            get_notification_manager(), get_workflow_manager(),
         ]
 
         try:
@@ -294,6 +296,7 @@ async def lifespan(app: FastAPI):
                     "inbox_manager": get_inbox_manager,
                     "outcome_manager": get_outcome_manager,
                     "apple_cache_manager": get_apple_cache_manager,
+                    "workflow_manager": get_workflow_manager,
                 }
                 for name, _ in failures:
                     await retry_map[name]()
@@ -339,6 +342,8 @@ async def lifespan(app: FastAPI):
         order_scheduler = await get_order_scheduler()
         wiki_scheduler = await get_wiki_scheduler()
         learning_scheduler = await get_learning_scheduler()
+        from hestia.workflows.scheduler import get_workflow_scheduler
+        workflow_scheduler = await get_workflow_scheduler()
 
         # ── Phase 4: Fire-and-forget background tasks ────────────────
         async def _post_deploy_wiki_refresh() -> None:
@@ -609,6 +614,28 @@ async def lifespan(app: FastAPI):
                 component=LogComponent.API,
             )
 
+        # 5b. workflow_scheduler + workflow_manager
+        try:
+            from hestia.workflows.scheduler import close_workflow_scheduler
+            await close_workflow_scheduler()
+        except Exception as e:
+            shutdown_errors += 1
+            logger.warning(
+                f"Workflow scheduler cleanup error: {type(e).__name__}",
+                component=LogComponent.API,
+            )
+        try:
+            from hestia.workflows.manager import close_workflow_manager
+            from hestia.workflows.database import close_workflow_database
+            await close_workflow_manager()
+            await close_workflow_database()
+        except Exception as e:
+            shutdown_errors += 1
+            logger.warning(
+                f"Workflow cleanup error: {type(e).__name__}",
+                component=LogComponent.API,
+            )
+
         # 5. order_scheduler (before order_manager — scheduler uses manager)
         try:
             await close_order_scheduler()
@@ -816,6 +843,7 @@ app.include_router(outcomes_router)
 app.include_router(learning_router)
 app.include_router(trading_router)
 app.include_router(notifications_router)
+app.include_router(workflows_router)
 app.include_router(ws_chat_router)
 
 

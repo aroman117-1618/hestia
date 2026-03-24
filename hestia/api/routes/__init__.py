@@ -26,6 +26,7 @@ from .inbox import router as inbox_router
 from .outcomes import router as outcomes_router
 from .notifications import router as notifications_router
 from .ws_chat import router as ws_chat_router
+from .workflows import router as workflows_router
 
 __all__ = [
     "health_router",
@@ -54,4 +55,5 @@ __all__ = [
     "outcomes_router",
     "notifications_router",
     "ws_chat_router",
+    "workflows_router",
 ]
