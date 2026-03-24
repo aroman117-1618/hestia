@@ -98,12 +98,12 @@ class WorkflowViewModel: ObservableObject {
 
     // MARK: - CRUD Actions
 
-    func createWorkflow(name: String, description: String, triggerType: WorkflowTriggerType, sessionStrategy: WorkflowSessionStrategy) async -> Bool {
+    func createWorkflow(name: String, description: String, triggerType: WorkflowTriggerType, triggerConfig: [String: AnyCodableValue] = [:], sessionStrategy: WorkflowSessionStrategy) async -> Bool {
         let request = WorkflowCreateRequest(
             name: name,
             description: description,
             triggerType: triggerType.rawValue,
-            triggerConfig: [:],
+            triggerConfig: triggerConfig,
             sessionStrategy: sessionStrategy.rawValue
         )
         do {

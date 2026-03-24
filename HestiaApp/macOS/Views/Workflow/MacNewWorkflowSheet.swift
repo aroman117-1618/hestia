@@ -8,6 +8,7 @@ struct MacNewWorkflowSheet: View {
     @State private var name = ""
     @State private var description = ""
     @State private var triggerType: WorkflowTriggerType = .manual
+    @State private var cronExpression = "0 9 * * *"
     @State private var sessionStrategy: WorkflowSessionStrategy = .ephemeral
     @State private var isSaving = false
 
@@ -111,6 +112,21 @@ struct MacNewWorkflowSheet: View {
             }
             .pickerStyle(.segmented)
             .labelsHidden()
+
+            if triggerType == .schedule {
+                VStack(alignment: .leading, spacing: MacSpacing.xs) {
+                    Text("Cron Expression")
+                        .font(.system(size: 11))
+                        .foregroundStyle(MacColors.textFaint)
+                    TextField("0 9 * * *", text: $cronExpression)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 12, design: .monospaced))
+                    Text("min hour day month weekday (e.g. 0 9 * * * = daily 9am)")
+                        .font(.system(size: 10))
+                        .foregroundStyle(MacColors.textFaint)
+                }
+                .padding(.top, MacSpacing.xs)
+            }
         }
     }
 
@@ -139,10 +155,16 @@ struct MacNewWorkflowSheet: View {
         isSaving = true
         defer { isSaving = false }
 
+        var triggerConfig: [String: AnyCodableValue] = [:]
+        if triggerType == .schedule {
+            triggerConfig["cron"] = .string(cronExpression.trimmingCharacters(in: .whitespaces))
+        }
+
         let success = await viewModel.createWorkflow(
             name: name.trimmingCharacters(in: .whitespaces),
             description: description.trimmingCharacters(in: .whitespaces),
             triggerType: triggerType,
+            triggerConfig: triggerConfig,
             sessionStrategy: sessionStrategy
         )
 
