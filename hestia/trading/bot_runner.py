@@ -97,10 +97,11 @@ class BotRunner:
             price_validator=self._price_validator,
         )
 
-        # Strategy
+        # Strategy — inject pair into config so strategy knows the trading pair
+        strategy_config = {**bot.config, "pair": bot.pair}
         self._strategy = _create_strategy(
             StrategyType(bot.strategy) if isinstance(bot.strategy, str) else bot.strategy,
-            bot.config,
+            strategy_config,
         )
 
         # Error tracking
