@@ -10,6 +10,8 @@ struct MacNodeInspectorView: View {
     // run_prompt
     @State private var prompt: String = ""
     @State private var model: String = ""
+    @State private var memoryWrite: Bool = false
+    @State private var forceLocal: Bool = false
     @State private var selectedResources: Set<String> = []
 
     // call_tool
@@ -165,6 +167,18 @@ struct MacNodeInspectorView: View {
                 }
                 .labelsHidden()
             }
+            HStack {
+                Toggle("Save to Memory", isOn: $memoryWrite)
+                    .font(.system(size: 11))
+                    .toggleStyle(.switch)
+                    .tint(MacColors.amberAccent)
+                Spacer()
+                Toggle("Force Local", isOn: $forceLocal)
+                    .font(.system(size: 11))
+                    .toggleStyle(.switch)
+                    .tint(MacColors.amberAccent)
+            }
+            .foregroundStyle(MacColors.textSecondary)
             if !viewModel.toolCategories.isEmpty {
                 fieldGroup("Resources") {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 90))], spacing: 6) {
@@ -394,6 +408,8 @@ struct MacNodeInspectorView: View {
         case .runPrompt:
             prompt = stringConfig("prompt")
             model = stringConfig("model")
+            if case .bool(let mw) = node.config["memory_write"] { memoryWrite = mw } else { memoryWrite = false }
+            if case .bool(let fl) = node.config["force_local"] { forceLocal = fl } else { forceLocal = false }
             // Reverse-map allowed_tools back to category IDs
             if case .array(let tools) = node.config["allowed_tools"] {
                 let toolNames = tools.compactMap { if case .string(let s) = $0 { return s } else { return nil } }
@@ -495,6 +511,8 @@ struct MacNodeInspectorView: View {
             if !allowedTools.isEmpty {
                 config["allowed_tools"] = .array(allowedTools)
             }
+            config["memory_write"] = .bool(memoryWrite)
+            config["force_local"] = .bool(forceLocal)
         case .callTool:
             config["tool_name"] = .string(toolName)
             // Parse arguments back to dict if valid JSON, else store as string
