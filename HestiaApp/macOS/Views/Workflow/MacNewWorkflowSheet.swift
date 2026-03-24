@@ -38,7 +38,7 @@ struct MacNewWorkflowSheet: View {
         VStack(alignment: .leading, spacing: MacSpacing.xl) {
             // Header
             HStack {
-                Text("New Workflow")
+                Text("New Order")
                     .font(MacTypography.sectionTitle)
                     .foregroundStyle(MacColors.textPrimary)
                 Spacer()
@@ -70,7 +70,7 @@ struct MacNewWorkflowSheet: View {
                         if isSaving {
                             ProgressView().controlSize(.small)
                         }
-                        Text("Create Workflow")
+                        Text("Create Order")
                     }
                     .foregroundStyle(canSave ? MacColors.buttonTextDark : MacColors.textFaint)
                     .padding(.horizontal, MacSpacing.lg)

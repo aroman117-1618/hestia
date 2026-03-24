@@ -39,7 +39,7 @@ extension WorkspaceView {
         case .health: "Vitals"
         case .research: "Research"
         case .explorer: "Explorer"
-        case .workflow: "Workflows"
+        case .workflow: "Orders"
         case .settings: "Settings"
         }
     }

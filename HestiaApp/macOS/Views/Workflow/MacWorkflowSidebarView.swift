@@ -29,7 +29,7 @@ struct MacWorkflowSidebarView: View {
 
     private var header: some View {
         HStack {
-            Text("Workflows")
+            Text("Orders")
                 .font(MacTypography.sectionTitle)
                 .foregroundStyle(MacColors.textPrimary)
 
@@ -46,7 +46,7 @@ struct MacWorkflowSidebarView: View {
                     .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.treeItem))
             }
             .buttonStyle(.hestia)
-            .help("Create new workflow")
+            .help("Create new order")
         }
     }
 
@@ -123,7 +123,7 @@ struct MacWorkflowSidebarView: View {
             Image(systemName: "arrow.triangle.branch")
                 .font(.system(size: 28))
                 .foregroundStyle(MacColors.textFaint)
-            Text("No workflows yet")
+            Text("No orders yet")
                 .font(.system(size: 13))
                 .foregroundStyle(MacColors.textSecondary)
             Text("Create one to automate tasks")

@@ -58,7 +58,7 @@ class WorkflowViewModel: ObservableObject {
             print("[WorkflowVM] Failed to load workflows: \(error)")
             #endif
             if workflows.isEmpty {
-                errorMessage = "Could not load workflows"
+                errorMessage = "Could not load orders"
             }
         }
         isLoading = false

@@ -19,7 +19,7 @@ struct SystemActivityView: View {
             VStack(spacing: MacSpacing.lg) {
                 // Workflows
                 CollapsibleSection(
-                    title: "Workflows",
+                    title: "Orders",
                     icon: "arrow.triangle.branch",
                     count: viewModel.activeWorkflowCount
                 ) {
@@ -57,7 +57,7 @@ struct SystemActivityView: View {
     @ViewBuilder
     private var workflowsContent: some View {
         if viewModel.activeWorkflows.isEmpty {
-            sectionEmptyState(icon: "arrow.triangle.branch", message: "No workflows created")
+            sectionEmptyState(icon: "arrow.triangle.branch", message: "No orders created")
         } else {
             VStack(spacing: MacSpacing.sm) {
                 ForEach(viewModel.activeWorkflows, id: \.id) { workflow in
