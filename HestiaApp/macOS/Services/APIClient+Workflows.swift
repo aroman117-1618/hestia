@@ -83,4 +83,18 @@ extension APIClient {
         })
         let _: LayoutResponse = try await patch("/workflows/\(workflowId)/layout", body: req)
     }
+
+    // MARK: - Step Builder
+
+    func createNodeFromStep(_ workflowId: String, step: StepCreateRequest) async throws -> StepCreateResponse {
+        return try await post("/workflows/\(workflowId)/nodes/from-step", body: step)
+    }
+
+    func createNode(_ workflowId: String, request: NodeCreateRequest) async throws -> NodeCreateResponse {
+        return try await post("/workflows/\(workflowId)/nodes", body: request)
+    }
+
+    func getToolCategories() async throws -> ToolCategoryResponse {
+        return try await get("/tools/categories")
+    }
 }

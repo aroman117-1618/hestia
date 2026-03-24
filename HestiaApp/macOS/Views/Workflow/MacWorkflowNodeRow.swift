@@ -49,6 +49,8 @@ struct MacWorkflowNodeRow: View {
         case .ifElse: return "Condition"
         case .schedule: return "Schedule Trigger"
         case .manual: return "Manual Trigger"
+        case .delay: return "Delay"
+        case .switchNode: return "Switch"
         }
     }
 }

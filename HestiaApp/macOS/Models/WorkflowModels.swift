@@ -30,8 +30,10 @@ enum WorkflowNodeType: String, Codable, CaseIterable, Sendable {
     case notify
     case log
     case ifElse = "if_else"
+    case switchNode = "switch"
     case schedule
     case manual
+    case delay
 }
 
 enum WorkflowRunStatus: String, Codable, CaseIterable, Sendable {
@@ -143,8 +145,10 @@ struct WorkflowNodeResponse: Codable, Identifiable, Sendable {
         case .notify: return "bell"
         case .log: return "doc.text"
         case .ifElse: return "arrow.triangle.branch"
+        case .switchNode: return "arrow.triangle.branch.fill"
         case .schedule: return "clock"
         case .manual: return "hand.tap"
+        case .delay: return "timer"
         }
     }
 }
@@ -222,6 +226,62 @@ struct NodeUpdateRequest: Codable, Sendable {
         self.positionX = positionX
         self.positionY = positionY
     }
+}
+
+// MARK: - Step Builder
+
+struct StepCreateRequest: Codable, Sendable {
+    let title: String
+    let prompt: String?
+    let trigger: String  // "immediate" | "delay"
+    let delaySeconds: Double?
+    let resources: [String]?
+    let positionX: Double
+    let positionY: Double
+    let afterNodeId: String?
+}
+
+struct StepCreateResponse: Codable, Sendable {
+    let nodes: [WorkflowNodeResponse]
+    let edges: [WorkflowEdgeResponse]
+}
+
+// MARK: - Tool Categories
+
+struct ToolCategoryResponse: Codable, Sendable {
+    let categories: [ToolCategory]
+    let totalTools: Int
+}
+
+struct ToolCategory: Codable, Identifiable, Sendable {
+    let id: String
+    let label: String
+    let icon: String
+    let tools: [ToolSummary]
+    let count: Int
+}
+
+struct ToolSummary: Codable, Identifiable, Sendable {
+    let name: String
+    let description: String
+    let parameters: [String: AnyCodableValue]
+    let requiresApproval: Bool
+
+    var id: String { name }
+}
+
+// MARK: - Node Create
+
+struct NodeCreateRequest: Codable, Sendable {
+    let nodeType: String
+    let label: String
+    let config: [String: AnyCodableValue]
+    let positionX: Double
+    let positionY: Double
+}
+
+struct NodeCreateResponse: Codable, Sendable {
+    let node: WorkflowNodeResponse
 }
 
 // MARK: - Lifecycle Responses

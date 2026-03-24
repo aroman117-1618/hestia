@@ -23,10 +23,13 @@ struct MacNodeInspectorView: View {
     @State private var logMessage: String = ""
     @State private var logLevel: String = "info"
 
-    // if_else
+    // if_else / switch
     @State private var conditionField: String = ""
     @State private var conditionOperator: String = "eq"
     @State private var conditionValue: String = ""
+
+    // delay
+    @State private var delaySeconds: String = ""
 
     @State private var isSaving = false
     @State private var saveError: String?
@@ -213,6 +216,18 @@ struct MacNodeInspectorView: View {
                     .foregroundStyle(MacColors.textFaint)
                     .multilineTextAlignment(.leading)
             }
+
+        case .delay:
+            fieldGroup("Delay (seconds)") {
+                TextField("e.g. 60", text: $delaySeconds)
+                    .textFieldStyle(.roundedBorder)
+            }
+
+        case .switchNode:
+            fieldGroup("Switch Field") {
+                TextField("e.g. result.status", text: $conditionField)
+                    .textFieldStyle(.roundedBorder)
+            }
         }
     }
 
@@ -306,6 +321,10 @@ struct MacNodeInspectorView: View {
             }
         case .schedule, .manual:
             break
+        case .delay:
+            delaySeconds = stringConfig("delay_seconds")
+        case .switchNode:
+            conditionField = stringConfig("field")
         }
     }
 
@@ -366,6 +385,10 @@ struct MacNodeInspectorView: View {
             ])
         case .schedule, .manual:
             break
+        case .delay:
+            if let secs = Double(delaySeconds) { config["delay_seconds"] = .double(secs) }
+        case .switchNode:
+            if !conditionField.isEmpty { config["field"] = .string(conditionField) }
         }
 
         let request = NodeUpdateRequest(label: label.isEmpty ? nil : label, config: config.isEmpty ? nil : config)
