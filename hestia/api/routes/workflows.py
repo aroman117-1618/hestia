@@ -69,6 +69,34 @@ class LayoutUpdateRequest(BaseModel):
     )
 
 
+class StepCreateRequest(BaseModel):
+    """A user-facing 'Step' that compiles to one or more backend DAG nodes."""
+
+    title: str
+    prompt: Optional[str] = None
+    trigger: str = Field("immediate", description="immediate or delay")
+    delay_seconds: Optional[float] = None
+    resources: Optional[List[str]] = None  # Category IDs: ["calendar", "mail"]
+    position_x: float = Field(0.0)
+    position_y: float = Field(0.0)
+    after_node_id: Optional[str] = None
+
+
+# ── Helpers ──────────────────────────────────────────────────────────
+
+
+def _expand_resource_categories(categories: List[str]) -> List[str]:
+    """Expand resource category IDs to individual tool names."""
+    from hestia.execution import get_tool_registry
+
+    registry = get_tool_registry()
+    tool_names = []
+    for cat in categories:
+        tools = registry.get_tools_by_category(cat)
+        tool_names.extend(t.name for t in tools)
+    return tool_names
+
+
 # ── Workflow CRUD ────────────────────────────────────────────────────
 
 
@@ -183,6 +211,87 @@ async def delete_workflow(
     if not deleted:
         return JSONResponse({"error": "Workflow not found"}, status_code=404)
     return {"workflow_id": workflow_id, "deleted": True}
+
+
+# ── Step-to-DAG Translation ──────────────────────────────────────────
+
+
+@router.post("/{workflow_id}/nodes/from-step")
+async def create_node_from_step(
+    workflow_id: str,
+    request: StepCreateRequest,
+    _token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """Create workflow node(s) from a user-facing Step definition."""
+    if not request.prompt:
+        return JSONResponse({"error": "Step must have a prompt"}, status_code=400)
+
+    manager = await get_workflow_manager()
+    created_nodes: List[Dict[str, Any]] = []
+    created_edges: List[Dict[str, Any]] = []
+
+    # Resolve resource categories → tool names
+    allowed_tools = None
+    if request.resources:
+        allowed_tools = _expand_resource_categories(request.resources)
+
+    pos_x = request.position_x
+    pos_y = request.position_y
+    first_node_id: Optional[str] = None
+
+    # If delayed trigger, insert a DELAY node first
+    if request.trigger == "delay" and request.delay_seconds:
+        delay_node = await manager.add_node(
+            workflow_id=workflow_id,
+            node_type="delay",
+            label=f"Wait {int(request.delay_seconds)}s",
+            config={"delay_seconds": request.delay_seconds},
+            position_x=pos_x,
+            position_y=pos_y,
+        )
+        created_nodes.append(delay_node.to_dict())
+        first_node_id = delay_node.id
+        pos_y += 150
+
+    # Create the main run_prompt node
+    prompt_config: Dict[str, Any] = {"prompt": request.prompt}
+    if allowed_tools:
+        prompt_config["allowed_tools"] = allowed_tools
+
+    prompt_node = await manager.add_node(
+        workflow_id=workflow_id,
+        node_type="run_prompt",
+        label=request.title,
+        config=prompt_config,
+        position_x=pos_x,
+        position_y=pos_y,
+    )
+    created_nodes.append(prompt_node.to_dict())
+
+    # Connect delay → prompt if delay was created
+    if first_node_id:
+        edge = await manager.add_edge(
+            workflow_id=workflow_id,
+            source_node_id=first_node_id,
+            target_node_id=prompt_node.id,
+        )
+        created_edges.append(edge.to_dict())
+    else:
+        first_node_id = prompt_node.id
+
+    # Connect after_node → first new node
+    if request.after_node_id:
+        edge = await manager.add_edge(
+            workflow_id=workflow_id,
+            source_node_id=request.after_node_id,
+            target_node_id=first_node_id,
+        )
+        created_edges.append(edge.to_dict())
+
+    return {
+        "nodes": created_nodes,
+        "edges": created_edges,
+    }
 
 
 # ── Node CRUD ────────────────────────────────────────────────────────
