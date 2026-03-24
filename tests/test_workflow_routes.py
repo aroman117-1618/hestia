@@ -247,3 +247,53 @@ class TestExecutionRoutes:
         response = await client.get(f"/v1/workflows/{wf_id}/runs")
         assert response.status_code == 200
         assert response.json()["total"] == 1
+
+
+class TestLayoutRoute:
+    @pytest.mark.asyncio
+    async def test_batch_update_layout(self, client: AsyncClient) -> None:
+        create = await client.post("/v1/workflows", json={"name": "Layout Test"})
+        wf_id = create.json()["workflow"]["id"]
+        # Add 3 nodes
+        n1 = await client.post(
+            f"/v1/workflows/{wf_id}/nodes",
+            json={"node_type": "log", "label": "A", "config": {"message": "a"}},
+        )
+        n2 = await client.post(
+            f"/v1/workflows/{wf_id}/nodes",
+            json={"node_type": "log", "label": "B", "config": {"message": "b"}},
+        )
+        n3 = await client.post(
+            f"/v1/workflows/{wf_id}/nodes",
+            json={"node_type": "log", "label": "C", "config": {"message": "c"}},
+        )
+        n1_id = n1.json()["node"]["id"]
+        n2_id = n2.json()["node"]["id"]
+        n3_id = n3.json()["node"]["id"]
+        # Batch update positions for all 3 nodes
+        response = await client.patch(
+            f"/v1/workflows/{wf_id}/layout",
+            json={
+                "positions": [
+                    {"node_id": n1_id, "position_x": 100.0, "position_y": 200.0},
+                    {"node_id": n2_id, "position_x": 300.0, "position_y": 400.0},
+                    {"node_id": n3_id, "position_x": 500.0, "position_y": 600.0},
+                ]
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data == {"updated": 3, "workflow_id": wf_id}
+
+    @pytest.mark.asyncio
+    async def test_batch_update_layout_not_found(self, client: AsyncClient) -> None:
+        response = await client.patch(
+            "/v1/workflows/wf-123/layout",
+            json={
+                "positions": [
+                    {"node_id": "node-x", "position_x": 0.0, "position_y": 0.0},
+                ]
+            },
+        )
+        assert response.status_code == 404
+        assert "not found" in response.json()["error"].lower()

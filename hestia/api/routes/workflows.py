@@ -63,6 +63,12 @@ class EdgeCreateRequest(BaseModel):
     edge_label: str = Field("")
 
 
+class LayoutUpdateRequest(BaseModel):
+    positions: List[Dict[str, Any]] = Field(
+        ..., description="List of {node_id, position_x, position_y}"
+    )
+
+
 # ── Workflow CRUD ────────────────────────────────────────────────────
 
 
@@ -140,6 +146,28 @@ async def update_workflow(
         return {"workflow": updated.to_dict()}
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=400)
+
+
+@router.patch("/{workflow_id}/layout")
+async def batch_update_layout(
+    workflow_id: str,
+    request: LayoutUpdateRequest,
+    _token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """Batch update node positions (from canvas drag operations)."""
+    try:
+        manager = await get_workflow_manager()
+        updated = await manager.batch_update_layout(workflow_id, request.positions)
+        return {"updated": updated, "workflow_id": workflow_id}
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=404)
+    except Exception as e:
+        logger.error(
+            "Failed to update layout",
+            component=LogComponent.WORKFLOW,
+            data={"error": sanitize_for_log(e)},
+        )
+        return JSONResponse({"error": "Failed to update layout"}, status_code=500)
 
 
 @router.delete("/{workflow_id}")

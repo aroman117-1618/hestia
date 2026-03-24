@@ -385,6 +385,15 @@ class WorkflowManager:
         )
         return result
 
+    async def batch_update_layout(
+        self, workflow_id: str, positions: list[dict],
+    ) -> int:
+        """Batch update node positions (from canvas drag operations)."""
+        wf = await self.database.get_workflow(workflow_id)
+        if not wf:
+            raise ValueError(f"Workflow not found: {workflow_id}")
+        return await self.database.batch_update_positions(workflow_id, positions)
+
     # ── Run History ──────────────────────────────────────────────────
 
     async def list_runs(

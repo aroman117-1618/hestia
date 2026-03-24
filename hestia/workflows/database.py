@@ -486,6 +486,23 @@ class WorkflowDatabase(BaseDatabase):
             return None
         return json.loads(row["snapshot"])
 
+    # ── Batch Position Update ────────────────────────────────────────
+
+    async def batch_update_positions(
+        self, workflow_id: str, positions: list[dict],
+    ) -> int:
+        """Update position_x/position_y for multiple nodes atomically."""
+        updated = 0
+        for pos in positions:
+            cursor = await self.connection.execute(
+                """UPDATE workflow_nodes SET position_x=?, position_y=?
+                   WHERE id=? AND workflow_id=?""",
+                (pos["position_x"], pos["position_y"], pos["node_id"], workflow_id),
+            )
+            updated += cursor.rowcount
+        await self.connection.commit()
+        return updated
+
     # ── Purge ────────────────────────────────────────────────────────
 
     async def purge_old_executions(self, days: int = 30) -> int:
