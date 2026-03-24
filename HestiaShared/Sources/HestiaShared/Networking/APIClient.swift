@@ -135,6 +135,17 @@ public class APIClient: HestiaClientProtocol {
         self.deviceToken = token
     }
 
+    /// Current device token — read-only access for SSE/streaming callers outside the shared package.
+    public var currentDeviceToken: String? { deviceToken }
+
+    /// Build a full URL for a given API path — usable by callers outside the shared package.
+    public func makeFullURL(_ path: String) -> URL {
+        makeURL(path)
+    }
+
+    /// URLSession configured with certificate pinning — for SSE streaming outside the shared package.
+    public var pinnedSession: URLSession { session }
+
     // MARK: - Device Registration
 
     /// Register this device with the Hestia backend

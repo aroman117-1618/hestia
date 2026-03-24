@@ -18,6 +18,11 @@ class WorkflowViewModel: ObservableObject {
     @Published var showingNewWorkflowSheet = false
     @Published var showCanvas = false
     @Published var selectedNodeId: String?
+    @Published var nodeStatuses: [String: String] = [:]  // nodeId → "running" | "success" | "failed"
+
+    // MARK: - SSE
+
+    private var sseTask: Task<Void, Never>?
 
     // MARK: - Computed Properties
 
@@ -165,10 +170,87 @@ class WorkflowViewModel: ObservableObject {
             _ = try await client.triggerWorkflow(workflowId)
             // Refresh runs after trigger
             await loadRuns(workflowId)
+            // Start SSE to light up nodes in real time
+            subscribeToExecutionEvents()
         } catch {
             #if DEBUG
             print("[WorkflowVM] Failed to trigger: \(error)")
             #endif
+        }
+    }
+
+    // MARK: - SSE Subscription
+
+    /// Start listening for workflow execution events via SSE.
+    /// Safe to call multiple times — cancels any prior subscription first.
+    func subscribeToExecutionEvents() {
+        sseTask?.cancel()
+        sseTask = Task { [weak self] in
+            guard let self else { return }
+            let url = client.makeFullURL("/v1/workflows/stream")
+            var request = URLRequest(url: url)
+            request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+            if let token = client.currentDeviceToken {
+                request.setValue(token, forHTTPHeaderField: "X-Hestia-Device-Token")
+            }
+
+            do {
+                let (bytes, _) = try await client.pinnedSession.bytes(for: request)
+                var eventType = ""
+                var dataBuffer = ""
+
+                for try await line in bytes.lines {
+                    if Task.isCancelled { break }
+
+                    if line.hasPrefix("event: ") {
+                        eventType = String(line.dropFirst(7))
+                    } else if line.hasPrefix("data: ") {
+                        dataBuffer = String(line.dropFirst(6))
+                    } else if line.isEmpty && !dataBuffer.isEmpty {
+                        await processSSEEvent(type: eventType, data: dataBuffer)
+                        eventType = ""
+                        dataBuffer = ""
+                    }
+                }
+            } catch {
+                #if DEBUG
+                print("[WorkflowVM] SSE stream error: \(error)")
+                #endif
+            }
+        }
+    }
+
+    func unsubscribeFromEvents() {
+        sseTask?.cancel()
+        sseTask = nil
+    }
+
+    private func processSSEEvent(type: String, data: String) async {
+        guard let jsonData = data.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
+        else { return }
+
+        switch type {
+        case "run_started":
+            nodeStatuses = [:]
+        case "run_completed":
+            if let workflowId = selectedWorkflowId {
+                await loadRuns(workflowId)
+            }
+        case "node_started":
+            if let nodeId = json["node_id"] as? String {
+                nodeStatuses[nodeId] = "running"
+            }
+        case "node_completed":
+            if let nodeId = json["node_id"] as? String {
+                nodeStatuses[nodeId] = "success"
+            }
+        case "node_failed":
+            if let nodeId = json["node_id"] as? String {
+                nodeStatuses[nodeId] = "failed"
+            }
+        default:
+            break
         }
     }
 

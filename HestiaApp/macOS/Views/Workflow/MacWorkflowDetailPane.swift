@@ -54,6 +54,7 @@ struct MacWorkflowDetailPane: View {
                 HStack(spacing: 0) {
                     WorkflowCanvasWebView(
                         workflowDetail: detail,
+                        nodeStatuses: viewModel.nodeStatuses,
                         onNodeSelected: { viewModel.handleNodeSelected($0) },
                         onNodesMoved: { viewModel.handleNodesMoved($0) },
                         onEdgeCreated: { s, t, h in viewModel.handleEdgeCreated(s, t, h) },

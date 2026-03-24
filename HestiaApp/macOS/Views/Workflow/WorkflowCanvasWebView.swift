@@ -8,6 +8,7 @@ import SwiftUI
 /// through `canvasAction` message handler.
 struct WorkflowCanvasWebView: NSViewRepresentable {
     let workflowDetail: WorkflowDetail?
+    var nodeStatuses: [String: String]  // nodeId → "running" | "success" | "failed"
     let onNodeSelected: (String) -> Void
     let onNodesMoved: ([(id: String, x: Double, y: Double)]) -> Void
     let onEdgeCreated: (String, String, String?) -> Void  // source, target, sourceHandle
@@ -64,13 +65,22 @@ struct WorkflowCanvasWebView: NSViewRepresentable {
 
     func updateNSView(_ webView: WKWebView, context: Context) {
         let coordinator = context.coordinator
-        guard let detail = workflowDetail else { return }
-        guard coordinator.currentWorkflowId != detail.id else { return }
 
+        // Inject workflow if the selected workflow changed
+        if let detail = workflowDetail,
+           coordinator.currentWorkflowId != detail.id {
+            if coordinator.canvasReady {
+                coordinator.injectWorkflow(detail)
+            } else {
+                coordinator.pendingDetail = detail
+            }
+        }
+
+        // Forward execution status updates to canvas node coloring
         if coordinator.canvasReady {
-            coordinator.injectWorkflow(detail)
-        } else {
-            coordinator.pendingDetail = detail
+            for (nodeId, status) in nodeStatuses {
+                coordinator.updateNodeStatus(nodeId, status)
+            }
         }
     }
 
