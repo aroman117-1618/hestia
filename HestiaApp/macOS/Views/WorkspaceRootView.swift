@@ -29,6 +29,8 @@ struct WorkspaceRootView: View {
                                 ResearchView()
                             case .explorer:
                                 ExplorerView()
+                            case .workflow:
+                                MacWorkflowView()
                             case .settings:
                                 MacSettingsView()
                             }

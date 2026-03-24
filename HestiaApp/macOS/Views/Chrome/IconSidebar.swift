@@ -20,6 +20,7 @@ struct IconSidebar: View {
                 // navIcon(.health, systemName: "waveform.path.ecg", shortcut: 2)
                 navIcon(.research, systemName: "point.3.connected.trianglepath.dotted", shortcut: 2)
                 navIcon(.explorer, systemName: "magnifyingglass", shortcut: 3)
+                navIcon(.workflow, systemName: "arrow.triangle.branch", shortcut: 4)
             }
             .padding(.top, MacSpacing.xxl)
 
@@ -105,6 +106,7 @@ struct IconSidebar: View {
         case .health: "Vitals"
         case .research: "Research"
         case .explorer: "Explorer"
+        case .workflow: "Workflows"
         case .settings: "Settings"
         }
     }
@@ -154,7 +156,7 @@ struct IconSidebar: View {
             }
         }
         .accessibilityLabel("Settings")
-        .accessibilityHint("Keyboard shortcut: Command 6")
+        .accessibilityHint("Keyboard shortcut: Command 5")
         .hoverCursor()
     }
 }

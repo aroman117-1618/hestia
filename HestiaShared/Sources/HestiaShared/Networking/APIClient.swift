@@ -584,7 +584,7 @@ public class APIClient: HestiaClientProtocol {
         return try await execute(request)
     }
 
-    private func patch<T: Decodable, B: Encodable>(_ path: String, body: B) async throws -> T {
+    public func patch<T: Decodable, B: Encodable>(_ path: String, body: B) async throws -> T {
         var request = URLRequest(url: makeURL(path))
         request.httpMethod = "PATCH"
         request.httpBody = try encoder.encode(body)
@@ -602,7 +602,7 @@ public class APIClient: HestiaClientProtocol {
         return try await execute(request)
     }
 
-    private func delete<T: Decodable>(_ path: String) async throws -> T {
+    public func delete<T: Decodable>(_ path: String) async throws -> T {
         var request = URLRequest(url: makeURL(path))
         request.httpMethod = "DELETE"
         addHeaders(to: &request)
