@@ -206,7 +206,7 @@ class WorkflowViewModel: ObservableObject {
         sseTask?.cancel()
         sseTask = Task { [weak self] in
             guard let self else { return }
-            let url = client.makeFullURL("/v1/workflows/stream")
+            let url = client.makeFullURL("/workflows/stream")
             var request = URLRequest(url: url)
             request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
             if let token = client.currentDeviceToken {
@@ -310,7 +310,7 @@ class WorkflowViewModel: ObservableObject {
                     edgeLabel: sourceHandle ?? ""
                 )
                 let _: [String: AnyCodableValue] = try await client.post(
-                    "/v1/workflows/\(workflowId)/edges",
+                    "/workflows/\(workflowId)/edges",
                     body: req
                 )
                 // Refresh detail to get server-assigned edge ID
@@ -328,7 +328,7 @@ class WorkflowViewModel: ObservableObject {
         Task {
             do {
                 let _: [String: AnyCodableValue] = try await client.delete(
-                    "/v1/workflows/\(workflowId)/nodes/\(nodeId)"
+                    "/workflows/\(workflowId)/nodes/\(nodeId)"
                 )
                 await loadWorkflowDetail(workflowId)
             } catch {
@@ -344,7 +344,7 @@ class WorkflowViewModel: ObservableObject {
         Task {
             do {
                 let _: [String: AnyCodableValue] = try await client.delete(
-                    "/v1/workflows/\(workflowId)/edges/\(edgeId)"
+                    "/workflows/\(workflowId)/edges/\(edgeId)"
                 )
                 await loadWorkflowDetail(workflowId)
             } catch {
@@ -401,7 +401,7 @@ class WorkflowViewModel: ObservableObject {
                     ])
                 case "tool":
                     nodeType = "call_tool"
-                    config["tool_name"] = .string("")
+                    config["tool_name"] = .string("read_file")  // Default; user configures in inspector
                 case "delay":
                     nodeType = "delay"
                     config["delay_seconds"] = .double(60)

@@ -224,8 +224,13 @@ struct MacNodeInspectorView: View {
                     )
             }
             fieldGroup("Channel") {
-                TextField("e.g. push", text: $notifyChannel)
-                    .textFieldStyle(.roundedBorder)
+                Picker("", selection: $notifyChannel) {
+                    Text("macOS (local)").tag("macos")
+                    Text("Push (APNs)").tag("push")
+                    Text("Both").tag("both")
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
             }
 
         case .log:
@@ -394,7 +399,8 @@ struct MacNodeInspectorView: View {
             toolArguments = jsonConfig("arguments")
         case .notify:
             notifyMessage = stringConfig("message")
-            notifyChannel = stringConfig("channel")
+            let ch = stringConfig("channel")
+            notifyChannel = ch.isEmpty ? "macos" : ch
         case .log:
             logMessage = stringConfig("message")
             logLevel = stringConfig("level").isEmpty ? "info" : stringConfig("level")
