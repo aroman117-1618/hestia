@@ -54,6 +54,25 @@ After soak validates: flip to live with $25 across viable strategies. Run 30+ fi
 
 ---
 
+# Memory Synthesis Engine (S-MEM) — PLANNED
+
+**Date:** 2026-03-24
+**Discovery:** `docs/discoveries/memory-synthesis-engine-2026-03-24.md`
+**Plan:** `docs/plans/memory-synthesis-engine-2026-03-24.md`
+**Priority:** Medium — between-sprint work or autonomous Claude Code task
+
+Inspired by Claude Code's "auto-dream" feature. Wires together Memory, PrincipleStore, and Knowledge Graph into a self-reinforcing learning cycle. Feeds directly into macOS Research graph view (richer principles, higher-confidence facts, better entity clustering).
+
+| Phase | Scope | Hours | Status |
+|-------|-------|-------|--------|
+| Phase 1 | Cross-Pollination Loop (principle→memory feedback, outcome→fact confidence, fact cluster→principle suggestion) | 8h | TODO |
+| Phase 2 | Embedding Synthesis (similarity-band grouping, SLM screening, LLM synthesis, distiller upgrade) | 4-8h | TODO (after Phase 1 or M5 Ultra) |
+
+**Key files:** `hestia/learning/cross_pollination.py` (new), `hestia/memory/synthesizer.py` (new, Phase 2)
+**No frontend changes needed** — graph view improvements are automatic from better data quality.
+
+---
+
 # Workflow Orchestrator P1+P2 (2026-03-23 → 2026-03-24) — COMPLETE
 
 **P1 Started:** 2026-03-23 | **P2 Completed:** 2026-03-24
