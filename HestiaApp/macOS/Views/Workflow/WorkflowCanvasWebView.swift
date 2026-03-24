@@ -68,13 +68,22 @@ struct WorkflowCanvasWebView: NSViewRepresentable {
     func updateNSView(_ webView: WKWebView, context: Context) {
         let coordinator = context.coordinator
 
-        // Inject workflow if the selected workflow changed
-        if let detail = workflowDetail,
-           coordinator.currentWorkflowId != detail.id {
-            if coordinator.canvasReady {
-                coordinator.injectWorkflow(detail)
-            } else {
-                coordinator.pendingDetail = detail
+        // Inject workflow when ID changes OR when node/edge count changes (step added/deleted)
+        if let detail = workflowDetail {
+            let nodeCount = detail.nodes.count
+            let edgeCount = detail.edges.count
+            let needsReload = coordinator.currentWorkflowId != detail.id
+                || coordinator.lastNodeCount != nodeCount
+                || coordinator.lastEdgeCount != edgeCount
+
+            if needsReload {
+                if coordinator.canvasReady {
+                    coordinator.injectWorkflow(detail)
+                    coordinator.lastNodeCount = nodeCount
+                    coordinator.lastEdgeCount = edgeCount
+                } else {
+                    coordinator.pendingDetail = detail
+                }
             }
         }
 
@@ -94,6 +103,8 @@ struct WorkflowCanvasWebView: NSViewRepresentable {
         var canvasReady = false
         var currentWorkflowId: String?
         var pendingDetail: WorkflowDetail?
+        var lastNodeCount = 0
+        var lastEdgeCount = 0
 
         let onNodeSelected: (String) -> Void
         let onNodesMoved: ([(id: String, x: Double, y: Double)]) -> Void

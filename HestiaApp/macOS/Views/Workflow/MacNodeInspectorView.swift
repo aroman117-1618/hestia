@@ -142,8 +142,20 @@ struct MacNodeInspectorView: View {
                     )
             }
             fieldGroup("Model") {
-                TextField("e.g. qwen3.5:9b", text: $model)
-                    .textFieldStyle(.roundedBorder)
+                Picker("", selection: $model) {
+                    Text("Default (auto-route)").tag("")
+                    Section("Local Models") {
+                        Text("qwen3.5:9b (Primary)").tag("qwen3.5:9b")
+                        Text("deepseek-r1:14b (Complex)").tag("deepseek-r1:14b")
+                        Text("qwen3:8b (Coding)").tag("qwen3:8b")
+                    }
+                    Section("Cloud") {
+                        Text("Anthropic (Claude)").tag("cloud:anthropic")
+                        Text("OpenAI (GPT)").tag("cloud:openai")
+                        Text("Google (Gemini)").tag("cloud:google")
+                    }
+                }
+                .labelsHidden()
             }
             if !viewModel.toolCategories.isEmpty {
                 fieldGroup("Resources") {
