@@ -339,9 +339,9 @@ class BotRunner:
                         total += balance.total * ticker.get("price", 0.0)
                     except Exception:
                         pass  # Skip currencies without a USD pair
-            return total if total > 0 else self._bot.capital_allocated
+            return total if total > 0 else self.bot.capital_allocated
         except Exception:
-            return self._bot.capital_allocated
+            return self.bot.capital_allocated
 
     async def _record_trade(self, result: Dict[str, Any], signal: Signal) -> None:
         """Record a filled trade via the trading manager."""
