@@ -252,6 +252,35 @@ async def execute_if_else(
     return {"branch": "true" if result else "false", "evaluated": True}
 
 
+async def execute_switch(
+    config: Dict[str, Any],
+    input_data: Dict[str, Any],
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """
+    Execute a Switch node — N-ary condition branching.
+
+    Config keys:
+        field (str): dot-path to evaluate in input_data
+        cases (list): [{"value": ..., "label": "case_X"}, ...]
+        default_label (str): label for no-match fallback
+
+    Returns:
+        {"branch": "case_X"} — the label of the matched case
+    """
+    field_path = config.get("field", "")
+    cases = config.get("cases", [])
+    default_label = config.get("default_label", "default")
+
+    actual = _resolve_path(input_data, field_path)
+
+    for case in cases:
+        if actual == case.get("value"):
+            return {"branch": case["label"], "matched_value": actual}
+
+    return {"branch": default_label, "matched_value": actual}
+
+
 async def execute_trigger_noop(
     config: Dict[str, Any],
     input_data: Dict[str, Any],
@@ -269,6 +298,7 @@ NODE_EXECUTORS: Dict[NodeType, NodeExecutorFn] = {
     NodeType.NOTIFY: execute_notify,
     NodeType.LOG: execute_log,
     NodeType.IF_ELSE: execute_if_else,
+    NodeType.SWITCH: execute_switch,
     NodeType.SCHEDULE: execute_trigger_noop,
     NodeType.MANUAL: execute_trigger_noop,
 }

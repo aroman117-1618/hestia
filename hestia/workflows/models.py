@@ -60,6 +60,7 @@ class NodeType(str, Enum):
     LOG = "log"
     # Condition nodes
     IF_ELSE = "if_else"
+    SWITCH = "switch"
     # Trigger nodes
     SCHEDULE = "schedule"
     MANUAL = "manual"

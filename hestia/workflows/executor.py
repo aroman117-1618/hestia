@@ -241,8 +241,8 @@ class DAGExecutor:
                     timeout=timeout,
                 )
 
-            # Handle if_else branching — mark dead-path nodes as skipped
-            if node.node_type == NodeType.IF_ELSE and isinstance(output, dict):
+            # Handle if_else/switch branching — mark dead-path nodes as skipped
+            if node.node_type in (NodeType.IF_ELSE, NodeType.SWITCH) and isinstance(output, dict):
                 branch = output.get("branch", "false")
                 self._mark_dead_paths(
                     node_id, branch, edge_labels, results, skipped_nodes, sorter
@@ -322,15 +322,15 @@ class DAGExecutor:
         skipped_nodes: Set[str],
         sorter: TopologicalSorter,
     ) -> None:
-        """Mark nodes on the dead path of an if_else as skipped.
+        """Mark nodes on dead paths of a condition/switch as skipped.
 
-        If branch is "true", skip nodes on "false" edges and vice versa.
+        For if_else: branch is "true"/"false" — skip the opposite.
+        For switch: branch is "case_X" — skip all other case edges.
         """
         targets = edge_labels.get(condition_node_id, {})
-        dead_label = "false" if branch == "true" else "true"
 
         for target_id, label in targets.items():
-            if label == dead_label:
+            if label and label != branch:
                 self._collect_downstream(target_id, edge_labels, skipped_nodes)
 
     def _collect_downstream(
