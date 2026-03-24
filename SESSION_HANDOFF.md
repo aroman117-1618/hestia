@@ -1,62 +1,64 @@
-# Session Handoff — 2026-03-24
+# Session Handoff — 2026-03-24 (Session B — Notion Integration)
 
 ## Mission
-Diagnose why Hestia's trading system had never executed a trade despite being "live since March 19", fix all blockers, and activate live Coinbase trading on the Mac Mini.
+Build the Notion integration for Hestia — sync git docs to Notion databases, read the whiteboard at session start, and push docs at session close. Bypass the broken Notion MCP and use direct REST API instead.
 
 ## Completed
-- Full system audit of trading module — found 7+ issues (discovery: `docs/discoveries/trading-system-audit-2026-03-24.md`)
-- **Bug fix:** `self._bot` → `self.bot` in `bot_runner.py:342,344` — AttributeError crash on portfolio value fallback (`10b203b`)
-- **Bug fix:** Inject `bot.pair` into strategy config in `bot_runner.py:100-104` — all bots were defaulting to BTC-USD signals (`9e435d9`)
-- **Bug fix:** Switch executor from `limit+post_only` to `market` orders in `executor.py:138-144` — limit orders were silently rejected by Coinbase (`2e382af`)
-- **Feature:** Added SOL-USD and DOGE-USD to `product_info.py` (`90a98d4`)
-- **Feature:** Created `scripts/seed-trading-bots.py` — 4-bot MR portfolio with RSI-3 params (`90a98d4`)
-- **Fix:** Deploy script now restarts trading-bots launchd service (`7561184`)
-- **Deployed to Mac Mini** — bot_service.py running, 4 bots active, first signals generated
-- **Cleaned stale data** — removed 3 old stopped bots and 6 paper-mode trade records from Mac Mini DB
-- **Created issue #31** — position state persistence for bot service restarts
-- Implementation plan: `docs/superpowers/plans/2026-03-24-trading-go-live.md`
+
+### Notion Sync Script (`scripts/sync-notion.py`)
+- **Built from scratch** — standalone Python script using httpx + direct Notion REST API (`e695770`)
+- Subcommands: `read-whiteboard`, `push [path]`, `push --incremental`, `push-adrs`, `status`
+- Content hash tracking via `data/notion-sync-state.json` (gitignored)
+- Rate limiting at 3 req/sec with exponential backoff on 429
+- Markdown → Notion blocks converter (headings, lists, code, tables, links, inline formatting)
+- Unicode-safe chunking (1900 chars to handle box-drawing characters)
+- 208/210 docs synced (2 monolithic files skipped — decomposed instead)
+
+### Database Population
+- **Planning Logs** — new unified database replacing Documentation Hub + Discoveries + Retrospectives. 191 entries migrated with full content including tables (`c61292c`)
+- **ADR Registry** — 42 ADRs parsed from `hestia-decision-log.md` with Number, Status, Date, Domain tags
+- **Sprints** — 28 sprints with scope pages, custom statuses (Planning/Next Up/In Progress/Done/Blocked)
+- **API Reference** — 21 module sub-pages populated from `api-contract.md` + route files. Trading (20 endpoints), Notifications (6), Workflows (17), Verification (pipeline docs)
+- **Hestia synopsis** — root page overview written
+
+### Skill Wiring
+- `/pickup` reads Notion whiteboard at session start (step 3) (`d883c30`)
+- `/handoff` runs incremental doc push + ADR push at session close (`d883c30`, `c61292c`)
+
+### Cleanup
+- Removed broken Notion MCP config from `.mcp.json`
+- Notion MCP server added to `~/.claude.json` (local scope) but requires OAuth — unused
 
 ## In Progress
-- None — all tasks completed and deployed
+- Nothing — all Notion integration work complete for Phase 0-2
 
 ## Decisions Made
-- **Market orders over limit+post_only**: Post-only limit at market price is rejected by Coinbase. Market orders guarantee fills. 0.20% fee difference ($0.13 on $62.50 positions) is negligible vs. execution reliability.
-- **RSI-3 per-asset configs**: BTC 15/85, ETH 20/80, SOL 25/70, DOGE 25/75 — from S27.6 backtest results
-- **$62.50 per bot** (4 x $62.50 = $250 total capital across 4 assets)
+- **Direct REST API over MCP** — Notion's hosted MCP requires OAuth, not bearer tokens. Internal integration token works with REST API. Aligns with "CLI > SDK > MCP" principle.
+- **Planning Logs merge** — Combined 3 databases (Doc Hub + Discoveries + Retrospectives) into single unified database with Type tags. Simplifies filtering and sync routing.
+- **Sprint status taxonomy** — Planning (brainstorming), Next Up (has plan or ready for plan), In Progress, Done, Blocked
 
 ## Test Status
-- 2829 tests collected, 89 test files
-- 1 pre-existing failure: `test_inference.py::test_simple_completion` (Ollama integration, not related)
-- All 362 trading tests pass (confirmed via targeted run)
-- Full suite hangs after completion due to ChromaDB background threads (known issue)
+- 2979 passing (2844 backend + 135 CLI), 0 failing
+- 92 test files
 
 ## Uncommitted Changes
-- `CLAUDE.md` — count fixes (89 test files, 30 route modules), trading status update
-- `SPRINT.md` — updated to reflect live trading status
-- `SESSION_HANDOFF.md` — this file
-- `docs/discoveries/trading-system-audit-2026-03-24.md` — new discovery doc
-- `docs/superpowers/plans/2026-03-24-trading-go-live.md` — new plan doc
-- `.claude/skills/handoff/SKILL.md`, `.claude/skills/pickup/SKILL.md`, `.mcp.json` — modified by another session
+- `CLAUDE.md` — test count update (2829 → 2979). Needs committing.
+- Untracked docs from parallel sessions (workflow step builder, memory synthesis engine, consumer product strategy) — not this session's work.
 
 ## Known Issues / Landmines
-- **Position state not persisted (issue #31)**: `MeanReversionStrategy._last_entry` lives in memory. If bot_service restarts (deploy, reboot), open position tracking is lost. Low risk at $62.50/bot but needs fixing.
-- **Coinbase API error**: `"Cannot pass multiple statuses with OPEN"` in reconciliation `get_open_orders` call. Non-blocking — bots run fine despite it. Root cause: Coinbase SDK behavior change.
-- **Mac Mini runs Python 3.9** (not 3.12) — urllib3 SSL warning in error log. Works but worth upgrading.
-- **API server readiness check failed on deploy** — took >15s to respond. Likely just slow startup after service reload. Server is running (bots connected successfully).
-- **"Open Positions: 2" in UI** shows dust holdings (ETH $0.04, FET $0.00) from pre-Hestia Coinbase activity, not bot positions.
+- **NOTION_TOKEN must be in shell env** — it's NOT in Claude Code settings. If it's missing, whiteboard read and doc push silently fail. The token starts with `ntn_` and is 50 chars.
+- **Notion MCP in ~/.claude.json** — registered but shows "Needs authentication" (OAuth required). It's harmless but won't work. Don't try to fix it — the REST API approach works.
+- **5 missing Trading endpoints** — The regex parser captured 20/25 trading endpoints. Missing: bots list, bot update, bot delete, watchlist add, and one more. These use multiline decorators that the parser doesn't handle.
+- **api-contract.md is stale** — doesn't include Trading (25 endpoints), Notifications (6), or Workflows (16+). The Notion API Reference was populated from route files directly for these modules.
+- **Old databases still exist in Notion** — Documentation Hub, Discoveries, Retrospectives are still present (can't delete via API). Planning Logs is the canonical database now. Consider archiving the old ones manually in Notion.
 
 ## Process Learnings
-- **First-pass success**: 7/8 tasks completed on first try (88%). The deploy task needed iterating (readiness check timeout, discovering bots were already seeded from a previous session).
-- **Top blocker**: The trading system was never operational because the `bot_service.py` process was never installed as a launchd service on the Mac Mini. This was a pure deployment gap — the code was correct, the architecture was sound.
-- **Agent orchestration**: Good parallel subagent dispatch for Tasks 3-6 saved significant time. The hestia-explorer agent provided excellent architecture analysis. The plan reviewer caught 2 real blockers (stopped bot would cause seed skip; test files didn't exist).
-- **Proposal (CLAUDE.MD)**: Add note about bot_service.py being a separate process from the API server — this was the root cause and isn't obvious from CLAUDE.md.
-- **Proposal (HOOK)**: Add a post-deploy health check that verifies trading-bots service is running and bots are generating signals.
+- **First-pass success**: 7/9 tasks (78%). Rework caused by Notion API quirks (Unicode counting, table block children).
+- **Top blocker**: Notion MCP auth — burned ~15 minutes before pivoting to direct API. Should have started with REST API given the "CLI > SDK > MCP" principle.
+- **Proposal**: Add `NOTION_TOKEN` presence check to `/pickup` skill — warn if missing rather than silent failure.
 
 ## Next Step
-- Monitor trading bots for first 24h — check for actual trade executions:
-  ```bash
-  ssh andrewroman117@hestia-3.local 'sqlite3 ~/hestia/data/trading.db "SELECT * FROM trades ORDER BY timestamp DESC LIMIT 5;"'
-  ssh andrewroman117@hestia-3.local 'grep "Signal:" ~/hestia/logs/hestia.log | tail -20'
-  ```
-- If any bot enters ERROR state, check logs: `ssh andrewroman117@hestia-3.local 'grep "ERROR\|crashed" ~/hestia/logs/hestia.log | tail -10'`
-- Next sprint work: fix position state persistence (issue #31), then Sprint 28 (regime detection) after 30+ fills
+1. **Update `api-contract.md`** to include Trading, Notifications, and Workflows endpoints (currently only in Notion, not in git)
+2. **Capture remaining 5 Trading endpoints** in the API Reference
+3. **Archive old Notion databases** (Doc Hub, Discoveries, Retrospectives) — manual action in Notion UI
+4. Resume Workflow Orchestrator or Trading work per Andrew's direction
