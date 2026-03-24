@@ -17,11 +17,12 @@ Start a new session by loading context from the last session and validating the 
 
 1. Read `SESSION_HANDOFF.md` — this has what was done last, what's in progress, and the exact next step
 2. Read `CLAUDE.md` — check the Session Continuity and Current Status sections
-3. Run `git log --oneline -5` to see what's been committed since the handoff
-4. Run `git status --short` to check for uncommitted work
-5. Run `lsof -i :8443 | grep LISTEN || echo 'No server running'` to check server state
-6. Run `source .venv/bin/activate && python -m pytest --tb=short -q --timeout=30 2>&1 | tail -10` to verify test baseline
-7. **Conditional Xcode check** — only if Swift files changed since last session:
+3. **Read Notion whiteboard** — run `source .venv/bin/activate && python scripts/sync-notion.py read-whiteboard 2>&1` to check for notes Andrew left between sessions. Summarize any new content in the pickup summary.
+4. Run `git log --oneline -5` to see what's been committed since the handoff
+5. Run `git status --short` to check for uncommitted work
+6. Run `lsof -i :8443 | grep LISTEN || echo 'No server running'` to check server state
+7. Run `source .venv/bin/activate && python -m pytest --tb=short -q --timeout=30 2>&1 | tail -10` to verify test baseline
+8. **Conditional Xcode check** — only if Swift files changed since last session:
    ```bash
    if git diff --name-only HEAD~5 2>/dev/null | grep -q '\.swift$'; then
      xcodebuild -scheme HestiaWorkspace -destination 'platform=macOS' build 2>&1 | tail -5
@@ -37,6 +38,7 @@ Present a summary in this format:
 
 **Last session** ([date]): [1-line summary of what was done]
 **In progress**: [anything unfinished]
+**Whiteboard notes**: [summary of new Notion whiteboard content, or "No new notes"]
 **Server**: Running / Not running
 **Tests**: X passing, Y failing
 **macOS build**: Clean / Skipped (no Swift changes) / Failing ([error])
