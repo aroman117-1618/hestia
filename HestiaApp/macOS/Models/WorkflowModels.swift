@@ -226,6 +226,12 @@ struct NodeUpdateRequest: Codable, Sendable {
 
 // MARK: - Lifecycle Responses
 
+/// For create/update endpoints that return {"workflow": {...}} without message
+struct WorkflowResponse: Codable, Sendable {
+    let workflow: WorkflowSummary
+}
+
+/// For activate/deactivate endpoints that return {"workflow": {...}, "message": "..."}
 struct WorkflowLifecycleResponse: Codable, Sendable {
     let workflow: WorkflowSummary
     let message: String

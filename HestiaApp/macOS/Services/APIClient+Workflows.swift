@@ -18,12 +18,12 @@ extension APIClient {
     }
 
     func createWorkflow(_ request: WorkflowCreateRequest) async throws -> WorkflowSummary {
-        let response: WorkflowLifecycleResponse = try await post("/workflows", body: request)
+        let response: WorkflowResponse = try await post("/workflows", body: request)
         return response.workflow
     }
 
     func updateWorkflow(_ workflowId: String, _ request: WorkflowUpdateRequest) async throws -> WorkflowSummary {
-        let response: WorkflowLifecycleResponse = try await patch("/workflows/\(workflowId)", body: request)
+        let response: WorkflowResponse = try await patch("/workflows/\(workflowId)", body: request)
         return response.workflow
     }
 
