@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ReactFlow,
   Controls,
@@ -7,17 +7,23 @@ import {
   useNodesState,
   useEdgesState,
   addEdge,
+  BaseEdge,
+  EdgeLabelRenderer,
+  getSmoothStepPath,
   type Connection,
   type Node,
   type NodeChange,
   type EdgeChange,
   type Edge,
+  type EdgeProps,
   BackgroundVariant,
   type DefaultEdgeOptions,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { bridge } from './bridge'
 import { darkTheme } from './theme'
+import { nodeTypes } from './nodes'
+import { AddStepMenu } from './components/AddStepMenu'
 
 type NodeData = Record<string, unknown>
 type CanvasNode = Node<NodeData>
@@ -26,53 +32,54 @@ type CanvasEdge = Edge
 // CSS overrides for dark theme
 const globalStyles = `
   .react-flow__node {
-    background: #1a1408;
-    border: 1px solid rgba(254, 154, 0, 0.2);
-    border-radius: 8px;
-    color: #E4DFD7;
-    padding: 10px 14px;
+    background: transparent;
+    border: none;
+    padding: 0;
     font-size: 13px;
     font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-    min-width: 140px;
-  }
-  .react-flow__node.selected {
-    border-color: #E0A050;
-    box-shadow: 0 0 0 1px #E0A050;
   }
   .react-flow__node.status-running {
-    border-color: #E0A050;
-    animation: pulse 1.5s infinite;
+    animation: pulse-glow 1.5s infinite;
   }
-  .react-flow__node.status-success {
-    border-color: #00D492;
+  .react-flow__node.status-success > div {
+    border-color: #00D492 !important;
   }
-  .react-flow__node.status-failed {
-    border-color: #FF6467;
+  .react-flow__node.status-failed > div {
+    border-color: #FF6467 !important;
   }
   .react-flow__node.status-skipped {
     opacity: 0.4;
   }
-  @keyframes pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(224, 160, 80, 0.4); }
-    50% { box-shadow: 0 0 0 4px rgba(224, 160, 80, 0); }
+  @keyframes pulse-glow {
+    0%, 100% { filter: drop-shadow(0 0 0px rgba(224, 160, 80, 0)); }
+    50% { filter: drop-shadow(0 0 6px rgba(224, 160, 80, 0.5)); }
   }
   .react-flow__edge-path { stroke: rgba(254, 154, 0, 0.3); }
   .react-flow__edge.selected .react-flow__edge-path { stroke: #E0A050; }
   .react-flow__controls { background: #1a1408; border: 1px solid rgba(254, 154, 0, 0.15); border-radius: 8px; }
   .react-flow__controls-button { background: #1a1408; border-bottom: 1px solid rgba(254, 154, 0, 0.1); fill: #E4DFD7; }
   .react-flow__controls-button:hover { background: rgba(238, 203, 160, 0.15); }
-  .react-flow__handle { background: #E0A050; width: 8px; height: 8px; }
+  .react-flow__handle { width: 8px; height: 8px; }
 `
 
 const defaultEdgeOptions: DefaultEdgeOptions = {
-  type: 'smoothstep',
+  type: 'default',
   animated: false,
   style: { strokeWidth: 1.5 },
+}
+
+interface AddMenuState {
+  x: number
+  y: number
+  canvasX: number
+  canvasY: number
+  afterNodeId?: string
 }
 
 export default function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<CanvasEdge>([])
+  const [addMenu, setAddMenu] = useState<AddMenuState | null>(null)
 
   // Inject global CSS
   useEffect(() => {
@@ -89,7 +96,12 @@ export default function App() {
         id: n.id,
         type: n.type,
         position: n.position,
-        data: { ...n.data, executionStatus: 'pending' } as NodeData,
+        data: {
+          label: n.data.label,
+          nodeType: n.data.nodeType ?? n.type,
+          config: n.data.config ?? {},
+          executionStatus: 'pending',
+        } as NodeData,
       })))
       setEdges(data.edges.map(e => ({
         id: e.id,
@@ -157,6 +169,83 @@ export default function App() {
     deleted.forEach((n) => bridge.sendNodeDeleted(n.id))
   }, [])
 
+  const onPaneContextMenu = useCallback((e: React.MouseEvent | MouseEvent) => {
+    e.preventDefault()
+    const clientX = 'clientX' in e ? e.clientX : 0
+    const clientY = 'clientY' in e ? e.clientY : 0
+    setAddMenu({
+      x: clientX,
+      y: clientY,
+      canvasX: clientX,
+      canvasY: clientY,
+      afterNodeId: undefined,
+    })
+  }, [])
+
+  const handleAddStepSelect = useCallback((stepType: string) => {
+    if (!addMenu) return
+    bridge.sendAddStep({
+      title: stepType.charAt(0).toUpperCase() + stepType.slice(1),
+      stepType,
+      positionX: addMenu.canvasX,
+      positionY: addMenu.canvasY,
+      afterNodeId: addMenu.afterNodeId,
+    })
+    setAddMenu(null)
+  }, [addMenu])
+
+  // AddButtonEdge defined inside App to capture setAddMenu via closure
+  function AddButtonEdge(props: EdgeProps) {
+    const [edgePath, labelX, labelY] = getSmoothStepPath({
+      sourceX: props.sourceX,
+      sourceY: props.sourceY,
+      targetX: props.targetX,
+      targetY: props.targetY,
+    })
+    return (
+      <>
+        <BaseEdge path={edgePath} style={props.style} markerEnd={props.markerEnd} />
+        <EdgeLabelRenderer>
+          <button
+            style={{
+              position: 'absolute',
+              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+              width: 20,
+              height: 20,
+              borderRadius: '50%',
+              background: '#333',
+              border: '1px solid #555',
+              color: '#aaa',
+              fontSize: 14,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              pointerEvents: 'all',
+              lineHeight: 1,
+              padding: 0,
+            }}
+            className="nodrag nopan"
+            onClick={(e) => {
+              e.stopPropagation()
+              setAddMenu({
+                x: e.clientX,
+                y: e.clientY,
+                canvasX: labelX,
+                canvasY: labelY,
+                afterNodeId: props.source,
+              })
+            }}
+          >
+            +
+          </button>
+        </EdgeLabelRenderer>
+      </>
+    )
+  }
+
+  const edgeTypes = useMemo(() => ({ default: AddButtonEdge }), [])
+
   // Apply execution status to className for CSS targeting
   const styledNodes = useMemo(
     () => nodes.map((n) => ({
@@ -176,6 +265,9 @@ export default function App() {
         onConnect={onConnect}
         onNodeClick={onNodeClick}
         onNodesDelete={onNodesDelete}
+        onPaneContextMenu={onPaneContextMenu}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
         fitView
         proOptions={{ hideAttribution: true }}
@@ -190,6 +282,14 @@ export default function App() {
         />
         <Background variant={BackgroundVariant.Dots} color={darkTheme.dotColor} gap={20} />
       </ReactFlow>
+      {addMenu && (
+        <AddStepMenu
+          x={addMenu.x}
+          y={addMenu.y}
+          onSelect={handleAddStepSelect}
+          onClose={() => setAddMenu(null)}
+        />
+      )}
     </div>
   )
 }

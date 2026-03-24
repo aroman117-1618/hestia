@@ -87,6 +87,18 @@ export const bridge = {
       JSON.stringify({ type: 'edgeDeleted', payload: { edgeId } })
     )
   },
+
+  sendAddStep(payload: {
+    title: string
+    stepType: string
+    positionX: number
+    positionY: number
+    afterNodeId?: string
+  }) {
+    window.webkit?.messageHandlers?.canvasAction?.postMessage(
+      JSON.stringify({ type: 'addStep', payload })
+    )
+  },
 }
 
 // Global functions called from Swift via evaluateJavaScript
