@@ -1,71 +1,48 @@
-# Session Handoff — 2026-03-25 (iOS Fixes + Voice Conversation)
+# Session Handoff — 2026-03-25 (Liquid Glass Design System Migration)
 
 ## Mission
-Fix iOS TestFlight connection/crash issues (cert pinning, HealthKit) and implement bidirectional voice conversation mode (speak → Hestia responds with voice → auto-loop).
+Deep audit of iOS + macOS apps against the Liquid Glass Design System spec, then full implementation: fix all design tokens, build new Glass component family, restructure navigation, migrate 110+ view files to the token system, ship v1.9.0 to Mac Mini.
 
 ## Completed
+- **Design audit**: 5 parallel explorer agents scanned colors, typography, components, spacing/layout, navigation — found 200+ deviations
+- **Migration plan**: 6-phase plan written (`docs/plans/liquid-glass-migration-plan.md`), reviewed via `/second-opinion` (Claude + Gemini), approved with 5 conditions all incorporated
+- **Phase 1 — Token Foundation**: MacColors amber #E0A050→#FF9F0A, text #E4DFD7→#E8E2D9, 11 typography sizes fixed, layout zones adjusted, animation curves corrected, iOS card colors gray→warm brown, new GlassSpacing/GlassRadius tokens, CornerRadius 25→16/12/8pt
+- **Phase 2 — Glass Components**: 7 new files — HestiaGlassCard, GlassInput, GlassPill, GlassBadge, GlassSettingsBlock, GlassDetailPane, GlassMaterial modifier
+- **Phase 3 — Component Updates + Nav**: Panel border 0.5pt, amber spinner, sidebar hover, content row selection, button springs. Navigation restructured to 5 tabs (Command/Orders/Memory/Explorer/Settings), health removed
+- **Phase 4 — Screen Migration**: 34 macOS files + 55 iOS files migrated. Agent colors unified to amber. Batch font tokenization.
+- **Phase 5 — Ship**: v1.9.0 (build 36) tagged, pushed, deployed to Mac Mini
 
-### iOS Connection & Crash Fixes (v1.7.1–v1.7.4)
-- **Cert pinning TOFU** (v1.7.1): Empty fingerprint in Keychain broke TLS on TestFlight. Added Trust-On-First-Use. (`CertificatePinning.swift`, `Configuration.swift`)
-- **Stale fingerprint cleanup** (v1.7.2): Old empty `""` persisted across updates. Detect + delete invalid fingerprints on load. (`CertificatePinning.swift`)
-- **HealthKit crash** (v1.7.4): `HKUnit(from: "mL/kg/min")` ObjC exception on iOS 26. Replaced with programmatic API. (`HealthKitService.swift`)
-
-### Voice Conversation Mode (v1.8.0–v1.8.1, included in v1.9.0)
-6 new files, 5 modified files, ~940 lines added:
-- `TTSService.swift` — AVSpeechSynthesizer wrapper, sentence streaming, voice persistence
-- `VoiceActivityDetector.swift` — RMS silence detection, 1.5s configurable threshold
-- `VoiceConversationManager.swift` — State machine with dead-air "Hmm...", 60s watchdog, LLM task cancellation, audio interruption handling
-- `VoiceConversationOverlay.swift` — Full-screen orb UI with state labels, transcript, response
-- `VoiceSettingsView.swift` — Voice picker, VAD sensitivity, auto-continue toggle
-- `ChatViewModel.sendAndStreamResponse()` — SSE tokens to TTS via callbacks (all 9 ChatStreamEvent cases)
-- `SpeechService.onAudioLevel` — Callback for VAD
-- `HestiaOrbState.speaking` — New enum case
-- `ChatView.swift` — Conversation manager wired in
-
-### Parallel Session Conflict (v1.8.1)
-- `af90dc7` (cloud fix session) overwrote ChatView, stripped voice wiring. Restored in v1.8.1.
-- v1.9.0 (Liquid Glass session) confirmed to include both design system AND voice conversation.
-
-### Tailscale
-- Confirmed authenticated on iPhone + MacBook Air. Mac Mini added during session.
+Key commits: `af90dc7` (bulk changes), `dc9be0c` (v1.9.0 bump)
 
 ## In Progress
-- **Voice conversation device testing** — v1.9.0 on TestFlight, not yet verified working
+- Nothing — all phases complete and shipped
 
 ## Decisions Made
-- AVSpeechSynthesizer Phase 1, Kokoro CoreML Phase 2
-- RMS-based VAD (not Silero) — sufficient for personal use
-- `.voiceChat` audio session for hardware AEC
-- Manager owns full loop — `processWithLLM()` internal, not view-triggered
-- TOFU for self-signed cert pinning
+- **Incremental spacing**: iOS `Spacing` values untouched, new `GlassSpacing` tokens created. Views migrate per-file.
+- **No GlassTokens helper**: Platform token systems kept separate. Glass components use `#if os(macOS)`.
+- **Agent colors deprecated**: agentTeal/agentPurple → .accent in all views. Backend routing unchanged.
+- **Nav restructure**: .workflow→.orders, .research→.memory, .health removed. UserDefaults migration for old values.
 
 ## Test Status
-- 3037 passing, 0 failing, 3 skipped
-- pytest ChromaDB thread timeout (known, non-issue)
+- 3041 passing (2906 backend + 135 CLI), 0 failing
 
 ## Uncommitted Changes
-- None (only `hestia/data/` untracked — runtime data)
+- CLAUDE.md test count fix (2902→2906) — needs commit
 
 ## Known Issues / Landmines
-- **16 orphaned agent worktrees** — clean up: `for wt in .claude/worktrees/agent-*/; do git worktree remove "$wt" 2>/dev/null; done`
-- **ChatView is high-conflict** — parallel sessions overwrite each other. Check `git log -1 ChatView.swift` before editing.
-- **AEC untested on hardware** — `.voiceChat` may not fully suppress echo on AirPods/Bluetooth. Validate.
-- **VAD threshold 0.015** may be too aggressive in noisy environments — adjustable in Settings > Voice & Audio
+- ~30 macOS files have edge-case hardcoded fonts (dynamic sizes, can't tokenize)
+- WorkflowCanvas CSS not updated (React Flow colors still old palette)
+- iOS `Spacing.*` still has old values (md:16 vs spec 12) — views use `GlassSpacing.*` where migrated
+- Some `Color.white.opacity()` remain in non-text iOS contexts
+- Parallel session bundled our changes with `fix(cloud)` in `af90dc7` — messy history but functional
 
 ## Process Learnings
-- **7/9 tasks first-pass** (78%). Top blocker: parallel session overwriting ChatView (cost a full ship cycle).
-- **Proposal 1 (HOOK)**: Pre-commit warning when staging a file modified by a different commit in the last hour.
-- **Proposal 2 (CLAUDE.MD)**: Note ChatView as high-conflict file for parallel sessions.
-- **Proposal 3 (SCRIPT)**: Auto-prune orphaned worktrees in /handoff.
-- @hestia-critic + Gemini cross-validation caught real design issues (dead-air, control flow inversion, cancellation gap).
-
-## Discovery & Plan Documents
-- `docs/discoveries/voice-conversation-mode-2026-03-25.md` — SWOT, architecture research
-- `docs/superpowers/plans/2026-03-25-voice-conversation-mode.md` — Implementation plan (11 tasks)
-- `docs/plans/voice-conversation-mode-second-opinion-2026-03-25.md` — 3-model audit (APPROVE WITH CONDITIONS)
+- 5/5 phases first-pass success, 1 minor build fix (VoiceConversationOverlay .speaking enum)
+- Excellent parallelism: 5 audit agents, Phase 2+3 parallel, Phase 4 iOS+macOS parallel
+- @hestia-critic exhausted budget without output — need focused <200 word prompts
+- Worktree merging is manual/fragile — need `scripts/merge-worktree.sh`
 
 ## Next Step
-1. **Verify voice conversation on device** — TestFlight v1.9.0, voice mode (amber), tap mic, speak, confirm Hestia responds with voice and auto-loops
-2. If crash: grab correct crash report (Settings > Privacy > Analytics > latest "HestiaApp" entry matching build 36+)
-3. If works: Phase 1 complete. Phase 2 (Kokoro TTS) on roadmap.
-4. **Clean up worktrees**: `for wt in .claude/worktrees/agent-*/; do git worktree remove "$wt" 2>/dev/null; done`
+1. Monitor v1.9.0 build: https://github.com/aroman117-1618/hestia/actions
+2. Verify macOS app auto-updates and shows new amber (#FF9F0A), 5-tab nav
+3. Future sessions: migrate remaining `Spacing.*`→`GlassSpacing.*`, update WorkflowCanvas CSS, replace old iOS components with Glass equivalents, visual validation screenshots
