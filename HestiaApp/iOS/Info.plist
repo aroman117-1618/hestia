@@ -32,6 +32,8 @@
 	<string>Hestia uses Face ID to secure your conversations and personal data.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Hestia reads your health data to provide personalized health coaching, daily briefings, and activity insights. Your data stays on your devices and server — it is never shared with third parties.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Hestia does not write health data. This key is required because the HealthKit framework is linked.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Hestia needs microphone access to record your voice journal entries.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
@@ -52,5 +54,12 @@
 		<key>UIColorName</key>
 		<string>LaunchScreenBackground</string>
 	</dict>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
 </dict>
 </plist>
