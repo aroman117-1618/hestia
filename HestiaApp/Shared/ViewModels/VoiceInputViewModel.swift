@@ -32,7 +32,7 @@ class VoiceInputViewModel: ObservableObject {
 
     // MARK: - Private State
 
-    private let speechService = SpeechService()
+    let speechService = SpeechService()
     private var apiClient: APIClient?
 
     // MARK: - Computed Properties
