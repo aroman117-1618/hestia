@@ -160,11 +160,17 @@ public final class Configuration: ObservableObject {
             setEnvironment(.tailscale)
         }
 
-        // Store certificate fingerprint in Keychain for pinning
-        let stored = CertificatePinningDelegate.storeFingerprint(certFingerprint)
-        #if DEBUG
-        print("[Configuration] QR config: host from \(serverURL), cert stored: \(stored)")
-        #endif
+        // Store certificate fingerprint in Keychain for pinning (skip empty — Apple Sign In path has no fingerprint)
+        if !certFingerprint.isEmpty {
+            let stored = CertificatePinningDelegate.storeFingerprint(certFingerprint)
+            #if DEBUG
+            print("[Configuration] QR config: host from \(serverURL), cert stored: \(stored)")
+            #endif
+        } else {
+            #if DEBUG
+            print("[Configuration] QR config: host from \(serverURL), no cert fingerprint provided (TOFU mode)")
+            #endif
+        }
     }
 }
 

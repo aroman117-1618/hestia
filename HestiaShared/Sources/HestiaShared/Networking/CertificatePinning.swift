@@ -86,8 +86,15 @@ public final class CertificatePinningDelegate: NSObject, URLSessionDelegate {
         #endif
 
         if pinnedFingerprints.isEmpty {
-            logger("No fingerprints configured, using system validation for \(host)")
-            completionHandler(.performDefaultHandling, nil)
+            // TOFU (Trust On First Use): no fingerprints configured, so accept the server cert
+            // and store its fingerprint for future connections. This enables the Apple Sign In
+            // flow where no QR-provided fingerprint is available.
+            if let leafCert = SecTrustGetCertificateAtIndex(serverTrust, 0) {
+                let fingerprint = calculateFingerprint(for: leafCert)
+                let stored = Self.storeFingerprint(fingerprint)
+                logger("TOFU: Accepted and stored server certificate for \(host) (stored: \(stored))")
+            }
+            completionHandler(.useCredential, URLCredential(trust: serverTrust))
             return
         }
 
