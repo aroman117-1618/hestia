@@ -86,7 +86,8 @@ struct ResearchView: View {
                         nodes: graphViewModel.nodes,
                         edges: graphViewModel.edges,
                         selectedNode: $graphViewModel.selectedNode,
-                        hoveredNode: $hoveredNode
+                        hoveredNode: $hoveredNode,
+                        centralityScales: graphViewModel.degreeCentralityScale
                     )
 
                     // Legend overlay (bottom-left) — dynamic based on active node types

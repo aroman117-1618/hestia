@@ -458,6 +458,31 @@ class MacNeuralNetViewModel: ObservableObject {
         Array(Set(nodes.map(\.nodeType))).sorted()
     }
 
+    /// Degree-centrality scale factors — maps node ID to a scale multiplier based on connection count.
+    ///
+    /// Formula: max(0.6, min(2.5, 1.0 + connectionCount / 10.0))
+    /// - 0 connections  → 0.6x (isolated nodes appear smaller)
+    /// - 5 connections  → 1.5x
+    /// - 10+ connections → 2.0–2.5x (hub nodes appear larger)
+    var degreeCentralityScale: [String: CGFloat] {
+        var connectionCounts: [String: Int] = [:]
+        for node in nodes {
+            if connectionCounts[node.id] == nil {
+                connectionCounts[node.id] = 0
+            }
+        }
+        for edge in edges {
+            connectionCounts[edge.fromId, default: 0] += 1
+            connectionCounts[edge.toId, default: 0] += 1
+        }
+        var result: [String: CGFloat] = [:]
+        for (nodeId, count) in connectionCounts {
+            let scale = max(0.6, min(2.5, 1.0 + Double(count) / 10.0))
+            result[nodeId] = CGFloat(scale)
+        }
+        return result
+    }
+
     // MARK: - Principles
 
     func loadPrinciples(status: String? = nil) async {

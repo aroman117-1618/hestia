@@ -16,6 +16,8 @@ struct MacSceneKitGraphView: NSViewRepresentable {
     let edges: [MacNeuralNetViewModel.GraphEdge]
     @Binding var selectedNode: MacNeuralNetViewModel.GraphNode?
     @Binding var hoveredNode: MacNeuralNetViewModel.GraphNode?
+    /// Degree-centrality scale factors per node ID (from MacNeuralNetViewModel.degreeCentralityScale).
+    var centralityScales: [String: CGFloat] = [:]
 
     func makeNSView(context: Context) -> HoverableSCNView {
         let sceneView = HoverableSCNView()
@@ -163,28 +165,57 @@ struct MacSceneKitGraphView: NSViewRepresentable {
     // MARK: - Node Geometry (shape per nodeType)
 
     private func createNodeGeometry(for graphNode: MacNeuralNetViewModel.GraphNode) -> SCNNode {
-        let r = CGFloat(graphNode.radius)
+        let baseRadius = CGFloat(graphNode.radius)
+        // Degree centrality: scale radius by centrality factor (default 1.0 if not found)
+        let centralityScale = centralityScales[graphNode.id] ?? 1.0
+        let r = baseRadius * centralityScale
 
         // All nodes are spheres — color and size differentiate type
         let sphere = SCNSphere(radius: r)
         sphere.segmentCount = 24
         let geometry: SCNGeometry = sphere
 
-        // Sprint 20A: Visual weight system
-        // Opacity maps to confidence (0.3–1.0) — low-confidence nodes fade
-        let confidenceAlpha = CGFloat(0.3 + graphNode.confidence * 0.7)
-        // Glow maps to recency — recent nodes glow brighter
+        // Recency-based color saturation: recent = full saturation, old = desaturated
+        let saturationMultiplier: CGFloat
+        if let lastActive = graphNode.lastActive {
+            let ageDays = -lastActive.timeIntervalSinceNow / 86400.0
+            saturationMultiplier = CGFloat(max(0.3, 1.0 - ageDays / 90.0))
+        } else {
+            saturationMultiplier = 0.7 // moderate saturation for nodes without date
+        }
+        var hue: CGFloat = 0
+        var rawSaturation: CGFloat = 0
+        var brightness: CGFloat = 0
+        var alpha: CGFloat = 0
+        graphNode.color.getHue(&hue, saturation: &rawSaturation, brightness: &brightness, alpha: &alpha)
+        let saturatedColor = NSColor(
+            hue: hue,
+            saturation: rawSaturation * saturationMultiplier,
+            brightness: brightness,
+            alpha: alpha
+        )
+
+        // Confidence opacity: fact/principle nodes fade with lower confidence
+        let confidenceOpacity: CGFloat
+        if graphNode.nodeType == "fact" || graphNode.nodeType == "principle" {
+            confidenceOpacity = CGFloat(max(0.4, graphNode.confidence))
+        } else {
+            // For other node types retain legacy behavior: opacity from 0.3 + confidence * 0.7
+            confidenceOpacity = CGFloat(0.3 + graphNode.confidence * 0.7)
+        }
+
+        // Recency glow: recent nodes glow brighter
         let recencyGlow: CGFloat
         if let lastActive = graphNode.lastActive {
             let ageDays = -lastActive.timeIntervalSinceNow / 86400.0
             recencyGlow = CGFloat(max(0.1, min(0.8, 0.8 - ageDays / 90.0 * 0.7)))
         } else {
-            recencyGlow = 0.3 // default for nodes without date
+            recencyGlow = 0.3
         }
 
         let material = SCNMaterial()
-        material.diffuse.contents = graphNode.color.withAlphaComponent(confidenceAlpha)
-        material.emission.contents = graphNode.color.withAlphaComponent(recencyGlow)
+        material.diffuse.contents = saturatedColor.withAlphaComponent(confidenceOpacity)
+        material.emission.contents = saturatedColor.withAlphaComponent(recencyGlow)
         material.lightingModel = .physicallyBased
         material.metalness.contents = 0.3
         material.roughness.contents = 0.6

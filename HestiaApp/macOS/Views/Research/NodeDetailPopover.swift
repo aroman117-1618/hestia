@@ -12,6 +12,9 @@ struct NodeDetailPopover: View {
     let onSelectNode: (MacNeuralNetViewModel.GraphNode) -> Void
     var onReviewMemory: ((String) -> Void)? = nil
 
+    @State private var crossLinks: [ResearchEntityReference] = []
+    @State private var isLoadingCrossLinks = false
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: MacSpacing.lg) {
@@ -21,20 +24,38 @@ struct NodeDetailPopover: View {
                 metadataSection
                 tagsSection
                 connectedSection
+                crossLinksSection
                 Spacer(minLength: MacSpacing.md)
                 actionButtons
             }
             .padding(MacSpacing.lg)
         }
-        .background(
-            Rectangle()
-                .fill(Color(red: 17/255, green: 11/255, blue: 3/255).opacity(0.95))
-                .overlay(Rectangle().fill(MacColors.amberAccent.opacity(0.04)))
-        )
+        .hestiaPanel(cornerRadius: 0)
         .overlay(alignment: .leading) {
             Rectangle()
                 .fill(MacColors.amberAccent.opacity(0.1))
                 .frame(width: 1)
+        }
+        .task(id: node.id) {
+            await loadCrossLinks()
+        }
+    }
+
+    // MARK: - Cross-Link Loading
+
+    private func loadCrossLinks() async {
+        // Only load for entity nodes — they are the ones registered in entity_references
+        guard node.nodeType == "entity" || node.nodeType == "topic" || node.nodeType == "fact" || node.nodeType == "principle" else {
+            crossLinks = []
+            return
+        }
+        isLoadingCrossLinks = true
+        defer { isLoadingCrossLinks = false }
+        do {
+            let response: ResearchEntityReferenceListResponse = try await APIClient.shared.get("/research/entities/\(node.id)/references?limit=50")
+            crossLinks = response.references
+        } catch {
+            crossLinks = []
         }
     }
 
@@ -282,6 +303,41 @@ struct NodeDetailPopover: View {
                     .foregroundStyle(MacColors.textFaint)
             }
             .padding(.vertical, MacSpacing.sm)
+        }
+    }
+
+    // MARK: - Cross-Links
+
+    @ViewBuilder
+    private var crossLinksSection: some View {
+        VStack(alignment: .leading, spacing: MacSpacing.sm) {
+            HStack {
+                Text("Cross-Links")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(MacColors.textFaint)
+                if isLoadingCrossLinks {
+                    ProgressView()
+                        .scaleEffect(0.5)
+                        .frame(width: 12, height: 12)
+                }
+            }
+
+            if crossLinks.isEmpty && !isLoadingCrossLinks {
+                Text("No cross-links")
+                    .font(.system(size: 11))
+                    .foregroundStyle(MacColors.textFaint)
+                    .padding(.vertical, MacSpacing.xs)
+            } else {
+                FlowLayout(spacing: MacSpacing.xs) {
+                    ForEach(crossLinks) { ref in
+                        HestiaCrossLinkBadge(
+                            module: ref.referenceType,
+                            itemId: ref.referenceId,
+                            context: ref.referenceLabel ?? ref.referenceId
+                        )
+                    }
+                }
+            }
         }
     }
 
