@@ -266,7 +266,19 @@ struct MacWorkflowDetailPane: View {
                 .foregroundStyle(MacColors.textPrimary)
 
             ForEach(detail.nodes) { node in
-                MacWorkflowNodeRow(node: node)
+                Button {
+                    viewModel.selectedNodeId = node.id
+                } label: {
+                    MacWorkflowNodeRow(node: node)
+                }
+                .buttonStyle(.plain)
+                .sheet(isPresented: Binding(
+                    get: { viewModel.selectedNodeId == node.id },
+                    set: { if !$0 { viewModel.selectedNodeId = nil } }
+                )) {
+                    MacNodeInspectorView(viewModel: viewModel, node: node)
+                        .frame(width: 420, height: 500)
+                }
             }
         }
     }
