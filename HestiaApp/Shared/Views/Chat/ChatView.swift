@@ -457,6 +457,7 @@ struct ChatView: View {
     private func startVoiceConversation() {
         showConversationOverlay = true
         Task {
+            conversationManager.loadSettings()
             await conversationManager.start()
         }
     }

@@ -63,6 +63,16 @@ final class VoiceConversationManager: ObservableObject {
 
     // MARK: - Public API
 
+    /// Load user preferences from UserDefaults.
+    func loadSettings() {
+        if let duration = UserDefaults.standard.object(forKey: "hestia_vad_silence_duration") as? Double {
+            vad.silenceDuration = duration
+        }
+        if let autoValue = UserDefaults.standard.object(forKey: "hestia_voice_auto_continue") as? Bool {
+            autoContinue = autoValue
+        }
+    }
+
     func start() async {
         guard state == .idle, speechService != nil else { return }
         configureAudioSession()
