@@ -60,6 +60,8 @@ targets:
       - package: HestiaShared
       - framework: HealthKit.framework
         embed: false
+      - framework: AuthenticationServices.framework
+        embed: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.andrewlonati.hestia
