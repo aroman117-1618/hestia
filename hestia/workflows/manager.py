@@ -220,7 +220,11 @@ class WorkflowManager:
 
         wf = await self.database.get_workflow(node.workflow_id)
         if wf and wf.status == WorkflowStatus.ACTIVE:
-            raise ValueError("Cannot modify an active workflow. Deactivate first.")
+            # Allow config and label edits on active workflows (e.g. changing
+            # inference_route or prompt text). Block structural changes only.
+            structural_keys = {"node_type", "position_x", "position_y"}
+            if structural_keys & kwargs.keys():
+                raise ValueError("Cannot modify structure of an active workflow. Deactivate first.")
 
         if "label" in kwargs:
             node.label = kwargs["label"]
