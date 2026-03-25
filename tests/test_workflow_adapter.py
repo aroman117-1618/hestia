@@ -139,6 +139,18 @@ class TestWorkflowHandlerAdapter:
         assert call_request.context_hints["source_type"] == "workflow"
 
     @pytest.mark.asyncio
+    async def test_allowed_tools_in_context_hints(self, adapter, mock_handler):
+        """allowed_tools should be passed through context_hints for handler filtering."""
+        config = WorkflowExecutionConfig(
+            allowed_tools=["create_note", "search_notes", "investigate_url"],
+        )
+        await adapter.execute("Do evening research", config=config)
+        call_request = mock_handler.handle.call_args[0][0]
+        assert call_request.context_hints["allowed_tools"] == [
+            "create_note", "search_notes", "investigate_url"
+        ]
+
+    @pytest.mark.asyncio
     async def test_handler_error_returns_error_response(self, adapter, mock_handler):
         mock_handler.handle.side_effect = Exception("Inference failed")
         result = await adapter.execute("prompt")

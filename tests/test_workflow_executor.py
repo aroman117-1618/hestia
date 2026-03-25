@@ -387,6 +387,91 @@ class TestDAGExecutorFailure:
         assert "Cycle" in (result.error_message or "")
 
 
+class TestDAGExecutorPromptError:
+    """Test run_prompt error detection — semantic failures should fail the run."""
+
+    @pytest.mark.asyncio
+    async def test_prompt_error_fails_run(self) -> None:
+        """A run_prompt node that returns an error code should fail the run."""
+        original = NODE_EXECUTORS.get(NodeType.RUN_PROMPT)
+
+        async def error_executor(config, input_data, **kwargs):
+            return {
+                "response": "Request timed out. Please try again.",
+                "tokens_in": 0,
+                "tokens_out": 0,
+                "duration_ms": 90000.0,
+                "error": "timeout",
+            }
+
+        NODE_EXECUTORS[NodeType.RUN_PROMPT] = error_executor
+        try:
+            nodes = [_node("p", NodeType.RUN_PROMPT, prompt="Do research")]
+            run = _run()
+            executor = DAGExecutor()
+            result = await executor.execute(nodes, [], run)
+            assert result.status == RunStatus.FAILED
+            assert "timeout" in (result.error_message or "").lower()
+        finally:
+            NODE_EXECUTORS[NodeType.RUN_PROMPT] = original
+
+    @pytest.mark.asyncio
+    async def test_prompt_success_still_succeeds(self) -> None:
+        """A run_prompt node with no error should still succeed."""
+        original = NODE_EXECUTORS.get(NodeType.RUN_PROMPT)
+
+        async def ok_executor(config, input_data, **kwargs):
+            return {
+                "response": "Here are the results...",
+                "tokens_in": 100,
+                "tokens_out": 200,
+                "duration_ms": 5000.0,
+                "error": None,
+            }
+
+        NODE_EXECUTORS[NodeType.RUN_PROMPT] = ok_executor
+        try:
+            nodes = [_node("p", NodeType.RUN_PROMPT, prompt="Do research")]
+            run = _run()
+            executor = DAGExecutor()
+            result = await executor.execute(nodes, [], run)
+            assert result.status == RunStatus.SUCCESS
+        finally:
+            NODE_EXECUTORS[NodeType.RUN_PROMPT] = original
+
+    @pytest.mark.asyncio
+    async def test_prompt_error_output_still_in_results(self) -> None:
+        """Even when a prompt node fails, its output should be available to downstream nodes."""
+        original = NODE_EXECUTORS.get(NodeType.RUN_PROMPT)
+
+        async def error_executor(config, input_data, **kwargs):
+            return {
+                "response": "Request timed out.",
+                "tokens_in": 0,
+                "tokens_out": 0,
+                "error": "timeout",
+            }
+
+        NODE_EXECUTORS[NodeType.RUN_PROMPT] = error_executor
+
+        executions_log: Dict[str, NodeExecution] = {}
+
+        async def on_complete(ne: NodeExecution, action: str) -> None:
+            if action == "update" and ne.node_id == "p":
+                executions_log[ne.node_id] = ne
+
+        try:
+            nodes = [_node("p", NodeType.RUN_PROMPT, prompt="research")]
+            run = _run()
+            executor = DAGExecutor()
+            await executor.execute(nodes, [], run, on_node_complete=on_complete)
+            ne = executions_log["p"]
+            assert ne.status == NodeExecutionStatus.FAILED
+            assert "timeout" in (ne.error_message or "").lower()
+        finally:
+            NODE_EXECUTORS[NodeType.RUN_PROMPT] = original
+
+
 class TestDAGExecutorSemaphore:
     """Test concurrency limiting via semaphore."""
 

@@ -233,7 +233,9 @@ class TestExecutionRoutes:
         )
         response = await client.post(f"/v1/workflows/{wf_id}/trigger")
         assert response.status_code == 200
-        assert response.json()["run"]["status"] == "success"
+        # Trigger returns immediately with status "running" — execution is background
+        assert response.json()["run"]["status"] == "running"
+        assert response.json()["message"] == "Run started"
 
     @pytest.mark.asyncio
     async def test_list_runs(self, client: AsyncClient) -> None:

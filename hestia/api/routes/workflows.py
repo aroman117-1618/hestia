@@ -433,13 +433,31 @@ async def trigger_workflow(
     workflow_id: str,
     _token: str = Depends(get_device_token),
 ) -> Dict[str, Any]:
-    """Manually trigger a workflow execution."""
+    """Manually trigger a workflow execution.
+
+    Creates the run record and returns immediately. Execution proceeds
+    in the background — the client can poll /runs or listen to SSE for updates.
+    """
     try:
         manager = await get_workflow_manager()
-        run = await manager.trigger(workflow_id, trigger_source="manual")
+        run = await manager.create_run(workflow_id, trigger_source="manual")
+
+        # Fire execution in background — don't block the HTTP response
+        async def _background_execute() -> None:
+            try:
+                await manager.execute_run(run)
+            except Exception as exc:
+                logger.error(
+                    "Background workflow execution failed",
+                    component=LogComponent.WORKFLOW,
+                    data={"run_id": run.id, "error": sanitize_for_log(exc)},
+                )
+
+        asyncio.create_task(_background_execute())
+
         return {
             "run": run.to_dict(),
-            "message": f"Run {run.status.value}",
+            "message": "Run started",
         }
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=400)

@@ -1064,6 +1064,15 @@ class RequestHandler:
             registry = get_tool_registry()
             tool_definitions = registry.get_definitions_as_list()
 
+            # Workflow requests may restrict tools via allowed_tools
+            _allowed = request.context_hints.get("allowed_tools") if request.context_hints else None
+            if _allowed:
+                _allowed_set = set(_allowed)
+                tool_definitions = [
+                    t for t in tool_definitions
+                    if t.get("function", {}).get("name") in _allowed_set
+                ]
+
             # Stream tokens from inference
             content_buffer = ""
             inference_response = None
@@ -1721,6 +1730,15 @@ class RequestHandler:
         # Get native tool definitions once (stable across retries)
         registry = get_tool_registry()
         tool_definitions = registry.get_definitions_as_list()
+
+        # Workflow requests may restrict tools via allowed_tools
+        _allowed = request.context_hints.get("allowed_tools") if request.context_hints else None
+        if _allowed:
+            _allowed_set = set(_allowed)
+            tool_definitions = [
+                t for t in tool_definitions
+                if t.get("function", {}).get("name") in _allowed_set
+            ]
 
         for attempt in range(max_retries):
             # Add retry guidance if not first attempt

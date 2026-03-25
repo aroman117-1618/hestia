@@ -28,8 +28,8 @@ primary_model:
   max_tokens: 2048
   temperature: 0.0
   # Timeout harmonized with iOS client (iOS: 120s request, 150-240s resource)
-  # Keep server-side slightly lower to ensure response arrives before client timeout
-  request_timeout: 90.0
+  # Bumped to 180s: complex workflow prompts with tool schemas need more time on M1
+  request_timeout: 180.0
   # Default agent persona when no explicit @agent prefix
   default_agent: "tia"
 

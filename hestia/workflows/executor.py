@@ -255,15 +255,34 @@ class DAGExecutor:
                     node_id, branch, edge_labels, results, skipped_nodes, sorter
                 )
 
-            ne.complete(output)
+            # Detect semantic failures in run_prompt output — the node
+            # executor returns a dict (never raises), so an error_code from
+            # the inference layer lands in output["error"] while the node
+            # would otherwise be marked SUCCESS.
+            prompt_error = (
+                node.node_type == NodeType.RUN_PROMPT
+                and isinstance(output, dict)
+                and output.get("error")
+            )
+
             results[node_id] = output
 
-            if on_node_complete:
-                await on_node_complete(ne, "update")
-            self._publish_event(
-                "node_completed", run,
-                {"node_id": node_id, "label": node.label},
-            )
+            if prompt_error:
+                ne.fail(f"Prompt error: {output['error']}")
+                if on_node_complete:
+                    await on_node_complete(ne, "update")
+                self._publish_event(
+                    "node_failed", run,
+                    {"node_id": node_id, "error": ne.error_message},
+                )
+            else:
+                ne.complete(output)
+                if on_node_complete:
+                    await on_node_complete(ne, "update")
+                self._publish_event(
+                    "node_completed", run,
+                    {"node_id": node_id, "label": node.label},
+                )
 
         except asyncio.TimeoutError:
             ne.fail(f"Timeout after {self._prompt_timeout if node.node_type == NodeType.RUN_PROMPT else self._node_timeout}s")

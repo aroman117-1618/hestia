@@ -343,15 +343,22 @@ class WorkflowManager:
     async def trigger(
         self, workflow_id: str, trigger_source: str = "manual"
     ) -> WorkflowRun:
-        """Trigger a workflow execution."""
+        """Trigger a workflow execution (blocks until complete).
+
+        For fire-and-forget, use create_run() + execute_run() separately.
+        The scheduler uses this directly since APScheduler manages concurrency.
+        """
+        run = await self.create_run(workflow_id, trigger_source)
+        return await self.execute_run(run)
+
+    async def create_run(
+        self, workflow_id: str, trigger_source: str = "manual"
+    ) -> WorkflowRun:
+        """Create a run record without executing — returns immediately."""
         wf = await self.database.get_workflow(workflow_id)
         if not wf:
             raise ValueError(f"Workflow not found: {workflow_id}")
 
-        nodes = await self.database.get_nodes_for_workflow(workflow_id)
-        edges = await self.database.get_edges_for_workflow(workflow_id)
-
-        # Create run record
         run = WorkflowRun(
             workflow_id=workflow_id,
             workflow_version=wf.version,
@@ -359,6 +366,12 @@ class WorkflowManager:
             trigger_source=trigger_source,
         )
         await self.database.create_run(run)
+        return run
+
+    async def execute_run(self, run: WorkflowRun) -> WorkflowRun:
+        """Execute a previously created run. Safe to call as a background task."""
+        nodes = await self.database.get_nodes_for_workflow(run.workflow_id)
+        edges = await self.database.get_edges_for_workflow(run.workflow_id)
 
         # Persistence callback
         async def on_node_complete(ne: NodeExecution, action: str) -> None:
@@ -375,13 +388,13 @@ class WorkflowManager:
         # Update run and workflow counters
         await self.database.update_run(result)
         await self.database.increment_run_counts(
-            workflow_id, success=(result.status == RunStatus.SUCCESS)
+            run.workflow_id, success=(result.status == RunStatus.SUCCESS)
         )
 
         logger.info(
             f"Workflow run completed: {run.id} ({result.status.value})",
             component=LogComponent.WORKFLOW,
-            data={"workflow_id": workflow_id, "duration_ms": result.duration_ms},
+            data={"workflow_id": run.workflow_id, "duration_ms": result.duration_ms},
         )
         return result
 
