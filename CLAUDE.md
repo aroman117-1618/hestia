@@ -145,7 +145,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 **iOS Refresh (2026-03-25).** 3-tab app (Chat, Command, Settings), TestFlight pipeline, 3-mode voice input (chat/voice/journal), card-based Mobile Command dashboard, Notion-style Settings rebuild. Spec: `docs/superpowers/specs/2026-03-24-ios-refresh-design.md`. Plan: `docs/superpowers/plans/2026-03-24-ios-refresh.md`.
 
-3029 tests (2894 backend + 135 CLI), 102 test files (95 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
+3037 tests (2902 backend + 135 CLI), 103 test files (96 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -260,7 +260,7 @@ hestia/
 │   ├── macOS/                       # macOS app: Views, ViewModels, Models, Services, DesignSystem
 │   ├── WorkflowCanvas/              # React Flow + Vite — unified canvas (Workflow + Research Canvas via hash routing)
 │   └── project.yml                  # xcodegen config (iOS 26.0, macOS 15.0, Swift 6.1)
-├── tests/                           # 3029 tests, 102 files (95 backend + 7 CLI)
+├── tests/                           # 3037 tests, 103 files (96 backend + 7 CLI)
 ├── scripts/                         # deploy, test-api, auto-test, validate-security, ollama
 ├── docs/                            # api-contract, decision-log, security-architecture
 └── data/ + logs/                    # Runtime storage
