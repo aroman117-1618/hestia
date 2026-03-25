@@ -75,6 +75,7 @@ class InviteStore:
 
         # Migration: add revoked_at column if missing
         await self._migrate_revoked_at()
+        await self._migrate_apple_user_id()
 
     async def _migrate_revoked_at(self) -> None:
         """Add revoked_at column to registered_devices if it doesn't exist."""
@@ -91,6 +92,28 @@ class InviteStore:
             await self._connection.commit()
             self.logger.info(
                 "Migrated registered_devices: added revoked_at column",
+                component=LogComponent.SECURITY,
+            )
+
+    async def _migrate_apple_user_id(self) -> None:
+        """Add apple_user_id column to registered_devices if it doesn't exist."""
+        cursor = await self._connection.execute(
+            "PRAGMA table_info(registered_devices)"
+        )
+        columns = await cursor.fetchall()
+        column_names = [col["name"] for col in columns]
+
+        if "apple_user_id" not in column_names:
+            await self._connection.execute(
+                "ALTER TABLE registered_devices ADD COLUMN apple_user_id TEXT"
+            )
+            await self._connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_devices_apple_user_id "
+                "ON registered_devices(apple_user_id)"
+            )
+            await self._connection.commit()
+            self.logger.info(
+                "Migrated registered_devices: added apple_user_id column",
                 component=LogComponent.SECURITY,
             )
 
@@ -200,17 +223,27 @@ class InviteStore:
         device_name: str,
         device_type: str,
         invite_nonce: Optional[str] = None,
+        apple_user_id: Optional[str] = None,
     ) -> None:
         """Register a device in the registry."""
         now = datetime.now(timezone.utc).isoformat()
 
         await self._connection.execute(
             """INSERT OR REPLACE INTO registered_devices
-               (device_id, device_name, device_type, registered_at, invite_nonce)
-               VALUES (?, ?, ?, ?, ?)""",
-            (device_id, device_name, device_type, now, invite_nonce),
+               (device_id, device_name, device_type, registered_at, invite_nonce, apple_user_id)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (device_id, device_name, device_type, now, invite_nonce, apple_user_id),
         )
         await self._connection.commit()
+
+    async def find_device_by_apple_id(self, apple_user_id: str) -> Optional[dict]:
+        """Find a registered device by Apple user identifier."""
+        cursor = await self._connection.execute(
+            "SELECT * FROM registered_devices WHERE apple_user_id = ? AND revoked_at IS NULL",
+            (apple_user_id,),
+        )
+        row = await cursor.fetchone()
+        return dict(row) if row else None
 
     async def update_last_seen(self, device_id: str) -> None:
         """Update last_seen_at for a device."""
