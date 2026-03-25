@@ -87,9 +87,21 @@ class WorkflowHandlerAdapter:
                 error_message=f"Workflow execution failed: {type(e).__name__}: {e}",
             )
 
+    # Prepended to every workflow prompt so the LLM acts autonomously
+    # instead of asking the user for confirmation.
+    _AUTONOMOUS_DIRECTIVE = (
+        "You are executing an automated workflow on behalf of the user. "
+        "Act immediately — do NOT ask for confirmation, clarification, or "
+        "permission. Complete all steps autonomously using the tools available "
+        "to you. If a step fails, note the failure and continue.\n\n"
+    )
+
     def _build_request(self, prompt: str, config: WorkflowExecutionConfig) -> Request:
         session_id = self._resolve_session_id(config)
         mode = self._resolve_mode(config)
+
+        # Prepend autonomous execution directive to all workflow prompts
+        prompt = self._AUTONOMOUS_DIRECTIVE + prompt
 
         context_hints = {
             "source_type": "workflow",

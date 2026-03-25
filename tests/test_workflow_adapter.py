@@ -70,7 +70,8 @@ class TestWorkflowHandlerAdapter:
         result = await adapter.execute("What's on my calendar today?")
         mock_handler.handle.assert_called_once()
         call_request = mock_handler.handle.call_args[0][0]
-        assert call_request.content == "What's on my calendar today?"
+        assert "What's on my calendar today?" in call_request.content
+        assert "Act immediately" in call_request.content  # autonomous directive
         assert call_request.source == RequestSource.WORKFLOW
         assert result.content == "Test response from Hestia"
 
