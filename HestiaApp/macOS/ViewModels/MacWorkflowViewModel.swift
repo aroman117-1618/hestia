@@ -16,6 +16,7 @@ class WorkflowViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var statusFilter: WorkflowStatus?
     @Published var showingNewWorkflowSheet = false
+    @Published var showingEditSheet = false
     @Published var showCanvas = false
     @Published var selectedNodeId: String?
     @Published var nodeStatuses: [String: String] = [:]  // nodeId → "running" | "success" | "failed"
@@ -151,6 +152,29 @@ class WorkflowViewModel: ObservableObject {
             #if DEBUG
             print("[WorkflowVM] Failed to delete: \(error)")
             #endif
+        }
+    }
+
+    func updateWorkflow(_ workflowId: String, name: String?, description: String?) async -> Bool {
+        let request = WorkflowUpdateRequest(
+            name: name,
+            description: description,
+            triggerType: nil,
+            triggerConfig: nil,
+            sessionStrategy: nil
+        )
+        do {
+            _ = try await client.updateWorkflow(workflowId, request)
+            await loadWorkflows()
+            if selectedWorkflowId == workflowId {
+                await loadWorkflowDetail(workflowId)
+            }
+            return true
+        } catch {
+            #if DEBUG
+            print("[WorkflowVM] Failed to update: \(error)")
+            #endif
+            return false
         }
     }
 

@@ -38,6 +38,9 @@ class WorkflowExecutionConfig:
     workflow_name: Optional[str] = None
     node_id: Optional[str] = None
     run_id: Optional[str] = None
+    # Inference routing: "local" (force local), "smart_cloud" (local-first,
+    # cloud fallback), "full_cloud" (always cloud). Default None = use force_local.
+    inference_route: Optional[str] = None
 
 
 # ── P1 enums ─────────────────────────────────────────────────────────

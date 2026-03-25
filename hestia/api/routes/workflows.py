@@ -488,6 +488,20 @@ async def list_runs(
     }
 
 
+@router.get("/{workflow_id}/runs/{run_id}")
+async def get_run_detail(
+    workflow_id: str,
+    run_id: str,
+    _token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """Get run detail with per-node execution data."""
+    manager = await get_workflow_manager()
+    detail = await manager.get_run_detail(run_id)
+    if not detail:
+        return JSONResponse({"error": "Run not found"}, status_code=404)
+    return {"run": detail}
+
+
 # ── SSE Stream ───────────────────────────────────────────────────────
 
 

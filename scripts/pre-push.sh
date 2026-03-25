@@ -104,6 +104,10 @@ fi
 if [ "$BRANCH" = "main" ]; then
     echo "[3/3] Building macOS target (main branch gate)..."
     if [ -d "HestiaApp" ]; then
+        # Regenerate Xcode project from project.yml (picks up new/moved files)
+        if command -v xcodegen &>/dev/null; then
+            (cd HestiaApp && xcodegen generate --quiet 2>/dev/null) || true
+        fi
         XCODE_LOG=$(mktemp)
         set +e
         run_with_timeout 120 xcodebuild -project HestiaApp/HestiaApp.xcodeproj -scheme HestiaWorkspace -quiet >"$XCODE_LOG" 2>&1

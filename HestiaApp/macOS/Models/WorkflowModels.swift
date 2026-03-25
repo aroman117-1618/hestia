@@ -194,6 +194,52 @@ struct WorkflowRunResponse: Codable, Identifiable, Sendable {
     }
 }
 
+// MARK: - Run Detail (with node executions)
+
+struct WorkflowRunDetailResponse: Codable, Sendable {
+    let run: WorkflowRunDetail
+}
+
+struct WorkflowRunDetail: Codable, Sendable {
+    let id: String
+    let workflowId: String
+    let status: String
+    let startedAt: String
+    let completedAt: String?
+    let durationMs: Double?
+    let triggerSource: String
+    let errorMessage: String?
+    let nodeExecutions: [NodeExecutionResponse]
+}
+
+struct NodeExecutionResponse: Codable, Identifiable, Sendable {
+    let id: String
+    let runId: String
+    let nodeId: String
+    let status: String
+    let startedAt: String?
+    let completedAt: String?
+    let durationMs: Double?
+    let errorMessage: String?
+
+    var statusColor: String {
+        switch status {
+        case "success": return "green"
+        case "failed": return "red"
+        case "running": return "blue"
+        case "skipped": return "gray"
+        default: return "gray"
+        }
+    }
+
+    var durationText: String? {
+        guard let ms = durationMs else { return nil }
+        if ms < 1000 { return "\(Int(ms))ms" }
+        if ms < 60_000 { return String(format: "%.1fs", ms / 1000) }
+        return String(format: "%.1fm", ms / 60_000)
+    }
+}
+
 // MARK: - Create / Update Requests
 
 struct WorkflowCreateRequest: Codable, Sendable {

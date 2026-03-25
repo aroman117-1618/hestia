@@ -116,13 +116,20 @@ async def execute_run_prompt(
     if not prompt:
         return {"error": "No prompt configured", "response": ""}
 
+    # inference_route takes precedence over legacy force_local toggle
+    inference_route = config.get("inference_route")
+    force_local = config.get("force_local", False)
+    if inference_route == "local":
+        force_local = True
+
     exec_config = WorkflowExecutionConfig(
         session_strategy=SessionStrategy(config.get("session_strategy", "ephemeral")),
         memory_write=config.get("memory_write", False),
         memory_read=config.get("memory_read", True),
-        force_local=config.get("force_local", False),
+        force_local=force_local,
         agent_mode=config.get("agent_mode"),
         allowed_tools=config.get("allowed_tools"),
+        inference_route=inference_route,
     )
 
     response = await adapter.execute(prompt, exec_config)

@@ -11,7 +11,7 @@ struct MacNodeInspectorView: View {
     @State private var prompt: String = ""
     @State private var model: String = ""
     @State private var memoryWrite: Bool = false
-    @State private var forceLocal: Bool = false
+    @State private var inferenceRoute: String = ""  // "", "local", "smart_cloud", "full_cloud"
     @State private var selectedResources: Set<String> = []
 
     // call_tool
@@ -151,21 +151,14 @@ struct MacNodeInspectorView: View {
                             .stroke(MacColors.cardBorder, lineWidth: 1)
                     )
             }
-            fieldGroup("Model") {
-                Picker("", selection: $model) {
-                    Text("Default (auto-route)").tag("")
-                    Section("Local Models") {
-                        Text("qwen3.5:9b (Primary)").tag("qwen3.5:9b")
-                        Text("deepseek-r1:14b (Complex)").tag("deepseek-r1:14b")
-                        Text("qwen3:8b (Coding)").tag("qwen3:8b")
-                    }
-                    Section("Cloud") {
-                        Text("Anthropic (Claude)").tag("cloud:anthropic")
-                        Text("OpenAI (GPT)").tag("cloud:openai")
-                        Text("Google (Gemini)").tag("cloud:google")
-                    }
+            fieldGroup("Inference") {
+                Picker("", selection: $inferenceRoute) {
+                    Text("Local (device only)").tag("local")
+                    Text("Smart Cloud (local-first, cloud fallback)").tag("smart_cloud")
+                    Text("Full Cloud (always cloud)").tag("full_cloud")
                 }
                 .labelsHidden()
+                .pickerStyle(.segmented)
             }
             HStack {
                 Toggle("Save to Memory", isOn: $memoryWrite)
@@ -173,10 +166,6 @@ struct MacNodeInspectorView: View {
                     .toggleStyle(.switch)
                     .tint(MacColors.amberAccent)
                 Spacer()
-                Toggle("Force Local", isOn: $forceLocal)
-                    .font(.system(size: 11))
-                    .toggleStyle(.switch)
-                    .tint(MacColors.amberAccent)
             }
             .foregroundStyle(MacColors.textSecondary)
             if !viewModel.toolCategories.isEmpty {
@@ -409,7 +398,14 @@ struct MacNodeInspectorView: View {
             prompt = stringConfig("prompt")
             model = stringConfig("model")
             if case .bool(let mw) = node.config["memory_write"] { memoryWrite = mw } else { memoryWrite = false }
-            if case .bool(let fl) = node.config["force_local"] { forceLocal = fl } else { forceLocal = false }
+            // Load inference_route; fall back to legacy force_local mapping
+            if case .string(let ir) = node.config["inference_route"] {
+                inferenceRoute = ir
+            } else if case .bool(let fl) = node.config["force_local"], fl {
+                inferenceRoute = "local"
+            } else {
+                inferenceRoute = "smart_cloud"
+            }
             // Reverse-map allowed_tools back to category IDs
             if case .array(let tools) = node.config["allowed_tools"] {
                 let toolNames = tools.compactMap { if case .string(let s) = $0 { return s } else { return nil } }
@@ -512,7 +508,8 @@ struct MacNodeInspectorView: View {
                 config["allowed_tools"] = .array(allowedTools)
             }
             config["memory_write"] = .bool(memoryWrite)
-            config["force_local"] = .bool(forceLocal)
+            config["inference_route"] = .string(inferenceRoute)
+            config["force_local"] = .bool(inferenceRoute == "local")
         case .callTool:
             config["tool_name"] = .string(toolName)
             // Parse arguments back to dict if valid JSON, else store as string

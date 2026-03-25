@@ -118,6 +118,8 @@ class WorkflowHandlerAdapter:
             context_hints["run_id"] = config.run_id
         if config.allowed_tools is not None:
             context_hints["allowed_tools"] = config.allowed_tools
+        if config.inference_route:
+            context_hints["inference_route"] = config.inference_route
 
         return Request.create(
             content=prompt,

@@ -1755,6 +1755,10 @@ class RequestHandler:
                         "content": guidance
                     })
 
+            # Workflow inference_route override: full_cloud forces cloud inference
+            _inference_route = request.context_hints.get("inference_route") if request.context_hints else None
+            _force_cloud = _inference_route == "full_cloud"
+
             # Run inference with native tool calling
             inference_response = await self.state_machine.run_with_timeout(
                 task,
@@ -1763,6 +1767,7 @@ class RequestHandler:
                 temperature=temperature,
                 max_tokens=max_tokens,
                 tools=tool_definitions if tool_definitions else None,
+                force_cloud=_force_cloud,
             )
 
             # Check if response contains a tool call

@@ -54,6 +54,11 @@ extension APIClient {
         return try await get("/workflows/\(workflowId)/runs?limit=\(limit)&offset=\(offset)")
     }
 
+    func getRunDetail(_ workflowId: String, runId: String) async throws -> WorkflowRunDetail {
+        let response: WorkflowRunDetailResponse = try await get("/workflows/\(workflowId)/runs/\(runId)")
+        return response.run
+    }
+
     // MARK: - Node Update
 
     func patchNode(_ workflowId: String, nodeId: String, request: NodeUpdateRequest) async throws {

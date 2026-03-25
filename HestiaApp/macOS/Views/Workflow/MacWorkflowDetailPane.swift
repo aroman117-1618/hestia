@@ -3,6 +3,9 @@ import HestiaShared
 
 struct MacWorkflowDetailPane: View {
     @ObservedObject var viewModel: WorkflowViewModel
+    @State private var expandedRunId: String?
+    @State private var runDetail: WorkflowRunDetail?
+    @State private var isLoadingRunDetail = false
 
     var body: some View {
         Group {
@@ -178,11 +181,21 @@ struct MacWorkflowDetailPane: View {
                 EmptyView()
             }
 
+            // Edit
+            actionButton("Edit", icon: "pencil", color: MacColors.amberAccent) {
+                viewModel.showingEditSheet = true
+            }
+
             Spacer()
 
             // Delete
             actionButton("Delete", icon: "trash", color: MacColors.healthRed) {
                 Task { await viewModel.deleteWorkflow(detail.id) }
+            }
+        }
+        .sheet(isPresented: $viewModel.showingEditSheet) {
+            if let detail = viewModel.selectedDetail {
+                MacEditWorkflowSheet(viewModel: viewModel, detail: detail)
             }
         }
     }
@@ -273,42 +286,155 @@ struct MacWorkflowDetailPane: View {
     }
 
     private func runRow(_ run: WorkflowRunResponse) -> some View {
-        HStack(spacing: MacSpacing.md) {
-            // Status icon
-            Image(systemName: runStatusIcon(run.statusEnum))
-                .font(.system(size: 12))
-                .foregroundStyle(runStatusColor(run.statusEnum))
-                .frame(width: 20)
+        let isExpanded = expandedRunId == run.id
 
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Run \(run.id.suffix(8))")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(MacColors.textPrimary)
-                Text(run.startedAt)
-                    .font(.system(size: 10))
-                    .foregroundStyle(MacColors.textFaint)
+        return VStack(alignment: .leading, spacing: 0) {
+            // Main row — tappable to expand
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    if isExpanded {
+                        expandedRunId = nil
+                        runDetail = nil
+                    } else {
+                        expandedRunId = run.id
+                        loadRunDetail(run)
+                    }
+                }
+            } label: {
+                HStack(spacing: MacSpacing.md) {
+                    Image(systemName: runStatusIcon(run.statusEnum))
+                        .font(.system(size: 12))
+                        .foregroundStyle(runStatusColor(run.statusEnum))
+                        .frame(width: 20)
+
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Run \(run.id.suffix(8))")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(MacColors.textPrimary)
+                        Text(run.startedAt)
+                            .font(.system(size: 10))
+                            .foregroundStyle(MacColors.textFaint)
+                    }
+
+                    Spacer()
+
+                    if let duration = run.durationText {
+                        Text(duration)
+                            .font(.system(size: 11))
+                            .foregroundStyle(MacColors.textSecondary)
+                    }
+
+                    Text(run.status.capitalized)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(runStatusColor(run.statusEnum))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(runStatusColor(run.statusEnum).opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 9))
+                        .foregroundStyle(MacColors.textFaint)
+                }
+                .padding(.horizontal, MacSpacing.md)
+                .padding(.vertical, MacSpacing.sm)
             }
+            .buttonStyle(.plain)
+
+            // Error message (always visible on failed runs)
+            if run.statusEnum == .failed, let error = run.errorMessage, !error.isEmpty {
+                Text(error)
+                    .font(.system(size: 11))
+                    .foregroundStyle(MacColors.healthRed.opacity(0.9))
+                    .padding(.horizontal, MacSpacing.md)
+                    .padding(.bottom, MacSpacing.sm)
+                    .lineLimit(isExpanded ? nil : 2)
+            }
+
+            // Expanded: node execution details
+            if isExpanded {
+                Divider().foregroundStyle(MacColors.cardBorder)
+                    .padding(.horizontal, MacSpacing.sm)
+
+                if isLoadingRunDetail {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                        .padding(MacSpacing.md)
+                        .frame(maxWidth: .infinity)
+                } else if let detail = runDetail {
+                    VStack(alignment: .leading, spacing: MacSpacing.xs) {
+                        ForEach(detail.nodeExecutions) { ne in
+                            nodeExecutionRow(ne)
+                        }
+                    }
+                    .padding(MacSpacing.md)
+                }
+            }
+        }
+        .background(MacColors.searchInputBackground)
+        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.treeItem))
+    }
+
+    private func nodeExecutionRow(_ ne: NodeExecutionResponse) -> some View {
+        // Resolve node label from workflow detail
+        let nodeLabel = viewModel.selectedDetail?.nodes.first(where: { $0.id == ne.nodeId })?.label
+
+        return HStack(spacing: MacSpacing.sm) {
+            Circle()
+                .fill(nodeStatusColor(ne.status))
+                .frame(width: 6, height: 6)
+
+            Text(nodeLabel ?? String(ne.nodeId.suffix(8)))
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(MacColors.textSecondary)
+
+            Text(ne.status)
+                .font(.system(size: 10))
+                .foregroundStyle(MacColors.textFaint)
 
             Spacer()
 
-            if let duration = run.durationText {
+            if let duration = ne.durationText {
                 Text(duration)
-                    .font(.system(size: 11))
-                    .foregroundStyle(MacColors.textSecondary)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(MacColors.textFaint)
             }
 
-            Text(run.status.capitalized)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(runStatusColor(run.statusEnum))
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(runStatusColor(run.statusEnum).opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 4))
+            if let error = ne.errorMessage, !error.isEmpty {
+                Text(error)
+                    .font(.system(size: 10))
+                    .foregroundStyle(MacColors.healthRed.opacity(0.8))
+                    .lineLimit(1)
+                    .frame(maxWidth: 200, alignment: .trailing)
+            }
         }
-        .padding(.horizontal, MacSpacing.md)
-        .padding(.vertical, MacSpacing.sm)
-        .background(MacColors.searchInputBackground)
-        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.treeItem))
+    }
+
+    private func loadRunDetail(_ run: WorkflowRunResponse) {
+        guard let workflowId = viewModel.selectedWorkflowId else { return }
+        isLoadingRunDetail = true
+        runDetail = nil
+        Task {
+            do {
+                let detail = try await APIClient.shared.getRunDetail(workflowId, runId: run.id)
+                runDetail = detail
+            } catch {
+                #if DEBUG
+                print("[WorkflowDetail] Failed to load run detail: \(error)")
+                #endif
+            }
+            isLoadingRunDetail = false
+        }
+    }
+
+    private func nodeStatusColor(_ status: String) -> Color {
+        switch status {
+        case "success": return MacColors.healthGreen
+        case "failed": return MacColors.healthRed
+        case "running": return MacColors.amberAccent
+        case "skipped": return MacColors.textFaint
+        default: return MacColors.textFaint
+        }
     }
 
     // MARK: - Helpers
