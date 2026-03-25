@@ -8,6 +8,9 @@ struct ChatView: View {
     @EnvironmentObject var authService: AuthService
     @StateObject private var viewModel = ChatViewModel()
     @StateObject private var voiceViewModel = VoiceInputViewModel()
+    @StateObject private var conversationManager = VoiceConversationManager()
+    @State private var showConversationOverlay = false
+    @State private var conversationConfigured = false
 
     @State private var messageText = ""
     @State private var inputMode: ChatInputMode = .chat
@@ -69,6 +72,16 @@ struct ChatView: View {
                 // Input bar - always at bottom
                 inputBar
             }
+
+            // Voice conversation overlay
+            if showConversationOverlay {
+                VoiceConversationOverlay(
+                    manager: conversationManager,
+                    onStop: {
+                        stopVoiceConversation()
+                    }
+                )
+            }
         }
         .onAppear {
             // Configure with real API client when available
@@ -77,6 +90,14 @@ struct ChatView: View {
                 voiceViewModel.configure(client: apiClientProvider.client)
             }
             // Empty state — user generates the first message
+            if !conversationConfigured {
+                conversationManager.configure(
+                    speechService: voiceViewModel.speechService,
+                    chatViewModel: viewModel,
+                    appState: appState
+                )
+                conversationConfigured = true
+            }
         }
         .onChange(of: apiClientProvider.isReady) { isReady in
             // Also configure when client becomes ready later
@@ -432,22 +453,11 @@ struct ChatView: View {
 
     // MARK: - Voice Conversation Mode
 
-    /// Start inline voice conversation — creates a live transcript bubble in the chat.
+    /// Start inline voice conversation — delegates to VoiceConversationManager.
     private func startVoiceConversation() {
-        let placeholderId = UUID().uuidString
-        let liveMessage = ConversationMessage(
-            id: placeholderId,
-            role: .user,
-            content: "",
-            timestamp: Date(),
-            mode: nil,
-            inputMode: "voice"
-        )
-        viewModel.messages.append(liveMessage)
-        liveTranscriptId = placeholderId
-
+        showConversationOverlay = true
         Task {
-            await voiceViewModel.startRecording()
+            await conversationManager.start()
         }
     }
 
@@ -483,28 +493,12 @@ struct ChatView: View {
         }
     }
 
-    /// Stop voice conversation and send the transcript.
+    /// Stop voice conversation — delegates to VoiceConversationManager.
     private func stopVoiceConversation() {
         Task {
-            guard let transcript = await voiceViewModel.stopAndReturnTranscript() else {
-                // No speech detected — remove the live bubble
-                if let id = liveTranscriptId {
-                    viewModel.messages.removeAll { $0.id == id }
-                }
-                liveTranscriptId = nil
-                return
-            }
-
-            // Finalize the live bubble content
-            if let id = liveTranscriptId,
-               let index = viewModel.messages.firstIndex(where: { $0.id == id }) {
-                viewModel.messages[index].content = transcript
-            }
-            liveTranscriptId = nil
-
-            // Send the transcript to Hestia
-            await viewModel.sendMessage(transcript, appState: appState)
+            await conversationManager.stop()
         }
+        showConversationOverlay = false
     }
 
     private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {

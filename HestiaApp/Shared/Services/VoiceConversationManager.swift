@@ -200,10 +200,12 @@ final class VoiceConversationManager: ObservableObject {
             object: nil,
             queue: .main
         ) { [weak self] notification in
+            // Extract data before crossing actor boundary (Swift 6 concurrency)
+            let info = notification.userInfo
+            let typeValue = info?[AVAudioSessionInterruptionTypeKey] as? UInt
             Task { @MainActor [weak self] in
                 guard let self, self.isActive else { return }
-                guard let info = notification.userInfo,
-                      let typeValue = info[AVAudioSessionInterruptionTypeKey] as? UInt,
+                guard let typeValue,
                       let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
                 if type == .began {
                     await self.stop()
