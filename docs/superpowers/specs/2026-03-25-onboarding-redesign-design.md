@@ -1,7 +1,7 @@
 # Onboarding Redesign — Design Spec
 
 **Date:** 2026-03-25
-**Status:** Draft
+**Status:** Approved with conditions (see second opinion: `docs/plans/onboarding-redesign-second-opinion-2026-03-25.md`)
 **Author:** Claude (brainstormed with Andrew)
 
 ### Prerequisites (Before Implementation)
