@@ -135,13 +135,15 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | API | REST on port 8443 with JWT auth, HTTPS with self-signed cert |
 | Remote | Tailscale (`andrewroman117@hestia-3.local`) |
 | Dev Tools | Claude Code (API billing) + Xcode |
-| CI/CD | GitHub Actions → Mac Mini (auto-deploy on push to main) |
+| CI/CD | GitHub Actions → Mac Mini (macOS: Sparkle auto-update, iOS: TestFlight via App Store Connect API) |
 
 ## Current Status
 
 **All foundation work complete** (MVP phases 0-7, Intelligence WS1-4, UI phases 1-4, Frontend Wiring sprints 1-5, CLI sprints 1-5, Stability sprints 6-7+12, HealthKit, Wiki, macOS app). See `SPRINT.md` for full history.
 
 **Active: Trading Module (Sprints 21-30).** Sprints 21-27 COMPLETE. **Live trading active on Mac Mini since 2026-03-24** — 4 Mean Reversion bots (BTC/ETH/SOL/DOGE) running via `bot_service.py` launchd service, market orders on Coinbase. Alpaca (stocks) paused — API key pending with support team.
+
+**iOS Refresh (2026-03-25).** 3-tab app (Chat, Command, Settings), TestFlight pipeline, 3-mode voice input (chat/voice/journal), card-based Mobile Command dashboard, Notion-style Settings rebuild. Spec: `docs/superpowers/specs/2026-03-24-ios-refresh-design.md`. Plan: `docs/superpowers/plans/2026-03-24-ios-refresh.md`.
 
 3029 tests (2894 backend + 135 CLI), 102 test files (95 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
 
@@ -251,6 +253,10 @@ hestia/
 ├── hestia-cli-tools/                # Swift CLIs (keychain, calendar, reminders, notes)
 ├── HestiaApp/                       # iOS + macOS SwiftUI app
 │   ├── Shared/                      # Cross-platform: App, DesignSystem, Models, Services, ViewModels, Views
+│   │   ├── Views/Chat/             # ChatView, ChatInputBar, VoiceJournalView, ThinkingIndicator, WaveformView
+│   │   ├── Views/Command/          # MobileCommandView (card-based dashboard)
+│   │   ├── Views/Settings/         # MobileSettingsView, ResourcesDetailView, SystemDetailView
+│   │   └── DesignSystem/Components/ # HestiaCard, HestiaStatusBadge, HestiaPillButton, HestiaSettingsBlock
 │   ├── macOS/                       # macOS app: Views, ViewModels, Models, Services, DesignSystem
 │   ├── WorkflowCanvas/              # React Flow + Vite — unified canvas (Workflow + Research Canvas via hash routing)
 │   └── project.yml                  # xcodegen config (iOS 26.0, macOS 15.0, Swift 6.1)
