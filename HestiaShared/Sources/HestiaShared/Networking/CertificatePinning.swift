@@ -184,7 +184,20 @@ public final class CertificatePinningDelegate: NSObject, URLSessionDelegate {
             return nil
         }
 
-        return fingerprint
+        // Discard empty/invalid fingerprints left by previous buggy onboarding
+        let trimmed = fingerprint.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty || !trimmed.contains(":") {
+            // Clean up the invalid entry
+            let deleteQuery: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: keychainService,
+                kSecAttrAccount as String: "certificate-fingerprint"
+            ]
+            SecItemDelete(deleteQuery as CFDictionary)
+            return nil
+        }
+
+        return trimmed
     }
 
     public static func storeFingerprint(_ fingerprint: String) -> Bool {
