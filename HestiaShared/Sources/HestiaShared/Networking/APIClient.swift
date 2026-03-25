@@ -167,6 +167,27 @@ public class APIClient: HestiaClientProtocol {
         return try await postUnauthenticated("/auth/register-with-invite", body: request)
     }
 
+    /// Register device using Apple Sign In identity token
+    public func registerWithApple(
+        identityToken: String,
+        deviceName: String,
+        deviceType: String
+    ) async throws -> InviteRegisterResponse {
+        struct AppleRegisterBody: Encodable {
+            let identity_token: String
+            let device_name: String
+            let device_type: String
+        }
+
+        let body = AppleRegisterBody(
+            identity_token: identityToken,
+            device_name: deviceName,
+            device_type: deviceType
+        )
+
+        return try await postUnauthenticated("/auth/register-with-apple", body: body)
+    }
+
     // MARK: - HestiaClientProtocol Implementation
 
     public func sendMessage(_ message: String, sessionId: String?, forceLocal: Bool = false) async throws -> HestiaResponse {

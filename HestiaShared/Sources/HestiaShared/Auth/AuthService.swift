@@ -216,6 +216,26 @@ public class AuthService: ObservableObject {
         return response.token
     }
 
+    /// Register using Apple Sign In identity token
+    public func registerWithApple(identityToken: String) async throws -> String {
+        let deviceName = APIClient.deviceInfo?.deviceName ?? "Unknown"
+        let deviceType = APIClient.deviceInfo?.deviceType ?? "Unknown"
+
+        let response = try await registrationClient.registerWithApple(
+            identityToken: identityToken,
+            deviceName: deviceName,
+            deviceType: deviceType
+        )
+
+        try saveTokenToKeychain(response.token)
+
+        await MainActor.run {
+            isDeviceRegistered = true
+        }
+
+        return response.token
+    }
+
     /// Get the stored device token from Keychain
     public func getDeviceToken() -> String? {
         return loadTokenFromKeychain()
