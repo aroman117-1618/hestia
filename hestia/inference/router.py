@@ -313,6 +313,15 @@ class ModelRouter:
             # Otherwise: local first with cloud fallback
             fallback = ModelTier.CLOUD if self.cloud_routing.spillover_on_local_failure else None
 
+            # Tool-calling requests → CODING tier (optimized for function calling)
+            if has_tools and self.coding_model.enabled:
+                return RoutingDecision(
+                    tier=ModelTier.CODING,
+                    model_config=self.coding_model,
+                    reason="coding_tool_calling",
+                    fallback_tier=fallback,
+                )
+
             # Check for coding patterns (coding takes priority over complex)
             if self.coding_model.enabled and self._matches_keyword_patterns(prompt):
                 return RoutingDecision(
@@ -345,6 +354,16 @@ class ModelRouter:
             )
 
         # disabled (or no cloud configured): local-only routing
+
+        # Tool-calling requests → CODING tier (optimized for function calling)
+        if has_tools and self.coding_model.enabled:
+            return RoutingDecision(
+                tier=ModelTier.CODING,
+                model_config=self.coding_model,
+                reason="coding_tool_calling",
+                fallback_tier=ModelTier.PRIMARY,
+            )
+
         if self.coding_model.enabled and self._matches_keyword_patterns(prompt):
             return RoutingDecision(
                 tier=ModelTier.CODING,
