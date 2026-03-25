@@ -12,6 +12,7 @@ struct ResearchView: View {
     // activeFilters derived from graphViewModel.activeDataSources
     @State private var hoveredNode: MacNeuralNetViewModel.GraphNode?
     @StateObject private var graphViewModel = MacNeuralNetViewModel()
+    @StateObject private var canvasViewModel = ResearchCanvasViewModel()
 
     var body: some View {
         GeometryReader { geo in
@@ -39,6 +40,8 @@ struct ResearchView: View {
                         onChunkEdited: { graphNeedsRefresh = true }
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                case .canvas:
+                    canvasContent
                 }
             }
         }
@@ -159,6 +162,29 @@ struct ResearchView: View {
                 }
             }
             .animation(.easeInOut(duration: 0.25), value: graphViewModel.selectedNode)
+        }
+    }
+
+    // MARK: - Canvas Content
+
+    @ViewBuilder
+    private var canvasContent: some View {
+        HStack(spacing: 0) {
+            ResearchCanvasSidebar(viewModel: canvasViewModel)
+
+            ResearchCanvasWebView(viewModel: canvasViewModel)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            if canvasViewModel.selectedEntity != nil {
+                ResearchCanvasDetailPane(viewModel: canvasViewModel)
+                    .animation(.easeInOut(duration: 0.25), value: canvasViewModel.selectedEntity?.id)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear {
+            if canvasViewModel.entities.isEmpty && !canvasViewModel.isLoading {
+                Task { await canvasViewModel.loadSidebarData() }
+            }
         }
     }
 
@@ -359,7 +385,8 @@ struct ResearchView: View {
 
     private func modeToggle(compact: Bool) -> some View {
         HStack(spacing: 2) {
-            modeButton(.graph,      icon: "point.3.connected.trianglepath.dotted", label: "Graph",      compact: compact)
+            modeButton(.canvas,     icon: "rectangle.3.group.bubble",              label: "Research Canvas", compact: compact)
+            modeButton(.graph,      icon: "point.3.connected.trianglepath.dotted", label: "Knowledge Atlas", compact: compact)
             modeButton(.principles, icon: "lightbulb",                              label: "Principles", compact: compact)
             modeButton(.memory,     icon: "brain.head.profile",                    label: "Memory",     compact: compact)
         }
@@ -927,6 +954,7 @@ struct ResearchPrinciplesView: View {
 // MARK: - Research Models
 
 enum ResearchMode {
+    case canvas
     case graph
     case principles
     case memory
