@@ -1,11 +1,13 @@
 ---
 name: ship-it
-description: Use when the user wants to release a new version of the macOS app. Bumps version, commits, tags, and pushes — triggering the GitHub Actions release workflow that builds, signs, notarizes, and publishes the auto-update.
+description: Use when the user wants to release a new version. Bumps version, commits, tags, and pushes — triggering GitHub Actions workflows for both macOS (Sparkle auto-update) and iOS (TestFlight).
 ---
 
-# /ship-it — Release a macOS App Update
+# /ship-it — Release an App Update (macOS + iOS)
 
-Bumps the version in `HestiaApp/project.yml`, commits, tags, and pushes. The `release-macos.yml` GitHub Actions workflow handles the rest (archive, sign, notarize, Sparkle sign, GitHub Release, appcast update).
+Bumps the version in `HestiaApp/project.yml`, commits, tags, and pushes. A tag push triggers **both** release workflows:
+- **`release-macos.yml`** — archive, sign, notarize, Sparkle sign, GitHub Release, appcast update
+- **`release-ios.yml`** — archive, export for App Store, upload to TestFlight via App Store Connect API
 
 ## Usage
 
@@ -42,7 +44,7 @@ Bumps the version in `HestiaApp/project.yml`, commits, tags, and pushes. The `re
 
 9. **Push:** `git push && git push --tags`
 
-10. **Report:** "Shipped v{X.Y.Z}. GitHub Actions workflow will build, sign, notarize, and publish. Monitor at: https://github.com/aroman117-1618/hestia/actions"
+10. **Report:** "Shipped v{X.Y.Z}. Both workflows triggered — macOS (Sparkle) + iOS (TestFlight). Monitor at: https://github.com/aroman117-1618/hestia/actions"
 
 ## Do NOT
 
