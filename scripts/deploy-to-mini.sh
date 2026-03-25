@@ -65,6 +65,18 @@ if [[ -x "${SCRIPT_DIR}/pre-deploy-check.sh" ]]; then
     fi
 fi
 
+# Build WorkflowCanvas (React Flow) if node_modules exist
+CANVAS_DIR="${PROJECT_ROOT}/HestiaApp/WorkflowCanvas"
+if [[ -d "${CANVAS_DIR}/node_modules" ]]; then
+    echo -e "\n${YELLOW}Building WorkflowCanvas...${NC}"
+    (cd "${CANVAS_DIR}" && npm run build)
+    echo -e "${GREEN}✓${NC} Canvas built"
+elif [[ -f "${CANVAS_DIR}/package.json" ]]; then
+    echo -e "\n${YELLOW}Installing and building WorkflowCanvas...${NC}"
+    (cd "${CANVAS_DIR}" && npm install && npm run build)
+    echo -e "${GREEN}✓${NC} Canvas built"
+fi
+
 # Rsync project files
 echo -e "\n${YELLOW}Syncing files to Mac Mini...${NC}"
 rsync -avz --progress \
@@ -77,6 +89,7 @@ rsync -avz --progress \
     --exclude='.DS_Store' \
     --exclude='*.egg-info/' \
     --exclude='.build/' \
+    --exclude='node_modules/' \
     --exclude='DerivedData/' \
     --exclude='.pytest_cache/' \
     --exclude='.coverage' \
