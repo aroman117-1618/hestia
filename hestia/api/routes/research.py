@@ -1239,3 +1239,60 @@ async def distill_from_selection(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to distill principle from selection",
         )
+
+
+# =============================================================================
+# Reference Indexer Endpoint
+# =============================================================================
+
+
+@router.post("/references/reindex")
+async def trigger_reindex(
+    device_token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """Trigger batch entity reference indexing across all modules.
+
+    Scans workflow steps and research canvas boards for entity mentions,
+    then upserts cross-links into entity_references.  Idempotent — safe to
+    call multiple times.
+    """
+    try:
+        from hestia.research.indexer import run_batch_index
+        from hestia.workflows.database import get_workflow_database
+
+        manager = await get_research_manager()
+        if not manager._database:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Research database not available",
+            )
+
+        # Workflow database is optional — if it fails to connect we skip it
+        workflow_db = None
+        try:
+            workflow_db = await get_workflow_database()
+        except Exception as wf_err:
+            logger.warning(
+                "Reindex: workflow database unavailable, skipping workflow scan",
+                component=LogComponent.RESEARCH,
+                data={"error": sanitize_for_log(wf_err)},
+            )
+
+        counts = await run_batch_index(
+            research_db=manager._database,
+            workflow_db=workflow_db,
+        )
+        return {"status": "ok", "counts": counts}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Reindex error",
+            component=LogComponent.RESEARCH,
+            data={"error": sanitize_for_log(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Reference reindex failed",
+        )

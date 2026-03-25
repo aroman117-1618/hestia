@@ -193,29 +193,35 @@ struct ResearchCanvasDetailPane: View {
     }
 
     private func referenceRow(_ ref: ResearchEntityReference) -> some View {
-        HStack(spacing: MacSpacing.sm) {
-            Image(systemName: referenceIcon(ref.referenceType))
-                .font(.system(size: 10))
-                .foregroundStyle(referenceColor(ref.referenceType))
-                .frame(width: 16)
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(ref.referenceLabel ?? ref.referenceId)
-                    .font(.system(size: 11))
-                    .foregroundStyle(MacColors.textPrimary)
-                    .lineLimit(1)
-                Text(ref.referenceType.replacingOccurrences(of: "_", with: " ").capitalized)
-                    .font(.system(size: 9))
-                    .foregroundStyle(MacColors.textFaint)
-            }
-
-            Spacer()
-
-            Image(systemName: "arrow.up.right")
-                .font(.system(size: 9))
-                .foregroundStyle(MacColors.textFaint)
+        HestiaCrossLinkBadge(
+            module: ref.referenceType,
+            itemId: ref.referenceId,
+            context: ref.referenceLabel ?? ref.referenceId
+        ) {
+            navigateToReference(ref)
         }
-        .padding(.vertical, 3)
+    }
+
+    private func navigateToReference(_ ref: ResearchEntityReference) {
+        let link: HestiaDeepLink? = {
+            switch ref.referenceType.lowercased() {
+            case "workflow":
+                return .workflow(id: ref.referenceId)
+            case "research_canvas":
+                return .researchCanvas(boardId: ref.referenceId)
+            case "chat", "conversation":
+                return .chat(conversationId: ref.referenceId)
+            default:
+                return nil
+            }
+        }()
+
+        guard let link else { return }
+        NotificationCenter.default.post(
+            name: .hestiaDeepLink,
+            object: nil,
+            userInfo: ["deepLink": link]
+        )
     }
 
     // MARK: - Helpers

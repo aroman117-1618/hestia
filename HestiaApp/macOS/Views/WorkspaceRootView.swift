@@ -68,6 +68,11 @@ struct WorkspaceRootView: View {
                     }
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: .hestiaDeepLink)) { notification in
+                if let link = notification.userInfo?["deepLink"] as? HestiaDeepLink {
+                    navigate(to: link)
+                }
+            }
             .onReceive(NotificationCenter.default.publisher(for: .hestiaCommandPaletteToggle)) { _ in
                 palette.toggle()
             }
@@ -79,4 +84,65 @@ struct WorkspaceRootView: View {
             }
         }
     }
+
+    // MARK: - Deep Link Navigation
+
+    /// Navigate to a deep link destination, switching tabs and forwarding
+    /// context to the relevant child view via secondary notifications.
+    private func navigate(to link: HestiaDeepLink) {
+        switch link {
+        case .entity(let id):
+            withAnimation(.hestiaNavSwitch) { workspace.currentView = .research }
+            NotificationCenter.default.post(
+                name: .hestiaResearchNavigate,
+                object: nil,
+                userInfo: ["mode": "canvas", "entityId": id]
+            )
+
+        case .fact(let id):
+            withAnimation(.hestiaNavSwitch) { workspace.currentView = .research }
+            NotificationCenter.default.post(
+                name: .hestiaResearchNavigate,
+                object: nil,
+                userInfo: ["mode": "graph", "factId": id]
+            )
+
+        case .workflow(let id, let stepId):
+            withAnimation(.hestiaNavSwitch) { workspace.currentView = .workflow }
+            var info: [String: String] = ["workflowId": id]
+            if let step = stepId { info["stepId"] = step }
+            NotificationCenter.default.post(
+                name: .hestiaWorkflowNavigate,
+                object: nil,
+                userInfo: info
+            )
+
+        case .researchCanvas(let boardId, let entityId):
+            withAnimation(.hestiaNavSwitch) { workspace.currentView = .research }
+            var info: [String: String] = ["mode": "canvas", "boardId": boardId]
+            if let eid = entityId { info["entityId"] = eid }
+            NotificationCenter.default.post(
+                name: .hestiaResearchNavigate,
+                object: nil,
+                userInfo: info
+            )
+
+        case .chat:
+            // Placeholder — chat panel is a floating overlay, not a tab.
+            // Future: open the chat panel and scroll to the target message.
+            break
+        }
+    }
+}
+
+// MARK: - Deep Link Notification Names
+
+extension Notification.Name {
+    /// Posted by WorkspaceRootView after switching to the Research tab.
+    /// userInfo keys: "mode" (graph|canvas), "entityId"?, "boardId"?, "factId"?
+    static let hestiaResearchNavigate = Notification.Name("hestia.research.navigate")
+
+    /// Posted by WorkspaceRootView after switching to the Workflow tab.
+    /// userInfo keys: "workflowId", "stepId"?
+    static let hestiaWorkflowNavigate = Notification.Name("hestia.workflow.navigate")
 }
