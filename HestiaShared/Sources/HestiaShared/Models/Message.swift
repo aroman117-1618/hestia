@@ -37,8 +37,10 @@ public struct ConversationMessage: Codable, Identifiable, Equatable, Sendable {
     public var bylines: [AgentByline]?
     public var reasoningSteps: [ReasoningStep]?
     public var hallucinationRisk: String?
+    /// The input mode that created this message (nil for assistant messages or pre-mode-system messages)
+    public var inputMode: String?
 
-    public init(id: String, role: MessageRole, content: String, timestamp: Date, mode: HestiaMode?, bylines: [AgentByline]? = nil, reasoningSteps: [ReasoningStep]? = nil, hallucinationRisk: String? = nil) {
+    public init(id: String, role: MessageRole, content: String, timestamp: Date, mode: HestiaMode?, bylines: [AgentByline]? = nil, reasoningSteps: [ReasoningStep]? = nil, hallucinationRisk: String? = nil, inputMode: String? = nil) {
         self.id = id
         self.role = role
         self.content = content
@@ -47,6 +49,7 @@ public struct ConversationMessage: Codable, Identifiable, Equatable, Sendable {
         self.bylines = bylines
         self.reasoningSteps = reasoningSteps
         self.hallucinationRisk = hallucinationRisk
+        self.inputMode = inputMode
     }
 
     public enum MessageRole: String, Codable, Sendable {

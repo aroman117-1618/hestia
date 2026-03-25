@@ -52,6 +52,10 @@ class VoiceInputViewModel: ObservableObject {
         speechService.hasPermission
     }
 
+    var audioLevel: CGFloat {
+        speechService.audioLevel
+    }
+
     // MARK: - Configuration
 
     func configure(client: APIClient) {
@@ -90,7 +94,7 @@ class VoiceInputViewModel: ObservableObject {
         }
     }
 
-    /// Stop recording and run quality check.
+    /// Stop recording and run quality check (journal/default flow).
     func stopRecording() async {
         guard phase == .recording else { return }
 
@@ -106,6 +110,23 @@ class VoiceInputViewModel: ObservableObject {
 
         // Run quality check
         await runQualityCheck(transcript: transcript)
+    }
+
+    /// Stop recording and return transcript immediately (voice conversation flow).
+    /// Skips quality check and review — transcript is sent as a chat message directly.
+    func stopAndReturnTranscript() async -> String? {
+        guard phase == .recording else { return nil }
+
+        let transcript = await speechService.stopTranscription()
+        rawTranscript = transcript
+
+        guard !transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            resetState()
+            return nil
+        }
+
+        resetState()
+        return transcript
     }
 
     /// Skip quality review and send the transcript as-is.

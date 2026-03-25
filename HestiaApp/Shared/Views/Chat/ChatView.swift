@@ -14,6 +14,7 @@ struct ChatView: View {
     @State private var avatarPosition: CGPoint = .zero
     @State private var scrollViewContentSize: CGSize = .zero
     @State private var showVoiceReview = false
+    @State private var liveTranscriptId: String?
     @FocusState private var isInputFocused: Bool
 
     var body: some View {
@@ -97,9 +98,9 @@ struct ChatView: View {
         } message: {
             Text(viewModel.errorState?.userMessage ?? "An error occurred")
         }
-        // Voice recording overlay
+        // Voice recording overlay — only for journal/chat modes (voice conversation is inline)
         .fullScreenCover(isPresented: .init(
-            get: { voiceViewModel.phase == .recording },
+            get: { voiceViewModel.phase == .recording && inputMode != .voice },
             set: { _ in }
         )) {
             VoiceRecordingOverlay(
@@ -118,7 +119,7 @@ struct ChatView: View {
             )
             .background(ClearBackgroundView())
         }
-        // Transcript review sheet
+        // Transcript review sheet (journal/chat modes only)
         .sheet(isPresented: $showVoiceReview) {
             TranscriptReviewView(
                 viewModel: voiceViewModel,
@@ -131,6 +132,13 @@ struct ChatView: View {
                     voiceViewModel.cancel()
                 }
             )
+        }
+        // Voice conversation: update live transcript bubble as speech is recognized
+        .onChange(of: voiceViewModel.rawTranscript) { transcript in
+            guard inputMode == .voice, let id = liveTranscriptId else { return }
+            if let index = viewModel.messages.firstIndex(where: { $0.id == id }) {
+                viewModel.messages[index].content = transcript
+            }
         }
         // Voice error alert
         .alert("Voice Error", isPresented: $voiceViewModel.showError) {
@@ -158,8 +166,23 @@ struct ChatView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
 
-                ModeIndicator(mode: appState.currentMode) {
-                    // Mode tap action - show mode picker
+                if voiceViewModel.phase == .recording && inputMode == .voice {
+                    // Voice conversation active — show listening indicator
+                    HStack(spacing: Spacing.xs) {
+                        Circle()
+                            .fill(ChatInputMode.voice.color)
+                            .frame(width: 6, height: 6)
+                        Text("Listening...")
+                            .font(.caption)
+                            .foregroundColor(ChatInputMode.voice.color)
+                        Text(formatDuration(voiceViewModel.recordingDuration))
+                            .font(.caption.monospacedDigit())
+                            .foregroundColor(.white.opacity(0.5))
+                    }
+                } else {
+                    ModeIndicator(mode: appState.currentMode) {
+                        // Mode tap action - show mode picker
+                    }
                 }
             }
 
@@ -315,24 +338,39 @@ struct ChatView: View {
             isInputFocused: $isInputFocused,
             isLoading: viewModel.isLoading,
             isRecording: voiceViewModel.phase == .recording,
-            audioLevel: 0, // TODO: Wire audio level from VoiceInputViewModel in Task 3
+            audioLevel: voiceViewModel.audioLevel,
             forceLocal: viewModel.forceLocal,
             currentModeName: appState.currentMode.displayName,
-            onSend: { text in
-                sendMessage()
+            onSend: { _ in
+                if inputMode == .voice && voiceViewModel.phase == .recording {
+                    // Stop recording and send transcript
+                    stopVoiceConversation()
+                } else {
+                    sendMessage()
+                }
             },
             onToggleLocal: {
                 viewModel.forceLocal.toggle()
             },
             onStartVoice: {
-                Task {
-                    await voiceViewModel.startRecording()
+                if inputMode == .voice {
+                    startVoiceConversation()
+                } else {
+                    Task {
+                        await voiceViewModel.startRecording()
+                    }
                 }
             }
         )
     }
 
     // MARK: - Helpers
+
+    private func formatDuration(_ duration: TimeInterval) -> String {
+        let minutes = Int(duration) / 60
+        let seconds = Int(duration) % 60
+        return String(format: "%d:%02d", minutes, seconds)
+    }
 
     private var greetingText: String {
         let hour = Calendar.current.component(.hour, from: Date())
@@ -365,6 +403,51 @@ struct ChatView: View {
     private func sendVoiceTranscript(_ transcript: String) {
         guard !transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         Task {
+            await viewModel.sendMessage(transcript, appState: appState)
+        }
+    }
+
+    // MARK: - Voice Conversation Mode
+
+    /// Start inline voice conversation — creates a live transcript bubble in the chat.
+    private func startVoiceConversation() {
+        let placeholderId = UUID().uuidString
+        let liveMessage = ConversationMessage(
+            id: placeholderId,
+            role: .user,
+            content: "",
+            timestamp: Date(),
+            mode: nil,
+            inputMode: "voice"
+        )
+        viewModel.messages.append(liveMessage)
+        liveTranscriptId = placeholderId
+
+        Task {
+            await voiceViewModel.startRecording()
+        }
+    }
+
+    /// Stop voice conversation and send the transcript.
+    private func stopVoiceConversation() {
+        Task {
+            guard let transcript = await voiceViewModel.stopAndReturnTranscript() else {
+                // No speech detected — remove the live bubble
+                if let id = liveTranscriptId {
+                    viewModel.messages.removeAll { $0.id == id }
+                }
+                liveTranscriptId = nil
+                return
+            }
+
+            // Finalize the live bubble content
+            if let id = liveTranscriptId,
+               let index = viewModel.messages.firstIndex(where: { $0.id == id }) {
+                viewModel.messages[index].content = transcript
+            }
+            liveTranscriptId = nil
+
+            // Send the transcript to Hestia
             await viewModel.sendMessage(transcript, appState: appState)
         }
     }

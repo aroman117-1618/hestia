@@ -103,7 +103,11 @@ struct MessageBubble: View {
     // MARK: - Styling
 
     private var bubbleBackground: Color {
-        isUser ? Color.userBubbleBackground : Color.assistantBubbleBackground
+        if isUser, message.inputMode == "voice" {
+            // Voice conversation bubble — subtle amber tint
+            return Color(hex: "FF9F0A").opacity(0.15)
+        }
+        return isUser ? Color.userBubbleBackground : Color.assistantBubbleBackground
     }
 
     private var accessibilityLabel: String {

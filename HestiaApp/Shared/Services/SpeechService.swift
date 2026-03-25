@@ -22,6 +22,7 @@ class SpeechService: ObservableObject {
     @Published var currentTranscript: String = ""
     @Published var recordingDuration: TimeInterval = 0
     @Published var hasPermission: Bool = false
+    @Published var audioLevel: CGFloat = 0
 
     // MARK: - Private State
 
@@ -189,6 +190,20 @@ class SpeechService: ObservableObject {
         guard let continuation = inputContinuation else { return }
         let input = AnalyzerInput(buffer: buffer)
         continuation.yield(input)
+
+        // Extract audio level for waveform visualization
+        guard let channelData = buffer.floatChannelData?[0] else { return }
+        let frameCount = Int(buffer.frameLength)
+        var sum: Float = 0
+        for i in 0..<frameCount {
+            sum += abs(channelData[i])
+        }
+        let avg = sum / Float(max(frameCount, 1))
+        // Normalize to 0...1 range (typical speech is 0.01-0.1 RMS)
+        let normalized = CGFloat(min(avg * 10, 1.0))
+        Task { @MainActor [weak self] in
+            self?.audioLevel = normalized
+        }
     }
 
     // MARK: - Duration Timer

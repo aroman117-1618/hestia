@@ -120,7 +120,15 @@ struct ChatInputBar: View {
 
     @ViewBuilder
     private var actionButton: some View {
-        if canSend {
+        if isRecording && inputMode == .voice {
+            // Voice conversation active — stop button sends transcript
+            Button { onSend(messageText) } label: {
+                Image(systemName: "stop.circle.fill")
+                    .font(.system(size: 32))
+                    .foregroundColor(inputMode.color)
+            }
+            .accessibilityLabel("Stop recording and send")
+        } else if canSend {
             Button { onSend(messageText) } label: {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.system(size: 32))
