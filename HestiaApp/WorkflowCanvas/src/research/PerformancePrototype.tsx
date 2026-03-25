@@ -1,6 +1,7 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import {
-  ReactFlow, Background, Controls, MiniMap,
+  ReactFlow, ReactFlowProvider, Background, Controls, MiniMap,
+  useReactFlow,
   type Node, type Edge,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -37,30 +38,45 @@ function generateEdges(nodes: Node[]): Edge[] {
   return edges;
 }
 
-export default function PerformancePrototype() {
+function PerformanceCanvas() {
   const nodes = useMemo(() => generateNodes(300), []);
   const edges = useMemo(() => generateEdges(nodes), [nodes]);
   const onNodeDrag = useCallback(() => {}, []);
+  const { fitView } = useReactFlow();
+
+  useEffect(() => {
+    // Delay fitView to ensure container has dimensions after router mount
+    const timer = setTimeout(() => fitView({ padding: 0.1 }), 100);
+    return () => clearTimeout(timer);
+  }, [fitView]);
 
   return (
+    <ReactFlow
+      nodes={nodes}
+      edges={edges}
+      onNodeDrag={onNodeDrag}
+      fitView
+      minZoom={0.1}
+      maxZoom={2}
+    >
+      <Background color="rgba(224,160,80,0.06)" gap={24} size={1} />
+      <Controls />
+      <MiniMap style={{ background: '#0D0802' }} />
+    </ReactFlow>
+  );
+}
+
+export default function PerformancePrototype() {
+  return (
     <div style={{ width: '100vw', height: '100vh', background: '#110B03' }}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodeDrag={onNodeDrag}
-        fitView
-        minZoom={0.1}
-        maxZoom={2}
-      >
-        <Background color="rgba(224,160,80,0.06)" gap={24} size={1} />
-        <Controls />
-        <MiniMap style={{ background: '#0D0802' }} />
-      </ReactFlow>
+      <ReactFlowProvider>
+        <PerformanceCanvas />
+      </ReactFlowProvider>
       <div style={{
         position: 'fixed', top: 8, right: 8, background: 'rgba(0,0,0,0.8)',
-        color: '#E0A050', padding: '8px 12px', borderRadius: 8, fontSize: 12,
+        color: '#E0A050', padding: '8px 12px', borderRadius: 8, fontSize: 12, zIndex: 1000,
       }}>
-        PERF TEST: {nodes.length} nodes, {edges.length} edges
+        PERF TEST: 300 nodes
       </div>
     </div>
   );
