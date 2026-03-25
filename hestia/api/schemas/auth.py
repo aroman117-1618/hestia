@@ -78,3 +78,18 @@ class DeviceRevokeResponse(BaseModel):
     device_id: str = Field(description="Device identifier")
     revoked: bool = Field(description="Whether the device is now revoked")
     message: str = Field(description="Status message")
+
+
+class AppleRegisterRequest(BaseModel):
+    """Request to register a device using Sign in with Apple."""
+    identity_token: str = Field(..., description="Apple identity JWT token")
+    device_name: Optional[str] = Field(None, description="Device name")
+    device_type: Optional[str] = Field(None, description="Device type (ios/macos)")
+
+
+class AppleRegisterResponse(BaseModel):
+    """Response after Apple-based registration."""
+    device_id: str = Field(description="Assigned device identifier")
+    token: str = Field(description="JWT device token for authentication")
+    expires_at: str = Field(description="Token expiration time (ISO8601 string)")
+    server_url: str = Field(description="Server base URL")
