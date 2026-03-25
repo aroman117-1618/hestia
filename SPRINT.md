@@ -54,6 +54,36 @@ After soak validates: flip to live with $25 across viable strategies. Run 30+ fi
 
 ---
 
+# Notion-Level UI Redesign (2026-03-24) — IN PROGRESS
+
+**Date:** 2026-03-24
+**Discovery:** `docs/discoveries/notion-level-ui-redesign-2026-03-24.md`
+**Second Opinion:** `docs/plans/notion-level-ui-redesign-second-opinion-2026-03-24.md`
+**Plan:** `docs/superpowers/plans/2026-03-24-notion-level-ui-redesign.md`
+**Perf Results:** `docs/plans/research-canvas-perf-prototype-results.md`
+
+Notion-quality UI with dual-mode Research tab (2D Research Canvas + 3D Knowledge Atlas), shared component library, cross-linking, Apple design language.
+
+| Phase | Scope | Hours | Status |
+|-------|-------|-------|--------|
+| 1-lite | HestiaPanelModifier extraction | ~4h | DONE |
+| 4a | Entity references table + API | ~8h | DONE |
+| 2 | Research Canvas (React Flow + Swift + backend) | ~25-35h | DONE (code complete, needs visual QA) |
+| 1-full | Component extraction (DetailPane, ContentRow, SidebarSection) | ~8-12h | DONE |
+| 4b | Cross-link UI (deep links, indexer, badges) | ~12-22h | DONE |
+| 3 | 3D Atlas refinement (centrality, recency, confidence) | ~10-15h | DONE |
+
+**Key decisions:**
+- Unified React canvas (single Vite project with hash routing for workflow + research)
+- SQLite as source of truth, React canvas as stateless renderer
+- Apple design language (SF Symbols, geometric indicators, no emoji as UI chrome)
+- Batch cross-link indexing (never on chat write path)
+- "Research Canvas" naming (avoids InvestigationModels collision)
+
+**14 commits, 50 new tests, 10 new API endpoints, 6 custom React Flow node types, 5 shared SwiftUI components.**
+
+---
+
 # Memory Synthesis Engine (S-MEM) — PLANNED
 
 **Date:** 2026-03-24

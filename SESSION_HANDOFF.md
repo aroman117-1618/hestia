@@ -1,70 +1,69 @@
-# Session Handoff — 2026-03-24 (Session D — Workflow Fix + Cloud Persona)
+# Session Handoff — 2026-03-24 (Session E — Notion-Level UI Redesign)
 
 ## Mission
-Troubleshoot the failed Evening Research workflow, fix execution bugs, and enrich the cloud inference path so Andrew can use Hestia (via Anthropic) as a development interface with conversations feeding the memory pipeline.
+Design and implement the Notion-Level UI Redesign — dual-mode Research tab (2D Research Canvas + 3D Knowledge Atlas), shared SwiftUI component library, cross-linking infrastructure, and Apple design language enforcement.
 
 ## Completed
-- **Evening Research workflow fixed** — 3 bugs in `hestia/workflows/nodes.py`:
-  - `get_handler` → `get_request_handler` (ImportError, line 111)
-  - `source="workflow"` → `context={"source": "workflow"}` on `create_bump()` (TypeError, line 195)
-  - Added `config.get("message")` fallback for notify node body (config key mismatch)
-- **Timeout infrastructure overhauled** — layered timeouts were too aggressive for R1 reasoning model:
-  - `hestia/workflows/executor.py`: DEFAULT_PROMPT_TIMEOUT 120→600s, delay nodes exempt from timeout
-  - `hestia/orchestration/state.py`: TaskState.PROCESSING 120→600s
-- **Cloud persona wired** — `hestia/orchestration/prompt.py`:
-  - Removed generic `CLOUD_SAFE_SYSTEM_PROMPT` constant
-  - Cloud path now uses Tia/Mira/Olly persona (same as local), PII filtering unchanged
-  - Principles and Knowledge Graph correctly excluded from cloud (they're Hestia-internal)
-- **`/codebase-audit` skill enhanced** — Phase 9.5 added: Notion + GitHub sync verification
-- **Hestia CLI installed on Mac Mini** — `pip install -e hestia-cli/`, alias added to `~/.zshrc`
-- **Shipped v1.5.3** (build 25) — commit `e8fed52`, tag `v1.5.3`, pushed to main
-- **CLAUDE.md test counts updated** — 2989 tests (2854 backend + 135 CLI), 93 test files
+- **Brainstorming** — Full product design session with visual companion mockups (Research Canvas layout, Distill Principle flow). Established: Notion for architecture, Apple for aesthetics.
+- **Discovery** — `docs/discoveries/notion-level-ui-redesign-2026-03-24.md`
+- **Second Opinion** — `docs/plans/notion-level-ui-redesign-second-opinion-2026-03-24.md`. 11-phase audit, Claude + Gemini cross-model validation. Verdict: APPROVE WITH CONDITIONS.
+- **Implementation Plan** — `docs/superpowers/plans/2026-03-24-notion-level-ui-redesign.md`. 12 tasks, reviewed and approved.
+- **All 12 implementation tasks** via subagent-driven development:
+  - Task 1: `HestiaPanelModifier` — 16 instances migrated across 12 views (`a151d42`)
+  - Task 2: `entity_references` table + 3 API endpoints + 10 tests (`3047616`)
+  - Task 3: Performance prototype — 300-node stress test, GO confirmed (`8a04cbb`, `f9c7a3c`)
+  - Task 4: Unified bridge protocol — typed `BridgeAction` union, `createBridge()` factory (`7eeebf9`)
+  - Task 5: Research Canvas React — 6 node types, FloatingActionBar, lasso selection (`8d9ff2c`)
+  - Task 6: Swift integration — WebView, ViewModel, sidebar, detail pane, `.canvas` mode (`bb742b7`)
+  - Task 7: Board persistence — `research_boards` table, CRUD API, distill-from-selection (`2a67fd4`)
+  - Task 8: Component extraction — `HestiaDetailPane`, `HestiaContentRow`, `HestiaSidebarSection` (`887ce9a`)
+  - Task 9: Cross-link UI — `HestiaDeepLink`, `HestiaCrossLinkBadge`, batch indexer (`95ec001`)
+  - Task 10: 3D Atlas refinement — centrality sizing, recency color, confidence opacity (`134c644`)
+  - Task 11: Deploy pipeline — canvas build step in deploy-to-mini.sh (`a17df49`)
+  - Task 12: Docs update — CLAUDE.md counts updated (`541c0db`)
+  - Fix: Missing `import HestiaShared` in NodeDetailPopover (`3e83674`)
 
 ## In Progress
-- **Evening Research workflow** — triggered on Mac Mini, R1 inference succeeded (93s), but the 4-hour delay node means the full run won't complete until ~4:30 AM UTC. Check `workflow_runs` table for `wf-3d895cc18f24` status.
-- **Parallel session** building Notion-Level UI Redesign (Investigation Canvas, entity references, component library). Their uncommitted files are in `docs/` and `HestiaApp/WorkflowCanvas/`.
+- **Git push to main** — Pre-push hook running. Should complete within 5 minutes.
+- **Visual QA** — Code complete but not visually tested in the full app with real data.
 
 ## Decisions Made
-- **Principles stay Hestia-internal** — NOT sent to cloud providers. The pipeline is: Investigation Canvas → Principles → Knowledge Graph → local inference. Cloud is just the "smart engine" whose conversations feed memory.
-- **Cloud persona YES, cloud Principles NO** — cloud Hestia gets personality for useful dev conversations, but behavioral rules stay local-only.
-- **Timeout 600s for R1** — DeepSeek-R1:14b on M1 needs 90-120s for complex prompts with tool calls. 600s gives headroom for multi-turn tool chains.
+- Unified React canvas over separate Vite projects (Gemini recommendation)
+- "Research Canvas" naming over "Investigation Board" (avoids InvestigationModels collision)
+- Canvas as workbench, not warehouse — sidebar = inventory, canvas = focused workspace (20-50 nodes typical)
+- Distill Principle = Hestia augments with her broader knowledge, not just summarizes visible nodes
+- Batch cross-link indexing — never on the chat write path
+- Apple design language — SF Symbols, geometric indicators, no emoji as UI chrome
 
 ## Test Status
-- 2989 passing (2854 backend + 135 CLI), 0 failing, 0 skipped
-- All tests green as of pre-push validation
+- 3029 total (2894 backend + 135 CLI), 95 test files
+- 50 new tests added (entity references, boards, indexer)
+- All passing
 
 ## Uncommitted Changes
-- `HestiaApp/WorkflowCanvas/src/research/PerformancePrototype.tsx` — parallel session's work
-- `HestiaApp/macOS/Resources/WorkflowCanvas/index.html` — parallel session's work
-- Multiple untracked `docs/` files — parallel session's discovery/plan documents
-- `CLAUDE.md` — test count update (needs commit)
+- `SPRINT.md` — UI Redesign section added
+- `SESSION_HANDOFF.md` — this file
+- `scripts/sync-notion.py` — modified (not by this session)
+- Several untracked docs files from prior sessions
 
 ## Known Issues / Landmines
-- **Mac Mini server was restarted 3x during debugging** — final PID is 11327 but CI/CD auto-deploy may have restarted it again after the push. Verify with `lsof -i :8443` on Mini.
-- **Evening Research cron is `0 2 * * *` UTC** — that's 7 PM PT. The workflow will fire daily. If R1 is slow or Ollama is swapped to a different model, the 600s timeout should catch it.
-- **Notify node uses `config.get("message")` fallback** — the workflow's notify config uses `"message"` key but the code expected `"body"`. Fixed with fallback, but new workflows should use `"body"` for consistency.
-- **pytest conftest collision** — running `pytest` from root collects `hestia-cli/tests/` which conflicts with `tests/conftest.py`. Use `python -m pytest tests/` (not bare `pytest`).
-- **Stale worktrees** — 9 agent worktrees in `.claude/worktrees/`. Not urgent but could be cleaned up.
+- **xcodegen required** after pulling — `.xcodeproj` is gitignored, run `cd HestiaApp && xcodegen generate` after adding Swift files
+- **Scheme mismatch** — subagents tested with `-scheme HestiaApp`, pre-push hook uses `-scheme HestiaWorkspace`. Always use HestiaWorkspace for macOS build verification.
+- **Board CRUD ViewModel stubs** — `ResearchCanvasViewModel` guards some calls with `#if DEBUG`. Full wiring needs server deployed with new endpoints.
+- **`WKProcessPool` deprecation** — harmless warnings on macOS 12.0+. Can remove in cleanup.
+- **Chat message indexing NOT implemented** — batch indexer covers research canvas + workflow steps only. Chat deferred to avoid touching the chat pipeline.
+- **Push may need rebase** if remote diverged — `git fetch origin main && git rebase origin/main && git push`
 
 ## Process Learnings
+- **First-pass success: 10/12 tasks (83%)** — 2 required fixes (routing timing, missing import)
+- **Top blocker:** Scheme difference between subagent testing and pre-push hook
+- **Proposed fix:** Add to CLAUDE.md: "Always build with `-scheme HestiaWorkspace` for macOS"
+- **Gemini cross-model validation was high-value** — "unify canvases" recommendation saved significant maintenance burden
+- **Visual companion worked well** for UI brainstorming — confirmed in memory for future sessions
 
-### Config Gaps
-- **Lazy import regressions are invisible to tests** — `nodes.py` imported `get_handler` (renamed months ago) but tests mock the handler layer. A lightweight integration test that resolves real imports would catch this.
-  - **Proposal (SCRIPT)**: Add `test_import_smoke.py` that imports every lazy-imported function without mocking.
-- **Layered timeouts need coordinated updates** — changing one timeout (executor) without the other (state machine) caused a second failure. Both referenced "Mixtral" in comments (stale).
-  - **Proposal (CLAUDE.MD)**: Add "Timeout Coordination" note: grep all timeout layers when changing any inference timeout.
-
-### First-Pass Success
-- 4/5 tasks completed on first attempt (80%)
-- **Rework cause**: Two independent timeout layers — first fix revealed the second
-- **Top blocker**: Invisible layered timeouts with no single configuration point
-
-### Agent Orchestration
-- @hestia-explorer used effectively (2 deep traces: workflow architecture + cloud pipeline)
-- @hestia-tester used after every code change (3 runs, all green)
-- @hestia-deployer hung on pytest — worked around with direct rsync (known issue)
-
-## Next Step
-1. Verify Evening Research completed: `ssh andrewroman117@hestia-3.local "cd ~/hestia && sqlite3 data/workflows.db \"SELECT status, duration_ms, error_message FROM workflow_runs WHERE workflow_id='wf-3d895cc18f24' ORDER BY started_at DESC LIMIT 1;\""`
-2. Open macOS app, set cloud to Full, send a message — verify Tia's personality and memory storage
-3. Continue parallel session's UI Redesign work (Investigation Canvas, Phase 4a references)
+## Next Steps
+1. Verify push completed: `git log origin/main --oneline -3`
+2. Deploy to Mac Mini: push triggers CI/CD, or `./scripts/deploy-to-mini.sh`
+3. Visual QA: Open Hestia app → Research tab → "Research Canvas" mode → verify sidebar loads, canvas renders, mode toggle works
+4. Test with real data: Add entities to canvas, lasso-select 3+, click "Distill Principle", verify end-to-end
+5. If visual issues: test canvas standalone at `http://localhost:8888/index.html#/research`
