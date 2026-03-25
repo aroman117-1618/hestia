@@ -7,9 +7,12 @@ Handles device registration, invite-based QR onboarding, and token management.
 import json
 import os
 from datetime import datetime, timezone
+from typing import Optional
 from uuid import uuid4
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
+from jose import jwt as jose_jwt, JWTError
 
 from hestia.api.schemas import (
     DeviceRegisterRequest,
@@ -19,6 +22,8 @@ from hestia.api.schemas import (
     InviteRegisterRequest,
     InviteRegisterResponse,
     ErrorResponse,
+    AppleRegisterRequest,
+    AppleRegisterResponse,
 )
 from hestia.api.middleware.auth import (
     create_device_token,
@@ -38,6 +43,85 @@ logger = get_logger()
 
 # Config: when True, /register returns 403 (only invite-based registration allowed)
 _REQUIRE_INVITE = os.environ.get("HESTIA_REQUIRE_INVITE", "false").lower() == "true"
+
+# Apple public keys cache
+_apple_keys_cache: Optional[dict] = None
+_apple_keys_fetched_at: Optional[float] = None
+_APPLE_KEYS_URL = "https://appleid.apple.com/auth/keys"
+_APPLE_ISSUER = "https://appleid.apple.com"
+_APPLE_AUDIENCE = "com.andrewlonati.hestia"
+
+# Rate limiting for Apple auth
+_apple_auth_attempts: dict = {}
+
+
+async def _fetch_apple_public_keys() -> dict:
+    """Fetch Apple's public keys for JWT verification."""
+    global _apple_keys_cache, _apple_keys_fetched_at
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(_APPLE_KEYS_URL, timeout=10.0)
+        resp.raise_for_status()
+        _apple_keys_cache = resp.json()
+        _apple_keys_fetched_at = datetime.now(timezone.utc).timestamp()
+        return _apple_keys_cache
+
+
+async def _get_apple_public_keys(force_refresh: bool = False) -> dict:
+    """Get Apple public keys with cache-then-refresh-on-miss strategy."""
+    global _apple_keys_cache, _apple_keys_fetched_at
+    if _apple_keys_cache is None or force_refresh:
+        return await _fetch_apple_public_keys()
+    age = datetime.now(timezone.utc).timestamp() - (_apple_keys_fetched_at or 0)
+    if age > 86400:
+        return await _fetch_apple_public_keys()
+    return _apple_keys_cache
+
+
+async def verify_apple_identity_token(identity_token: str) -> dict:
+    """Verify an Apple identity token JWT. Returns decoded payload. Raises ValueError on failure."""
+    try:
+        header = jose_jwt.get_unverified_header(identity_token)
+        kid = header.get("kid")
+        if not kid:
+            raise ValueError("Missing kid in token header")
+
+        keys = await _get_apple_public_keys()
+        matching_key = None
+        for key in keys.get("keys", []):
+            if key.get("kid") == kid:
+                matching_key = key
+                break
+
+        if matching_key is None:
+            keys = await _get_apple_public_keys(force_refresh=True)
+            for key in keys.get("keys", []):
+                if key.get("kid") == kid:
+                    matching_key = key
+                    break
+
+        if matching_key is None:
+            raise ValueError(f"No matching Apple public key for kid={kid}")
+
+        payload = jose_jwt.decode(
+            identity_token,
+            matching_key,
+            algorithms=["RS256"],
+            audience=_APPLE_AUDIENCE,
+            issuer=_APPLE_ISSUER,
+        )
+        return payload
+
+    except JWTError as e:
+        raise ValueError(f"Apple token verification failed: {e}")
+
+
+def _check_apple_rate_limit(ip: str) -> bool:
+    """Check rate limit for Apple auth attempts. 10 per hour."""
+    now = datetime.now(timezone.utc).timestamp()
+    attempts = _apple_auth_attempts.get(ip, [])
+    attempts = [t for t in attempts if now - t < 3600]
+    _apple_auth_attempts[ip] = attempts
+    return len(attempts) < 10
 
 
 @router.post(
@@ -348,3 +432,90 @@ async def refresh_token(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Token refresh failed",
         )
+
+
+@router.post(
+    "/register-with-apple",
+    response_model=AppleRegisterResponse,
+    responses={
+        400: {"model": ErrorResponse, "description": "Invalid Apple identity token"},
+        403: {"model": ErrorResponse, "description": "Apple ID not recognized"},
+        429: {"model": ErrorResponse, "description": "Rate limit exceeded"},
+    },
+    summary="Register device with Apple Sign In",
+    description="Register a new device using Sign in with Apple identity token.",
+)
+async def register_with_apple(request: AppleRegisterRequest) -> AppleRegisterResponse:
+    """Register a device using Apple Sign In identity token."""
+    if not _check_apple_rate_limit("default"):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limit exceeded. Try again later.",
+        )
+
+    now = datetime.now(timezone.utc).timestamp()
+    _apple_auth_attempts.setdefault("default", []).append(now)
+
+    try:
+        payload = await verify_apple_identity_token(request.identity_token)
+    except ValueError as e:
+        logger.warning(
+            "Apple token verification failed",
+            component=LogComponent.SECURITY,
+            data={"error": sanitize_for_log(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired Apple identity token.",
+        )
+
+    apple_sub = payload.get("sub")
+    if not apple_sub:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Apple identity token missing subject claim.",
+        )
+
+    store = await get_invite_store()
+    existing = await store.find_device_by_apple_id(apple_sub)
+
+    if not existing:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No Hestia account linked to this Apple ID. "
+                   "Register via QR code first, then use Apple Sign In for future devices.",
+        )
+
+    device_id = f"device-{uuid4().hex[:12]}"
+    device_name = request.device_name or "Unknown"
+    device_type = request.device_type or "ios"
+    device_info = {"device_name": device_name, "device_type": device_type}
+
+    token, expires_at = create_device_token(device_id, device_info)
+    expires_at_str = expires_at.isoformat() if hasattr(expires_at, "isoformat") else str(expires_at)
+
+    await store.register_device(
+        device_id=device_id,
+        device_name=device_name,
+        device_type=device_type,
+        apple_user_id=apple_sub,
+    )
+
+    server_url = os.environ.get("HESTIA_SERVER_URL", "https://hestia-3.local:8443")
+
+    logger.info(
+        "Device registered via Apple Sign In",
+        component=LogComponent.SECURITY,
+        data={
+            "device_id": device_id,
+            "device_type": device_type,
+            "apple_sub": apple_sub[:8] + "...",
+        },
+    )
+
+    return AppleRegisterResponse(
+        device_id=device_id,
+        token=token,
+        expires_at=expires_at_str,
+        server_url=server_url,
+    )
