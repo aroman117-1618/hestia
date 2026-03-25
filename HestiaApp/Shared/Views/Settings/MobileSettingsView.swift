@@ -52,7 +52,7 @@ struct MobileSettingsView: View {
                             title: "System",
                             subtitle: systemSubtitle
                         ) {
-                            SystemDetailView()
+                            SystemDetailView(viewModel: viewModel)
                         }
                     }
                     .padding(.horizontal, Spacing.md)
@@ -65,6 +65,12 @@ struct MobileSettingsView: View {
         }
         .onAppear {
             if apiClientProvider.isReady {
+                viewModel.configure(apiClient: apiClientProvider.client)
+                Task { await viewModel.loadSettings() }
+            }
+        }
+        .onChange(of: apiClientProvider.isReady) { _, isReady in
+            if isReady {
                 viewModel.configure(apiClient: apiClientProvider.client)
                 Task { await viewModel.loadSettings() }
             }

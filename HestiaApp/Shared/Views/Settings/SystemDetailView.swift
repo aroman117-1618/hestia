@@ -5,8 +5,8 @@ import HestiaShared
 struct SystemDetailView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var authService: AuthService
-    @StateObject private var viewModel = SettingsViewModel()
     @EnvironmentObject var apiClientProvider: APIClientProvider
+    @ObservedObject var viewModel: SettingsViewModel
     @State private var showUnregisterConfirmation = false
 
     var body: some View {
@@ -99,11 +99,5 @@ struct SystemDetailView: View {
         .navigationTitle("System")
         .navigationBarTitleDisplayMode(.large)
         .toolbarColorScheme(.dark, for: .navigationBar)
-        .onAppear {
-            if apiClientProvider.isReady {
-                viewModel.configure(apiClient: apiClientProvider.client)
-                Task { await viewModel.loadSettings() }
-            }
-        }
     }
 }

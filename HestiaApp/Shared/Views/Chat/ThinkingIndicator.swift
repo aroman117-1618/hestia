@@ -47,5 +47,8 @@ struct ThinkingIndicator: View {
         }
         .padding(.horizontal, Spacing.md)
         .onAppear { isPulsing = true }
+        .accessibilityLabel("Processing")
+        .accessibilityValue(displayText)
+        .accessibilityAddTraits(.updatesFrequently)
     }
 }

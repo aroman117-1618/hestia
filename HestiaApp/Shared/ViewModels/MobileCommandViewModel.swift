@@ -34,21 +34,20 @@ class MobileCommandViewModel: ObservableObject {
         isLoading = true
         failedSections.removeAll()
 
-        // Load sections individually — errors are per-section, not blocking
-        do { summary = try await client.getMobileTradingSummary() }
-        catch { failedSections.insert("trading") }
+        // Fire all requests in parallel
+        async let s: MobileTradingSummary? = try? client.getMobileTradingSummary()
+        async let b: MobileTradingBotList? = try? client.getMobileTradingBots()
+        async let r: MobileRiskStatus? = try? client.getMobileRiskStatus()
+        async let w: MobileWorkflowList? = try? client.getMobileWorkflows()
+        async let n: MobileNewsfeedTimeline? = try? client.getMobileNewsfeed()
 
-        do { let r = try await client.getMobileTradingBots(); bots = r.bots }
-        catch { failedSections.insert("bots") }
+        let (sVal, bVal, rVal, wVal, nVal) = await (s, b, r, w, n)
 
-        do { riskStatus = try await client.getMobileRiskStatus() }
-        catch { failedSections.insert("risk") }
-
-        do { let r = try await client.getMobileWorkflows(); workflows = r.workflows }
-        catch { failedSections.insert("workflows") }
-
-        do { let r = try await client.getMobileNewsfeed(); newsfeedItems = r.items }
-        catch { failedSections.insert("newsfeed") }
+        if let v = sVal { summary = v } else { failedSections.insert("trading") }
+        if let v = bVal { bots = v.bots } else { failedSections.insert("bots") }
+        if let v = rVal { riskStatus = v } else { failedSections.insert("risk") }
+        if let v = wVal { workflows = v.workflows } else { failedSections.insert("workflows") }
+        if let v = nVal { newsfeedItems = v.items } else { failedSections.insert("newsfeed") }
         isLoading = false
     }
 

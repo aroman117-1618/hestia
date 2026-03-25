@@ -23,6 +23,7 @@ struct HestiaPillButton: View {
             .cornerRadius(CornerRadius.small)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(title)
     }
 }
 

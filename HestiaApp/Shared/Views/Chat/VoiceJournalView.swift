@@ -7,8 +7,9 @@ struct VoiceJournalView: View {
     @ObservedObject var voiceViewModel: VoiceInputViewModel
     let onSubmit: (String, TimeInterval) -> Void
     let onCancel: () -> Void
+    @State private var cursorOpacity: Double = 1.0
 
-    private let journalColor = Color(hex: "30D5C8") // Artemis teal
+    private let journalColor = Color.agentTeal
 
     var body: some View {
         NavigationView {
@@ -95,6 +96,11 @@ struct VoiceJournalView: View {
                         .fill(journalColor)
                         .frame(width: 2, height: 20)
                         .opacity(cursorOpacity)
+                        .onAppear {
+                            withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) {
+                                cursorOpacity = 0.0
+                            }
+                        }
                 }
             }
         }
@@ -152,8 +158,6 @@ struct VoiceJournalView: View {
     }
 
     // MARK: - Helpers
-
-    @State private var cursorOpacity: Double = 1.0
 
     private func formatDuration(_ duration: TimeInterval) -> String {
         let minutes = Int(duration) / 60
