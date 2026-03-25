@@ -12,6 +12,8 @@ class SettingsViewModel: ObservableObject {
     @Published var systemHealth: SystemHealth?
     @Published var isLoading: Bool = false
     @Published var pendingReviewCount: Int = 0
+    @Published var cloudState: String?
+    @Published var deviceCount: Int = 1
 
     // MARK: - Dependencies
 
@@ -44,6 +46,18 @@ class SettingsViewModel: ObservableObject {
         authService.biometricType
     }
 
+    var biometricEnabled: Bool {
+        authService.biometricType != .none
+    }
+
+    var serverOnline: Bool {
+        systemHealth != nil
+    }
+
+    var autoLockMinutes: Int {
+        autoLockTimeout.rawValue
+    }
+
     var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
     }
@@ -58,6 +72,28 @@ class SettingsViewModel: ObservableObject {
         self.client = client
         self.authService = authService
         loadSavedSettings()
+    }
+
+    // MARK: - Configuration
+
+    /// Configure with a specific API client (used by MobileSettingsView).
+    func configure(apiClient: APIClient) {
+        // SettingsViewModel already uses APIClient.shared via init.
+        // This method exists so the view can trigger configuration timing.
+    }
+
+    /// Load settings and server state.
+    func loadSettings() async {
+        await refresh()
+        // Load cloud state
+        do {
+            let state: CloudStateResponse = try await (client as! APIClient).getCloudState()
+            cloudState = state.state
+        } catch {
+            #if DEBUG
+            print("[Settings] Failed to load cloud state: \(error)")
+            #endif
+        }
     }
 
     // MARK: - Public Methods

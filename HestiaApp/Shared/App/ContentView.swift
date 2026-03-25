@@ -50,7 +50,7 @@ struct RootView: View {
     }
 }
 
-/// Main tab navigation
+/// Main tab navigation — 3 equal tabs: Chat, Command, Settings
 struct MainTabView: View {
     @State private var selectedTab = 0
     @EnvironmentObject var networkMonitor: NetworkMonitor
@@ -58,19 +58,26 @@ struct MainTabView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            // Chat tab (primary)
+            // Chat tab
             ChatView()
                 .tabItem {
                     Label("Chat", systemImage: "message.fill")
                 }
                 .tag(0)
 
-            // Settings tab (Cloud, Integrations, Device Management, Proactive, Health, Profile, Agents)
-            SettingsView()
+            // Command tab (mobile dashboard)
+            MobileCommandView()
+                .tabItem {
+                    Label("Command", systemImage: "square.grid.2x2.fill")
+                }
+                .tag(1)
+
+            // Settings tab (rebuilt with Notion-style blocks)
+            MobileSettingsView()
                 .tabItem {
                     Label("Settings", systemImage: "gearshape.fill")
                 }
-                .tag(1)
+                .tag(2)
         }
         .accentColor(.white)
     }
