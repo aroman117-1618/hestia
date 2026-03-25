@@ -322,8 +322,14 @@ class ModelRouter:
                     fallback_tier=fallback,
                 )
 
-            # Check for complex patterns
-            if self.complex_model.enabled and self._matches_routing_patterns(prompt, token_count):
+            # Check for complex patterns — skip if request has tools and
+            # the complex model doesn't support them (e.g. deepseek-r1)
+            supports_tools = getattr(self.complex_model, "supports_tools", True)
+            if (
+                self.complex_model.enabled
+                and (not has_tools or supports_tools)
+                and self._matches_routing_patterns(prompt, token_count)
+            ):
                 return RoutingDecision(
                     tier=ModelTier.COMPLEX,
                     model_config=self.complex_model,
@@ -347,7 +353,12 @@ class ModelRouter:
                 fallback_tier=ModelTier.PRIMARY,
             )
 
-        if self.complex_model.enabled and self._matches_routing_patterns(prompt, token_count):
+        supports_tools = getattr(self.complex_model, "supports_tools", True)
+        if (
+            self.complex_model.enabled
+            and (not has_tools or supports_tools)
+            and self._matches_routing_patterns(prompt, token_count)
+        ):
             return RoutingDecision(
                 tier=ModelTier.COMPLEX,
                 model_config=self.complex_model,
