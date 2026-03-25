@@ -31,6 +31,7 @@ from .models import (
     SourceCategory,
     TemporalType,
 )
+from .references import EntityReference, ReferenceModule
 
 _DB_DIR = Path("data")
 _DB_PATH = _DB_DIR / "research.db"
@@ -160,6 +161,19 @@ class ResearchDatabase(BaseDatabase):
             );
             CREATE INDEX IF NOT EXISTS idx_import_sources_user ON import_sources(user_id);
             CREATE INDEX IF NOT EXISTS idx_import_sources_provider ON import_sources(provider);
+
+            CREATE TABLE IF NOT EXISTS entity_references (
+                id TEXT PRIMARY KEY,
+                entity_id TEXT NOT NULL,
+                module TEXT NOT NULL,
+                item_id TEXT NOT NULL,
+                context TEXT DEFAULT '',
+                user_id TEXT DEFAULT '',
+                created_at TEXT NOT NULL,
+                UNIQUE(entity_id, module, item_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_entity_references_entity ON entity_references(entity_id);
+            CREATE INDEX IF NOT EXISTS idx_entity_references_module ON entity_references(module, item_id);
         """)
 
         # Sprint 20A: Add durability/temporal/source columns to facts table
@@ -1164,6 +1178,99 @@ class ResearchDatabase(BaseDatabase):
         cursor = await self._connection.execute(query, params)
         rows = await cursor.fetchall()
         return [self._row_to_fact(row) for row in rows]
+
+
+    # ── Entity References CRUD ───────────────────────────────
+
+    async def add_entity_reference(self, ref: EntityReference) -> EntityReference:
+        """Insert or ignore a cross-module entity reference.
+
+        The UNIQUE constraint on (entity_id, module, item_id) means a duplicate
+        call is silently ignored — callers can safely call this repeatedly.
+        """
+        if not self._connection:
+            raise RuntimeError("Database not initialized")
+        await self._connection.execute(
+            """INSERT OR IGNORE INTO entity_references
+               (id, entity_id, module, item_id, context, user_id, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (
+                ref.id,
+                ref.entity_id,
+                ref.module.value,
+                ref.item_id,
+                ref.context,
+                ref.user_id,
+                ref.created_at,
+            ),
+        )
+        await self._connection.commit()
+        return ref
+
+    async def get_entity_references(
+        self,
+        entity_id: str,
+        module: Optional[ReferenceModule] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[EntityReference]:
+        """Get all references for an entity, optionally filtered by module."""
+        if not self._connection:
+            return []
+
+        query = "SELECT * FROM entity_references WHERE entity_id = ?"
+        params: List[Any] = [entity_id]
+
+        if module is not None:
+            query += " AND module = ?"
+            params.append(module.value)
+
+        query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+
+        cursor = await self._connection.execute(query, params)
+        rows = await cursor.fetchall()
+        return [self._row_to_entity_reference(row) for row in rows]
+
+    async def delete_entity_references_by_item(
+        self, module: ReferenceModule, item_id: str
+    ) -> int:
+        """Delete all references for a given (module, item_id) pair.
+
+        Returns the number of rows deleted.
+        """
+        if not self._connection:
+            return 0
+        cursor = await self._connection.execute(
+            "DELETE FROM entity_references WHERE module = ? AND item_id = ?",
+            (module.value, item_id),
+        )
+        await self._connection.commit()
+        return cursor.rowcount
+
+    async def delete_entity_reference(self, reference_id: str) -> bool:
+        """Delete a single reference by its ID. Returns True if a row was deleted."""
+        if not self._connection:
+            return False
+        cursor = await self._connection.execute(
+            "DELETE FROM entity_references WHERE id = ?",
+            (reference_id,),
+        )
+        await self._connection.commit()
+        return cursor.rowcount > 0
+
+    def _row_to_entity_reference(self, row: Any) -> EntityReference:
+        """Convert a database row to an EntityReference object."""
+        # Columns: id, entity_id, module, item_id, context, user_id, created_at
+        return EntityReference(
+            id=row[0],
+            entity_id=row[1],
+            module=ReferenceModule(row[2]),
+            item_id=row[3],
+            context=row[4] or "",
+            user_id=row[5] or "",
+            created_at=row[6] or "",
+        )
 
 
 async def get_research_database(db_path: Optional[Path] = None) -> "ResearchDatabase":

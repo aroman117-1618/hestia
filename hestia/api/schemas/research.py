@@ -226,3 +226,37 @@ class ImportSourceListResponse(BaseModel):
     """List of import sources."""
     sources: List[ImportSourceResponse]
     total: int
+
+
+# =============================================================================
+# Entity Reference Schemas
+# =============================================================================
+
+
+class EntityReferenceResponse(BaseModel):
+    """A single cross-module entity reference."""
+
+    id: str
+    entityId: str
+    module: str
+    itemId: str
+    context: str = ""
+    userId: str = ""
+    createdAt: Optional[str] = None
+
+
+class EntityReferenceListResponse(BaseModel):
+    """List of entity references with pagination metadata."""
+
+    references: List[EntityReferenceResponse]
+    total: int
+    entityId: str
+
+
+class AddReferenceRequest(BaseModel):
+    """Request body for adding a cross-module entity reference."""
+
+    module: str = Field(..., description="Module that references the entity: workflow, chat, command, research_canvas, memory")
+    item_id: str = Field(..., min_length=1, description="ID of the item in the source module")
+    context: str = Field(default="", description="Human-readable description of the reference")
+    user_id: str = Field(default="default", description="User that owns this reference")

@@ -14,10 +14,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from hestia.api.errors import sanitize_for_log
 from hestia.api.middleware.auth import get_device_token
 from hestia.api.schemas.research import (
+    AddReferenceRequest,
     CommunityListResponse,
     DistillRequest,
     DistillResponse,
     EntityListResponse,
+    EntityReferenceListResponse,
+    EntityReferenceResponse,
     ExtractFactsRequest,
     ExtractFactsResponse,
     FactListResponse,
@@ -33,6 +36,7 @@ from hestia.api.schemas.research import (
 from hestia.logging import LogComponent, get_logger
 from hestia.research.manager import get_research_manager
 from hestia.research.models import PrincipleStatus, SourceCategory
+from hestia.research.references import EntityReference, ReferenceModule
 
 router = APIRouter(prefix="/v1/research", tags=["research"])
 logger = get_logger()
@@ -782,4 +786,145 @@ async def list_import_sources(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to list import sources",
+        )
+
+
+# =============================================================================
+# Entity Reference Endpoints
+# =============================================================================
+
+
+@router.get("/entities/{entity_id}/references", response_model=EntityReferenceListResponse)
+async def get_entity_references(
+    entity_id: str,
+    module: Optional[str] = Query(default=None, description="Filter by module: workflow, chat, command, research_canvas, memory"),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    device_token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """Get all cross-module references for an entity."""
+    try:
+        manager = await get_research_manager()
+        if not manager._database:
+            return {"references": [], "total": 0, "entityId": entity_id}
+
+        module_filter: Optional[ReferenceModule] = None
+        if module:
+            try:
+                module_filter = ReferenceModule(module)
+            except ValueError:
+                valid = ", ".join(m.value for m in ReferenceModule)
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid module. Use: {valid}",
+                )
+
+        refs = await manager._database.get_entity_references(
+            entity_id=entity_id,
+            module=module_filter,
+            limit=limit,
+            offset=offset,
+        )
+        return {
+            "references": [r.to_dict() for r in refs],
+            "total": len(refs),
+            "entityId": entity_id,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Get entity references error",
+            component=LogComponent.RESEARCH,
+            data={"error": sanitize_for_log(e), "entity_id": entity_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get entity references",
+        )
+
+
+@router.post("/entities/{entity_id}/references", response_model=EntityReferenceResponse)
+async def add_entity_reference(
+    entity_id: str,
+    request: AddReferenceRequest,
+    device_token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """Manually add a cross-module reference to an entity."""
+    try:
+        manager = await get_research_manager()
+        if not manager._database:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Database not available",
+            )
+
+        try:
+            ref_module = ReferenceModule(request.module)
+        except ValueError:
+            valid = ", ".join(m.value for m in ReferenceModule)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid module. Use: {valid}",
+            )
+
+        ref = EntityReference(
+            entity_id=entity_id,
+            module=ref_module,
+            item_id=request.item_id,
+            context=request.context,
+            user_id=request.user_id,
+        )
+        saved = await manager._database.add_entity_reference(ref)
+        return saved.to_dict()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Add entity reference error",
+            component=LogComponent.RESEARCH,
+            data={"error": sanitize_for_log(e), "entity_id": entity_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to add entity reference",
+        )
+
+
+@router.delete("/entities/{entity_id}/references/{reference_id}")
+async def delete_entity_reference(
+    entity_id: str,
+    reference_id: str,
+    device_token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """Delete a specific cross-module reference by its ID."""
+    try:
+        manager = await get_research_manager()
+        if not manager._database:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Database not available",
+            )
+
+        deleted = await manager._database.delete_entity_reference(reference_id)
+        if not deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Reference not found",
+            )
+        return {"deleted": True, "referenceId": reference_id, "entityId": entity_id}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Delete entity reference error",
+            component=LogComponent.RESEARCH,
+            data={"error": sanitize_for_log(e), "reference_id": reference_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete entity reference",
         )
