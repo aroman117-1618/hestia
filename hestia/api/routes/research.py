@@ -6,6 +6,7 @@ community detection, and principle distillation.
 Part of the Learning Cycle (Phase A).
 """
 
+import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
 
@@ -15,7 +16,12 @@ from hestia.api.errors import sanitize_for_log
 from hestia.api.middleware.auth import get_device_token
 from hestia.api.schemas.research import (
     AddReferenceRequest,
+    BoardListResponse,
+    BoardResponse,
     CommunityListResponse,
+    CreateBoardRequest,
+    DistillFromSelectionRequest,
+    DistillFromSelectionResponse,
     DistillRequest,
     DistillResponse,
     EntityListResponse,
@@ -32,10 +38,12 @@ from hestia.api.schemas.research import (
     PrincipleResponse,
     PrincipleUpdateRequest,
     TimelineResponse,
+    UpdateBoardRequest,
 )
 from hestia.logging import LogComponent, get_logger
+from hestia.research.boards import ResearchBoard
 from hestia.research.manager import get_research_manager
-from hestia.research.models import PrincipleStatus, SourceCategory
+from hestia.research.models import Principle, PrincipleStatus, SourceCategory
 from hestia.research.references import EntityReference, ReferenceModule
 
 router = APIRouter(prefix="/v1/research", tags=["research"])
@@ -927,4 +935,307 @@ async def delete_entity_reference(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete entity reference",
+        )
+
+
+# =============================================================================
+# Research Board Endpoints
+# =============================================================================
+
+
+@router.post("/boards", response_model=BoardResponse, status_code=status.HTTP_201_CREATED)
+async def create_board(
+    request: CreateBoardRequest,
+    device_token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """Create a new research canvas board."""
+    try:
+        manager = await get_research_manager()
+        if not manager._database:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Database not available",
+            )
+        board = ResearchBoard(name=request.name)
+        saved = await manager._database.create_board(board)
+        return saved.to_dict()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Create board error",
+            component=LogComponent.RESEARCH,
+            data={"error": sanitize_for_log(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create board",
+        )
+
+
+@router.get("/boards", response_model=BoardListResponse)
+async def list_boards(
+    device_token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """List all research canvas boards."""
+    try:
+        manager = await get_research_manager()
+        if not manager._database:
+            return {"boards": [], "total": 0}
+        boards = await manager._database.list_boards()
+        return {"boards": [b.to_dict() for b in boards], "total": len(boards)}
+
+    except Exception as e:
+        logger.error(
+            "List boards error",
+            component=LogComponent.RESEARCH,
+            data={"error": sanitize_for_log(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to list boards",
+        )
+
+
+@router.get("/boards/{board_id}", response_model=BoardResponse)
+async def get_board(
+    board_id: str,
+    device_token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """Get a single research canvas board by ID."""
+    try:
+        manager = await get_research_manager()
+        if not manager._database:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Database not available",
+            )
+        board = await manager._database.get_board(board_id)
+        if board is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Board not found",
+            )
+        return board.to_dict()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Get board error",
+            component=LogComponent.RESEARCH,
+            data={"error": sanitize_for_log(e), "board_id": board_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get board",
+        )
+
+
+@router.put("/boards/{board_id}", response_model=BoardResponse)
+async def update_board(
+    board_id: str,
+    request: UpdateBoardRequest,
+    device_token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """Update a research canvas board's name or layout."""
+    try:
+        manager = await get_research_manager()
+        if not manager._database:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Database not available",
+            )
+        board = await manager._database.update_board(
+            board_id,
+            name=request.name,
+            layout_json=request.layout_json,
+        )
+        if board is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Board not found",
+            )
+        return board.to_dict()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Update board error",
+            component=LogComponent.RESEARCH,
+            data={"error": sanitize_for_log(e), "board_id": board_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update board",
+        )
+
+
+@router.delete("/boards/{board_id}")
+async def delete_board(
+    board_id: str,
+    device_token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """Delete a research canvas board."""
+    try:
+        manager = await get_research_manager()
+        if not manager._database:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Database not available",
+            )
+        deleted = await manager._database.delete_board(board_id)
+        if not deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Board not found",
+            )
+        return {"deleted": True, "boardId": board_id}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Delete board error",
+            component=LogComponent.RESEARCH,
+            data={"error": sanitize_for_log(e), "board_id": board_id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete board",
+        )
+
+
+# =============================================================================
+# Distill from Selection Endpoint
+# =============================================================================
+
+
+@router.post("/principles/distill-from-selection", response_model=DistillFromSelectionResponse)
+async def distill_from_selection(
+    request: DistillFromSelectionRequest,
+    device_token: str = Depends(get_device_token),
+) -> Dict[str, Any]:
+    """Distill a principle from a canvas entity selection.
+
+    Loads the selected entities, builds a prompt, calls inference to propose
+    a principle, and stores it with status='pending'.
+    Falls back to a stub principle if inference is unavailable.
+    """
+    try:
+        manager = await get_research_manager()
+        if not manager._database:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Database not available",
+            )
+
+        # Load entities
+        entity_rows = []
+        for entity_id in request.entity_ids:
+            entity = await manager._database.find_entity_by_id(entity_id)
+            if entity:
+                entity_rows.append(entity)
+
+        if not entity_rows:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No matching entities found",
+            )
+
+        entity_names = [e.name for e in entity_rows]
+        entity_summary = ", ".join(entity_names)
+
+        # Build inference prompt
+        prompt = (
+            f"The following knowledge graph entities are selected on the research canvas: {entity_summary}. "
+            "Based on the relationships between these concepts, propose one concise behavioral or "
+            "conceptual principle that captures a key insight. "
+            "Respond with a single principle statement prefixed with [domain] — e.g. [reasoning] ..."
+        )
+
+        principle_content: str
+        domain: str = "canvas"
+
+        # Attempt inference
+        try:
+            from hestia.inference import Message, get_inference_client
+            inference_client = get_inference_client()
+            messages = [
+                Message(role="system", content="You are a research assistant that distills knowledge graph insights into reusable principles."),
+                Message(role="user", content=prompt),
+            ]
+            response = await inference_client.chat(messages=messages)
+            raw = response.content.strip()
+
+            # Parse [domain] prefix if present
+            if raw.startswith("[") and "]" in raw:
+                bracket_end = raw.index("]")
+                domain = raw[1:bracket_end].strip() or "canvas"
+                principle_content = raw[bracket_end + 1:].strip()
+            else:
+                principle_content = raw
+
+        except Exception as infer_err:
+            logger.warning(
+                "Inference unavailable for distill-from-selection, creating stub",
+                component=LogComponent.RESEARCH,
+                data={"error": type(infer_err).__name__},
+            )
+            principle_content = (
+                f"Principle derived from: {entity_summary}. "
+                "(Inference will enhance this when available.)"
+            )
+
+        # Create principle with status=pending
+        now = datetime.now(timezone.utc)
+        principle = Principle(
+            id=str(uuid.uuid4()),
+            content=principle_content,
+            domain=domain,
+            confidence=0.5,
+            entities=entity_names,
+            created_at=now,
+            updated_at=now,
+        )
+
+        if manager._principle_store:
+            try:
+                await manager._principle_store.ensure_initialized()
+                await manager._principle_store.store_principle(principle)
+            except Exception as store_err:
+                logger.warning(
+                    "PrincipleStore unavailable, storing in SQLite only",
+                    component=LogComponent.RESEARCH,
+                    data={"error": type(store_err).__name__},
+                )
+                await manager._database.create_principle(principle)
+        else:
+            await manager._database.create_principle(principle)
+
+        logger.info(
+            "Distilled principle from canvas selection",
+            component=LogComponent.RESEARCH,
+            data={
+                "principle_id": principle.id,
+                "entity_count": len(entity_rows),
+                "board_id": request.board_id,
+            },
+        )
+
+        return {"principle": principle.to_dict()}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Distill from selection error",
+            component=LogComponent.RESEARCH,
+            data={"error": sanitize_for_log(e)},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to distill principle from selection",
         )

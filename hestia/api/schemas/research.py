@@ -260,3 +260,51 @@ class AddReferenceRequest(BaseModel):
     item_id: str = Field(..., min_length=1, description="ID of the item in the source module")
     context: str = Field(default="", description="Human-readable description of the reference")
     user_id: str = Field(default="default", description="User that owns this reference")
+
+
+# =============================================================================
+# Research Board Schemas
+# =============================================================================
+
+
+class CreateBoardRequest(BaseModel):
+    """Request to create a new research board."""
+
+    name: str = Field(default="Untitled Board", max_length=200)
+
+
+class UpdateBoardRequest(BaseModel):
+    """Request to update a research board's name or layout."""
+
+    name: Optional[str] = Field(default=None, max_length=200)
+    layout_json: Optional[str] = Field(default=None)
+
+
+class BoardResponse(BaseModel):
+    """A single research board."""
+
+    id: str
+    name: str
+    layoutJson: str
+    createdAt: str
+    updatedAt: str
+
+
+class BoardListResponse(BaseModel):
+    """List of research boards."""
+
+    boards: List[BoardResponse]
+    total: int
+
+
+class DistillFromSelectionRequest(BaseModel):
+    """Request to distill a principle from selected canvas entities."""
+
+    entity_ids: List[str] = Field(..., min_length=1)
+    board_id: str = Field(..., min_length=1)
+
+
+class DistillFromSelectionResponse(BaseModel):
+    """Result of distilling a principle from canvas selection."""
+
+    principle: Dict[str, Any]

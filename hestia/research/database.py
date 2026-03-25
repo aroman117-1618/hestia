@@ -174,6 +174,15 @@ class ResearchDatabase(BaseDatabase):
             );
             CREATE INDEX IF NOT EXISTS idx_entity_references_entity ON entity_references(entity_id);
             CREATE INDEX IF NOT EXISTS idx_entity_references_module ON entity_references(module, item_id);
+
+            CREATE TABLE IF NOT EXISTS research_boards (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL DEFAULT 'Untitled Board',
+                layout_json TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_research_boards_updated ON research_boards(updated_at DESC);
         """)
 
         # Sprint 20A: Add durability/temporal/source columns to facts table
@@ -1270,6 +1279,91 @@ class ResearchDatabase(BaseDatabase):
             context=row[4] or "",
             user_id=row[5] or "",
             created_at=row[6] or "",
+        )
+
+    # ── Research Boards CRUD ─────────────────────────────────
+
+    async def create_board(self, board: "ResearchBoard") -> "ResearchBoard":
+        """Insert a new research board."""
+        if not self._connection:
+            raise RuntimeError("Database not initialized")
+        await self._connection.execute(
+            """INSERT INTO research_boards (id, name, layout_json, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?)""",
+            (board.id, board.name, board.layout_json, board.created_at, board.updated_at),
+        )
+        await self._connection.commit()
+        return board
+
+    async def get_board(self, board_id: str) -> Optional["ResearchBoard"]:
+        """Get a single board by ID."""
+        if not self._connection:
+            return None
+        cursor = await self._connection.execute(
+            "SELECT id, name, layout_json, created_at, updated_at FROM research_boards WHERE id = ?",
+            (board_id,),
+        )
+        row = await cursor.fetchone()
+        if not row:
+            return None
+        return self._row_to_board(row)
+
+    async def list_boards(self) -> List["ResearchBoard"]:
+        """List all boards ordered by updated_at descending."""
+        if not self._connection:
+            return []
+        cursor = await self._connection.execute(
+            "SELECT id, name, layout_json, created_at, updated_at FROM research_boards ORDER BY updated_at DESC"
+        )
+        rows = await cursor.fetchall()
+        return [self._row_to_board(row) for row in rows]
+
+    async def update_board(
+        self,
+        board_id: str,
+        name: Optional[str] = None,
+        layout_json: Optional[str] = None,
+    ) -> Optional["ResearchBoard"]:
+        """Update board fields. Returns the updated board or None if not found."""
+        if not self._connection:
+            return None
+        board = await self.get_board(board_id)
+        if board is None:
+            return None
+        now = datetime.now(timezone.utc).isoformat()
+        new_name = name if name is not None else board.name
+        new_layout = layout_json if layout_json is not None else board.layout_json
+        await self._connection.execute(
+            """UPDATE research_boards
+               SET name = ?, layout_json = ?, updated_at = ?
+               WHERE id = ?""",
+            (new_name, new_layout, now, board_id),
+        )
+        await self._connection.commit()
+        board.name = new_name
+        board.layout_json = new_layout
+        board.updated_at = now
+        return board
+
+    async def delete_board(self, board_id: str) -> bool:
+        """Delete a board by ID. Returns True if a row was deleted."""
+        if not self._connection:
+            return False
+        cursor = await self._connection.execute(
+            "DELETE FROM research_boards WHERE id = ?", (board_id,)
+        )
+        await self._connection.commit()
+        return cursor.rowcount > 0
+
+    def _row_to_board(self, row: Any) -> "ResearchBoard":
+        """Convert a database row to a ResearchBoard."""
+        from .boards import ResearchBoard
+        return ResearchBoard(
+            id=row[0],
+            name=row[1],
+            layout_json=row[2],
+            created_at=row[3],
+            updated_at=row[4],
         )
 
 
