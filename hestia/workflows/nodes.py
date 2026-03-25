@@ -108,8 +108,8 @@ async def execute_run_prompt(
 
     if adapter is None:
         from hestia.workflows.adapter import WorkflowHandlerAdapter
-        from hestia.orchestration.handler import get_handler
-        handler = await get_handler()
+        from hestia.orchestration.handler import get_request_handler
+        handler = await get_request_handler()
         adapter = WorkflowHandlerAdapter(handler)
 
     prompt = config.get("prompt", "")
@@ -186,7 +186,7 @@ async def execute_notify(
         priority (str): "normal" or "high"
     """
     title = config.get("title", "Workflow Notification")
-    body = config.get("body", "")
+    body = config.get("body") or config.get("message", "")
     priority = config.get("priority", "normal")
 
     try:
@@ -196,7 +196,7 @@ async def execute_notify(
             title=title,
             body=body,
             priority=priority,
-            source="workflow",
+            context={"source": "workflow"},
         )
         return {"delivered": True, "bump_id": bump.get("id", ""), "title": title}
     except Exception as e:

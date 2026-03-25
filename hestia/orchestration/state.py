@@ -40,7 +40,7 @@ class TaskStateMachine:
     # Default timeouts per state (seconds)
     DEFAULT_TIMEOUTS = {
         TaskState.RECEIVED: 5.0,       # Should move to processing quickly
-        TaskState.PROCESSING: 120.0,   # Inference can take time on Mixtral
+        TaskState.PROCESSING: 600.0,   # R1 reasoning model needs 5+ min on M1
         TaskState.AWAITING_TOOL: 60.0, # Tool execution timeout
     }
 

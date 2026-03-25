@@ -226,6 +226,50 @@ Cross-cutting assessment:
 - Check for stale files that should be archived to `docs/archive/`
 - Verify no debug artifacts, scratch files, or temporary outputs left behind
 
+## Phase 9.5: External Documentation Sync (Notion + GitHub)
+
+Verify that all project documentation is synced to external systems. Drift between local docs and external platforms is invisible until it causes confusion.
+
+### Notion Sync Verification
+
+Run the Notion sync status check and compare against local state:
+
+```bash
+source .venv/bin/activate && python scripts/sync-notion.py status 2>&1
+```
+
+Verify:
+- **Sync state freshness**: Check `data/notion-sync-state.json` — when was the last successful push? If >24h stale, flag it.
+- **Content drift**: Compare local file hashes against last-synced hashes in the sync state file. Flag any docs that changed locally but weren't pushed.
+- **ADR sync**: Check that `docs/hestia-decision-log.md` ADR count matches what's in Notion (via `push-adrs` state).
+- **Whiteboard check**: Run `python scripts/sync-notion.py read-whiteboard 2>&1` — surface any notes Andrew left between sessions that haven't been acted on.
+- **Key docs to verify synced**: SPRINT.md, docs/api-contract.md, docs/hestia-decision-log.md, docs/hestia-security-architecture.md
+
+### GitHub Project Board Verification
+
+Cross-reference the GitHub Project board against local sprint tracking:
+
+```bash
+scripts/roadmap-sync.sh list 2>&1
+scripts/sync-board-from-sprint.sh 2>&1
+```
+
+Verify:
+- **Board vs SPRINT.md alignment**: Run `sync-board-from-sprint.sh` (dry run) — flag any items where board status doesn't match SPRINT.md status (e.g., SPRINT.md says DONE but board says In Progress).
+- **Orphan detection**: Check for draft items on the board that don't correspond to any issue or SPRINT.md entry.
+- **Missing items**: Check for SPRINT.md workstreams that have no corresponding GitHub issue or board item.
+- **Issue state**: Verify completed sprints have their issues closed (not just board status "Done" with issue still open).
+- **Label consistency**: Check that issue labels match their sprint designation in SPRINT.md.
+
+### Verdict
+| System | Status | Issues Found |
+|--------|--------|-------------|
+| Notion sync | Current/Stale/Broken | [details] |
+| Notion whiteboard | Empty/Has Notes | [details] |
+| GitHub board | Aligned/Drifted | [details] |
+| Board orphans | N items | [details] |
+| Missing board items | N items | [details] |
+
 ## Output Format
 
 Save the audit to `docs/audits/codebase-audit-[date].md` and present it:
@@ -292,6 +336,15 @@ Save the audit to `docs/audits/codebase-audit-[date].md` and present it:
 - Orphaned files: [count and list]
 - Stale TODOs: [count]
 - Archive candidates: [list]
+
+## External Sync (Notion + GitHub)
+| System | Status | Issues Found |
+|--------|--------|-------------|
+| Notion sync | Current/Stale/Broken | [details] |
+| Notion whiteboard | Empty/Has Notes | [details] |
+| GitHub board | Aligned/Drifted | [details] |
+| Board orphans | N items | [details] |
+| Missing board items | N items | [details] |
 
 ## Summary
 - **CISO:** [rating] — [one-line summary]

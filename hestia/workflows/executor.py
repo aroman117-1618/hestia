@@ -31,7 +31,7 @@ from hestia.workflows.nodes import NODE_EXECUTORS, NodeExecutorFn
 logger = get_logger()
 
 # Default timeouts (overridable via config)
-DEFAULT_PROMPT_TIMEOUT = 120  # seconds
+DEFAULT_PROMPT_TIMEOUT = 600  # seconds — reasoning models (R1) need 5+ min
 DEFAULT_NODE_TIMEOUT = 30  # seconds
 
 
@@ -221,25 +221,32 @@ class DAGExecutor:
             # Interpolate config with prior node results
             interpolated_config = interpolate_config(node.config, results)
 
-            # Determine timeout
-            timeout = (
-                self._prompt_timeout
-                if node.node_type == NodeType.RUN_PROMPT
-                else self._node_timeout
-            )
+            # Determine timeout — delay nodes manage their own timing
+            if node.node_type == NodeType.DELAY:
+                timeout = None
+            elif node.node_type == NodeType.RUN_PROMPT:
+                timeout = self._prompt_timeout
+            else:
+                timeout = self._node_timeout
 
             # Acquire semaphore for LLM nodes only
             if node.node_type == NodeType.RUN_PROMPT:
                 async with self._semaphore:
+                    if timeout:
+                        output = await asyncio.wait_for(
+                            executor_fn(interpolated_config, input_data),
+                            timeout=timeout,
+                        )
+                    else:
+                        output = await executor_fn(interpolated_config, input_data)
+            else:
+                if timeout:
                     output = await asyncio.wait_for(
                         executor_fn(interpolated_config, input_data),
                         timeout=timeout,
                     )
-            else:
-                output = await asyncio.wait_for(
-                    executor_fn(interpolated_config, input_data),
-                    timeout=timeout,
-                )
+                else:
+                    output = await executor_fn(interpolated_config, input_data)
 
             # Handle if_else/switch branching — mark dead-path nodes as skipped
             if node.node_type in (NodeType.IF_ELSE, NodeType.SWITCH) and isinstance(output, dict):
