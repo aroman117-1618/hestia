@@ -100,6 +100,10 @@ When Andrew says **"add it to the roadmap"** or **"let's put this on the roadmap
 
 After ANY backend code change, always kill stale server processes before restarting. Use `lsof -i :8443 | grep LISTEN` to find and `kill -9` old PIDs. Never assume the running server has picked up code changes without a full restart cycle. Stale processes are the #1 recurring time sink.
 
+**`limit_max_requests: 50000`** in `server.py` — Uvicorn recycles the worker after this many requests. launchd restarts it via `KeepAlive.SuccessfulExit: false`. Set high enough that long-running workflows (which generate many internal inference + tool calls) aren't interrupted mid-run. If the server is crashing/restarting unexpectedly, check this limit first.
+
+**Cloud API keys** are stored in macOS Keychain + encrypted file fallback (`.cloud_api_key_*.enc` in `hestia/data/`). The file fallback exists because launchd restarts without GUI session can't access Keychain. If cloud calls fail with "No API key available", the user needs to re-add the provider from the macOS app (which runs in the GUI session and can write the file fallback).
+
 ## Session Continuity
 
 When resuming work, FIRST read `SESSION_HANDOFF.md` (if it exists) and any TODO files. Do NOT search through bash history or compacted transcripts — use the structured handoff documents. Project plans and workstreams are in `docs/`. Current focus: **Trading Module (Sprints 21–30)**. Plan: `docs/discoveries/trading-module-research-and-plan.md`. See `SPRINT.md`.
