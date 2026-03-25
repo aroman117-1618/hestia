@@ -100,8 +100,8 @@ struct UserProfileView: View {
                 Circle()
                     .strokeBorder(MacColors.avatarBorder, lineWidth: 1)
                 Text(initials)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.white)
+                    .font(MacTypography.bodyMedium)
+                    .foregroundStyle(MacColors.textPrimary)
             }
             .frame(width: 36, height: 36)
 
@@ -146,7 +146,7 @@ struct UserProfileView: View {
         } label: {
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: icon)
-                    .font(.system(size: 13))
+                    .font(MacTypography.label)
                     .foregroundStyle(isSelected ? MacColors.amberAccent : MacColors.textSecondary)
                     .frame(width: 20)
 
@@ -179,7 +179,7 @@ struct UserProfileView: View {
         } label: {
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: "terminal")
-                    .font(.system(size: 13))
+                    .font(MacTypography.label)
                     .foregroundStyle(isSelected ? MacColors.amberAccent : MacColors.textSecondary)
                     .frame(width: 20)
 
@@ -205,7 +205,7 @@ struct UserProfileView: View {
         } label: {
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: "calendar")
-                    .font(.system(size: 13))
+                    .font(MacTypography.label)
                     .foregroundStyle(isSelected ? MacColors.amberAccent : MacColors.textSecondary)
                     .frame(width: 20)
 
@@ -286,7 +286,7 @@ struct UserProfileView: View {
                         viewModel.isEditing = true
                     } label: {
                         Image(systemName: "pencil")
-                            .font(.system(size: 14))
+                            .font(MacTypography.body)
                             .foregroundStyle(MacColors.textSecondary)
                     }
                     .buttonStyle(.hestia)
@@ -319,7 +319,7 @@ struct UserProfileView: View {
     private var emptyState: some View {
         VStack(spacing: MacSpacing.lg) {
             Image(systemName: "person.crop.circle")
-                .font(.system(size: 48))
+                .font(MacTypography.heroNumber)
                 .foregroundStyle(MacColors.textFaint)
             Text("Select a profile file to view")
                 .font(MacTypography.body)

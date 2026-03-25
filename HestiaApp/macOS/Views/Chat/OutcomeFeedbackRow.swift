@@ -23,7 +23,7 @@ struct OutcomeFeedbackRow: View {
                     Image(systemName: currentFeedback == "positive"
                           ? "hand.thumbsup.fill"
                           : "hand.thumbsup")
-                        .font(.system(size: 11))
+                        .font(MacTypography.caption)
                         .foregroundStyle(feedbackColor(for: "positive"))
                         .frame(width: 22, height: 22)
                 }
@@ -41,7 +41,7 @@ struct OutcomeFeedbackRow: View {
                     Image(systemName: currentFeedback == "negative"
                           ? "hand.thumbsdown.fill"
                           : "hand.thumbsdown")
-                        .font(.system(size: 11))
+                        .font(MacTypography.caption)
                         .foregroundStyle(feedbackColor(for: "negative"))
                         .frame(width: 22, height: 22)
                 }
@@ -71,7 +71,7 @@ struct OutcomeFeedbackRow: View {
                         submitNote()
                     } label: {
                         Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 14))
+                            .font(MacTypography.body)
                             .foregroundStyle(MacColors.amberAccent)
                     }
                     .buttonStyle(.hestiaIcon)
@@ -87,8 +87,8 @@ struct OutcomeFeedbackRow: View {
     private func feedbackColor(for type: String) -> Color {
         if currentFeedback == type {
             return type == "positive"
-                ? Color.green
-                : Color.red
+                ? MacColors.statusGreen
+                : MacColors.statusCritical
         }
         return MacColors.textFaint
     }

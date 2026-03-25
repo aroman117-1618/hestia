@@ -9,11 +9,11 @@ struct DiagramContainerView<Content: View>: View {
         VStack(alignment: .leading, spacing: MacSpacing.sm) {
             HStack(spacing: MacSpacing.sm) {
                 Text(title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(MacTypography.bodyMedium)
                     .foregroundStyle(MacColors.textPrimary)
                 if let subtitle = subtitle {
                     Text(subtitle)
-                        .font(.system(size: 12))
+                        .font(MacTypography.smallBody)
                         .foregroundStyle(MacColors.textFaint)
                 }
             }

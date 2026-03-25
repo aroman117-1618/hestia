@@ -9,19 +9,19 @@ struct MacWikiArticleRow: View {
     var body: some View {
         HStack(spacing: MacSpacing.sm) {
             Image(systemName: article.type == .module ? article.moduleIcon : article.type.iconName)
-                .font(.system(size: 13))
+                .font(MacTypography.label)
                 .foregroundStyle(MacColors.amberAccent.opacity(0.7))
                 .frame(width: 20)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(article.title)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(MacTypography.smallMedium)
                     .foregroundStyle(MacColors.textPrimary)
                     .lineLimit(1)
 
                 HStack(spacing: MacSpacing.xs) {
                     Text(article.readTimeBadge)
-                        .font(.system(size: 10))
+                        .font(MacTypography.metadata)
                         .foregroundStyle(MacColors.textFaint)
 
                     Circle()

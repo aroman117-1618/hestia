@@ -23,14 +23,12 @@ struct WorkspaceRootView: View {
                             switch workspace.currentView {
                             case .command:
                                 CommandView()
-                            case .health:
-                                HealthView()
-                            case .research:
+                            case .orders:
+                                MacWorkflowView()
+                            case .memory:
                                 ResearchView()
                             case .explorer:
                                 ExplorerView()
-                            case .workflow:
-                                MacWorkflowView()
                             case .settings:
                                 MacSettingsView()
                             }
@@ -92,7 +90,7 @@ struct WorkspaceRootView: View {
     private func navigate(to link: HestiaDeepLink) {
         switch link {
         case .entity(let id):
-            withAnimation(.hestiaNavSwitch) { workspace.currentView = .research }
+            withAnimation(.hestiaNavSwitch) { workspace.currentView = .memory }
             NotificationCenter.default.post(
                 name: .hestiaResearchNavigate,
                 object: nil,
@@ -100,7 +98,7 @@ struct WorkspaceRootView: View {
             )
 
         case .fact(let id):
-            withAnimation(.hestiaNavSwitch) { workspace.currentView = .research }
+            withAnimation(.hestiaNavSwitch) { workspace.currentView = .memory }
             NotificationCenter.default.post(
                 name: .hestiaResearchNavigate,
                 object: nil,
@@ -108,7 +106,7 @@ struct WorkspaceRootView: View {
             )
 
         case .workflow(let id, let stepId):
-            withAnimation(.hestiaNavSwitch) { workspace.currentView = .workflow }
+            withAnimation(.hestiaNavSwitch) { workspace.currentView = .orders }
             var info: [String: String] = ["workflowId": id]
             if let step = stepId { info["stepId"] = step }
             NotificationCenter.default.post(
@@ -118,7 +116,7 @@ struct WorkspaceRootView: View {
             )
 
         case .researchCanvas(let boardId, let entityId):
-            withAnimation(.hestiaNavSwitch) { workspace.currentView = .research }
+            withAnimation(.hestiaNavSwitch) { workspace.currentView = .memory }
             var info: [String: String] = ["mode": "canvas", "boardId": boardId]
             if let eid = entityId { info["entityId"] = eid }
             NotificationCenter.default.post(

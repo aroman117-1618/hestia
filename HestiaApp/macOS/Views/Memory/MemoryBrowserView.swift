@@ -29,7 +29,7 @@ struct MemoryBrowserView: View {
                 Spacer()
                 VStack(spacing: MacSpacing.md) {
                     Image(systemName: "brain")
-                        .font(.system(size: 36))
+                        .font(MacTypography.largeValue)
                         .foregroundStyle(MacColors.textFaint)
                     Text("No memories found")
                         .font(MacTypography.body)
@@ -80,7 +80,7 @@ struct MemoryBrowserView: View {
                 Task { await viewModel.resetAndLoad() }
             } label: {
                 Image(systemName: viewModel.sortOrder == "desc" ? "arrow.down" : "arrow.up")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(MacTypography.smallMedium)
                     .foregroundStyle(MacColors.textSecondary)
             }
             .buttonStyle(.plain)
@@ -169,7 +169,7 @@ struct MemoryBrowserView: View {
                     VStack(alignment: .leading, spacing: MacSpacing.xs) {
                         HStack(spacing: MacSpacing.xs) {
                             Image(systemName: "pin.fill")
-                                .font(.system(size: 10))
+                                .font(MacTypography.metadata)
                                 .foregroundStyle(MacColors.amberAccent)
                             Text("From Graph")
                                 .font(MacTypography.captionMedium)
@@ -181,7 +181,7 @@ struct MemoryBrowserView: View {
                                 }
                             } label: {
                                 Image(systemName: "xmark")
-                                    .font(.system(size: 10, weight: .medium))
+                                    .font(MacTypography.micro)
                                     .foregroundStyle(MacColors.textFaint)
                             }
                             .buttonStyle(.plain)

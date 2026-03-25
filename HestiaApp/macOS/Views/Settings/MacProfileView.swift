@@ -149,7 +149,7 @@ struct MacProfileView: View {
                         } label: {
                             HStack(spacing: 4) {
                                 Image(systemName: "person.crop.circle.badge.checkmark")
-                                    .font(.system(size: 12))
+                                    .font(MacTypography.smallBody)
                                 Text("Sync from Apple")
                                     .font(MacTypography.caption)
                             }
@@ -256,7 +256,7 @@ struct ProfileFileChip: View {
         } label: {
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: icon)
-                    .font(.system(size: 12))
+                    .font(MacTypography.smallBody)
                     .foregroundStyle(isSelected ? MacColors.amberBright : (exists ? MacColors.amberAccent : MacColors.textFaint))
                     .frame(width: 16)
 

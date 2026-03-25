@@ -42,7 +42,7 @@ struct NewsFeedListView: View {
                     .fill(item.displayColor.opacity(0.15))
                     .frame(width: MacSize.feedItemIconSize, height: MacSize.feedItemIconSize)
                 Image(systemName: item.displayIcon)
-                    .font(.system(size: 14))
+                    .font(MacTypography.body)
                     .foregroundStyle(item.displayColor)
             }
 
@@ -84,7 +84,7 @@ struct NewsFeedListView: View {
     private var emptyState: some View {
         VStack(spacing: MacSpacing.md) {
             Image(systemName: "newspaper")
-                .font(.system(size: 28))
+                .font(MacTypography.heroHeading)
                 .foregroundStyle(MacColors.textSecondary.opacity(0.3))
             Text("No news items")
                 .font(MacTypography.body)

@@ -65,15 +65,15 @@ struct NodeDetailPopover: View {
     private var header: some View {
         HStack {
             Image(systemName: node.displayIcon)
-                .font(.system(size: 14))
+                .font(MacTypography.body)
                 .foregroundStyle(node.swiftUIColor)
             Text(node.displayName)
-                .font(.system(size: 13, weight: .semibold))
+                .font(MacTypography.labelMedium)
                 .foregroundStyle(node.swiftUIColor)
 
             if node.nodeType == "topic" || node.nodeType == "entity" || node.nodeType == "community" {
                 Text("(\(connectedNodes.count) connected)")
-                    .font(.system(size: 11))
+                    .font(MacTypography.caption)
                     .foregroundStyle(MacColors.textFaint)
             }
 
@@ -81,7 +81,7 @@ struct NodeDetailPopover: View {
 
             Button(action: onClose) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(MacTypography.captionMedium)
                     .foregroundStyle(MacColors.textSecondary)
                     .frame(width: 24, height: 24)
                     .background(MacColors.textPrimary.opacity(0.06))
@@ -97,7 +97,7 @@ struct NodeDetailPopover: View {
     private var confidenceBar: some View {
         HStack(spacing: MacSpacing.xs) {
             Text(node.nodeType == "memory" ? "Importance" : "Confidence")
-                .font(.system(size: 11))
+                .font(MacTypography.caption)
                 .foregroundStyle(MacColors.textFaint)
             Spacer()
 
@@ -114,7 +114,7 @@ struct NodeDetailPopover: View {
             .frame(width: 60, height: 4)
 
             Text("\(Int(node.confidence * 100))%")
-                .font(.system(size: 12, weight: .bold))
+                .font(MacTypography.smallMedium)
                 .foregroundStyle(MacColors.textSecondary)
         }
     }
@@ -125,14 +125,14 @@ struct NodeDetailPopover: View {
         VStack(alignment: .leading, spacing: MacSpacing.sm) {
             if node.nodeType == "topic" || node.nodeType == "entity" || node.nodeType == "community" {
                 Text(node.label)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(MacTypography.sectionTitle)
                     .foregroundStyle(MacColors.textPrimary)
                 Text(node.content)
-                    .font(.system(size: 12))
+                    .font(MacTypography.smallBody)
                     .foregroundStyle(MacColors.textSecondary)
             } else {
                 Text(node.content.strippingBracketPrefixes())
-                    .font(.system(size: 13))
+                    .font(MacTypography.label)
                     .foregroundStyle(MacColors.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
@@ -159,7 +159,7 @@ struct NodeDetailPopover: View {
     private var communityMetadata: some View {
         VStack(alignment: .leading, spacing: MacSpacing.sm) {
             Text("Community Details")
-                .font(.system(size: 11, weight: .semibold))
+                .font(MacTypography.captionMedium)
                 .foregroundStyle(MacColors.textFaint)
 
             HStack(spacing: MacSpacing.md) {
@@ -171,7 +171,7 @@ struct NodeDetailPopover: View {
     private var episodeMetadata: some View {
         VStack(alignment: .leading, spacing: MacSpacing.sm) {
             Text("Episode Details")
-                .font(.system(size: 11, weight: .semibold))
+                .font(MacTypography.captionMedium)
                 .foregroundStyle(MacColors.textFaint)
 
             HStack(spacing: MacSpacing.md) {
@@ -183,7 +183,7 @@ struct NodeDetailPopover: View {
     private var factMetadata: some View {
         VStack(alignment: .leading, spacing: MacSpacing.sm) {
             Text("Fact Details")
-                .font(.system(size: 11, weight: .semibold))
+                .font(MacTypography.captionMedium)
                 .foregroundStyle(MacColors.textFaint)
 
             HStack(spacing: MacSpacing.md) {
@@ -196,9 +196,9 @@ struct NodeDetailPopover: View {
     private func metadataChip(icon: String, label: String) -> some View {
         HStack(spacing: 3) {
             Image(systemName: icon)
-                .font(.system(size: 9))
+                .font(MacTypography.micro)
             Text(label)
-                .font(.system(size: 10))
+                .font(MacTypography.metadata)
         }
         .foregroundStyle(MacColors.textSecondary)
         .padding(.horizontal, MacSpacing.sm)
@@ -216,7 +216,7 @@ struct NodeDetailPopover: View {
                 if !node.topics.isEmpty {
                     VStack(alignment: .leading, spacing: MacSpacing.sm) {
                         Text("Topics")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(MacTypography.captionMedium)
                             .foregroundStyle(MacColors.textFaint)
 
                         FlowLayout(spacing: MacSpacing.xs) {
@@ -230,7 +230,7 @@ struct NodeDetailPopover: View {
                 if !node.entities.isEmpty {
                     VStack(alignment: .leading, spacing: MacSpacing.sm) {
                         Text("Entities")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(MacTypography.captionMedium)
                             .foregroundStyle(MacColors.textFaint)
 
                         FlowLayout(spacing: MacSpacing.xs) {
@@ -251,7 +251,7 @@ struct NodeDetailPopover: View {
         if !connectedNodes.isEmpty {
             VStack(alignment: .leading, spacing: MacSpacing.sm) {
                 Text("Connected (\(connectedNodes.count))")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(MacTypography.captionMedium)
                     .foregroundStyle(MacColors.textFaint)
 
                 ForEach(connectedNodes.prefix(10)) { connectedNode in
@@ -260,17 +260,17 @@ struct NodeDetailPopover: View {
                     } label: {
                         HStack(spacing: MacSpacing.sm) {
                             Image(systemName: connectedNode.displayIcon)
-                                .font(.system(size: 11))
+                                .font(MacTypography.caption)
                                 .foregroundStyle(connectedNode.swiftUIColor)
                                 .frame(width: 20)
 
                             VStack(alignment: .leading, spacing: 1) {
                                 Text((connectedNode.label.isEmpty ? connectedNode.content : connectedNode.label).strippingBracketPrefixes())
-                                    .font(.system(size: 11))
+                                    .font(MacTypography.caption)
                                     .foregroundStyle(MacColors.textPrimary)
                                     .lineLimit(1)
                                 Text(connectedNode.displayName)
-                                    .font(.system(size: 10))
+                                    .font(MacTypography.metadata)
                                     .foregroundStyle(MacColors.textFaint)
                             }
 
@@ -290,17 +290,17 @@ struct NodeDetailPopover: View {
 
                 if connectedNodes.count > 10 {
                     Text("+\(connectedNodes.count - 10) more")
-                        .font(.system(size: 10))
+                        .font(MacTypography.metadata)
                         .foregroundStyle(MacColors.textFaint)
                 }
             }
         } else {
             HStack {
                 Image(systemName: "circle.dotted")
-                    .font(.system(size: 12))
+                    .font(MacTypography.smallBody)
                     .foregroundStyle(MacColors.textFaint)
                 Text("No connections")
-                    .font(.system(size: 12))
+                    .font(MacTypography.smallBody)
                     .foregroundStyle(MacColors.textFaint)
             }
             .padding(.vertical, MacSpacing.sm)
@@ -314,7 +314,7 @@ struct NodeDetailPopover: View {
         VStack(alignment: .leading, spacing: MacSpacing.sm) {
             HStack {
                 Text("Cross-Links")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(MacTypography.captionMedium)
                     .foregroundStyle(MacColors.textFaint)
                 if isLoadingCrossLinks {
                     ProgressView()
@@ -325,7 +325,7 @@ struct NodeDetailPopover: View {
 
             if crossLinks.isEmpty && !isLoadingCrossLinks {
                 Text("No cross-links")
-                    .font(.system(size: 11))
+                    .font(MacTypography.caption)
                     .foregroundStyle(MacColors.textFaint)
                     .padding(.vertical, MacSpacing.xs)
             } else {
@@ -356,7 +356,7 @@ struct NodeDetailPopover: View {
                             Image(systemName: "checkmark")
                             Text("Approve")
                         }
-                        .font(.system(size: 12, weight: .medium))
+                        .font(MacTypography.smallMedium)
                         .foregroundStyle(MacColors.buttonTextDark)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, MacSpacing.sm)
@@ -372,7 +372,7 @@ struct NodeDetailPopover: View {
                             Image(systemName: "xmark")
                             Text("Reject")
                         }
-                        .font(.system(size: 12, weight: .medium))
+                        .font(MacTypography.smallMedium)
                         .foregroundStyle(MacColors.healthRed)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, MacSpacing.sm)
@@ -394,7 +394,7 @@ struct NodeDetailPopover: View {
                         Image(systemName: "clock.badge.xmark")
                         Text("Mark Outdated")
                     }
-                    .font(.system(size: 12, weight: .medium))
+                    .font(MacTypography.smallMedium)
                     .foregroundStyle(MacColors.healthAmber)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, MacSpacing.sm)
@@ -414,10 +414,10 @@ struct NodeDetailPopover: View {
                     Text("Review Memory")
                     Spacer()
                     Image(systemName: "arrow.right")
-                        .font(.system(size: 11))
+                        .font(MacTypography.caption)
                 }
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Color(red: 17/255, green: 11/255, blue: 3/255))
+                .font(MacTypography.labelMedium)
+                .foregroundStyle(MacColors.buttonTextDark)
                 .padding(.horizontal, MacSpacing.md)
                 .padding(.vertical, MacSpacing.sm + 2)
                 .background(MacColors.amberAccent)
@@ -433,7 +433,7 @@ struct NodeDetailPopover: View {
 
     private func tagPill(_ text: String, color: Color, backgroundOpacity: Double = 0.12) -> some View {
         Text(text)
-            .font(.system(size: 10, weight: .medium))
+            .font(MacTypography.metadata)
             .foregroundStyle(color)
             .padding(.horizontal, MacSpacing.sm)
             .padding(.vertical, 3)
@@ -443,7 +443,7 @@ struct NodeDetailPopover: View {
 
     private func entityPill(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 10, weight: .medium))
+            .font(MacTypography.metadata)
             .foregroundStyle(MacColors.textSecondary)
             .padding(.horizontal, MacSpacing.sm)
             .padding(.vertical, 3)

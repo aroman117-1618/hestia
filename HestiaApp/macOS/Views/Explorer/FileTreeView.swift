@@ -54,7 +54,7 @@ struct FileTreeNodeView: View {
                     // Chevron (20x20 container)
                     if node.isDirectory {
                         Image(systemName: node.isExpanded ? "chevron.down" : "chevron.right")
-                            .font(.system(size: 14))
+                            .font(MacTypography.body)
                             .opacity(0.7)
                             .frame(width: MacSize.treeChevronSize, height: MacSize.treeChevronSize)
                     } else {
@@ -63,7 +63,7 @@ struct FileTreeNodeView: View {
 
                     // Icon (20x20 container, 16x16 icon)
                     Image(systemName: node.icon)
-                        .font(.system(size: 16))
+                        .font(MacTypography.sectionTitle)
                         .foregroundStyle(node.iconColor)
                         .frame(width: MacSize.treeIconSize, height: MacSize.treeIconSize)
                         .padding(.leading, MacSpacing.xs)

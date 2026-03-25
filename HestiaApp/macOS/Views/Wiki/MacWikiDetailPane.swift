@@ -42,9 +42,9 @@ struct MacWikiDetailPane: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(MacTypography.sectionLabel)
                         Text(viewModel.selectedTab.rawValue)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(MacTypography.labelMedium)
                     }
                     .foregroundStyle(MacColors.amberAccent)
                 }
@@ -54,7 +54,7 @@ struct MacWikiDetailPane: View {
             }
 
             Text(toolbarTitle)
-                .font(.system(size: 16, weight: .semibold))
+                .font(MacTypography.sectionTitle)
                 .foregroundStyle(MacColors.textPrimary)
 
             Spacer()
@@ -64,7 +64,7 @@ struct MacWikiDetailPane: View {
                     .controlSize(.small)
                     .tint(MacColors.amberAccent)
                 Text("Generating...")
-                    .font(.system(size: 12))
+                    .font(MacTypography.smallBody)
                     .foregroundStyle(MacColors.textSecondary)
             }
 
@@ -72,7 +72,7 @@ struct MacWikiDetailPane: View {
                 Task { await viewModel.refreshStaticContent() }
             } label: {
                 Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 13))
+                    .font(MacTypography.label)
                     .foregroundStyle(MacColors.textSecondary)
             }
             .buttonStyle(.hestia)
@@ -87,7 +87,7 @@ struct MacWikiDetailPane: View {
                     Image(systemName: "sparkles")
                     Text("Generate All")
                 }
-                .font(.system(size: 12, weight: .medium))
+                .font(MacTypography.smallMedium)
                 .foregroundStyle(MacColors.amberAccent)
                 .padding(.horizontal, MacSpacing.sm)
                 .padding(.vertical, 4)
@@ -172,13 +172,13 @@ struct MacWikiDetailPane: View {
     private var emptyTabState: some View {
         VStack(spacing: MacSpacing.md) {
             Image(systemName: "sparkles")
-                .font(.system(size: 32))
+                .font(MacTypography.largeValue)
                 .foregroundStyle(MacColors.amberAccent.opacity(0.4))
             Text("No articles generated yet")
-                .font(.system(size: 14, weight: .medium))
+                .font(MacTypography.bodyMedium)
                 .foregroundStyle(MacColors.textSecondary)
             Text("Use \"Generate All\" to create AI-written narratives for each module")
-                .font(.system(size: 12))
+                .font(MacTypography.smallBody)
                 .foregroundStyle(MacColors.textFaint)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 280)
@@ -211,23 +211,23 @@ struct MacWikiDetailPane: View {
         VStack(alignment: .leading, spacing: MacSpacing.xs) {
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: article.type == .module ? article.moduleIcon : article.type.iconName)
-                    .font(.system(size: 14))
+                    .font(MacTypography.body)
                     .foregroundStyle(MacColors.amberAccent)
                 Text(article.title)
-                    .font(.system(size: 18, weight: .bold))
+                    .font(MacTypography.pageTitle)
                     .foregroundStyle(MacColors.textPrimary)
             }
 
             HStack(spacing: MacSpacing.md) {
                 Text(article.subtitle)
-                    .font(.system(size: 13))
+                    .font(MacTypography.label)
                     .foregroundStyle(MacColors.textSecondary)
 
                 Spacer()
 
                 if article.wordCount > 0 {
                     Text(article.readTimeBadge)
-                        .font(.system(size: 11))
+                        .font(MacTypography.caption)
                         .foregroundStyle(MacColors.textFaint)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2)
@@ -247,13 +247,13 @@ struct MacWikiDetailPane: View {
         VStack(spacing: MacSpacing.lg) {
             Spacer()
             Image(systemName: "sparkles")
-                .font(.system(size: 36))
+                .font(MacTypography.largeValue)
                 .foregroundStyle(MacColors.amberAccent.opacity(0.4))
             Text("This article hasn't been generated yet")
-                .font(.system(size: 15, weight: .medium))
+                .font(MacTypography.cardTitle)
                 .foregroundStyle(MacColors.textSecondary)
             Text("Generate it using the cloud LLM to create an AI-written narrative")
-                .font(.system(size: 13))
+                .font(MacTypography.label)
                 .foregroundStyle(MacColors.textFaint)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 300)
@@ -274,7 +274,7 @@ struct MacWikiDetailPane: View {
                 .frame(width: 6, height: 6)
             Text(article.isGenerated ? "AI Generated" :
                  article.isStatic ? "Static" : "Pending")
-                .font(.system(size: 11))
+                .font(MacTypography.caption)
                 .foregroundStyle(MacColors.textFaint)
         }
     }
@@ -294,7 +294,7 @@ struct MacWikiDetailPane: View {
                 Image(systemName: "sparkles")
                 Text("Generate with AI")
             }
-            .font(.system(size: 13, weight: .medium))
+            .font(MacTypography.labelMedium)
             .foregroundStyle(MacColors.amberAccent)
             .padding(.horizontal, MacSpacing.lg)
             .padding(.vertical, MacSpacing.sm)
@@ -310,10 +310,10 @@ struct MacWikiDetailPane: View {
     private func errorBanner(_ message: String) -> some View {
         HStack(spacing: MacSpacing.sm) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 12))
+                .font(MacTypography.smallBody)
                 .foregroundStyle(MacColors.healthRed)
             Text(message)
-                .font(.system(size: 12))
+                .font(MacTypography.smallBody)
                 .foregroundStyle(MacColors.textSecondary)
                 .lineLimit(2)
             Spacer()
@@ -340,7 +340,7 @@ struct MacWikiDetailPane: View {
                 .controlSize(.regular)
                 .tint(MacColors.amberAccent)
             Text("Loading articles...")
-                .font(.system(size: 13))
+                .font(MacTypography.label)
                 .foregroundStyle(MacColors.textSecondary)
                 .padding(.top, MacSpacing.sm)
             Spacer()
@@ -355,10 +355,10 @@ struct MacWikiDetailPane: View {
                 .font(.system(size: 40))
                 .foregroundStyle(MacColors.healthRed)
             Text(message)
-                .font(.system(size: 15, weight: .medium))
+                .font(MacTypography.cardTitle)
                 .foregroundStyle(MacColors.textSecondary)
             Text("Make sure the Hestia server is running")
-                .font(.system(size: 13))
+                .font(MacTypography.label)
                 .foregroundStyle(MacColors.textFaint)
             Button {
                 Task { await viewModel.loadArticles() }
@@ -367,7 +367,7 @@ struct MacWikiDetailPane: View {
                     Image(systemName: "arrow.clockwise")
                     Text("Retry")
                 }
-                .font(.system(size: 13, weight: .medium))
+                .font(MacTypography.labelMedium)
                 .foregroundStyle(MacColors.amberAccent)
                 .padding(.horizontal, MacSpacing.lg)
                 .padding(.vertical, MacSpacing.sm)
@@ -395,11 +395,11 @@ private struct ArticleCardView: View {
             VStack(alignment: .leading, spacing: MacSpacing.sm) {
                 HStack(spacing: MacSpacing.sm) {
                     Image(systemName: article.moduleIcon)
-                        .font(.system(size: 14))
+                        .font(MacTypography.body)
                         .foregroundStyle(MacColors.amberAccent)
                         .frame(width: 20)
                     Text(article.title)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(MacTypography.labelMedium)
                         .foregroundStyle(MacColors.textPrimary)
                         .lineLimit(1)
                     Spacer()
@@ -407,7 +407,7 @@ private struct ArticleCardView: View {
 
                 if !article.subtitle.isEmpty {
                     Text(article.subtitle)
-                        .font(.system(size: 11))
+                        .font(MacTypography.caption)
                         .foregroundStyle(MacColors.textSecondary)
                         .lineLimit(2)
                 }
@@ -415,7 +415,7 @@ private struct ArticleCardView: View {
                 HStack(spacing: MacSpacing.sm) {
                     if article.wordCount > 0 {
                         Text(article.readTimeBadge)
-                            .font(.system(size: 10))
+                            .font(MacTypography.metadata)
                             .foregroundStyle(MacColors.textFaint)
                     }
 
@@ -428,7 +428,7 @@ private struct ArticleCardView: View {
                         .frame(width: 5, height: 5)
                     Text(article.isGenerated ? "Generated" :
                          article.isStatic ? "Static" : "Pending")
-                        .font(.system(size: 10))
+                        .font(MacTypography.metadata)
                         .foregroundStyle(MacColors.textFaint)
 
                     if article.content.isEmpty {
@@ -441,7 +441,7 @@ private struct ArticleCardView: View {
                             }
                         } label: {
                             Image(systemName: "sparkles")
-                                .font(.system(size: 10))
+                                .font(MacTypography.metadata)
                                 .foregroundStyle(MacColors.amberAccent)
                         }
                         .buttonStyle(.hestia)

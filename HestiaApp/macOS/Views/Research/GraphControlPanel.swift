@@ -37,12 +37,12 @@ struct GraphControlPanel: View {
             } label: {
                 HStack(spacing: MacSpacing.sm) {
                     Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 12))
+                        .font(MacTypography.smallBody)
                     Text("Filters")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(MacTypography.smallMedium)
                     Spacer()
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 10))
+                        .font(MacTypography.metadata)
                 }
                 .foregroundStyle(MacColors.textSecondary)
                 .padding(.horizontal, MacSpacing.md)
@@ -91,7 +91,7 @@ struct GraphControlPanel: View {
                         Task { await viewModel.loadGraph() }
                     } label: {
                         Text("Apply Filters")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(MacTypography.captionMedium)
                             .foregroundStyle(MacColors.buttonTextDark)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, MacSpacing.sm)
@@ -121,7 +121,7 @@ struct GraphControlPanel: View {
     private var graphModeSection: some View {
         VStack(alignment: .leading, spacing: MacSpacing.sm) {
             Text("GRAPH MODE")
-                .font(.system(size: 9, weight: .bold))
+                .font(MacTypography.micro)
                 .foregroundStyle(MacColors.textFaint)
                 .tracking(1)
 
@@ -134,9 +134,9 @@ struct GraphControlPanel: View {
                     } label: {
                         HStack(spacing: MacSpacing.xs) {
                             Image(systemName: mode.icon)
-                                .font(.system(size: 11))
+                                .font(MacTypography.caption)
                             Text(mode.label)
-                                .font(.system(size: 11, weight: .medium))
+                                .font(MacTypography.captionMedium)
                         }
                         .foregroundStyle(viewModel.graphMode == mode ? MacColors.amberAccent : MacColors.textSecondary)
                         .padding(.horizontal, MacSpacing.sm)
@@ -160,7 +160,7 @@ struct GraphControlPanel: View {
     private var nodeTypesSection: some View {
         VStack(alignment: .leading, spacing: MacSpacing.sm) {
             Text("NODE TYPES")
-                .font(.system(size: 9, weight: .bold))
+                .font(MacTypography.micro)
                 .foregroundStyle(MacColors.textFaint)
                 .tracking(1)
 
@@ -176,14 +176,14 @@ struct GraphControlPanel: View {
         VStack(alignment: .leading, spacing: MacSpacing.sm) {
             if viewModel.graphMode == .legacy {
                 Text("FOCUS TOPIC")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(MacTypography.micro)
                     .foregroundStyle(MacColors.textFaint)
                     .tracking(1)
 
                 searchField(text: $viewModel.focusTopic, placeholder: "Filter by topic...")
             } else {
                 Text("CENTER ENTITY")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(MacTypography.micro)
                     .foregroundStyle(MacColors.textFaint)
                     .tracking(1)
 
@@ -195,11 +195,11 @@ struct GraphControlPanel: View {
     private func searchField(text: Binding<String>, placeholder: String) -> some View {
         HStack(spacing: MacSpacing.xs) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 11))
+                .font(MacTypography.caption)
                 .foregroundStyle(MacColors.textPlaceholder)
             TextField(placeholder, text: text)
                 .textFieldStyle(.plain)
-                .font(.system(size: 12))
+                .font(MacTypography.smallBody)
                 .foregroundStyle(MacColors.textPrimary)
                 .onSubmit {
                     Task { await viewModel.loadGraph() }
@@ -217,7 +217,7 @@ struct GraphControlPanel: View {
         VStack(alignment: .leading, spacing: MacSpacing.sm) {
             HStack {
                 Text("TIME TRAVEL")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(MacTypography.micro)
                     .foregroundStyle(MacColors.textFaint)
                     .tracking(1)
 
@@ -240,7 +240,7 @@ struct GraphControlPanel: View {
 
                 HStack(spacing: MacSpacing.xs) {
                     Text(viewModel.timeSliderLabel)
-                        .font(.system(size: 10))
+                        .font(MacTypography.metadata)
                         .foregroundStyle(MacColors.textSecondary)
                     if viewModel.isLoading {
                         ProgressView()
@@ -264,7 +264,7 @@ struct GraphControlPanel: View {
     private var durabilitySection: some View {
         VStack(alignment: .leading, spacing: MacSpacing.sm) {
             Text("SIGNIFICANCE")
-                .font(.system(size: 9, weight: .bold))
+                .font(MacTypography.micro)
                 .foregroundStyle(MacColors.textFaint)
                 .tracking(1)
 
@@ -278,7 +278,7 @@ struct GraphControlPanel: View {
             .controlSize(.small)
 
             Text(durabilityDescription)
-                .font(.system(size: 10))
+                .font(MacTypography.metadata)
                 .foregroundStyle(MacColors.textFaint)
                 .lineLimit(2)
         }
@@ -299,7 +299,7 @@ struct GraphControlPanel: View {
     private var sourceCategorySection: some View {
         VStack(alignment: .leading, spacing: MacSpacing.sm) {
             Text("SOURCES")
-                .font(.system(size: 9, weight: .bold))
+                .font(MacTypography.micro)
                 .foregroundStyle(MacColors.textFaint)
                 .tracking(1)
 
@@ -325,9 +325,9 @@ struct GraphControlPanel: View {
         } label: {
             HStack(spacing: 3) {
                 Image(systemName: category.icon)
-                    .font(.system(size: 9))
+                    .font(MacTypography.micro)
                 Text(category.label)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(MacTypography.micro)
             }
             .foregroundStyle(isActive ? MacColors.amberAccent : MacColors.textFaint)
             .padding(.horizontal, MacSpacing.sm)
@@ -354,14 +354,14 @@ struct GraphControlPanel: View {
         } label: {
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: isActive ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 12))
+                    .font(MacTypography.smallBody)
                     .foregroundStyle(isActive ? MacColors.amberAccent : MacColors.textFaint)
                 Image(systemName: icon)
-                    .font(.system(size: 11))
+                    .font(MacTypography.caption)
                     .foregroundStyle(isActive ? MacColors.textPrimary : MacColors.textSecondary)
                     .frame(width: 16)
                 Text(label)
-                    .font(.system(size: 12))
+                    .font(MacTypography.smallBody)
                     .foregroundStyle(isActive ? MacColors.textPrimary : MacColors.textSecondary)
                 Spacer()
             }

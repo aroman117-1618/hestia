@@ -37,7 +37,7 @@ struct NewOrderSheet: View {
                     dismiss()
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(MacTypography.smallMedium)
                         .foregroundStyle(MacColors.textSecondary)
                         .frame(width: 24, height: 24)
                         .background(MacColors.searchInputBackground)

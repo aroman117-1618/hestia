@@ -8,23 +8,23 @@ enum MacColors {
     static let windowBackground = Color(hex: "0D0802")
     static let sidebarBackground = Color(hex: "0A0603")
     static let panelBackground = Color(hex: "110B03")
-    static let chatInputBackground = Color(hex: "261302")
+    static let chatInputBackground = Color(hex: "1E1308")
     static let activeNavBackground = Color(hex: "2F1C03")
 
-    // MARK: - Borders
+    // MARK: - Borders (base: #FF9F0A / rgb(255, 159, 10))
     static let navBorder = Color(hex: "B7874A")
-    static let primaryBorder = Color(red: 226/255, green: 166/255, blue: 92/255).opacity(0.8)
+    static let primaryBorder = Color(red: 255/255, green: 159/255, blue: 10/255).opacity(0.40)
     static let activeNavBorder = Color(hex: "583502")
-    static let cardBorder = Color(red: 254/255, green: 154/255, blue: 0).opacity(0.08)
-    static let cardBorderStrong = Color(red: 254/255, green: 154/255, blue: 0).opacity(0.15)
-    static let sidebarBorder = Color(red: 254/255, green: 154/255, blue: 0).opacity(0.1)
-    static let subtleBorder = Color(red: 254/255, green: 154/255, blue: 0).opacity(0.06)
-    static let divider = Color(red: 182/255, green: 165/255, blue: 145/255).opacity(0.15)
-    static let avatarBorder = Color(red: 254/255, green: 154/255, blue: 0).opacity(0.25)
-    static let aiAvatarBorder = Color(red: 182/255, green: 165/255, blue: 145/255).opacity(0.2)
+    static let cardBorder = Color(red: 255/255, green: 159/255, blue: 10/255).opacity(0.08)
+    static let cardBorderStrong = Color(red: 255/255, green: 159/255, blue: 10/255).opacity(0.15)
+    static let sidebarBorder = Color(red: 255/255, green: 159/255, blue: 10/255).opacity(0.1)
+    static let subtleBorder = Color(red: 255/255, green: 159/255, blue: 10/255).opacity(0.06)
+    static let divider = Color(red: 232/255, green: 226/255, blue: 217/255).opacity(0.08)
+    static let avatarBorder = Color(red: 255/255, green: 159/255, blue: 10/255).opacity(0.25)
+    static let aiAvatarBorder = Color(red: 232/255, green: 226/255, blue: 217/255).opacity(0.2)
 
     // MARK: - Accent / Brand
-    static let amberAccent = Color(hex: "E0A050")
+    static let amberAccent = Color(hex: "FF9F0A")
     static let amberBright = Color(hex: "FFB900")
     static let amberDark = Color(hex: "FF8904")
 
@@ -42,7 +42,7 @@ enum MacColors {
 
     static var logoGradient: LinearGradient {
         LinearGradient(
-            colors: [Color(hex: "E17100"), Color(hex: "F54900")],
+            colors: [Color(hex: "FFB900"), Color(hex: "FF8904")],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
@@ -63,14 +63,14 @@ enum MacColors {
     static let aiAvatarBackground = Color(red: 238/255, green: 203/255, blue: 160/255).opacity(0.2)
     static let innerPillBackground = Color(red: 70/255, green: 25/255, blue: 1/255).opacity(0.2)
 
-    // MARK: - Text Colors
-    static let textPrimary = Color(hex: "E4DFD7")
-    static let textPrimaryAlt = Color(hex: "EBDFD1")
-    static let textSender = Color(red: 235/255, green: 223/255, blue: 209/255).opacity(0.62)
-    static let textSecondary = Color(red: 235/255, green: 223/255, blue: 209/255).opacity(0.5)
-    static let textPlaceholder = Color(red: 235/255, green: 223/255, blue: 209/255).opacity(0.4)
-    static let textFaint = Color(red: 235/255, green: 223/255, blue: 209/255).opacity(0.3)
-    static let textInactive = Color(red: 235/255, green: 223/255, blue: 209/255).opacity(0.45)
+    // MARK: - Text Colors (base: #E8E2D9 / rgb(232, 226, 217))
+    static let textPrimary = Color(hex: "E8E2D9")
+    static let textPrimaryAlt = Color(hex: "E8E2D9")
+    static let textSender = Color(red: 232/255, green: 226/255, blue: 217/255).opacity(0.62)
+    static let textSecondary = Color(red: 232/255, green: 226/255, blue: 217/255).opacity(0.55)
+    static let textPlaceholder = Color(red: 232/255, green: 226/255, blue: 217/255).opacity(0.35)
+    static let textFaint = Color(red: 232/255, green: 226/255, blue: 217/255).opacity(0.3)
+    static let textInactive = Color(red: 232/255, green: 226/255, blue: 217/255).opacity(0.45)
     static let userBubbleText = Color(red: 29/255, green: 14/255, blue: 1/255).opacity(0.8)
     static let userBubbleTextShort = Color(hex: "442B11")
     static let buttonTextDark = Color(hex: "040301")
@@ -96,7 +96,7 @@ enum MacColors {
     static let statusGreen = Color(hex: "72F69E")
     static let statusWarning = Color(hex: "FF9800")
     static let statusCritical = Color(hex: "D32F2F")
-    static let statusInfo = amberAccent
+    static let statusInfo = Color(hex: "0A84FF")
 
     // MARK: - Interactive States
     static let hoverBackground = amberAccent.opacity(0.08)
@@ -135,4 +135,10 @@ enum MacColors {
         case .olly: return Color(hex: "2CC295")
         }
     }
+
+    // MARK: - Liquid Glass Amber Spectrum
+    static let amber400 = Color(hex: "FF9F0A")
+    static let amber300 = Color(hex: "FFB347")
+    static let amber500 = Color(hex: "E08A00")
+    static let amber700 = Color(hex: "8B5500")
 }

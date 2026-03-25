@@ -5,10 +5,9 @@ import HestiaShared
 
 enum WorkspaceView: String, CaseIterable {
     case command
-    case health
-    case research
+    case orders
+    case memory
     case explorer
-    case workflow
     case settings
 }
 
@@ -40,10 +39,16 @@ class WorkspaceState {
            let view = WorkspaceView(rawValue: savedView) {
             self.currentView = view
         } else {
-            // Migrate legacy values: wiki/resources/profile → settings
+            // Migrate legacy values
             let savedRaw = UserDefaults.standard.string(forKey: WorkspaceDefaults.currentView)
-            if savedRaw == "wiki" || savedRaw == "resources" || savedRaw == "profile" || savedRaw == "memory" {
+            if savedRaw == "wiki" || savedRaw == "resources" || savedRaw == "profile" {
                 self.currentView = .settings
+            } else if savedRaw == "health" {
+                self.currentView = .command
+            } else if savedRaw == "research" {
+                self.currentView = .memory
+            } else if savedRaw == "workflow" {
+                self.currentView = .orders
             } else {
                 self.currentView = .command
             }

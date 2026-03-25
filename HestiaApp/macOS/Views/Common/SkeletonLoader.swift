@@ -52,7 +52,7 @@ struct StatCardSkeleton: View {
             SkeletonLine(width: 60, height: 12)
             SkeletonLine(width: 80, height: 22)
         }
-        .padding(17)
+        .padding(MacSpacing.xl)
         .frame(maxWidth: .infinity)
         .frame(height: MacSize.statCardHeight)
         .background(MacColors.cardGradient)

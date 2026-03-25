@@ -16,7 +16,7 @@ struct DiagramLegendView: View {
                         .fill(items[index].color)
                         .frame(width: 6, height: 6)
                     Text(items[index].label)
-                        .font(.system(size: 9))
+                        .font(MacTypography.micro)
                         .foregroundStyle(MacColors.textFaint)
                 }
             }

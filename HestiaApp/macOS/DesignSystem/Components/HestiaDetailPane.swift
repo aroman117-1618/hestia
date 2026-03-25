@@ -12,6 +12,7 @@ struct HestiaDetailPane<Header: View, Content: View, Footer: View>: View {
     @ViewBuilder let footer: () -> Footer
     var isLoading: Bool = false
     var errorMessage: String? = nil
+    var onRetry: (() -> Void)? = nil
     var isEmpty: Bool = false
     var emptyMessage: String = "Nothing selected"
     var width: CGFloat? = nil
@@ -20,9 +21,9 @@ struct HestiaDetailPane<Header: View, Content: View, Footer: View>: View {
         VStack(spacing: 0) {
             header()
                 .padding(MacSpacing.md)
+                .background(MacColors.windowBackground)
 
-            Divider()
-                .overlay(MacColors.divider)
+            MacColors.divider.frame(height: 1)
 
             bodyContent
 
@@ -38,14 +39,23 @@ struct HestiaDetailPane<Header: View, Content: View, Footer: View>: View {
             Spacer()
             ProgressView()
                 .scaleEffect(0.8)
+                .tint(MacColors.amberAccent)
             Spacer()
         } else if let error = errorMessage {
             Spacer()
-            Text(error)
-                .font(MacTypography.caption)
-                .foregroundStyle(MacColors.healthRed)
-                .multilineTextAlignment(.center)
-                .padding(MacSpacing.md)
+            VStack(spacing: MacSpacing.sm) {
+                Text(error)
+                    .font(MacTypography.caption)
+                    .foregroundStyle(MacColors.healthRed)
+                    .multilineTextAlignment(.center)
+                if let onRetry {
+                    Button("Retry") { onRetry() }
+                        .font(MacTypography.caption)
+                        .foregroundStyle(MacColors.amberAccent)
+                        .buttonStyle(.plain)
+                }
+            }
+            .padding(MacSpacing.md)
             Spacer()
         } else if isEmpty {
             Spacer()
@@ -72,6 +82,7 @@ extension HestiaDetailPane where Footer == EmptyView {
         @ViewBuilder content: @escaping () -> Content,
         isLoading: Bool = false,
         errorMessage: String? = nil,
+        onRetry: (() -> Void)? = nil,
         isEmpty: Bool = false,
         emptyMessage: String = "Nothing selected",
         width: CGFloat? = nil
@@ -81,6 +92,7 @@ extension HestiaDetailPane where Footer == EmptyView {
         self.footer = { EmptyView() }
         self.isLoading = isLoading
         self.errorMessage = errorMessage
+        self.onRetry = onRetry
         self.isEmpty = isEmpty
         self.emptyMessage = emptyMessage
         self.width = width

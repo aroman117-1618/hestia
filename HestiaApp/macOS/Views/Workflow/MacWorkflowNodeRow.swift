@@ -8,7 +8,7 @@ struct MacWorkflowNodeRow: View {
         HStack(spacing: MacSpacing.md) {
             // Node type icon
             Image(systemName: node.iconName)
-                .font(.system(size: 13))
+                .font(MacTypography.label)
                 .foregroundStyle(MacColors.amberAccent)
                 .frame(width: 28, height: 28)
                 .background(MacColors.activeTabBackground)
@@ -16,12 +16,12 @@ struct MacWorkflowNodeRow: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(node.label)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(MacTypography.labelMedium)
                     .foregroundStyle(MacColors.textPrimary)
                     .lineLimit(1)
 
                 Text(nodeTypeLabel)
-                    .font(.system(size: 10))
+                    .font(MacTypography.metadata)
                     .foregroundStyle(MacColors.textFaint)
             }
 
@@ -30,7 +30,7 @@ struct MacWorkflowNodeRow: View {
             // Config indicator
             if !node.config.isEmpty {
                 Image(systemName: "gearshape")
-                    .font(.system(size: 10))
+                    .font(MacTypography.metadata)
                     .foregroundStyle(MacColors.textFaint)
             }
         }

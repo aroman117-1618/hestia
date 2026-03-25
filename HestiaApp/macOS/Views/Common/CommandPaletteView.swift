@@ -12,7 +12,7 @@ struct CommandPaletteView: View {
         if palette.isOpen {
             ZStack {
                 // Dimmed background
-                Color.black.opacity(0.4)
+                MacColors.sidebarBackground.opacity(0.4)
                     .ignoresSafeArea()
                     .onTapGesture { palette.close() }
 
@@ -30,7 +30,7 @@ struct CommandPaletteView: View {
                     RoundedRectangle(cornerRadius: 12)
                         .strokeBorder(MacColors.cardBorder, lineWidth: 1)
                 }
-                .shadow(color: .black.opacity(0.4), radius: 24, y: 8)
+                .shadow(color: MacColors.sidebarBackground.opacity(0.4), radius: 24, y: 8)
             }
             .transition(.opacity.combined(with: .scale(scale: 0.95)))
             .onAppear {
@@ -61,14 +61,14 @@ struct CommandPaletteView: View {
     private var searchField: some View {
         HStack(spacing: MacSpacing.md) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 16))
+                .font(MacTypography.sectionTitle)
                 .foregroundStyle(MacColors.textSecondary)
 
             TextField("Type a command...", text: Binding(
                 get: { palette.searchText },
                 set: { palette.searchText = $0; selectedIndex = 0 }
             ))
-            .font(.system(size: 16))
+            .font(MacTypography.sectionTitle)
             .textFieldStyle(.plain)
             .foregroundStyle(MacColors.textPrimary)
             .focused($isSearchFocused)
@@ -79,7 +79,7 @@ struct CommandPaletteView: View {
                     selectedIndex = 0
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 14))
+                        .font(MacTypography.body)
                         .foregroundStyle(MacColors.textSecondary)
                 }
                 .buttonStyle(.hestiaIcon)
@@ -88,7 +88,7 @@ struct CommandPaletteView: View {
 
             // Escape hint
             Text("esc")
-                .font(.system(size: 11, weight: .medium))
+                .font(MacTypography.captionMedium)
                 .foregroundStyle(MacColors.textFaint)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 3)
@@ -117,7 +117,7 @@ struct CommandPaletteView: View {
                     if palette.filteredCommands.isEmpty {
                         VStack(spacing: MacSpacing.md) {
                             Image(systemName: "questionmark.circle")
-                                .font(.system(size: 24))
+                                .font(MacTypography.mediumValue)
                                 .foregroundStyle(MacColors.textFaint)
                             Text("No matching commands")
                                 .font(MacTypography.body)
@@ -145,7 +145,7 @@ struct CommandPaletteView: View {
     private func commandRow(_ command: PaletteCommand, isSelected: Bool) -> some View {
         HStack(spacing: MacSpacing.md) {
             Image(systemName: command.icon)
-                .font(.system(size: 14))
+                .font(MacTypography.body)
                 .foregroundStyle(isSelected ? MacColors.amberAccent : MacColors.textSecondary)
                 .frame(width: 24)
 
@@ -157,7 +157,7 @@ struct CommandPaletteView: View {
 
             if let shortcut = command.shortcut {
                 Text(shortcut)
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .font(MacTypography.captionMedium)
                     .foregroundStyle(MacColors.textFaint)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)

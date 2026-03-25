@@ -54,7 +54,7 @@ struct CouncilFlowDiagramView: View {
                     .stroke(MacColors.amberAccent.opacity(0.3), lineWidth: 1)
 
                     Text("asyncio.gather()")
-                        .font(.system(size: 8))
+                        .font(MacTypography.micro)
                         .foregroundStyle(MacColors.textFaint)
                         .position(x: cx + 55, y: roleY - 40)
 

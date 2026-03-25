@@ -48,7 +48,7 @@ struct MacCloudSettingsView: View {
             // Header
             HStack {
                 Text("Providers")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(MacTypography.bodyMedium)
                     .foregroundStyle(MacColors.textPrimary)
 
                 Spacer()
@@ -57,7 +57,7 @@ struct MacCloudSettingsView: View {
                     viewModel.showingAddProvider = true
                 } label: {
                     Image(systemName: "plus")
-                        .font(.system(size: 13))
+                        .font(MacTypography.label)
                         .foregroundStyle(MacColors.amberAccent)
                 }
                 .buttonStyle(.hestia)
@@ -71,7 +71,7 @@ struct MacCloudSettingsView: View {
                     .fill(viewModel.effectiveStateColor)
                     .frame(width: 6, height: 6)
                 Text(viewModel.effectiveStateDisplay)
-                    .font(.system(size: 11))
+                    .font(MacTypography.caption)
                     .foregroundStyle(MacColors.textSecondary)
                 Spacer()
             }
@@ -92,10 +92,10 @@ struct MacCloudSettingsView: View {
                 Spacer()
                 VStack(spacing: MacSpacing.sm) {
                     Image(systemName: "cloud.slash")
-                        .font(.system(size: 28))
+                        .font(MacTypography.heroHeading)
                         .foregroundStyle(MacColors.textFaint)
                     Text("No providers")
-                        .font(.system(size: 12))
+                        .font(MacTypography.smallBody)
                         .foregroundStyle(MacColors.textSecondary)
                 }
                 Spacer()
@@ -121,17 +121,17 @@ struct MacCloudSettingsView: View {
         } label: {
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: provider.provider.iconName)
-                    .font(.system(size: 14))
+                    .font(MacTypography.body)
                     .foregroundStyle(provider.isActive ? MacColors.healthGreen : MacColors.textFaint)
                     .frame(width: 20)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(provider.provider.displayName)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(MacTypography.smallMedium)
                         .foregroundStyle(MacColors.textPrimary)
 
                     Text(provider.state.displayName)
-                        .font(.system(size: 10))
+                        .font(MacTypography.metadata)
                         .foregroundStyle(MacColors.textFaint)
                 }
 
@@ -160,7 +160,7 @@ struct MacCloudSettingsView: View {
                 .font(.system(size: 40))
                 .foregroundStyle(MacColors.textFaint)
             Text("Select a provider")
-                .font(.system(size: 14))
+                .font(MacTypography.body)
                 .foregroundStyle(MacColors.textSecondary)
             if viewModel.providers.isEmpty {
                 Button {
@@ -170,7 +170,7 @@ struct MacCloudSettingsView: View {
                         Image(systemName: "plus")
                         Text("Add Provider")
                     }
-                    .font(.system(size: 13, weight: .medium))
+                    .font(MacTypography.labelMedium)
                     .foregroundStyle(MacColors.amberAccent)
                     .padding(.horizontal, MacSpacing.lg)
                     .padding(.vertical, MacSpacing.sm)

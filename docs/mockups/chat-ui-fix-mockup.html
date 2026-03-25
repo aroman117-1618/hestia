@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hestia Chat UI — Current vs. Fixed States</title>
+<style>
+  :root {
+    --bg-window: #0D0802;
+    --bg-panel: #110B03;
+    --bg-chat-input: #261302;
+    --bg-ai-bubble: rgba(224, 206, 184, 0.12);
+    --bg-ai-avatar: rgba(238, 203, 160, 0.2);
+    --amber: #E0A050;
+    --amber-bright: #FFB900;
+    --text-primary: #E4DFD7;
+    --text-sender: rgba(235, 223, 209, 0.62);
+    --text-secondary: rgba(235, 223, 209, 0.5);
+    --text-placeholder: rgba(235, 223, 209, 0.4);
+    --user-bubble-text: rgba(29, 14, 1, 0.8);
+    --user-bubble-text-short: #442B11;
+    --health-red: #FF6467;
+    --health-green: #00D492;
+    --border-subtle: rgba(254, 154, 0, 0.06);
+    --border-card: rgba(254, 154, 0, 0.08);
+    --avatar-border: rgba(182, 165, 145, 0.2);
+    --divider: rgba(182, 165, 145, 0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+    background: #080503;
+    color: var(--text-primary);
+    padding: 32px;
+  }
+
+  h1 {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--amber);
+    margin-bottom: 8px;
+    letter-spacing: -0.3px;
+  }
+
+  .subtitle {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin-bottom: 32px;
+    line-height: 1.5;
+  }
+
+  .comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 48px;
+  }
+
+  @media (max-width: 900px) {
+    .comparison { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--bg-panel);
+    border-radius: 16px;
+    border: 1px solid var(--border-card);
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--divider);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-header .label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 3px 8px;
+    border-radius: 4px;
+  }
+
+  .label-broken {
+    background: rgba(255, 100, 103, 0.15);
+    color: var(--health-red);
+  }
+
+  .label-fixed {
+    background: rgba(0, 212, 146, 0.15);
+    color: var(--health-green);
+  }
+
+  .panel-header .title {
+    font-size: 13px;
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  .chat-window {
+    padding: 16px;
+    min-height: 380px;
+    background: var(--bg-window);
+    position: relative;
+  }
+
+  /* Radial glow like the real app */
+  .chat-window::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      ellipse at center,
+      rgba(225, 113, 0, 0.03) 0%,
+      transparent 70%
+    );
+    pointer-events: none;
+  }
+
+  .chat-window > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Messages */
+  .message {
+    margin-bottom: 16px;
+  }
+
+  .message-user {
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-end;
+    gap: 10px;
+  }
+
+  .message-ai {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .bubble-user {
+    background: var(--amber);
+    color: var(--user-bubble-text);
+    padding: 10px 16px;
+    border-radius: 16px 16px 0 16px;
+    max-width: 70%;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .bubble-ai {
+    background: var(--bg-ai-bubble);
+    color: var(--text-primary);
+    padding: 10px 16px;
+    border-radius: 16px 0 16px 16px;
+    max-width: 80%;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  /* Empty bubble = the bug */
+  .bubble-ai.empty {
+    padding: 10px 16px;
+    min-width: 20px;
+    min-height: 16px;
+  }
+
+  .user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(128, 128, 128, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .user-avatar svg {
+    width: 14px;
+    height: 14px;
+    fill: var(--text-secondary);
+  }
+
+  .ai-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--bg-ai-avatar);
+    border: 1px solid var(--avatar-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+
+  .ai-avatar-letter {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--amber);
+  }
+
+  .sender-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-left: 4px;
+  }
+
+  .sender-name {
+    font-size: 12px;
+    color: var(--text-sender);
+    font-weight: 500;
+  }
+
+  .reaction-row {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+  }
+
+  .reaction-btn {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    opacity: 0.5;
+  }
+
+  /* Input bar */
+  .input-bar {
+    padding: 10px 16px;
+    background: rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .input-field {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.08);
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    color: var(--text-primary);
+    font-size: 14px;
+    outline: none;
+  }
+
+  .input-field::placeholder {
+    color: var(--text-placeholder);
+  }
+
+  .mic-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Thinking dots */
+  .thinking-dots {
+    display: flex;
+    gap: 4px;
+    padding: 10px 16px;
+    background: var(--bg-ai-bubble);
+    border-radius: 16px 0 16px 16px;
+  }
+
+  .thinking-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--amber);
+    animation: bounce 1.2s infinite ease-in-out;
+  }
+
+  .thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+  .thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes bounce {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+    40% { transform: translateY(-5px); opacity: 1; }
+  }
+
+  /* Streaming cursor */
+  .streaming-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 16px;
+    background: var(--amber);
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    animation: blink 0.8s infinite;
+  }
+
+  @keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+  }
+
+  /* Section headers */
+  .section-header {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-top: 48px;
+    margin-bottom: 6px;
+    letter-spacing: -0.2px;
+  }
+
+  .section-desc {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+    line-height: 1.5;
+  }
+
+  /* Bug callout */
+  .bug-callout {
+    background: rgba(255, 100, 103, 0.08);
+    border: 1px solid rgba(255, 100, 103, 0.2);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 12px 0;
+    font-size: 12px;
+    color: var(--health-red);
+    line-height: 1.5;
+  }
+
+  .fix-callout {
+    background: rgba(0, 212, 146, 0.08);
+    border: 1px solid rgba(0, 212, 146, 0.2);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 12px 0;
+    font-size: 12px;
+    color: var(--health-green);
+    line-height: 1.5;
+  }
+
+  .callout-title {
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  /* Error state */
+  .error-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: rgba(255, 100, 103, 0.08);
+    border-top: 1px solid rgba(255, 100, 103, 0.15);
+  }
+
+  .error-icon {
+    color: var(--health-red);
+    font-size: 14px;
+  }
+
+  .error-text {
+    font-size: 12px;
+    color: var(--text-secondary);
+    flex: 1;
+  }
+
+  .error-dismiss {
+    font-size: 12px;
+    color: var(--amber);
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+
+  /* Tool execution card */
+  .tool-card {
+    background: var(--bg-panel);
+    border: 1px solid rgba(224, 160, 80, 0.25);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-top: 6px;
+  }
+
+  .tool-card-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .tool-icon {
+    color: var(--amber);
+    font-size: 12px;
+  }
+
+  .tool-result {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 6px;
+    line-height: 1.4;
+  }
+
+  /* Retry button inline */
+  .retry-link {
+    color: var(--amber);
+    font-size: 12px;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  /* State matrix at bottom */
+  .state-matrix {
+    margin-top: 48px;
+    border: 1px solid var(--border-card);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .state-matrix-header {
+    background: var(--bg-panel);
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--amber);
+    border-bottom: 1px solid var(--divider);
+  }
+
+  .state-row {
+    display: grid;
+    grid-template-columns: 180px 1fr 1fr;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .state-row:last-child { border-bottom: none; }
+
+  .state-row.header-row {
+    background: rgba(224, 160, 80, 0.05);
+  }
+
+  .state-cell {
+    padding: 10px 14px;
+    font-size: 12px;
+    line-height: 1.5;
+    border-right: 1px solid var(--border-subtle);
+  }
+
+  .state-cell:last-child { border-right: none; }
+
+  .state-cell.label {
+    font-weight: 600;
+    color: var(--text-sender);
+  }
+
+  .state-cell.header {
+    font-weight: 600;
+    color: var(--amber);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-right: 4px;
+  }
+
+  .tag-red { background: rgba(255, 100, 103, 0.15); color: var(--health-red); }
+  .tag-green { background: rgba(0, 212, 146, 0.15); color: var(--health-green); }
+  .tag-amber { background: rgba(224, 160, 80, 0.15); color: var(--amber); }
+</style>
+</head>
+<body>
+
+<h1>Hestia Chat UI — Fix Proposal</h1>
+<p class="subtitle">Side-by-side comparison of current broken states and intended fixes. All colors match the Hestia macOS design system.</p>
+
+<!-- ============================================ -->
+<!-- SECTION 1: The Main Bug — Empty Bubbles -->
+<!-- ============================================ -->
+
+<h2 class="section-header">1. Empty Response Bubbles (Primary Bug)</h2>
+<p class="section-desc">When a tool call triggers <code>clearStream</code> and re-synthesis fails or never arrives, the message stays empty.</p>
+
+<div class="comparison">
+  <!-- BROKEN -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="label label-broken">CURRENT</span>
+      <span class="title">Empty bubbles rendered</span>
+    </div>
+    <div class="chat-window">
+      <!-- Greeting -->
+      <div class="message message-ai">
+        <div class="bubble-ai">Evening, Boss. Winding down or ramping up?</div>
+        <div class="sender-row">
+          <span class="sender-name">Tia</span>
+          <div class="reaction-row">
+            <button class="reaction-btn">👍</button>
+            <button class="reaction-btn">👎</button>
+            <button class="reaction-btn">💡</button>
+            <button class="reaction-btn">↩</button>
+            <button class="reaction-btn">🏴</button>
+            <button class="reaction-btn">📋</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- User -->
+      <div class="message message-user">
+        <div class="bubble-user">Hey Tia – can you tell me what's in the "hestia" note in my Intelligence folder on my Apple Notes app?</div>
+        <div class="user-avatar">
+          <svg viewBox="0 0 20 20"><path d="M10 10a4 4 0 100-8 4 4 0 000 8zm-6 8a6 6 0 1112 0H4z"/></svg>
+        </div>
+      </div>
+
+      <!-- BUG: Empty AI bubble #1 (streaming placeholder) -->
+      <div class="message message-ai">
+        <div class="bubble-ai empty"></div>
+        <div class="sender-row">
+          <span class="sender-name">Tia</span>
+          <div class="reaction-row">
+            <button class="reaction-btn">👍</button>
+            <button class="reaction-btn">👎</button>
+            <button class="reaction-btn">💡</button>
+            <button class="reaction-btn">↩</button>
+            <button class="reaction-btn">🏴</button>
+            <button class="reaction-btn">📋</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- BUG: Empty AI bubble #2 (from avatar/typing state stuck) -->
+      <div class="message message-ai" style="flex-direction: row; align-items: flex-start; gap: 10px;">
+        <div class="ai-avatar"><span class="ai-avatar-letter">T</span></div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <span class="sender-name">Tia</span>
+          <div class="bubble-ai empty"></div>
+        </div>
+      </div>
+
+      <div class="bug-callout">
+        <div class="callout-title">⚠ What happened</div>
+        1. Streaming created an empty placeholder message<br>
+        2. Server sent <code>clearStream</code> (tool call in progress)<br>
+        3. Re-synthesis never arrived (tool error / timeout)<br>
+        4. Empty message stays in array — renders as tiny dark pill<br>
+        5. Possible second empty entry from typing bubble / REST fallback
+      </div>
+    </div>
+  </div>
+
+  <!-- FIXED -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="label label-fixed">FIXED</span>
+      <span class="title">Graceful error recovery</span>
+    </div>
+    <div class="chat-window">
+      <!-- Greeting -->
+      <div class="message message-ai">
+        <div class="bubble-ai">Evening, Boss. Winding down or ramping up?</div>
+        <div class="sender-row">
+          <span class="sender-name">Tia</span>
+          <div class="reaction-row">
+            <button class="reaction-btn">👍</button>
+            <button class="reaction-btn">👎</button>
+            <button class="reaction-btn">💡</button>
+            <button class="reaction-btn">↩</button>
+            <button class="reaction-btn">🏴</button>
+            <button class="reaction-btn">📋</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- User -->
+      <div class="message message-user">
+        <div class="bubble-user">Hey Tia – can you tell me what's in the "hestia" note in my Intelligence folder on my Apple Notes app?</div>
+        <div class="user-avatar">
+          <svg viewBox="0 0 20 20"><path d="M10 10a4 4 0 100-8 4 4 0 000 8zm-6 8a6 6 0 1112 0H4z"/></svg>
+        </div>
+      </div>
+
+      <!-- FIXED: Error message with retry -->
+      <div class="message message-ai">
+        <div class="bubble-ai" style="opacity: 0.8;">
+          Sorry, I ran into a problem looking that up. Want me to try again?
+          <span class="retry-link" style="margin-left: 6px;">Retry</span>
+        </div>
+        <div class="sender-row">
+          <span class="sender-name">Tia</span>
+          <div class="reaction-row">
+            <button class="reaction-btn">👍</button>
+            <button class="reaction-btn">👎</button>
+            <button class="reaction-btn">💡</button>
+            <button class="reaction-btn">↩</button>
+            <button class="reaction-btn">🏴</button>
+            <button class="reaction-btn">📋</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="fix-callout">
+        <div class="callout-title">✓ What changed</div>
+        1. On stream end, if <code>message.content</code> is empty → insert fallback text<br>
+        2. Empty streaming placeholder removed before REST fallback<br>
+        3. Only ONE message per response (no duplicates)<br>
+        4. Inline retry link lets user try again without error dialog
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SECTION 2: Successful Tool Call Flow -->
+<!-- ============================================ -->
+
+<h2 class="section-header">2. Successful Tool Call (Happy Path)</h2>
+<p class="section-desc">How the conversation should look when a tool call succeeds — thinking → tool execution → answer.</p>
+
+<div class="comparison">
+  <!-- Streaming in progress -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="label label-fixed">DURING</span>
+      <span class="title">Streaming with tool execution</span>
+    </div>
+    <div class="chat-window">
+      <!-- User -->
+      <div class="message message-user">
+        <div class="bubble-user">What's in the "hestia" note in my Intelligence folder?</div>
+        <div class="user-avatar">
+          <svg viewBox="0 0 20 20"><path d="M10 10a4 4 0 100-8 4 4 0 000 8zm-6 8a6 6 0 1112 0H4z"/></svg>
+        </div>
+      </div>
+
+      <!-- Thinking indicator (before first tokens) -->
+      <div class="message message-ai" style="flex-direction: row; align-items: flex-start; gap: 10px;">
+        <div class="ai-avatar"><span class="ai-avatar-letter">T</span></div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <div class="thinking-dots">
+            <div class="thinking-dot"></div>
+            <div class="thinking-dot"></div>
+            <div class="thinking-dot"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Completed -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="label label-fixed">COMPLETE</span>
+      <span class="title">Response with tool result</span>
+    </div>
+    <div class="chat-window">
+      <!-- User -->
+      <div class="message message-user">
+        <div class="bubble-user">What's in the "hestia" note in my Intelligence folder?</div>
+        <div class="user-avatar">
+          <svg viewBox="0 0 20 20"><path d="M10 10a4 4 0 100-8 4 4 0 000 8zm-6 8a6 6 0 1112 0H4z"/></svg>
+        </div>
+      </div>
+
+      <!-- AI response with tool card -->
+      <div class="message message-ai">
+        <div class="bubble-ai">
+          Here's what's in your "hestia" note in the Intelligence folder:<br><br>
+          It contains your project planning notes — architecture decisions, sprint priorities, and a few links to the GitHub repo. Want me to read any specific section?
+        </div>
+        <!-- Tool card (collapsed) -->
+        <div class="tool-card" style="max-width: 80%;">
+          <div class="tool-card-header">
+            <span class="tool-icon">🔧</span>
+            <span>read_note</span>
+            <span style="flex:1"></span>
+            <span style="font-size: 10px; color: var(--text-secondary);">▼</span>
+          </div>
+          <div class="tool-result">Found note "hestia" in Intelligence folder (1,247 characters)</div>
+        </div>
+        <div class="sender-row" style="margin-top: 4px;">
+          <span class="sender-name">Tia</span>
+          <div class="reaction-row">
+            <button class="reaction-btn">👍</button>
+            <button class="reaction-btn">👎</button>
+            <button class="reaction-btn">💡</button>
+            <button class="reaction-btn">↩</button>
+            <button class="reaction-btn">🏴</button>
+            <button class="reaction-btn">📋</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SECTION 3: Streaming Text (Normal) -->
+<!-- ============================================ -->
+
+<h2 class="section-header">3. Streaming Text (No Tool Call)</h2>
+<p class="section-desc">Normal conversation flow — tokens stream in with a typing cursor, then the final message replaces it.</p>
+
+<div class="comparison">
+  <!-- Typing -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="label tag-amber" style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; padding: 3px 8px; border-radius: 4px;">TYPING</span>
+      <span class="title">Tokens streaming in</span>
+    </div>
+    <div class="chat-window">
+      <div class="message message-user">
+        <div class="bubble-user">How's the day looking?</div>
+        <div class="user-avatar">
+          <svg viewBox="0 0 20 20"><path d="M10 10a4 4 0 100-8 4 4 0 000 8zm-6 8a6 6 0 1112 0H4z"/></svg>
+        </div>
+      </div>
+
+      <!-- Typing bubble (shows during streaming) -->
+      <div class="message message-ai" style="flex-direction: row; align-items: flex-start; gap: 10px;">
+        <div class="ai-avatar"><span class="ai-avatar-letter">T</span></div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <span class="sender-name">Tia</span>
+          <div class="bubble-ai">
+            You've got a light calendar today — just one meeting at 2pm with<span class="streaming-cursor"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Complete -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="label label-fixed">COMPLETE</span>
+      <span class="title">Final message</span>
+    </div>
+    <div class="chat-window">
+      <div class="message message-user">
+        <div class="bubble-user">How's the day looking?</div>
+        <div class="user-avatar">
+          <svg viewBox="0 0 20 20"><path d="M10 10a4 4 0 100-8 4 4 0 000 8zm-6 8a6 6 0 1112 0H4z"/></svg>
+        </div>
+      </div>
+
+      <div class="message message-ai">
+        <div class="bubble-ai">
+          You've got a light calendar today — just one meeting at 2pm with the design team. No deadlines this week. Want me to block off some focus time this morning?
+        </div>
+        <div class="sender-row">
+          <span class="sender-name">Tia</span>
+          <div class="reaction-row">
+            <button class="reaction-btn">👍</button>
+            <button class="reaction-btn">👎</button>
+            <button class="reaction-btn">💡</button>
+            <button class="reaction-btn">↩</button>
+            <button class="reaction-btn">🏴</button>
+            <button class="reaction-btn">📋</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- SECTION 4: Error Banner -->
+<!-- ============================================ -->
+
+<h2 class="section-header">4. Connection / Server Error</h2>
+<p class="section-desc">When the server is unreachable or returns a 500, show a dismissible banner — NOT an empty bubble.</p>
+
+<div class="comparison">
+  <div class="panel">
+    <div class="panel-header">
+      <span class="label label-broken">CURRENT</span>
+      <span class="title">Silent failure → empty bubble</span>
+    </div>
+    <div class="chat-window">
+      <div class="message message-user">
+        <div class="bubble-user">Check my calendar</div>
+        <div class="user-avatar">
+          <svg viewBox="0 0 20 20"><path d="M10 10a4 4 0 100-8 4 4 0 000 8zm-6 8a6 6 0 1112 0H4z"/></svg>
+        </div>
+      </div>
+      <div class="message message-ai">
+        <div class="bubble-ai empty"></div>
+        <div class="sender-row">
+          <span class="sender-name">Tia</span>
+        </div>
+      </div>
+      <div class="bug-callout">
+        <div class="callout-title">⚠ Stream threw an error, placeholder not cleaned up</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <span class="label label-fixed">FIXED</span>
+      <span class="title">Clean error handling</span>
+    </div>
+    <div class="chat-window">
+      <div class="message message-user">
+        <div class="bubble-user">Check my calendar</div>
+        <div class="user-avatar">
+          <svg viewBox="0 0 20 20"><path d="M10 10a4 4 0 100-8 4 4 0 000 8zm-6 8a6 6 0 1112 0H4z"/></svg>
+        </div>
+      </div>
+      <!-- No empty bubble! Error banner instead -->
+    </div>
+    <div class="error-banner">
+      <span class="error-icon">⚠</span>
+      <span class="error-text">Couldn't reach the server. Check your connection and try again.</span>
+      <button class="error-dismiss">Retry</button>
+      <button class="error-dismiss">Dismiss</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- STATE MATRIX -->
+<!-- ============================================ -->
+
+<div class="state-matrix">
+  <div class="state-matrix-header">State Transition Matrix — All Chat Message States</div>
+  <div class="state-row header-row">
+    <div class="state-cell header">State</div>
+    <div class="state-cell header">Current Behavior</div>
+    <div class="state-cell header">Fixed Behavior</div>
+  </div>
+  <div class="state-row">
+    <div class="state-cell label">Waiting (pre-token)</div>
+    <div class="state-cell"><span class="tag tag-green">OK</span> Thinking dots animate</div>
+    <div class="state-cell"><span class="tag tag-green">OK</span> No change needed</div>
+  </div>
+  <div class="state-row">
+    <div class="state-cell label">Streaming tokens</div>
+    <div class="state-cell"><span class="tag tag-green">OK</span> Typing bubble renders text</div>
+    <div class="state-cell"><span class="tag tag-green">OK</span> No change needed</div>
+  </div>
+  <div class="state-row">
+    <div class="state-cell label">Stream completes</div>
+    <div class="state-cell"><span class="tag tag-green">OK</span> Typing bubble → message bubble</div>
+    <div class="state-cell"><span class="tag tag-green">OK</span> No change needed</div>
+  </div>
+  <div class="state-row">
+    <div class="state-cell label">clearStream + tokens</div>
+    <div class="state-cell"><span class="tag tag-green">OK</span> Wipes & rebuilds content</div>
+    <div class="state-cell"><span class="tag tag-green">OK</span> No change needed</div>
+  </div>
+  <div class="state-row">
+    <div class="state-cell label">clearStream + NO tokens</div>
+    <div class="state-cell"><span class="tag tag-red">BUG</span> Empty bubble stays in array</div>
+    <div class="state-cell"><span class="tag tag-green">FIX</span> Detect empty on stream end → insert fallback message with retry</div>
+  </div>
+  <div class="state-row">
+    <div class="state-cell label">Stream error thrown</div>
+    <div class="state-cell"><span class="tag tag-red">BUG</span> Empty placeholder + REST fallback = 2 entries</div>
+    <div class="state-cell"><span class="tag tag-green">FIX</span> Remove placeholder before falling back to REST</div>
+  </div>
+  <div class="state-row">
+    <div class="state-cell label">Stream + REST both fail</div>
+    <div class="state-cell"><span class="tag tag-red">BUG</span> Empty placeholder lingers, error dialog obscures</div>
+    <div class="state-cell"><span class="tag tag-green">FIX</span> Remove placeholder, show error banner (no empty bubble)</div>
+  </div>
+  <div class="state-row">
+    <div class="state-cell label">REST fallback succeeds</div>
+    <div class="state-cell"><span class="tag tag-red">BUG</span> Duplicate: empty streaming + real REST message</div>
+    <div class="state-cell"><span class="tag tag-green">FIX</span> Remove streaming placeholder, only show REST result</div>
+  </div>
+</div>
+
+<p style="margin-top: 32px; font-size: 12px; color: var(--text-secondary); text-align: center;">
+  Mockup generated 2026-03-19 · Colors from <code>MacColors.swift</code> · Layout from <code>MacMessageBubble.swift</code>
+</p>
+
+</body>
+</html>

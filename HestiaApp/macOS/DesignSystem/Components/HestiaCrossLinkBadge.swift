@@ -22,13 +22,7 @@ struct HestiaCrossLinkBadge: View {
     }
 
     private var moduleColor: Color {
-        switch module {
-        case "workflow": return MacColors.cyanAccent
-        case "chat": return Color(hex: "4A9EFF")
-        case "command": return MacColors.amberAccent
-        case "research_canvas": return Color(hex: "8050C8")
-        default: return MacColors.textSecondary
-        }
+        MacColors.amberAccent
     }
 
     var body: some View {

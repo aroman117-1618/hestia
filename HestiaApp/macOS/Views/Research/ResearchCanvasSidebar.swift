@@ -41,11 +41,11 @@ struct ResearchCanvasSidebar: View {
     private var searchBar: some View {
         HStack(spacing: MacSpacing.sm) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 12))
+                .font(MacTypography.smallBody)
                 .foregroundStyle(MacColors.textPlaceholder)
             TextField("Search...", text: $viewModel.sidebarSearchText)
                 .textFieldStyle(.plain)
-                .font(.system(size: 12))
+                .font(MacTypography.smallBody)
                 .foregroundStyle(MacColors.textPrimary)
         }
         .padding(.horizontal, MacSpacing.md)
@@ -118,7 +118,7 @@ struct ResearchCanvasSidebar: View {
             viewModel.principleStatusFilter = status
         } label: {
             Text(label)
-                .font(.system(size: 9, weight: .medium))
+                .font(MacTypography.micro)
                 .foregroundStyle(
                     viewModel.principleStatusFilter == status
                         ? MacColors.amberAccent
@@ -140,7 +140,7 @@ struct ResearchCanvasSidebar: View {
         HStack(spacing: MacSpacing.sm) {
             principleStatusDot(principle.status)
             Text(principle.content)
-                .font(.system(size: 11))
+                .font(MacTypography.caption)
                 .foregroundStyle(MacColors.textPrimary)
                 .lineLimit(2)
         }
@@ -176,12 +176,12 @@ struct ResearchCanvasSidebar: View {
     private func memoryRow(_ chunk: MemoryChunkItem) -> some View {
         HStack(spacing: MacSpacing.sm) {
             Text(chunk.chunkType)
-                .font(.system(size: 8, weight: .semibold))
+                .font(MacTypography.axis)
                 .foregroundStyle(MacColors.amberAccent)
                 .textCase(.uppercase)
                 .frame(width: 32, alignment: .leading)
             Text(chunk.content)
-                .font(.system(size: 11))
+                .font(MacTypography.caption)
                 .foregroundStyle(MacColors.textPrimary)
                 .lineLimit(1)
             Spacer()
@@ -222,9 +222,9 @@ struct ResearchCanvasSidebar: View {
             } label: {
                 HStack(spacing: MacSpacing.xs) {
                     Image(systemName: "plus")
-                        .font(.system(size: 10))
+                        .font(MacTypography.metadata)
                     Text("New Board")
-                        .font(.system(size: 11))
+                        .font(MacTypography.caption)
                 }
                 .foregroundStyle(MacColors.amberAccent)
                 .padding(.vertical, 3)
@@ -251,7 +251,7 @@ struct ResearchCanvasSidebar: View {
 
     private func sidebarEmptyLabel(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 11))
+            .font(MacTypography.caption)
             .foregroundStyle(MacColors.textFaint)
             .padding(.vertical, MacSpacing.xs)
             .padding(.horizontal, MacSpacing.sm)

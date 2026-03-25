@@ -28,7 +28,7 @@ struct InvestigationsListView: View {
             // Header: type badge + title
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: item.type.iconName)
-                    .font(.system(size: 12))
+                    .font(MacTypography.smallBody)
                     .foregroundStyle(MacColors.amberAccent)
 
                 Text(item.type.displayName.uppercased())
@@ -69,7 +69,7 @@ struct InvestigationsListView: View {
             if !item.keyPoints.isEmpty {
                 HStack(spacing: MacSpacing.xs) {
                     Image(systemName: "list.bullet")
-                        .font(.system(size: 10))
+                        .font(MacTypography.metadata)
                         .foregroundStyle(MacColors.textFaint)
                     Text("\(item.keyPoints.count) key points")
                         .font(MacTypography.metadata)
@@ -119,7 +119,7 @@ struct InvestigationsListView: View {
     private var emptyState: some View {
         VStack(spacing: MacSpacing.md) {
             Image(systemName: "magnifyingglass.circle")
-                .font(.system(size: 28))
+                .font(MacTypography.heroHeading)
                 .foregroundStyle(MacColors.textSecondary.opacity(0.3))
             Text("No investigations yet")
                 .font(MacTypography.body)

@@ -11,11 +11,11 @@ struct MacMCPPlaceholderView: View {
                 .foregroundStyle(MacColors.textFaint)
 
             Text("Model Context Protocol")
-                .font(.system(size: 16, weight: .semibold))
+                .font(MacTypography.sectionTitle)
                 .foregroundStyle(MacColors.textPrimary)
 
             Text("MCP server management coming in a future update.")
-                .font(.system(size: 13))
+                .font(MacTypography.label)
                 .foregroundStyle(MacColors.textSecondary)
 
             Spacer()

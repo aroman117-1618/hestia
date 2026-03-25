@@ -92,7 +92,7 @@ struct DataFlowDiagramView: View {
         .stroke(MacColors.amberAccent.opacity(0.4), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
 
         Text("persist")
-            .font(.system(size: 8))
+            .font(MacTypography.micro)
             .foregroundStyle(MacColors.textFaint)
             .position(x: w * 0.85, y: (pipeY + storageY) / 2)
     }

@@ -77,7 +77,7 @@ struct MacExplorerResourcesView: View {
                 showingNewDraft = true
             } label: {
                 Image(systemName: "square.and.pencil")
-                    .font(.system(size: 13))
+                    .font(MacTypography.label)
                     .foregroundStyle(MacColors.amberAccent)
             }
             .buttonStyle(.hestia)
@@ -89,12 +89,12 @@ struct MacExplorerResourcesView: View {
     private var searchBar: some View {
         HStack(spacing: MacSpacing.sm) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 12))
+                .font(MacTypography.smallBody)
                 .foregroundStyle(MacColors.textPlaceholder)
 
             TextField("Search resources...", text: $viewModel.searchText)
                 .textFieldStyle(.plain)
-                .font(.system(size: 12))
+                .font(MacTypography.smallBody)
                 .foregroundStyle(MacColors.textPrimary)
                 .onSubmit {
                     Task { await viewModel.search() }
@@ -106,7 +106,7 @@ struct MacExplorerResourcesView: View {
                     Task { await viewModel.search() }
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 12))
+                        .font(MacTypography.smallBody)
                         .foregroundStyle(MacColors.textPlaceholder)
                 }
                 .buttonStyle(.hestia)
@@ -152,14 +152,14 @@ struct MacExplorerResourcesView: View {
         VStack(spacing: MacSpacing.lg) {
             Spacer()
             Image(systemName: selectedTabIcon)
-                .font(.system(size: 36))
+                .font(MacTypography.largeValue)
                 .foregroundStyle(MacColors.textFaint)
             Text("No resources found")
-                .font(.system(size: 14, weight: .medium))
+                .font(MacTypography.bodyMedium)
                 .foregroundStyle(MacColors.textSecondary)
             if !viewModel.searchText.isEmpty {
                 Text("Try a different search term")
-                    .font(.system(size: 12))
+                    .font(MacTypography.smallBody)
                     .foregroundStyle(MacColors.textFaint)
             }
             Spacer()
@@ -189,14 +189,14 @@ struct MacExplorerResourceRow: View {
     var body: some View {
         HStack(spacing: MacSpacing.md) {
             Image(systemName: iconName)
-                .font(.system(size: 16))
+                .font(MacTypography.sectionTitle)
                 .foregroundStyle(iconColor)
                 .frame(width: 24, height: 24)
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: MacSpacing.xs) {
                     Text(resource.title)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(MacTypography.smallMedium)
                         .foregroundStyle(MacColors.textPrimary)
                         .lineLimit(1)
 
@@ -207,19 +207,19 @@ struct MacExplorerResourceRow: View {
 
                 if let preview = resource.preview, !preview.isEmpty {
                     Text(preview)
-                        .font(.system(size: 11))
+                        .font(MacTypography.caption)
                         .foregroundStyle(MacColors.textSecondary)
                         .lineLimit(1)
                 }
 
                 HStack(spacing: MacSpacing.sm) {
                     Text(sourceLabel)
-                        .font(.system(size: 10))
+                        .font(MacTypography.metadata)
                         .foregroundStyle(MacColors.textFaint)
 
                     if let date = formattedDate {
                         Text(date)
-                            .font(.system(size: 10))
+                            .font(MacTypography.metadata)
                             .foregroundStyle(MacColors.textFaint)
                     }
                 }
@@ -230,7 +230,7 @@ struct MacExplorerResourceRow: View {
                     onDelete()
                 } label: {
                     Image(systemName: "trash")
-                        .font(.system(size: 11))
+                        .font(MacTypography.caption)
                         .foregroundStyle(MacColors.healthRed.opacity(0.7))
                 }
                 .buttonStyle(.hestia)
@@ -277,7 +277,7 @@ struct MacExplorerResourceRow: View {
             }
             if resource.flags.contains(.flagged) {
                 Image(systemName: "flag.fill")
-                    .font(.system(size: 9))
+                    .font(MacTypography.micro)
                     .foregroundStyle(.orange)
             }
         }

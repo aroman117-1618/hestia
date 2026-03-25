@@ -47,7 +47,7 @@ struct HealthView: View {
             Spacer()
 
             Image(systemName: "heart.text.clipboard")
-                .font(.system(size: 48))
+                .font(MacTypography.heroNumber)
                 .foregroundStyle(MacColors.textFaint)
 
             VStack(spacing: MacSpacing.sm) {
@@ -70,7 +70,7 @@ struct HealthView: View {
             } label: {
                 HStack(spacing: MacSpacing.sm) {
                     Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 14))
+                        .font(MacTypography.body)
                     Text("Check Again")
                         .font(MacTypography.labelMedium)
                 }

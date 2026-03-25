@@ -43,12 +43,12 @@ struct TradingMonitorView: View {
     private var autonomousTradingToggle: some View {
         HStack(spacing: MacSpacing.md) {
             Image(systemName: viewModel.autonomousTradingEnabled ? "bolt.circle.fill" : "bolt.circle")
-                .font(.system(size: 18))
+                .font(MacTypography.pageTitle)
                 .foregroundStyle(viewModel.autonomousTradingEnabled ? MacColors.healthGreen : MacColors.textSecondary)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Autonomous Trading")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(MacTypography.bodyMedium)
                     .foregroundStyle(MacColors.textPrimary)
                 Text(viewModel.autonomousTradingEnabled ? "Active — Hestia is managing your trades" : "Disabled — tap to enable")
                     .font(MacTypography.caption)
@@ -94,12 +94,12 @@ struct TradingMonitorView: View {
                 ForEach(viewModel.decisionFeed.prefix(20)) { entry in
                     HStack(alignment: .top, spacing: MacSpacing.sm) {
                         Text(entry.timeString)
-                            .font(.system(size: 10, design: .monospaced))
+                            .font(MacTypography.code)
                             .foregroundStyle(MacColors.textFaint)
                             .frame(width: 55, alignment: .leading)
 
                         Image(systemName: entry.sourceIcon)
-                            .font(.system(size: 10))
+                            .font(MacTypography.metadata)
                             .foregroundStyle(MacColors.amberAccent)
                             .frame(width: 14)
 
@@ -108,7 +108,7 @@ struct TradingMonitorView: View {
                             .foregroundStyle(MacColors.textSecondary)
 
                         Text(entry.message)
-                            .font(.system(size: 11))
+                            .font(MacTypography.caption)
                             .foregroundStyle(MacColors.textPrimary)
                             .lineLimit(2)
                     }
@@ -125,10 +125,10 @@ struct TradingMonitorView: View {
             // Header
             VStack(spacing: MacSpacing.sm) {
                 Image(systemName: "bolt.circle.fill")
-                    .font(.system(size: 32))
+                    .font(MacTypography.largeValue)
                     .foregroundStyle(MacColors.amberAccent)
                 Text("Enable Autonomous Trading")
-                    .font(.system(size: 18, weight: .bold))
+                    .font(MacTypography.pageTitle)
                     .foregroundStyle(MacColors.textPrimary)
                 Text("Hestia will manage trades automatically using the settings below.")
                     .font(MacTypography.body)
@@ -170,7 +170,7 @@ struct TradingMonitorView: View {
                         Image(systemName: "bolt.fill")
                         Text("Enable Trading")
                     }
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(MacTypography.bodyMedium)
                     .foregroundStyle(MacColors.buttonTextDark)
                     .padding(.horizontal, MacSpacing.xl)
                     .padding(.vertical, MacSpacing.sm)
@@ -188,11 +188,11 @@ struct TradingMonitorView: View {
     private func settingRow(label: String, value: String) -> some View {
         HStack {
             Text(label)
-                .font(.system(size: 12, weight: .medium))
+                .font(MacTypography.smallMedium)
                 .foregroundStyle(MacColors.textSecondary)
             Spacer()
             Text(value)
-                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .font(MacTypography.code)
                 .foregroundStyle(MacColors.textPrimary)
         }
     }
@@ -203,7 +203,7 @@ struct TradingMonitorView: View {
         VStack(alignment: .leading, spacing: MacSpacing.md) {
             HStack {
                 Image(systemName: "chart.pie")
-                    .font(.system(size: 14))
+                    .font(MacTypography.body)
                     .foregroundStyle(MacColors.amberAccent)
                 Text("Portfolio Snapshot")
                     .font(MacTypography.sectionTitle)
@@ -281,15 +281,15 @@ struct TradingMonitorView: View {
     private func positionRow(_ position: TradingPositionEntry) -> some View {
         HStack(spacing: MacSpacing.md) {
             Text(position.currency)
-                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                .font(MacTypography.labelMedium)
                 .foregroundStyle(MacColors.textPrimary)
             Spacer()
             VStack(alignment: .trailing, spacing: 1) {
                 Text(String(format: "%.6f", position.quantity))
-                    .font(.system(size: 12, design: .monospaced))
+                    .font(MacTypography.code)
                     .foregroundStyle(MacColors.textPrimary)
                 Text(formatCurrency(position.value))
-                    .font(.system(size: 11, design: .monospaced))
+                    .font(MacTypography.code)
                     .foregroundStyle(MacColors.textSecondary)
             }
         }
@@ -354,7 +354,7 @@ struct TradingMonitorView: View {
     private func watchlistRow(_ item: TradingWatchlistItem) -> some View {
         HStack(spacing: MacSpacing.md) {
             Text(item.pair)
-                .font(.system(size: 13, weight: .medium, design: .monospaced))
+                .font(MacTypography.labelMedium)
                 .foregroundStyle(MacColors.textPrimary)
             if !item.notes.isEmpty {
                 Text(item.notes)
@@ -367,7 +367,7 @@ struct TradingMonitorView: View {
                 Task { await viewModel.removeFromWatchlist(itemId: item.id) }
             } label: {
                 Image(systemName: "xmark.circle")
-                    .font(.system(size: 12))
+                    .font(MacTypography.smallBody)
                     .foregroundStyle(MacColors.textFaint)
             }
             .buttonStyle(.plain)
@@ -383,7 +383,7 @@ struct TradingMonitorView: View {
         VStack(alignment: .leading, spacing: MacSpacing.md) {
             HStack {
                 Image(systemName: "shield.lefthalf.filled")
-                    .font(.system(size: 14))
+                    .font(MacTypography.body)
                     .foregroundStyle(MacColors.amberAccent)
                 Text("Risk Status")
                     .font(MacTypography.sectionTitle)
@@ -417,9 +417,9 @@ struct TradingMonitorView: View {
         } label: {
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: "power")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(MacTypography.bodyMedium)
                 Text(viewModel.killSwitchActive ? "Deactivate Kill Switch" : "Emergency Kill Switch")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(MacTypography.bodyMedium)
             }
             .foregroundStyle(viewModel.killSwitchActive ? MacColors.amberAccent : MacColors.healthRed.opacity(0.7))
             .frame(maxWidth: .infinity)
@@ -453,7 +453,7 @@ struct TradingMonitorView: View {
     private func emptyListState(icon: String, message: String, detail: String) -> some View {
         VStack(spacing: MacSpacing.sm) {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(MacTypography.pageTitle)
                 .foregroundStyle(MacColors.textSecondary.opacity(0.5))
             Text(message)
                 .font(MacTypography.label)
@@ -469,7 +469,7 @@ struct TradingMonitorView: View {
     private func statusBanner(icon: String, text: String, color: Color) -> some View {
         HStack(spacing: MacSpacing.sm) {
             Image(systemName: icon)
-                .font(.system(size: 12))
+                .font(MacTypography.smallBody)
             Text(text)
                 .font(MacTypography.caption)
         }
@@ -506,7 +506,7 @@ struct TradeRowView: View {
                 HStack(spacing: MacSpacing.md) {
                     // Side badge
                     Text(trade.side.uppercased())
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                        .font(MacTypography.micro)
                         .foregroundStyle(trade.side == "buy" ? MacColors.healthGreen : MacColors.healthRed)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
@@ -515,10 +515,10 @@ struct TradeRowView: View {
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text(trade.pair)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(MacTypography.labelMedium)
                             .foregroundStyle(MacColors.textPrimary)
                         Text(String(format: "%.6f @ $%.2f", trade.quantity, trade.price))
-                            .font(.system(size: 11, design: .monospaced))
+                            .font(MacTypography.caption)
                             .foregroundStyle(MacColors.textSecondary)
                     }
 
@@ -533,14 +533,14 @@ struct TradeRowView: View {
                     HStack(spacing: MacSpacing.xs) {
                         Button { onFeedback("positive") } label: {
                             Image(systemName: "hand.thumbsup")
-                                .font(.system(size: 12))
+                                .font(MacTypography.smallBody)
                                 .foregroundStyle(MacColors.textFaint)
                         }
                         .buttonStyle(.plain)
 
                         Button { onFeedback("negative") } label: {
                             Image(systemName: "hand.thumbsdown")
-                                .font(.system(size: 12))
+                                .font(MacTypography.smallBody)
                                 .foregroundStyle(MacColors.textFaint)
                         }
                         .buttonStyle(.plain)
@@ -552,7 +552,7 @@ struct TradeRowView: View {
                         .foregroundStyle(MacColors.textFaint)
 
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(MacTypography.micro)
                         .foregroundStyle(MacColors.textFaint)
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
                 }
@@ -567,7 +567,7 @@ struct TradeRowView: View {
                         .frame(height: 1)
 
                     Text("Decision Trail")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(MacTypography.captionMedium)
                         .foregroundStyle(MacColors.amberAccent)
 
                     if let trail = trade.decisionTrail, !trail.isEmpty {
@@ -615,7 +615,7 @@ struct TradeRowView: View {
         let icon = trailStepIcon(stepName)
         return HStack(alignment: .top, spacing: MacSpacing.sm) {
             Image(systemName: icon)
-                .font(.system(size: 10))
+                .font(MacTypography.metadata)
                 .foregroundStyle(MacColors.textSecondary)
                 .frame(width: 14)
             VStack(alignment: .leading, spacing: 1) {

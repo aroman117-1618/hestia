@@ -36,7 +36,7 @@ struct FileContentSheet: View {
             // File icon and name
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: file.icon)
-                    .font(.system(size: 16))
+                    .font(MacTypography.sectionTitle)
                     .foregroundStyle(fileIconColor(for: file))
 
                 VStack(alignment: .leading, spacing: 1) {
@@ -79,7 +79,7 @@ struct FileContentSheet: View {
                 } label: {
                     HStack(spacing: MacSpacing.xs) {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(MacTypography.captionMedium)
                         Text("Save")
                             .font(MacTypography.labelMedium)
                     }
@@ -99,7 +99,7 @@ struct FileContentSheet: View {
                     } label: {
                         HStack(spacing: MacSpacing.xs) {
                             Image(systemName: "pencil")
-                                .font(.system(size: 11))
+                                .font(MacTypography.caption)
                             Text("Edit")
                                 .font(MacTypography.label)
                         }
@@ -118,7 +118,7 @@ struct FileContentSheet: View {
                     viewModel.openInFinder(file)
                 } label: {
                     Image(systemName: "arrow.up.forward.square")
-                        .font(.system(size: 13))
+                        .font(MacTypography.label)
                         .foregroundStyle(MacColors.textSecondary)
                 }
                 .buttonStyle(.hestia)
@@ -131,7 +131,7 @@ struct FileContentSheet: View {
                     viewModel.isEditing = false
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(MacTypography.smallMedium)
                         .foregroundStyle(MacColors.textSecondary)
                         .frame(width: 24, height: 24)
                 }
@@ -207,7 +207,7 @@ struct FileContentSheet: View {
             } label: {
                 HStack(spacing: MacSpacing.sm) {
                     Image(systemName: "arrow.up.forward.square")
-                        .font(.system(size: 13))
+                        .font(MacTypography.label)
                     Text("Open in Finder")
                         .font(MacTypography.bodyMedium)
                 }

@@ -38,15 +38,15 @@ struct WikiRoadmapView: View {
         VStack(alignment: .leading, spacing: MacSpacing.sm) {
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: "arrow.forward.circle.fill")
-                    .font(.system(size: 14))
+                    .font(MacTypography.body)
                     .foregroundStyle(MacColors.amberAccent)
                 Text("What's Next")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(MacTypography.bodyMedium)
                     .foregroundStyle(MacColors.amberAccent)
             }
 
             Text(viewModel.roadmapWhatsNext)
-                .font(.system(size: 12))
+                .font(MacTypography.smallBody)
                 .foregroundStyle(MacColors.textSecondary)
                 .lineSpacing(4)
         }
@@ -84,11 +84,11 @@ struct WikiRoadmapView: View {
         } label: {
             HStack(spacing: MacSpacing.sm) {
                 Text(group.title)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(MacTypography.labelMedium)
                     .foregroundStyle(MacColors.textPrimary)
 
                 Text("\(group.milestones.count)")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(MacTypography.micro)
                     .foregroundStyle(MacColors.textFaint)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
@@ -112,14 +112,14 @@ struct WikiRoadmapView: View {
                 .frame(width: 6, height: 6)
 
             Text(milestone.title)
-                .font(.system(size: 12, weight: .medium))
+                .font(MacTypography.smallMedium)
                 .foregroundStyle(MacColors.textPrimary)
                 .lineLimit(1)
 
             Spacer()
 
             Text(milestone.scope)
-                .font(.system(size: 11))
+                .font(MacTypography.caption)
                 .foregroundStyle(MacColors.textFaint)
                 .lineLimit(1)
                 .frame(maxWidth: 250, alignment: .trailing)
@@ -137,11 +137,11 @@ struct WikiRoadmapView: View {
         return HStack(spacing: 4) {
             if complete == total {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 10))
+                    .font(MacTypography.metadata)
                     .foregroundStyle(MacColors.healthGreen)
             }
             Text("\(complete)/\(total)")
-                .font(.system(size: 10))
+                .font(MacTypography.metadata)
                 .foregroundStyle(complete == total ? MacColors.healthGreen : MacColors.textFaint)
         }
     }
@@ -158,13 +158,13 @@ struct WikiRoadmapView: View {
         VStack(spacing: MacSpacing.md) {
             Spacer()
             Image(systemName: "flag.checkered")
-                .font(.system(size: 32))
+                .font(MacTypography.largeValue)
                 .foregroundStyle(MacColors.textFaint)
             Text("No roadmap data")
-                .font(.system(size: 14, weight: .medium))
+                .font(MacTypography.bodyMedium)
                 .foregroundStyle(MacColors.textSecondary)
             Text("Refresh static content to load the roadmap")
-                .font(.system(size: 12))
+                .font(MacTypography.smallBody)
                 .foregroundStyle(MacColors.textFaint)
             Spacer()
         }

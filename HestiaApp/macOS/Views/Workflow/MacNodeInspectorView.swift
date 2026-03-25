@@ -82,7 +82,7 @@ struct MacNodeInspectorView: View {
                     // Type badge (read-only)
                     fieldGroup("Type") {
                         Text(nodeTypeLabel)
-                            .font(.system(size: 13))
+                            .font(MacTypography.label)
                             .foregroundStyle(MacColors.textSecondary)
                     }
 
@@ -111,7 +111,7 @@ struct MacNodeInspectorView: View {
     private var inspectorHeader: some View {
         HStack(spacing: MacSpacing.sm) {
             Image(systemName: node.iconName)
-                .font(.system(size: 14))
+                .font(MacTypography.body)
                 .foregroundStyle(MacColors.amberAccent)
             Text("Node Inspector")
                 .font(MacTypography.cardTitle)
@@ -122,7 +122,7 @@ struct MacNodeInspectorView: View {
                 viewModel.selectedNodeId = nil
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(MacTypography.metadata)
                     .foregroundStyle(MacColors.textSecondary)
                     .frame(width: 20, height: 20)
                     .background(MacColors.searchInputBackground)
@@ -141,9 +141,9 @@ struct MacNodeInspectorView: View {
         case .runPrompt:
             fieldGroup("Prompt") {
                 TextEditor(text: $prompt)
-                    .font(.system(size: 12))
+                    .font(MacTypography.smallBody)
                     .frame(minHeight: 80)
-                    .padding(4)
+                    .padding(MacSpacing.xs)
                     .background(MacColors.searchInputBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                     .overlay(
@@ -163,7 +163,7 @@ struct MacNodeInspectorView: View {
             }
             HStack {
                 Toggle("Save to Memory", isOn: $memoryWrite)
-                    .font(.system(size: 11))
+                    .font(MacTypography.caption)
                     .toggleStyle(.switch)
                     .tint(MacColors.amberAccent)
                 Spacer()
@@ -183,9 +183,9 @@ struct MacNodeInspectorView: View {
                             } label: {
                                 HStack(spacing: 4) {
                                     Image(systemName: category.icon)
-                                        .font(.system(size: 10))
+                                        .font(MacTypography.metadata)
                                     Text(category.label)
-                                        .font(.system(size: 10, weight: .medium))
+                                        .font(MacTypography.metadata)
                                         .lineLimit(1)
                                 }
                                 .foregroundStyle(isSelected ? MacColors.buttonTextDark : MacColors.textSecondary)
@@ -211,9 +211,9 @@ struct MacNodeInspectorView: View {
             }
             fieldGroup("Arguments (JSON)") {
                 TextEditor(text: $toolArguments)
-                    .font(.system(size: 12))
+                    .font(MacTypography.smallBody)
                     .frame(minHeight: 60)
-                    .padding(4)
+                    .padding(MacSpacing.xs)
                     .background(MacColors.searchInputBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                     .overlay(
@@ -225,9 +225,9 @@ struct MacNodeInspectorView: View {
         case .notify:
             fieldGroup("Message") {
                 TextEditor(text: $notifyMessage)
-                    .font(.system(size: 12))
+                    .font(MacTypography.smallBody)
                     .frame(minHeight: 60)
-                    .padding(4)
+                    .padding(MacSpacing.xs)
                     .background(MacColors.searchInputBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                     .overlay(
@@ -248,9 +248,9 @@ struct MacNodeInspectorView: View {
         case .log:
             fieldGroup("Message") {
                 TextEditor(text: $logMessage)
-                    .font(.system(size: 12))
+                    .font(MacTypography.smallBody)
                     .frame(minHeight: 60)
-                    .padding(4)
+                    .padding(MacSpacing.xs)
                     .background(MacColors.searchInputBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                     .overlay(
@@ -295,7 +295,7 @@ struct MacNodeInspectorView: View {
             // Trigger nodes: label only (no additional config)
             VStack(alignment: .leading, spacing: MacSpacing.sm) {
                 Text("Trigger nodes have no additional configuration.")
-                    .font(.system(size: 11))
+                    .font(MacTypography.caption)
                     .foregroundStyle(MacColors.textFaint)
                     .multilineTextAlignment(.leading)
             }
@@ -319,7 +319,7 @@ struct MacNodeInspectorView: View {
                 }
             }
             Text("Min: 1, Max: 180 days")
-                .font(.system(size: 10))
+                .font(MacTypography.metadata)
                 .foregroundStyle(MacColors.textFaint)
 
         case .switchNode:
@@ -336,13 +336,13 @@ struct MacNodeInspectorView: View {
         VStack(alignment: .trailing, spacing: 4) {
             if let error = saveError {
                 Text(error)
-                    .font(.system(size: 10))
+                    .font(MacTypography.metadata)
                     .foregroundStyle(MacColors.healthRed)
                     .multilineTextAlignment(.trailing)
             }
             if didSave {
                 Text("Saved")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(MacTypography.metadata)
                     .foregroundStyle(MacColors.healthGreen)
                     .transition(.opacity)
             }
@@ -358,7 +358,7 @@ struct MacNodeInspectorView: View {
                         }
                         Text("Save")
                     }
-                    .font(.system(size: 12, weight: .medium))
+                    .font(MacTypography.smallMedium)
                     .foregroundStyle(MacColors.buttonTextDark)
                     .padding(.horizontal, MacSpacing.lg)
                     .padding(.vertical, 6)
@@ -380,7 +380,7 @@ struct MacNodeInspectorView: View {
     private func fieldGroup<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.system(size: 10, weight: .medium))
+                .font(MacTypography.metadata)
                 .foregroundStyle(MacColors.textFaint)
                 .textCase(.uppercase)
             content()

@@ -139,7 +139,7 @@ struct IconSidebar: View {
                     )
 
                 Text("HS")
-                    .font(.system(size: 11))
+                    .font(MacTypography.caption)
                     .tracking(0.065)
                     .foregroundStyle(MacColors.textPrimary)
             }

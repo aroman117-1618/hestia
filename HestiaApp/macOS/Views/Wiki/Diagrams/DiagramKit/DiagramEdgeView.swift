@@ -27,7 +27,7 @@ struct DiagramEdgeView: View {
 
             if let label = label {
                 Text(label)
-                    .font(.system(size: 9))
+                    .font(MacTypography.micro)
                     .foregroundStyle(MacColors.textFaint)
                     .padding(.horizontal, 4)
                     .padding(.vertical, 1)

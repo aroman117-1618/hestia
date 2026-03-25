@@ -8,7 +8,7 @@ struct FileSearchBar: View {
     var body: some View {
         HStack(spacing: MacSpacing.sm) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 14))
+                .font(MacTypography.body)
                 .foregroundStyle(MacColors.textFaint)
 
             TextField("Search files...", text: $localText)
@@ -23,7 +23,7 @@ struct FileSearchBar: View {
                     onDebouncedSearch?("")
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 12))
+                        .font(MacTypography.smallBody)
                         .foregroundStyle(MacColors.textSecondary)
                 }
                 .buttonStyle(.hestiaIcon)

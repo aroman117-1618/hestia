@@ -58,9 +58,9 @@ struct MacResourcesView: View {
                 } label: {
                     HStack(spacing: MacSpacing.xs) {
                         Image(systemName: tab.iconName)
-                            .font(.system(size: 13))
+                            .font(MacTypography.label)
                         Text(tab.rawValue)
-                            .font(.system(size: 13, weight: selectedTab == tab ? .semibold : .regular))
+                            .font(selectedTab == tab ? MacTypography.labelMedium : MacTypography.label)
                     }
                     .foregroundStyle(selectedTab == tab ? MacColors.amberAccent : MacColors.textSecondary)
                     .padding(.horizontal, MacSpacing.md)

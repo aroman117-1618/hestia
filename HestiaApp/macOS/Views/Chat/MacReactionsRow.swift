@@ -20,7 +20,7 @@ struct MacReactionsRow: View {
                     onReaction(name)
                 } label: {
                     Image(systemName: activeReactions.contains(name) ? "\(icon).fill" : icon)
-                        .font(.system(size: 11))
+                        .font(MacTypography.caption)
                         .foregroundStyle(
                             activeReactions.contains(name)
                                 ? MacColors.amberAccent

@@ -93,8 +93,8 @@ struct MacMessageInputBar: View {
                         stopRecording()
                     } label: {
                         Image(systemName: "stop.fill")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.white)
+                            .font(MacTypography.smallBody)
+                            .foregroundStyle(MacColors.textPrimary)
                             .frame(width: 28, height: 28)
                             .background(MacColors.healthRed)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -108,7 +108,7 @@ struct MacMessageInputBar: View {
                         startRecording()
                     } label: {
                         Image(systemName: "mic.fill")
-                            .font(.system(size: 14))
+                            .font(MacTypography.body)
                             .foregroundStyle(MacColors.amberAccent)
                             .frame(width: 28, height: 28)
                             .background(MacColors.amberAccent.opacity(0.15))
@@ -121,7 +121,7 @@ struct MacMessageInputBar: View {
                     // Send button with pulse micro-interaction
                     Button(action: handleSend) {
                         Image(systemName: "paperplane.fill")
-                            .font(.system(size: 14))
+                            .font(MacTypography.body)
                             .foregroundStyle(MacColors.buttonTextDark)
                             .frame(width: 28, height: 28)
                             .background(MacColors.amberAccent)

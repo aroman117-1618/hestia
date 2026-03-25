@@ -25,20 +25,20 @@ public enum Spacing {
 // MARK: - Corner Radius Constants
 
 public enum CornerRadius {
-    /// Standard corner radius: 25pt (message bubbles, cards)
-    public static let standard: CGFloat = 25
+    /// Standard corner radius: 16pt (cards, panels)
+    public static let standard: CGFloat = 16
 
-    /// Button corner radius: 25pt
-    public static let button: CGFloat = 25
+    /// Button corner radius: 12pt
+    public static let button: CGFloat = 12
 
-    /// Card corner radius: 25pt
-    public static let card: CGFloat = 25
+    /// Card corner radius: 16pt
+    public static let card: CGFloat = 16
 
     /// Avatar corner radius: 40pt (half of 80pt avatar)
     public static let avatar: CGFloat = 40
 
-    /// Small corner radius: 12pt (badges, pills)
-    public static let small: CGFloat = 12
+    /// Small corner radius: 8pt (badges, pills)
+    public static let small: CGFloat = 8
 
     /// Input field corner radius: 20pt
     public static let input: CGFloat = 20

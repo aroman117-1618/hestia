@@ -61,17 +61,17 @@ struct MacCloudProviderDetailView: View {
     private var header: some View {
         HStack(spacing: MacSpacing.md) {
             Image(systemName: provider.provider.iconName)
-                .font(.system(size: 20))
+                .font(MacTypography.pageTitle)
                 .foregroundStyle(MacColors.amberAccent)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(provider.provider.displayName)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(MacTypography.sectionTitle)
                     .foregroundStyle(MacColors.textPrimary)
 
                 HStack(spacing: MacSpacing.sm) {
                     Text(provider.state.displayName)
-                        .font(.system(size: 12))
+                        .font(MacTypography.smallBody)
                         .foregroundStyle(MacColors.textSecondary)
 
                     Circle()
@@ -79,7 +79,7 @@ struct MacCloudProviderDetailView: View {
                         .frame(width: 6, height: 6)
 
                     Text(provider.healthStatus.capitalized)
-                        .font(.system(size: 12))
+                        .font(MacTypography.smallBody)
                         .foregroundStyle(MacColors.textFaint)
                 }
             }
@@ -111,10 +111,10 @@ struct MacCloudProviderDetailView: View {
     private func infoCard(label: String, value: String, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
-                .font(.system(size: 10))
+                .font(MacTypography.metadata)
                 .foregroundStyle(MacColors.textFaint)
             Text(value)
-                .font(.system(size: 12, weight: .medium))
+                .font(MacTypography.smallMedium)
                 .foregroundStyle(color)
         }
         .padding(MacSpacing.sm)
@@ -130,7 +130,7 @@ struct MacCloudProviderDetailView: View {
 
             if provider.availableModels.isEmpty {
                 Text("No models available")
-                    .font(.system(size: 12))
+                    .font(MacTypography.smallBody)
                     .foregroundStyle(MacColors.textFaint)
             } else {
                 Picker("", selection: $selectedModel) {
@@ -196,7 +196,7 @@ struct MacCloudProviderDetailView: View {
                         }
                         Text("Run Health Check")
                     }
-                    .font(.system(size: 12, weight: .medium))
+                    .font(MacTypography.smallMedium)
                     .foregroundStyle(MacColors.amberAccent)
                     .padding(.horizontal, MacSpacing.md)
                     .padding(.vertical, 6)
@@ -208,7 +208,7 @@ struct MacCloudProviderDetailView: View {
 
                 if let result = viewModel.healthCheckResult {
                     Text(result)
-                        .font(.system(size: 12))
+                        .font(MacTypography.smallBody)
                         .foregroundStyle(result.contains("Healthy") ? MacColors.healthGreen : MacColors.healthRed)
                 }
             }
@@ -225,7 +225,7 @@ struct MacCloudProviderDetailView: View {
                 VStack(alignment: .leading, spacing: MacSpacing.sm) {
                     SecureField("New API key...", text: $newApiKey)
                         .textFieldStyle(.plain)
-                        .font(.system(size: 12, design: .monospaced))
+                        .font(MacTypography.code)
                         .foregroundStyle(MacColors.textPrimary)
                         .padding(MacSpacing.sm)
                         .background(MacColors.searchInputBackground)
@@ -252,7 +252,7 @@ struct MacCloudProviderDetailView: View {
                                 }
                                 Text("Save Key")
                             }
-                            .font(.system(size: 12, weight: .medium))
+                            .font(MacTypography.smallMedium)
                             .foregroundStyle(MacColors.amberAccent)
                             .padding(.horizontal, MacSpacing.md)
                             .padding(.vertical, 6)
@@ -268,7 +268,7 @@ struct MacCloudProviderDetailView: View {
                             viewModel.error = nil
                         } label: {
                             Text("Cancel")
-                                .font(.system(size: 12))
+                                .font(MacTypography.smallBody)
                                 .foregroundStyle(MacColors.textSecondary)
                         }
                         .buttonStyle(.hestia)
@@ -276,7 +276,7 @@ struct MacCloudProviderDetailView: View {
 
                     if let error = viewModel.error {
                         Text(error)
-                            .font(.system(size: 11))
+                            .font(MacTypography.caption)
                             .foregroundStyle(MacColors.healthRed)
                     }
                 }
@@ -289,7 +289,7 @@ struct MacCloudProviderDetailView: View {
                         Image(systemName: "key.horizontal")
                         Text("Update API Key")
                     }
-                    .font(.system(size: 12, weight: .medium))
+                    .font(MacTypography.smallMedium)
                     .foregroundStyle(MacColors.amberAccent)
                     .padding(.horizontal, MacSpacing.md)
                     .padding(.vertical, 6)
@@ -314,7 +314,7 @@ struct MacCloudProviderDetailView: View {
                     Image(systemName: "trash")
                     Text("Remove Provider")
                 }
-                .font(.system(size: 12, weight: .medium))
+                .font(MacTypography.smallMedium)
                 .foregroundStyle(MacColors.healthRed)
                 .padding(.horizontal, MacSpacing.md)
                 .padding(.vertical, 6)
@@ -333,7 +333,7 @@ struct MacCloudProviderDetailView: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 11, weight: .semibold))
+            .font(MacTypography.sectionLabel)
             .foregroundStyle(MacColors.textSecondary)
             .textCase(.uppercase)
     }

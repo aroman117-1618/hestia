@@ -73,7 +73,7 @@ struct StatCard: View {
             // Count + subtitle
             HStack(alignment: .firstTextBaseline, spacing: MacSpacing.sm) {
                 Text(count)
-                    .font(.system(size: 22, weight: .bold))
+                    .font(MacTypography.mediumValue)
                     .foregroundStyle(MacColors.textPrimary)
                 Text(subtitle)
                     .font(MacTypography.label)
@@ -81,7 +81,7 @@ struct StatCard: View {
                     .lineLimit(1)
             }
         }
-        .padding(17)
+        .padding(MacSpacing.xl)
         .frame(maxWidth: .infinity)
         .frame(height: MacSize.statCardHeight)
         .background(MacColors.cardGradient)

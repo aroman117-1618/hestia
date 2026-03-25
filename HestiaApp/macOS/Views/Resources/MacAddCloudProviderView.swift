@@ -13,13 +13,13 @@ struct MacAddCloudProviderView: View {
         VStack(spacing: MacSpacing.xl) {
             // Title
             Text("Add Cloud Provider")
-                .font(.system(size: 16, weight: .semibold))
+                .font(MacTypography.sectionTitle)
                 .foregroundStyle(MacColors.textPrimary)
 
             // Provider picker
             VStack(alignment: .leading, spacing: MacSpacing.sm) {
                 Text("Provider")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(MacTypography.smallMedium)
                     .foregroundStyle(MacColors.textSecondary)
 
                 Picker("", selection: $selectedType) {
@@ -34,12 +34,12 @@ struct MacAddCloudProviderView: View {
             // API Key
             VStack(alignment: .leading, spacing: MacSpacing.sm) {
                 Text("API Key")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(MacTypography.smallMedium)
                     .foregroundStyle(MacColors.textSecondary)
 
                 SecureField("Enter API key...", text: $apiKey)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 12, design: .monospaced))
+                    .font(MacTypography.code)
                     .foregroundStyle(MacColors.textPrimary)
                     .padding(MacSpacing.sm)
                     .background(MacColors.searchInputBackground)
@@ -49,7 +49,7 @@ struct MacAddCloudProviderView: View {
             // State
             VStack(alignment: .leading, spacing: MacSpacing.sm) {
                 Text("Initial Routing State")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(MacTypography.smallMedium)
                     .foregroundStyle(MacColors.textSecondary)
 
                 Picker("", selection: $selectedState) {
@@ -64,7 +64,7 @@ struct MacAddCloudProviderView: View {
             // Error
             if let error = viewModel.error {
                 Text(error)
-                    .font(.system(size: 12))
+                    .font(MacTypography.smallBody)
                     .foregroundStyle(MacColors.healthRed)
             }
 
@@ -99,7 +99,7 @@ struct MacAddCloudProviderView: View {
                         }
                         Text("Add Provider")
                     }
-                    .font(.system(size: 13, weight: .medium))
+                    .font(MacTypography.labelMedium)
                     .foregroundStyle(MacColors.buttonTextDark)
                     .padding(.horizontal, MacSpacing.lg)
                     .padding(.vertical, MacSpacing.sm)

@@ -25,13 +25,13 @@ struct MacWorkflowDetailPane: View {
     private var landingView: some View {
         VStack(spacing: MacSpacing.lg) {
             Image(systemName: "arrow.triangle.branch")
-                .font(.system(size: 40))
+                .font(MacTypography.heroNumber)
                 .foregroundStyle(MacColors.textFaint)
             Text("Select an order")
                 .font(MacTypography.sectionTitle)
                 .foregroundStyle(MacColors.textSecondary)
             Text("Choose an order from the sidebar to view its details, steps, and run history.")
-                .font(.system(size: 13))
+                .font(MacTypography.label)
                 .foregroundStyle(MacColors.textFaint)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 300)
@@ -116,14 +116,14 @@ struct MacWorkflowDetailPane: View {
         VStack(alignment: .leading, spacing: MacSpacing.sm) {
             HStack {
                 Text(detail.name)
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(MacTypography.pageTitle)
                     .foregroundStyle(MacColors.textPrimary)
 
                 Spacer()
 
                 // Status badge
                 Text(detail.status.capitalized)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(MacTypography.smallMedium)
                     .foregroundStyle(statusColor(detail.statusEnum))
                     .padding(.horizontal, MacSpacing.sm)
                     .padding(.vertical, 4)
@@ -137,7 +137,7 @@ struct MacWorkflowDetailPane: View {
                     }
                 } label: {
                     Image(systemName: viewModel.showCanvas ? "list.bullet" : "square.grid.3x3")
-                        .font(.system(size: 13))
+                        .font(MacTypography.label)
                         .foregroundStyle(MacColors.textSecondary)
                         .frame(width: 28, height: 28)
                         .background(MacColors.searchInputBackground)
@@ -149,7 +149,7 @@ struct MacWorkflowDetailPane: View {
 
             if !detail.description.isEmpty {
                 Text(detail.description)
-                    .font(.system(size: 13))
+                    .font(MacTypography.label)
                     .foregroundStyle(MacColors.textSecondary)
                     .lineLimit(3)
             }
@@ -204,9 +204,9 @@ struct MacWorkflowDetailPane: View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 11))
+                    .font(MacTypography.caption)
                 Text(label)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(MacTypography.smallMedium)
             }
             .foregroundStyle(color)
             .padding(.horizontal, MacSpacing.md)
@@ -243,15 +243,15 @@ struct MacWorkflowDetailPane: View {
     private func metadataItem(_ label: String, _ value: String, icon: String) -> some View {
         HStack(spacing: MacSpacing.sm) {
             Image(systemName: icon)
-                .font(.system(size: 11))
+                .font(MacTypography.caption)
                 .foregroundStyle(MacColors.textFaint)
                 .frame(width: 16)
             VStack(alignment: .leading, spacing: 1) {
                 Text(label)
-                    .font(.system(size: 10))
+                    .font(MacTypography.metadata)
                     .foregroundStyle(MacColors.textFaint)
                 Text(value)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(MacTypography.labelMedium)
                     .foregroundStyle(MacColors.textPrimary)
             }
         }
@@ -315,16 +315,16 @@ struct MacWorkflowDetailPane: View {
             } label: {
                 HStack(spacing: MacSpacing.md) {
                     Image(systemName: runStatusIcon(run.statusEnum))
-                        .font(.system(size: 12))
+                        .font(MacTypography.smallBody)
                         .foregroundStyle(runStatusColor(run.statusEnum))
                         .frame(width: 20)
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Run \(run.id.suffix(8))")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(MacTypography.smallMedium)
                             .foregroundStyle(MacColors.textPrimary)
                         Text(run.startedAt)
-                            .font(.system(size: 10))
+                            .font(MacTypography.metadata)
                             .foregroundStyle(MacColors.textFaint)
                     }
 
@@ -332,12 +332,12 @@ struct MacWorkflowDetailPane: View {
 
                     if let duration = run.durationText {
                         Text(duration)
-                            .font(.system(size: 11))
+                            .font(MacTypography.caption)
                             .foregroundStyle(MacColors.textSecondary)
                     }
 
                     Text(run.status.capitalized)
-                        .font(.system(size: 10, weight: .medium))
+                        .font(MacTypography.metadata)
                         .foregroundStyle(runStatusColor(run.statusEnum))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
@@ -345,7 +345,7 @@ struct MacWorkflowDetailPane: View {
                         .clipShape(RoundedRectangle(cornerRadius: 4))
 
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 9))
+                        .font(MacTypography.micro)
                         .foregroundStyle(MacColors.textFaint)
                 }
                 .padding(.horizontal, MacSpacing.md)
@@ -356,7 +356,7 @@ struct MacWorkflowDetailPane: View {
             // Error message (always visible on failed runs)
             if run.statusEnum == .failed, let error = run.errorMessage, !error.isEmpty {
                 Text(error)
-                    .font(.system(size: 11))
+                    .font(MacTypography.caption)
                     .foregroundStyle(MacColors.healthRed.opacity(0.9))
                     .padding(.horizontal, MacSpacing.md)
                     .padding(.bottom, MacSpacing.sm)
@@ -397,24 +397,24 @@ struct MacWorkflowDetailPane: View {
                 .frame(width: 6, height: 6)
 
             Text(nodeLabel ?? String(ne.nodeId.suffix(8)))
-                .font(.system(size: 11, weight: .medium))
+                .font(MacTypography.captionMedium)
                 .foregroundStyle(MacColors.textSecondary)
 
             Text(ne.status)
-                .font(.system(size: 10))
+                .font(MacTypography.metadata)
                 .foregroundStyle(MacColors.textFaint)
 
             Spacer()
 
             if let duration = ne.durationText {
                 Text(duration)
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(MacTypography.metadata)
                     .foregroundStyle(MacColors.textFaint)
             }
 
             if let error = ne.errorMessage, !error.isEmpty {
                 Text(error)
-                    .font(.system(size: 10))
+                    .font(MacTypography.metadata)
                     .foregroundStyle(MacColors.healthRed.opacity(0.8))
                     .lineLimit(1)
                     .frame(maxWidth: 200, alignment: .trailing)

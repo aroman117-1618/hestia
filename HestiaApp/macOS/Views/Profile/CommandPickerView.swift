@@ -22,7 +22,7 @@ struct CommandPickerView: View {
             // Search
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 12))
+                    .font(MacTypography.smallBody)
                     .foregroundStyle(MacColors.textSecondary)
 
                 TextField("Search commands...", text: $searchText)
@@ -56,7 +56,7 @@ struct CommandPickerView: View {
                             } label: {
                                 HStack(spacing: MacSpacing.sm) {
                                     Image(systemName: "terminal")
-                                        .font(.system(size: 12))
+                                        .font(MacTypography.smallBody)
                                         .foregroundStyle(MacColors.amberAccent)
                                         .frame(width: 18)
 

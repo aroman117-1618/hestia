@@ -23,6 +23,8 @@ Run a rigorous, multi-perspective audit of a proposed plan or sprint, then cross
 
 The user should provide the plan to audit (or point to relevant files/context). If not provided, read `SPRINT.md`, recent conversation history, and any plan documents in `docs/plans/`.
 
+**CRITICAL FRAMING RULE:** The audit focuses exclusively on **HOW** to accomplish the plan well — not **WHY** we should do it or **WHEN** it should happen. Andrew has already decided to build this. The audit's job is to find risks, gaps, and improvements in the implementation approach. Never question timing, priority, or whether the work is worth doing. If there's a sequencing concern (e.g., "Phase 2 should come before Phase 1"), that's valid — it's about HOW. But "should we do this at all?" or "is this the best use of time?" is out of scope.
+
 **Mode detection:** If Andrew says "just make it work", "operate mode", or passes `--mode operate`, compress the workflow: combine Phases 2-7 into a rapid risk assessment, run Phases 8-8.6 as a single pass, skip Phase 9 (Devil's Advocate), and deliver a concise verdict without interactive gates. Default is **Collaborate mode** (full multi-phase review with explanations and approval gates).
 
 ---
@@ -72,13 +74,13 @@ Think like the tech lead reviewing the architecture:
 
 ## Phase 5: Product Management Review
 
-Think like the product manager:
+Think like the product manager — focused on HOW to deliver, not WHETHER to build:
 
-- **User value**: Does this deliver real value, or is it infrastructure for infrastructure's sake?
-- **Edge cases**: What happens with empty data, first-time users, offline scenarios?
-- **Multi-device**: Does the feature work across iOS and macOS? Are there platform divergences?
-- **Opportunity cost**: What are we NOT building while we build this?
-- **Scope**: Is this the right size? Too big (should be split)? Too small (should be combined)?
+- **Completeness**: Does the plan cover all the edge cases? What happens with empty data, first-time users, offline scenarios?
+- **Multi-device**: Does the feature work across iOS and macOS? Are there platform divergences to address?
+- **Scope calibration**: Is the scope right-sized for the goals? Too big (should be split into phases)? Too small (missing something that will be needed anyway)?
+- **User-facing gaps**: Are there user-visible rough edges the plan doesn't address? First-run experience? Migration from old to new?
+- **Phasing**: Is the implementation order correct? Are there quick wins that should come first?
 
 ## Phase 6: Design/UX Review (if UI involved)
 
@@ -128,18 +130,18 @@ Three executives render verdicts based on all previous findings:
 - **Verdict:** Acceptable / Needs Remediation / Reject
 
 ### CPO Review
-- Does this deliver the right user value at the right scope?
-- Is the priority ordering correct?
+- Does the plan deliver a complete user experience, or are there gaps that will feel half-baked?
+- Is the phasing/ordering of work correct for the best user outcome?
+- Are there missing edge cases, empty states, or migration paths that will frustrate users?
 - **Verdict:** Acceptable / Needs Remediation / Reject
 
 ## Phase 8.4: CFO Review
 
-Think like the CFO:
-- **Build cost**: Engineer-hours and cloud spend to implement this plan
-- **Maintenance cost**: Ongoing compute, monitoring, support burden
-- **ROI**: Time saved, capability gained, risk reduced — is this worth it?
-- **Resource allocation**: Are we putting resources on the highest-value work?
-- **Opportunity cost**: What's the dollar-equivalent cost of NOT building something else?
+Think like the CFO — focused on execution efficiency, not whether to invest:
+- **Build cost accuracy**: Are the hour estimates realistic? What's likely underestimated?
+- **Maintenance cost**: Ongoing compute, monitoring, support burden after launch
+- **Cost containment**: Where can the plan be leaner without sacrificing quality? Any gold-plating?
+- **Phase gates**: Are there clear go/no-go checkpoints to prevent runaway spend?
 - **Verdict:** Acceptable / Needs Remediation / Reject
 
 ## Phase 8.5: Legal Review
@@ -162,43 +164,43 @@ Rate the plan against Hestia's core principles (1-5 each):
 
 If any principle scores 1-2, flag it as a concern in the executive summary.
 
-## Phase 9: Sustained Devil's Advocate
+## Phase 9: Stress Test the Approach
 
-This is not a checklist — it's a sustained adversarial argument against the plan. Build the strongest possible case for NOT doing this plan.
+This is not a checklist — it's a rigorous adversarial challenge of HOW the plan will be executed. The goal is to find the weakest links in the implementation, not to question whether it should happen.
 
-**Before starting Phase 9**, dispatch @hestia-critic (Agent with subagent_type=hestia-critic) with the plan summary and top findings from Phases 1-8. The critic agent runs independently and returns adversarial strategic critique. Incorporate its findings into sections 9.1-9.4 below — use its strongest arguments, don't duplicate weaker ones.
+**Before starting Phase 9**, dispatch @hestia-critic (Agent with subagent_type=hestia-critic) with the plan summary and top findings from Phases 1-8. The critic agent runs independently and returns adversarial technical critique. Incorporate its findings into sections 9.1-9.4 below — use its strongest arguments, don't duplicate weaker ones.
 
-### 9.1 The Counter-Plan
+### 9.1 The Alternative Approach
 
-Construct a coherent alternative approach that achieves the same goals differently:
-- What would you build instead?
-- Why is the alternative better on the dimensions that matter most?
-- What does the alternative sacrifice? Is that sacrifice acceptable?
+Construct a coherent alternative implementation that achieves the same goals differently:
+- What's a different technical approach to the same outcome?
+- Why might the alternative be better on the dimensions that matter (performance, maintainability, simplicity)?
+- What does the alternative sacrifice? Is that trade-off acceptable?
 
-If you can't build a credible counter-plan, the plan is probably strong. Say so.
+If you can't build a credible alternative, the plan's approach is probably strong. Say so.
 
 ### 9.2 Future Regret Analysis
 
-Project forward and identify what the team will regret:
-- **3 months**: What daily friction will this plan create?
-- **6 months**: What will be expensive to change because of choices made here?
+Project forward and identify what friction the chosen approach will create:
+- **3 months**: What daily developer friction will this implementation create?
+- **6 months**: What will be expensive to change because of technical choices made here?
 - **12 months**: Will this approach survive the next era of the roadmap? (Check `SPRINT.md` and roadmap context)
 
-### 9.3 The Uncomfortable Questions
+### 9.3 The Hard Technical Questions
 
-Ask the questions nobody wants to hear:
-- **"Do we actually need this?"** — Is the problem real, or are we building for a hypothetical?
-- **"Are we building this because it's valuable, or because it's interesting?"** — Distinguish engineering curiosity from user value
-- **"What's the cost of doing nothing?"** — Sometimes the best plan is no plan
-- **"Who benefits?"** — If the answer is only "future us, maybe" — that's a warning sign
+Challenge the implementation's weakest assumptions:
+- **"What's the hardest part nobody's talked about?"** — Identify the hidden complexity
+- **"Where will the estimate blow up?"** — Find the underscoped work items
+- **"What gets brittle first?"** — Which part of this approach will break under real-world usage
+- **"What's the migration path?"** — If users have existing data/state, how does the transition work?
 
 ### 9.4 Final Stress Tests
 
 Three targeted critiques:
 
-1. **Most likely failure**: What single thing is most likely to go wrong? What's the mitigation?
-2. **Critical assumption**: What assumption, if wrong, would invalidate the entire plan? How do we validate it early?
-3. **Half-time cut list**: If we had half the time, what would we cut? (reveals true priorities)
+1. **Most likely failure**: What single thing is most likely to go wrong during implementation? What's the mitigation?
+2. **Critical assumption**: What technical assumption, if wrong, would force a major rework? How do we validate it early?
+3. **Half-time cut list**: If we had half the hours, what would we cut? (reveals true priorities vs. nice-to-haves)
 
 ---
 
@@ -218,29 +220,29 @@ Build a structured prompt containing:
 **Prompt template:**
 
 ```
-You are a senior software architect reviewing a development plan for a second opinion.
+You are a senior software architect reviewing a development plan's IMPLEMENTATION APPROACH for a second opinion. The decision to build has already been made — focus on HOW to execute well, not WHETHER to do it or WHEN.
 
 ## Project Context
 [Stack: Python/FastAPI backend, SwiftUI iOS/macOS, SQLite + ChromaDB, local Ollama inference]
 [Scale: Single-user personal AI assistant on Mac Mini M1]
 
 ## Plan Under Review
-[Plan summary — what is being built, why, estimated effort]
+[Plan summary — what is being built, the approach, estimated effort]
 
-## Key Decisions
+## Key Technical Decisions
 [Numbered list of architectural decisions with rationale]
 
 ## Internal Audit Findings
-[Top 5 concerns from Phases 1-9]
+[Top 5 implementation concerns from Phases 1-9]
 
 ## Specific Questions
-[2-3 targeted questions where a fresh perspective would be most valuable]
+[2-3 targeted questions about the implementation approach where a fresh perspective would be most valuable]
 
 Please provide:
-1. Your independent assessment of the plan's strengths and weaknesses
-2. Any risks or blind spots the internal audit missed
-3. Alternative approaches worth considering
-4. Your verdict: APPROVE, APPROVE WITH CONDITIONS, or REJECT
+1. Your independent assessment of the implementation approach's strengths and weaknesses
+2. Any technical risks or blind spots the internal audit missed
+3. Alternative implementation approaches worth considering
+4. Your verdict on the approach: APPROVE, APPROVE WITH CONDITIONS, or NEEDS REWORK
 ```
 
 ### 10.2 Gemini Dispatch
@@ -338,9 +340,9 @@ Save the audit to `docs/plans/[plan-name]-second-opinion-[date].md` and present 
 - **Integration risk:** [assessment]
 
 ## Product Review
-- **User value:** [assessment]
-- **Scope:** [right-sized / too big / too small]
-- **Opportunity cost:** [what we're not building]
+- **Completeness:** [are all edge cases covered?]
+- **Scope calibration:** [right-sized / too big / too small]
+- **Phasing:** [is the implementation order correct?]
 
 ## UX Review (if applicable)
 [Design system compliance, interaction model, platform parity]

@@ -60,16 +60,16 @@ struct PaletteCommand: Identifiable {
             action: { switchView(.command) }
         ),
         PaletteCommand(
-            id: "nav.health", title: "Go to Vitals",
-            icon: "waveform.path.ecg", shortcut: "⌘2",
-            keywords: ["health", "vitals", "metrics"],
-            action: { switchView(.health) }
+            id: "nav.orders", title: "Go to Orders",
+            icon: "bolt.fill", shortcut: "⌘2",
+            keywords: ["orders", "workflows", "automation"],
+            action: { switchView(.orders) }
         ),
         PaletteCommand(
-            id: "nav.research", title: "Go to Research",
-            icon: "point.3.connected.trianglepath.dotted", shortcut: "⌘3",
-            keywords: ["research", "investigate"],
-            action: { switchView(.research) }
+            id: "nav.memory", title: "Go to Memory",
+            icon: "brain.head.profile", shortcut: "⌘3",
+            keywords: ["memory", "research", "knowledge"],
+            action: { switchView(.memory) }
         ),
         PaletteCommand(
             id: "nav.explorer", title: "Go to Explorer",
@@ -79,7 +79,7 @@ struct PaletteCommand: Identifiable {
         ),
         PaletteCommand(
             id: "nav.settings", title: "Go to Settings",
-            icon: "gearshape", shortcut: "⌘6",
+            icon: "gearshape", shortcut: "⌘5",
             keywords: ["settings", "profile", "agents", "resources", "field guide", "wiki"],
             action: { switchView(.settings) }
         ),

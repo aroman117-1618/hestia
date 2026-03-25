@@ -39,7 +39,7 @@ struct MacWorkflowSidebarView: View {
                 viewModel.showingNewWorkflowSheet = true
             } label: {
                 Image(systemName: "plus")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(MacTypography.labelMedium)
                     .foregroundStyle(MacColors.amberAccent)
                     .frame(width: 28, height: 28)
                     .background(MacColors.activeTabBackground)
@@ -121,13 +121,13 @@ struct MacWorkflowSidebarView: View {
     private var emptyState: some View {
         VStack(spacing: MacSpacing.md) {
             Image(systemName: "arrow.triangle.branch")
-                .font(.system(size: 28))
+                .font(MacTypography.heroHeading)
                 .foregroundStyle(MacColors.textFaint)
             Text("No orders yet")
-                .font(.system(size: 13))
+                .font(MacTypography.label)
                 .foregroundStyle(MacColors.textSecondary)
             Text("Create one to automate tasks")
-                .font(.system(size: 11))
+                .font(MacTypography.caption)
                 .foregroundStyle(MacColors.textFaint)
                 .multilineTextAlignment(.center)
         }
@@ -137,10 +137,10 @@ struct MacWorkflowSidebarView: View {
     private func errorState(_ message: String) -> some View {
         VStack(spacing: MacSpacing.md) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 28))
+                .font(MacTypography.heroHeading)
                 .foregroundStyle(MacColors.healthRed)
             Text(message)
-                .font(.system(size: 13))
+                .font(MacTypography.label)
                 .foregroundStyle(MacColors.textSecondary)
                 .multilineTextAlignment(.center)
             Button {
@@ -150,7 +150,7 @@ struct MacWorkflowSidebarView: View {
                     Image(systemName: "arrow.clockwise")
                     Text("Retry")
                 }
-                .font(.system(size: 12, weight: .medium))
+                .font(MacTypography.smallMedium)
                 .foregroundStyle(MacColors.amberAccent)
                 .padding(.horizontal, MacSpacing.md)
                 .padding(.vertical, 4)

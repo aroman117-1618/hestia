@@ -92,7 +92,7 @@ struct SystemActivityView: View {
                 // Trigger type
                 HStack(spacing: 4) {
                     Image(systemName: workflow.triggerType == "schedule" ? "clock" : "hand.tap")
-                        .font(.system(size: 11))
+                        .font(MacTypography.caption)
                         .foregroundStyle(MacColors.textFaint)
                     Text(workflow.triggerType.capitalized)
                         .font(MacTypography.caption)
@@ -167,7 +167,7 @@ struct SystemActivityView: View {
                 } label: {
                     HStack(spacing: MacSpacing.xs) {
                         Image(systemName: "plus")
-                            .font(.system(size: 13))
+                            .font(MacTypography.label)
                         Text("New Order")
                             .font(MacTypography.label)
                     }
@@ -206,7 +206,7 @@ struct SystemActivityView: View {
                 // Recurrence
                 HStack(spacing: 4) {
                     Text("\u{1F501}")
-                        .font(.system(size: 11))
+                        .font(MacTypography.caption)
                     Text(order.frequency.type.rawValue.capitalized)
                         .font(MacTypography.caption)
                         .foregroundStyle(MacColors.textSecondary)
@@ -324,7 +324,7 @@ struct SystemActivityView: View {
                 if let health = viewModel.memoryHealth {
                     HStack(spacing: MacSpacing.sm) {
                         Image(systemName: "clock")
-                            .font(.system(size: 11))
+                            .font(MacTypography.caption)
                             .foregroundStyle(MacColors.textFaint)
                         Text("Last snapshot: \(health.timestamp)")
                             .font(MacTypography.caption)
@@ -340,14 +340,14 @@ struct SystemActivityView: View {
         VStack(alignment: .leading, spacing: MacSpacing.sm) {
             HStack(spacing: MacSpacing.xs) {
                 Image(systemName: icon)
-                    .font(.system(size: 11))
+                    .font(MacTypography.caption)
                     .foregroundStyle(color)
                 Text(label)
                     .font(MacTypography.caption)
                     .foregroundStyle(MacColors.textSecondary)
             }
             Text(value)
-                .font(.system(size: 16, weight: .bold))
+                .font(MacTypography.sectionTitle)
                 .foregroundStyle(MacColors.textPrimary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -364,7 +364,7 @@ struct SystemActivityView: View {
         if unacknowledged.isEmpty {
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 16))
+                    .font(MacTypography.sectionTitle)
                     .foregroundStyle(MacColors.healthGreen)
                 Text("No active alerts — all systems nominal")
                     .font(MacTypography.label)
@@ -419,7 +419,7 @@ struct SystemActivityView: View {
     private func sectionEmptyState(icon: String, message: String) -> some View {
         VStack(spacing: MacSpacing.sm) {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(MacTypography.pageTitle)
                 .foregroundStyle(MacColors.textSecondary.opacity(0.5))
             Text(message)
                 .font(MacTypography.label)
@@ -451,7 +451,7 @@ struct CollapsibleSection<Content: View>: View {
             } label: {
                 HStack(spacing: MacSpacing.sm) {
                     Image(systemName: icon)
-                        .font(.system(size: 14))
+                        .font(MacTypography.body)
                         .foregroundStyle(MacColors.amberAccent)
                         .frame(width: 20)
 
@@ -461,7 +461,7 @@ struct CollapsibleSection<Content: View>: View {
 
                     if count > 0 {
                         Text("\(count)")
-                            .font(.system(size: 11, weight: .bold))
+                            .font(MacTypography.captionMedium)
                             .foregroundStyle(countColor)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
@@ -472,7 +472,7 @@ struct CollapsibleSection<Content: View>: View {
                     Spacer()
 
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(MacTypography.smallMedium)
                         .foregroundStyle(MacColors.textFaint)
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
                 }

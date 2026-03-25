@@ -10,22 +10,22 @@ struct CoachingCard: View {
             // Header
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: "brain.head.profile")
-                    .font(.system(size: 16))
+                    .font(MacTypography.sectionTitle)
                     .foregroundStyle(MacColors.amberAccent)
                 Text("Health Coaching")
                     .font(MacTypography.cardTitle)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(MacColors.textPrimary)
             }
 
             if viewModel.hasData {
                 // Status summary
                 HStack(spacing: MacSpacing.sm) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 14))
+                        .font(MacTypography.body)
                         .foregroundStyle(MacColors.healthGreen)
                     Text("HealthKit data synced")
                         .font(MacTypography.smallBody)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(MacColors.textPrimary)
                 }
                 .padding(.horizontal, MacSpacing.md)
                 .padding(.vertical, MacSpacing.sm)
@@ -48,7 +48,7 @@ struct CoachingCard: View {
                 if let syncDate = viewModel.lastSyncDate {
                     HStack(spacing: MacSpacing.xs) {
                         Image(systemName: "clock")
-                            .font(.system(size: 11))
+                            .font(MacTypography.caption)
                             .foregroundStyle(MacColors.textFaint)
                         Text("Data from \(syncDate)")
                             .font(MacTypography.metadata)
@@ -59,7 +59,7 @@ struct CoachingCard: View {
                 // No data state
                 VStack(spacing: MacSpacing.md) {
                     Image(systemName: "iphone.and.arrow.forward")
-                        .font(.system(size: 24))
+                        .font(MacTypography.mediumValue)
                         .foregroundStyle(MacColors.textFaint)
 
                     Text("Sync health data from your iPhone to enable coaching insights.")
@@ -82,7 +82,7 @@ struct CoachingCard: View {
     private func coachingMetric(label: String, value: String, icon: String) -> some View {
         HStack(spacing: MacSpacing.sm) {
             Image(systemName: icon)
-                .font(.system(size: 12))
+                .font(MacTypography.smallBody)
                 .foregroundStyle(MacColors.textSecondary)
                 .frame(width: 16)
 
@@ -92,7 +92,7 @@ struct CoachingCard: View {
                     .foregroundStyle(MacColors.textFaint)
                 Text(value)
                     .font(MacTypography.label)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(MacColors.textPrimary)
             }
 
             Spacer()

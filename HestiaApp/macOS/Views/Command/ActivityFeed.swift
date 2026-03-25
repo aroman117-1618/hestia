@@ -47,7 +47,7 @@ struct ActivityFeed: View {
                 if layoutMode.isCompact {
                     Button {} label: {
                         Image(systemName: "magnifyingglass")
-                            .font(.system(size: 14))
+                            .font(MacTypography.body)
                             .foregroundStyle(MacColors.textFaint)
                             .frame(width: 32, height: 31.5)
                             .background(MacColors.searchInputBackground)
@@ -59,7 +59,7 @@ struct ActivityFeed: View {
                 } else {
                     HStack(spacing: MacSpacing.sm) {
                         Image(systemName: "magnifyingglass")
-                            .font(.system(size: 14))
+                            .font(MacTypography.body)
                             .foregroundStyle(MacColors.textFaint)
                         TextField("Search activity...", text: $searchText)
                             .font(MacTypography.label)
@@ -137,7 +137,7 @@ struct ActivityFeed: View {
     private var emptyState: some View {
         VStack(spacing: MacSpacing.md) {
             Image(systemName: "tray")
-                .font(.system(size: 28))
+                .font(MacTypography.heroHeading)
                 .foregroundStyle(MacColors.textFaint)
             Text("No activity yet")
                 .font(MacTypography.body)
@@ -155,7 +155,7 @@ struct ActivityFeed: View {
                     .fill(item.displayColor.opacity(0.15))
                     .frame(width: MacSize.feedItemIconSize, height: MacSize.feedItemIconSize)
                 Image(systemName: item.displayIcon)
-                    .font(.system(size: 14))
+                    .font(MacTypography.body)
                     .foregroundStyle(item.displayColor)
             }
 

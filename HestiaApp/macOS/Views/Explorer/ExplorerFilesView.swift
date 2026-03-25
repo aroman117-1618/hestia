@@ -89,7 +89,7 @@ struct ExplorerFilesView: View {
                         viewModel.navigateUp()
                     } label: {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(MacTypography.smallMedium)
                             .foregroundStyle(MacColors.amberAccent)
                             .frame(width: 24, height: 24)
                     }
@@ -100,7 +100,7 @@ struct ExplorerFilesView: View {
                 ForEach(Array(viewModel.breadcrumbs.enumerated()), id: \.element.id) { index, segment in
                     if index > 0 {
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 10))
+                            .font(MacTypography.metadata)
                             .foregroundStyle(MacColors.textFaint)
                     }
 
@@ -110,7 +110,7 @@ struct ExplorerFilesView: View {
                         HStack(spacing: MacSpacing.xs) {
                             if index == 0 {
                                 Image(systemName: "folder.fill")
-                                    .font(.system(size: 12))
+                                    .font(MacTypography.smallBody)
                                     .foregroundStyle(MacColors.amberAccent)
                             }
                             Text(segment.name)
@@ -148,7 +148,7 @@ struct ExplorerFilesView: View {
             // Search field
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 12))
+                    .font(MacTypography.smallBody)
                     .foregroundStyle(MacColors.textPlaceholder)
 
                 TextField("Search files...", text: $viewModel.searchText)
@@ -161,7 +161,7 @@ struct ExplorerFilesView: View {
                         viewModel.searchText = ""
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 12))
+                            .font(MacTypography.smallBody)
                             .foregroundStyle(MacColors.textPlaceholder)
                     }
                     .buttonStyle(.hestiaIcon)
@@ -195,7 +195,7 @@ struct ExplorerFilesView: View {
                         .font(MacTypography.label)
                         .foregroundStyle(MacColors.textSecondary)
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 9))
+                        .font(MacTypography.micro)
                         .foregroundStyle(MacColors.textFaint)
                 }
                 .padding(.horizontal, MacSpacing.sm)
@@ -213,7 +213,7 @@ struct ExplorerFilesView: View {
             } label: {
                 HStack(spacing: MacSpacing.xs) {
                     Image(systemName: viewModel.showHidden ? "eye.fill" : "eye.slash")
-                        .font(.system(size: 12))
+                        .font(MacTypography.smallBody)
                     Text("Hidden")
                         .font(MacTypography.label)
                 }
@@ -233,7 +233,7 @@ struct ExplorerFilesView: View {
                 viewModel.refresh()
             } label: {
                 Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 13))
+                    .font(MacTypography.label)
                     .foregroundStyle(MacColors.textSecondary)
             }
             .buttonStyle(.hestia)
@@ -304,7 +304,7 @@ struct ExplorerFilesView: View {
         VStack(spacing: MacSpacing.lg) {
             Spacer()
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 36))
+                .font(MacTypography.largeValue)
                 .foregroundStyle(MacColors.statusWarning)
 
             Text(viewModel.error ?? "Something went wrong")
@@ -322,7 +322,7 @@ struct ExplorerFilesView: View {
             } label: {
                 HStack(spacing: MacSpacing.sm) {
                     Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 13))
+                        .font(MacTypography.label)
                     Text("Retry")
                         .font(MacTypography.bodyMedium)
                 }
@@ -375,7 +375,7 @@ struct ExplorerFilesView: View {
             } label: {
                 HStack(spacing: MacSpacing.xs) {
                     Image(systemName: "plus")
-                        .font(.system(size: 12))
+                        .font(MacTypography.smallBody)
                     Text("New File")
                         .font(MacTypography.label)
                 }
@@ -391,7 +391,7 @@ struct ExplorerFilesView: View {
             } label: {
                 HStack(spacing: MacSpacing.xs) {
                     Image(systemName: "folder.badge.plus")
-                        .font(.system(size: 12))
+                        .font(MacTypography.smallBody)
                     Text("New Folder")
                         .font(MacTypography.label)
                 }

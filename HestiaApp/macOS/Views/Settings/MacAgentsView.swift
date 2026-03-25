@@ -12,7 +12,7 @@ struct MacAgentsView: View {
             } else if let error = vm.errorMessage {
                 VStack(spacing: MacSpacing.md) {
                     Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 24))
+                        .font(MacTypography.mediumValue)
                         .foregroundStyle(MacColors.statusWarning)
                     Text(error)
                         .font(MacTypography.body)
@@ -58,7 +58,7 @@ struct MacAgentsView: View {
     private var emptyState: some View {
         VStack(spacing: MacSpacing.md) {
             Image(systemName: "person.3.fill")
-                .font(.system(size: 32))
+                .font(MacTypography.largeValue)
                 .foregroundStyle(MacColors.textFaint)
             Text("No agents configured")
                 .font(MacTypography.body)
@@ -101,7 +101,7 @@ struct AgentAvatar: View {
                     .overlay {
                         Text(agent.name.prefix(1))
                             .font(.system(size: size * 0.45, weight: .bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(MacColors.textPrimary)
                     }
             } else {
                 // Unknown agent — use API gradient colors
@@ -119,7 +119,7 @@ struct AgentAvatar: View {
                     .overlay {
                         Text(agent.name.prefix(1))
                             .font(.system(size: size * 0.45, weight: .bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(MacColors.textPrimary)
                     }
             }
         }
@@ -155,7 +155,7 @@ struct AgentCardView: View {
 
                         if isDefault {
                             Image(systemName: "star.fill")
-                                .font(.system(size: 8))
+                                .font(MacTypography.micro)
                                 .foregroundStyle(MacColors.amberAccent)
                         }
                     }

@@ -36,10 +36,9 @@ extension WorkspaceView {
     var accessibilityLabel: String {
         switch self {
         case .command: "Command Center"
-        case .health: "Vitals"
-        case .research: "Memory"
+        case .orders: "Orders"
+        case .memory: "Memory"
         case .explorer: "Explorer"
-        case .workflow: "Orders"
         case .settings: "Settings"
         }
     }

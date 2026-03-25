@@ -48,8 +48,8 @@ struct MacOnboardingView: View {
                 .foregroundColor(MacColors.amberAccent)
 
             Text("Hestia")
-                .font(.system(size: 36, weight: .bold))
-                .foregroundColor(.white)
+                .font(MacTypography.largeValue)
+                .foregroundColor(MacColors.textPrimary)
 
             Text("Paste the invite code from your Hestia server to connect this Mac.")
                 .font(.body)
@@ -64,7 +64,7 @@ struct MacOnboardingView: View {
             } label: {
                 Text("Connect to Server")
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(MacColors.textPrimary)
                     .frame(width: 220, height: 40)
                     .background(MacColors.amberAccent.opacity(0.3))
                     .cornerRadius(8)
@@ -89,12 +89,12 @@ struct MacOnboardingView: View {
             Spacer()
 
             Image(systemName: "qrcode")
-                .font(.system(size: 48))
+                .font(MacTypography.heroNumber)
                 .foregroundColor(MacColors.amberAccent)
 
             Text("Paste Invite Code")
                 .font(.title2.bold())
-                .foregroundColor(.white)
+                .foregroundColor(MacColors.textPrimary)
 
             Text("Copy the JSON invite code from your Hestia server and paste it below.")
                 .font(.body)
@@ -128,7 +128,7 @@ struct MacOnboardingView: View {
                 } label: {
                     Text("Connect")
                         .font(.headline)
-                        .foregroundColor(.white)
+                        .foregroundColor(MacColors.textPrimary)
                         .frame(width: 120, height: 36)
                         .background(pastedText.isEmpty ? MacColors.amberAccent.opacity(0.15) : MacColors.amberAccent.opacity(0.3))
                         .cornerRadius(8)
@@ -160,7 +160,7 @@ struct MacOnboardingView: View {
 
             Text("Connecting...")
                 .font(.headline)
-                .foregroundColor(.white)
+                .foregroundColor(MacColors.textPrimary)
 
             if !serverURL.isEmpty {
                 Text(serverURL)
@@ -184,7 +184,7 @@ struct MacOnboardingView: View {
 
             Text("Connected")
                 .font(.title.bold())
-                .foregroundColor(.white)
+                .foregroundColor(MacColors.textPrimary)
 
             Text("This Mac is now registered with your Hestia server.")
                 .font(.body)
@@ -201,12 +201,12 @@ struct MacOnboardingView: View {
             Spacer()
 
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 48))
+                .font(MacTypography.heroNumber)
                 .foregroundColor(.yellow)
 
             Text("Connection Failed")
                 .font(.title2.bold())
-                .foregroundColor(.white)
+                .foregroundColor(MacColors.textPrimary)
 
             Text(message)
                 .font(.body)
@@ -229,7 +229,7 @@ struct MacOnboardingView: View {
                 } label: {
                     Text("Try Again")
                         .font(.headline)
-                        .foregroundColor(.white)
+                        .foregroundColor(MacColors.textPrimary)
                         .frame(width: 120, height: 36)
                         .background(MacColors.amberAccent.opacity(0.3))
                         .cornerRadius(8)

@@ -37,7 +37,7 @@ struct ExplorerFileRow: View {
             HStack(spacing: MacSpacing.md) {
                 // File icon
                 Image(systemName: file.icon)
-                    .font(.system(size: 16))
+                    .font(MacTypography.sectionTitle)
                     .foregroundStyle(fileIconColor(for: file))
                     .frame(width: MacSize.treeIconSize, height: MacSize.treeIconSize)
 
@@ -78,7 +78,7 @@ struct ExplorerFileRow: View {
                 // Directory chevron
                 if file.isDirectory {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 10))
+                        .font(MacTypography.metadata)
                         .foregroundStyle(MacColors.textFaint)
                         .frame(width: 14)
                 } else {

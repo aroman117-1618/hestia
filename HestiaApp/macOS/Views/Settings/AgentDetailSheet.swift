@@ -95,7 +95,7 @@ struct AgentDetailSheet: View {
                 dismiss()
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 20))
+                    .font(MacTypography.pageTitle)
                     .foregroundStyle(MacColors.textSecondary)
             }
             .buttonStyle(.plain)
@@ -255,7 +255,7 @@ struct AgentDetailSheet: View {
     private func editableField(_ label: String, text: Binding<String>, icon: String) -> some View {
         HStack(spacing: MacSpacing.md) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(MacTypography.body)
                 .foregroundStyle(MacColors.amberAccent)
                 .frame(width: 20)
 
@@ -337,7 +337,7 @@ struct AgentDetailSheet: View {
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .fill(MacColors.panelBackground)
-                .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
+                .shadow(color: MacColors.sidebarBackground.opacity(0.3), radius: 8, y: 4)
         )
         .padding(.bottom, MacSpacing.xl)
     }

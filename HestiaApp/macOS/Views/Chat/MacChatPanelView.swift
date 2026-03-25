@@ -221,15 +221,15 @@ struct MacChatPanelView: View {
             MacColors.windowBackground
             RadialGradient(
                 colors: [
-                    Color(red: 28/255, green: 12/255, blue: 2/255),
-                    Color(red: 225/255, green: 113/255, blue: 0).opacity(0.15)
+                    MacColors.panelBackground,
+                    MacColors.amberDark.opacity(0.15)
                 ],
                 center: .center,
                 startRadius: 0,
                 endRadius: 400
             )
             .opacity(0.2)
-            Color.black.opacity(0.15)
+            MacColors.sidebarBackground.opacity(0.15)
         }
     }
 }

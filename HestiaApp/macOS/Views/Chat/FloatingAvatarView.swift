@@ -68,7 +68,7 @@ struct FloatingAvatarView: View {
                         showModePicker.toggle()
                     } label: {
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 9, weight: .bold))
+                            .font(MacTypography.micro)
                             .foregroundStyle(MacColors.textSecondary)
                     }
                     .buttonStyle(.hestiaIcon)
@@ -116,10 +116,10 @@ struct FloatingAvatarView: View {
         if showingUser {
             // User avatar
             Circle()
-                .fill(Color.gray.opacity(0.3))
+                .fill(MacColors.textSecondary.opacity(0.3))
                 .overlay {
                     Image(systemName: "person.fill")
-                        .font(.system(size: 14))
+                        .font(MacTypography.body)
                         .foregroundStyle(MacColors.textSecondary)
                 }
                 .transition(.opacity)
@@ -141,7 +141,7 @@ struct FloatingAvatarView: View {
                     .fill(MacColors.aiAvatarBackground)
                     .overlay {
                         Text(mode.displayName.prefix(1))
-                            .font(.system(size: 14, weight: .bold))
+                            .font(MacTypography.bodyMedium)
                             .foregroundStyle(MacColors.amberAccent)
                     }
             }
@@ -160,7 +160,7 @@ struct FloatingAvatarView: View {
                     HStack(spacing: MacSpacing.sm) {
                         // Mode dot
                         Circle()
-                            .fill(MacColors.accentColor(for: mode))
+                            .fill(MacColors.amberAccent)
                             .frame(width: 8, height: 8)
 
                         Text(mode.displayName)

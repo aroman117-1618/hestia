@@ -45,11 +45,11 @@ struct MacMessageBubble: View {
 
             // User avatar
             Circle()
-                .fill(Color.gray.opacity(0.3))
+                .fill(MacColors.textSecondary.opacity(0.3))
                 .frame(width: MacSize.chatAvatarSize, height: MacSize.chatAvatarSize)
                 .overlay {
                     Image(systemName: "person.fill")
-                        .font(.system(size: 14))
+                        .font(MacTypography.body)
                         .foregroundStyle(MacColors.textSecondary)
                 }
         }
@@ -157,7 +157,7 @@ private struct MacVerificationRiskDot: View {
         .popover(isPresented: $showPopover) {
             Text(popoverText)
                 .font(.callout)
-                .foregroundColor(.primary)
+                .foregroundColor(MacColors.textPrimary)
                 .padding()
                 .frame(maxWidth: 280)
         }

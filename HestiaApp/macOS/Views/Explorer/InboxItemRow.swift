@@ -61,7 +61,7 @@ struct InboxItemRow: View {
                         .fill(inboxItemIconColor(for: item).opacity(0.15))
                         .frame(width: MacSize.feedItemIconSize, height: MacSize.feedItemIconSize)
                     Image(systemName: inboxItemIcon(for: item))
-                        .font(.system(size: 14))
+                        .font(MacTypography.body)
                         .foregroundStyle(inboxItemIconColor(for: item))
                 }
 
@@ -104,7 +104,7 @@ struct InboxItemRow: View {
                         // Attachment indicator
                         if item.hasAttachments {
                             Image(systemName: "paperclip")
-                                .font(.system(size: 10))
+                                .font(MacTypography.metadata)
                                 .foregroundStyle(MacColors.textFaint)
                         }
                     }

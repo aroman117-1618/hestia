@@ -11,7 +11,7 @@ struct GlobalErrorBanner: View {
         if let error = errorState.currentError {
             HStack(spacing: MacSpacing.md) {
                 Image(systemName: error.icon)
-                    .font(.system(size: 16))
+                    .font(MacTypography.sectionTitle)
                     .foregroundStyle(error.accentColor)
 
                 Text(error.message)
@@ -25,7 +25,7 @@ struct GlobalErrorBanner: View {
                     errorState.dismiss()
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(MacTypography.smallMedium)
                         .foregroundStyle(MacColors.textSecondary)
                         .frame(width: 24, height: 24)
                         .background(MacColors.searchInputBackground)

@@ -10,7 +10,7 @@ struct OrdersPanel: View {
             // Header
             HStack {
                 Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 16))
+                    .font(MacTypography.sectionTitle)
                     .foregroundStyle(MacColors.textSecondary)
                 Text("Active Orders")
                     .font(MacTypography.sectionTitle)
@@ -24,7 +24,7 @@ struct OrdersPanel: View {
                             .font(MacTypography.label)
                             .foregroundStyle(MacColors.amberAccent)
                         Image(systemName: "arrow.up.right")
-                            .font(.system(size: 11))
+                            .font(MacTypography.caption)
                             .foregroundStyle(MacColors.amberAccent)
                     }
                 }
@@ -37,7 +37,7 @@ struct OrdersPanel: View {
             if orders.isEmpty {
                 VStack(spacing: MacSpacing.sm) {
                     Image(systemName: "bolt.slash")
-                        .font(.system(size: 20))
+                        .font(MacTypography.pageTitle)
                         .foregroundStyle(MacColors.textSecondary)
                     Text("No active orders")
                         .font(MacTypography.label)
@@ -70,7 +70,7 @@ struct OrdersPanel: View {
 
             HStack(spacing: MacSpacing.xs) {
                 Image(systemName: order.status == .active ? "clock" : "checkmark.circle")
-                    .font(.system(size: 12))
+                    .font(MacTypography.smallBody)
                     .foregroundStyle(MacColors.textSecondary)
                 Text(orderTimestamp(order))
                     .font(MacTypography.caption)

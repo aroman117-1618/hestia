@@ -10,16 +10,16 @@ struct DiagramNodeView: View {
     var body: some View {
         VStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(MacTypography.body)
                 .foregroundStyle(accentColor)
             Text(label)
-                .font(.system(size: 11, weight: .semibold))
+                .font(MacTypography.sectionLabel)
                 .foregroundStyle(MacColors.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             if let sublabel = sublabel {
                 Text(sublabel)
-                    .font(.system(size: 9))
+                    .font(MacTypography.micro)
                     .foregroundStyle(MacColors.textFaint)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)

@@ -23,7 +23,7 @@ struct BackgroundSessionButton: View {
             Image(systemName: hasMessages
                   ? "arrow.up.forward.square"
                   : "plus")
-                .font(.system(size: 13, weight: .medium))
+                .font(MacTypography.labelMedium)
                 .foregroundStyle(MacColors.textSecondary)
                 .frame(width: 28, height: 28)
                 .contentShape(Rectangle())

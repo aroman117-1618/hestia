@@ -58,7 +58,7 @@ struct HiddenPathsSheet: View {
                 isPresented = false
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(MacTypography.captionMedium)
                     .foregroundStyle(MacColors.textSecondary)
                     .frame(width: 22, height: 22)
                     .background(MacColors.searchInputBackground)
@@ -88,7 +88,7 @@ struct HiddenPathsSheet: View {
     private func patternRow(_ pattern: String) -> some View {
         HStack(spacing: MacSpacing.md) {
             Image(systemName: "eye.slash")
-                .font(.system(size: 12))
+                .font(MacTypography.smallBody)
                 .foregroundStyle(MacColors.textFaint)
                 .frame(width: 20)
 
@@ -106,7 +106,7 @@ struct HiddenPathsSheet: View {
                 }
             } label: {
                 Image(systemName: "minus.circle.fill")
-                    .font(.system(size: 14))
+                    .font(MacTypography.body)
                     .foregroundStyle(MacColors.healthRed.opacity(0.6))
             }
             .buttonStyle(.hestiaIcon)
@@ -123,7 +123,7 @@ struct HiddenPathsSheet: View {
     private var addPatternBar: some View {
         HStack(spacing: MacSpacing.sm) {
             Image(systemName: "plus.circle")
-                .font(.system(size: 14))
+                .font(MacTypography.body)
                 .foregroundStyle(MacColors.amberAccent)
 
             TextField("Add pattern (e.g., *.log, .hidden)", text: $newPattern)

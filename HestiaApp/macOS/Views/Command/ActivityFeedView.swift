@@ -80,14 +80,14 @@ struct ActivityFeedView: View {
         } label: {
             HStack(spacing: MacSpacing.xs) {
                 Image(systemName: tab.icon)
-                    .font(.system(size: 14))
+                    .font(MacTypography.body)
                 Text(tab.label)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(MacTypography.labelMedium)
 
                 // Unread badge on External tab
                 if tab == .external && viewModel.externalUnreadCount > 0 {
                     Text("\(viewModel.externalUnreadCount)")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(MacTypography.micro)
                         .foregroundStyle(MacColors.buttonTextDark)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 1)

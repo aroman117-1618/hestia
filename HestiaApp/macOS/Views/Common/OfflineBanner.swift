@@ -21,7 +21,7 @@ struct OfflineBanner: View {
         if !networkMonitor.isConnected {
             HStack(spacing: MacSpacing.md) {
                 Image(systemName: hasCachedData ? "clock.arrow.circlepath" : "wifi.slash")
-                    .font(.system(size: 14))
+                    .font(MacTypography.body)
                     .foregroundStyle(bannerColor)
                 Text(bannerText)
                     .font(MacTypography.label)

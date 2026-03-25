@@ -210,7 +210,7 @@ struct CodeBlockView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: copied ? "checkmark" : "doc.on.doc")
-                            .font(.system(size: 10))
+                            .font(MacTypography.metadata)
                         Text(copied ? "Copied" : "Copy")
                             .font(MacTypography.caption)
                     }
@@ -221,18 +221,18 @@ struct CodeBlockView: View {
             }
             .padding(.horizontal, MacSpacing.md)
             .padding(.vertical, MacSpacing.xs)
-            .background(Color(red: 0x14 / 255, green: 0x14 / 255, blue: 0x24 / 255))
+            .background(MacColors.editorBackground)
 
             // Code content
             ScrollView(.horizontal, showsIndicators: true) {
                 Text(code)
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundStyle(Color(red: 0xE0 / 255, green: 0xE0 / 255, blue: 0xE0 / 255))
+                    .font(MacTypography.code)
+                    .foregroundStyle(MacColors.textPrimary)
                     .textSelection(.enabled)
                     .padding(MacSpacing.md)
             }
         }
-        .background(Color(red: 0x1A / 255, green: 0x1A / 255, blue: 0x2E / 255))
+        .background(MacColors.editorBackgroundAlt)
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay {
             RoundedRectangle(cornerRadius: 8)
@@ -259,7 +259,7 @@ struct ToolCallCardView: View {
             } label: {
                 HStack(spacing: MacSpacing.sm) {
                     Image(systemName: "wrench.and.screwdriver")
-                        .font(.system(size: 12))
+                        .font(MacTypography.smallBody)
                         .foregroundStyle(MacColors.amberAccent)
 
                     Text(toolName)
@@ -269,7 +269,7 @@ struct ToolCallCardView: View {
                     Spacer()
 
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 10, weight: .medium))
+                        .font(MacTypography.micro)
                         .foregroundStyle(MacColors.textSecondary)
                 }
             }

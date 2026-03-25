@@ -11,6 +11,7 @@ struct HestiaSidebarSection<Content: View>: View {
     var count: Int? = nil
     @Binding var isExpanded: Bool
     @ViewBuilder let content: () -> Content
+    @State private var isHovered = false
 
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
@@ -32,7 +33,19 @@ struct HestiaSidebarSection<Content: View>: View {
                         .foregroundStyle(MacColors.textFaint)
                 }
             }
+            .padding(.vertical, 2)
+            .padding(.horizontal, MacSpacing.xs)
+            .background(
+                RoundedRectangle(cornerRadius: MacCornerRadius.treeItem)
+                    .fill(isHovered ? MacColors.panelBackground.opacity(0.3) : Color.clear)
+            )
+            .onHover { hovering in
+                withAnimation(MacAnimation.fastSpring) {
+                    isHovered = hovering
+                }
+            }
         }
-        .tint(MacColors.textSecondary)
+        .tint(MacColors.textPlaceholder)
+        .animation(MacAnimation.normalSpring, value: isExpanded)
     }
 }

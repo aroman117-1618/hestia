@@ -32,11 +32,11 @@ struct HealthMetricsRow: View {
         VStack(alignment: .leading, spacing: MacSpacing.md) {
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: "heart.fill")
-                    .font(.system(size: 14))
+                    .font(MacTypography.body)
                     .foregroundStyle(MacColors.heartRed)
                 Text("Heart")
                     .font(MacTypography.cardTitle)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(MacColors.textPrimary)
             }
 
             if viewModel.restingHR > 0 {
@@ -48,8 +48,8 @@ struct HealthMetricsRow: View {
 
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
                         Text("\(viewModel.restingHR)")
-                            .font(.system(size: 36, weight: .medium))
-                            .foregroundStyle(.white)
+                            .font(MacTypography.largeValue)
+                            .foregroundStyle(MacColors.textPrimary)
                         Text("bpm")
                             .font(MacTypography.label)
                             .foregroundStyle(MacColors.textSecondary)
@@ -66,8 +66,8 @@ struct HealthMetricsRow: View {
 
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
                         Text(String(format: "%.0f", viewModel.hrv))
-                            .font(.system(size: 24, weight: .medium))
-                            .foregroundStyle(.white)
+                            .font(MacTypography.mediumValue)
+                            .foregroundStyle(MacColors.textPrimary)
                         Text("ms")
                             .font(MacTypography.label)
                             .foregroundStyle(MacColors.textSecondary)
@@ -89,11 +89,11 @@ struct HealthMetricsRow: View {
         VStack(alignment: .leading, spacing: MacSpacing.md) {
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: "moon.fill")
-                    .font(.system(size: 14))
+                    .font(MacTypography.body)
                     .foregroundStyle(MacColors.sleepPurple)
                 Text("Sleep")
                     .font(MacTypography.cardTitle)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(MacColors.textPrimary)
             }
 
             if viewModel.sleepMinutes > 0 {
@@ -103,8 +103,8 @@ struct HealthMetricsRow: View {
                         .foregroundStyle(MacColors.textSecondary)
 
                     Text(viewModel.sleepDisplay)
-                        .font(.system(size: 36, weight: .medium))
-                        .foregroundStyle(.white)
+                        .font(MacTypography.largeValue)
+                        .foregroundStyle(MacColors.textPrimary)
                 }
 
                 // Sleep trend sparkline
@@ -139,11 +139,11 @@ struct HealthMetricsRow: View {
         VStack(alignment: .leading, spacing: MacSpacing.md) {
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: "figure.arms.open")
-                    .font(.system(size: 14))
+                    .font(MacTypography.body)
                     .foregroundStyle(MacColors.amberAccent)
                 Text("Body")
                     .font(MacTypography.cardTitle)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(MacColors.textPrimary)
             }
 
             if viewModel.weight > 0 {
@@ -155,8 +155,8 @@ struct HealthMetricsRow: View {
 
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
                         Text(String(format: "%.1f", viewModel.weight))
-                            .font(.system(size: 36, weight: .medium))
-                            .foregroundStyle(.white)
+                            .font(MacTypography.largeValue)
+                            .foregroundStyle(MacColors.textPrimary)
                         Text("kg")
                             .font(MacTypography.label)
                             .foregroundStyle(MacColors.textSecondary)
@@ -174,8 +174,8 @@ struct HealthMetricsRow: View {
 
                         HStack(alignment: .firstTextBaseline, spacing: 4) {
                             Text(String(format: "%.1f", viewModel.bmi))
-                                .font(.system(size: 24, weight: .medium))
-                                .foregroundStyle(.white)
+                                .font(MacTypography.mediumValue)
+                                .foregroundStyle(MacColors.textPrimary)
                         }
                     }
 
@@ -220,7 +220,7 @@ struct HealthMetricsRow: View {
     private var noDataPlaceholder: some View {
         VStack(spacing: MacSpacing.sm) {
             Text("--")
-                .font(.system(size: 36, weight: .medium))
+                .font(MacTypography.largeValue)
                 .foregroundStyle(MacColors.textFaint)
             Text("No data synced")
                 .font(MacTypography.caption)

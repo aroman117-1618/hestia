@@ -35,17 +35,17 @@ struct MacIntegrationsView: View {
             } label: {
                 HStack(spacing: MacSpacing.md) {
                     Image(systemName: integration.iconName)
-                        .font(.system(size: 18))
+                        .font(MacTypography.pageTitle)
                         .foregroundStyle(MacColors.amberAccent)
                         .frame(width: 28, height: 28)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(integration.name)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(MacTypography.bodyMedium)
                             .foregroundStyle(MacColors.textPrimary)
 
                         Text("\(integration.toolCount) tools")
-                            .font(.system(size: 11))
+                            .font(MacTypography.caption)
                             .foregroundStyle(MacColors.textFaint)
                     }
 
@@ -57,12 +57,12 @@ struct MacIntegrationsView: View {
                             .fill(integration.status.color)
                             .frame(width: 6, height: 6)
                         Text(integration.status.displayName)
-                            .font(.system(size: 11))
+                            .font(MacTypography.caption)
                             .foregroundStyle(MacColors.textSecondary)
                     }
 
                     Image(systemName: expandedIntegration == integration.id ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11))
+                        .font(MacTypography.caption)
                         .foregroundStyle(MacColors.textFaint)
                 }
                 .padding(MacSpacing.lg)
@@ -84,7 +84,7 @@ struct MacIntegrationsView: View {
                                 Image(systemName: "lock.open")
                                 Text("Grant Permission")
                             }
-                            .font(.system(size: 12, weight: .medium))
+                            .font(MacTypography.smallMedium)
                             .foregroundStyle(MacColors.amberAccent)
                             .padding(.horizontal, MacSpacing.md)
                             .padding(.vertical, 6)
@@ -99,14 +99,14 @@ struct MacIntegrationsView: View {
                             Image(systemName: "exclamationmark.triangle")
                                 .foregroundStyle(MacColors.healthRed)
                             Text("Permission denied. Open System Settings to grant access.")
-                                .font(.system(size: 11))
+                                .font(MacTypography.caption)
                                 .foregroundStyle(MacColors.textSecondary)
                         }
                     }
 
                     // Tools list
                     Text("Available Tools")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(MacTypography.sectionLabel)
                         .foregroundStyle(MacColors.textSecondary)
                         .textCase(.uppercase)
 
@@ -131,17 +131,17 @@ struct MacIntegrationsView: View {
     private func toolRow(_ tool: IntegrationTool) -> some View {
         HStack(spacing: MacSpacing.sm) {
             Image(systemName: tool.requiresApproval ? "checkmark.shield" : "terminal")
-                .font(.system(size: 11))
+                .font(MacTypography.caption)
                 .foregroundStyle(tool.requiresApproval ? MacColors.healthAmber : MacColors.textFaint)
                 .frame(width: 16)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(tool.name)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(MacTypography.smallMedium)
                     .foregroundStyle(MacColors.textPrimary)
 
                 Text(tool.description)
-                    .font(.system(size: 10))
+                    .font(MacTypography.metadata)
                     .foregroundStyle(MacColors.textFaint)
                     .lineLimit(1)
             }
@@ -150,7 +150,7 @@ struct MacIntegrationsView: View {
 
             if tool.requiresApproval {
                 Text("Approval")
-                    .font(.system(size: 9, weight: .medium))
+                    .font(MacTypography.micro)
                     .foregroundStyle(MacColors.healthAmber)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)

@@ -10,11 +10,11 @@ struct ActivityCard: View {
             // Header
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: "figure.walk")
-                    .font(.system(size: 16))
+                    .font(MacTypography.sectionTitle)
                     .foregroundStyle(MacColors.healthGreen)
                 Text("Activity")
                     .font(MacTypography.sectionTitle)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(MacColors.textPrimary)
             }
 
             // Three columns
@@ -64,7 +64,7 @@ struct ActivityCard: View {
                 VStack(spacing: 2) {
                     Text(formatSteps(viewModel.steps))
                         .font(MacTypography.heroNumber)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(MacColors.textPrimary)
                     Text("steps")
                         .font(MacTypography.label)
                         .foregroundStyle(MacColors.healthGreen.opacity(0.6))
@@ -98,8 +98,8 @@ struct ActivityCard: View {
 
                 VStack(spacing: 2) {
                     Text("\(viewModel.exerciseMinutes)")
-                        .font(.system(size: 28, weight: .medium))
-                        .foregroundStyle(.white)
+                        .font(MacTypography.mediumValue)
+                        .foregroundStyle(MacColors.textPrimary)
                     Text("min")
                         .font(MacTypography.caption)
                         .foregroundStyle(MacColors.healthGreen.opacity(0.6))
@@ -119,7 +119,7 @@ struct ActivityCard: View {
         VStack(alignment: .leading, spacing: MacSpacing.md) {
             Text("7-Day Steps")
                 .font(MacTypography.cardSubtitle)
-                .foregroundStyle(.white)
+                .foregroundStyle(MacColors.textPrimary)
 
             if viewModel.stepTrend.isEmpty {
                 Text("No trend data")
@@ -137,11 +137,11 @@ struct ActivityCard: View {
             // Calories pill
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: "flame.fill")
-                    .font(.system(size: 12))
+                    .font(MacTypography.smallBody)
                     .foregroundStyle(MacColors.calorieRed)
                 Text("\(viewModel.calories)")
                     .font(MacTypography.smallBody)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(MacColors.textPrimary)
                 Text("kcal")
                     .font(MacTypography.caption)
                     .foregroundStyle(MacColors.textSecondary)

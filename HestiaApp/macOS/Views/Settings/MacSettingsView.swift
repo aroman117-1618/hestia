@@ -108,7 +108,7 @@ struct MacSettingsView: View {
         } label: {
             HStack(spacing: MacSpacing.xs) {
                 Image(systemName: "exclamationmark.bubble")
-                    .font(.system(size: 13))
+                    .font(MacTypography.label)
                 Text("Feedback")
                     .font(MacTypography.label)
             }
@@ -162,7 +162,7 @@ struct FeedbackSheet: View {
             // Header
             HStack {
                 Image(systemName: "exclamationmark.bubble")
-                    .font(.system(size: 16))
+                    .font(MacTypography.sectionTitle)
                     .foregroundStyle(MacColors.amberAccent)
                 Text("Report Issue / Provide Feedback")
                     .font(MacTypography.sectionTitle)
@@ -170,7 +170,7 @@ struct FeedbackSheet: View {
                 Spacer()
                 Button { dismiss() } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(MacTypography.smallMedium)
                         .foregroundStyle(MacColors.textSecondary)
                         .frame(width: 24, height: 24)
                         .background(MacColors.searchInputBackground)
@@ -187,7 +187,7 @@ struct FeedbackSheet: View {
                     } label: {
                         HStack(spacing: MacSpacing.xs) {
                             Image(systemName: type.icon)
-                                .font(.system(size: 12))
+                                .font(MacTypography.smallBody)
                             Text(type.rawValue)
                                 .font(MacTypography.label)
                         }
@@ -239,7 +239,7 @@ struct FeedbackSheet: View {
                 } label: {
                     HStack(spacing: MacSpacing.sm) {
                         Image(systemName: "arrow.up.right.square")
-                            .font(.system(size: 12))
+                            .font(MacTypography.smallBody)
                         Text("Create Issue")
                     }
                     .foregroundStyle(MacColors.buttonTextDark)
@@ -288,7 +288,7 @@ struct AccordionSection<Content: View>: View {
             Button(action: onToggle) {
                 HStack(spacing: MacSpacing.md) {
                     Image(systemName: section.icon)
-                        .font(.system(size: 16))
+                        .font(MacTypography.sectionTitle)
                         .foregroundStyle(isExpanded ? MacColors.amberAccent : MacColors.textSecondary)
                         .frame(width: 24)
 
@@ -299,7 +299,7 @@ struct AccordionSection<Content: View>: View {
                     Spacer()
 
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(MacTypography.smallMedium)
                         .foregroundStyle(MacColors.textSecondary)
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
                         .animation(MacAnimation.fastSpring, value: isExpanded)

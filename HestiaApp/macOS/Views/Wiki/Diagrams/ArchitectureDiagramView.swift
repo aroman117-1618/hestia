@@ -48,7 +48,7 @@ struct ArchitectureDiagramView: View {
                         .position(x: cx, y: 190)
 
                     Text("Security Layer")
-                        .font(.system(size: 9, weight: .medium))
+                        .font(MacTypography.micro)
                         .foregroundStyle(MacColors.healthGreen.opacity(0.5))
                         .position(x: 60, y: 105)
 

@@ -65,7 +65,7 @@ struct InboxDetailSheet: View {
                         .fill(inboxItemIconColor(for: item).opacity(0.15))
                         .frame(width: 40, height: 40)
                     Image(systemName: inboxItemIcon(for: item))
-                        .font(.system(size: 18))
+                        .font(MacTypography.pageTitle)
                         .foregroundStyle(inboxItemIconColor(for: item))
                 }
 
@@ -97,7 +97,7 @@ struct InboxDetailSheet: View {
                     viewModel.selectedItem = nil
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(MacTypography.smallMedium)
                         .foregroundStyle(MacColors.textFaint)
                         .frame(width: 24, height: 24)
                         .background(MacColors.searchInputBackground)
@@ -116,7 +116,7 @@ struct InboxDetailSheet: View {
                 if item.priority == "high" || item.priority == "urgent" {
                     HStack(spacing: MacSpacing.xs) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.system(size: 10))
+                            .font(MacTypography.metadata)
                         Text(item.priority.capitalized)
                             .font(MacTypography.captionMedium)
                     }
@@ -126,7 +126,7 @@ struct InboxDetailSheet: View {
                 if item.hasAttachments {
                     HStack(spacing: MacSpacing.xs) {
                         Image(systemName: "paperclip")
-                            .font(.system(size: 10))
+                            .font(MacTypography.metadata)
                         Text("Attachments")
                             .font(MacTypography.caption)
                     }
@@ -198,7 +198,7 @@ struct InboxDetailSheet: View {
     private func metadataRow(icon: String, label: String, value: String) -> some View {
         HStack(spacing: MacSpacing.sm) {
             Image(systemName: icon)
-                .font(.system(size: 11))
+                .font(MacTypography.caption)
                 .foregroundStyle(MacColors.amberAccent)
                 .frame(width: 16)
 
@@ -248,7 +248,7 @@ struct InboxDetailSheet: View {
                 } label: {
                     HStack(spacing: MacSpacing.xs) {
                         Image(systemName: "envelope.open")
-                            .font(.system(size: 12))
+                            .font(MacTypography.smallBody)
                         Text("Mark Read")
                             .font(MacTypography.label)
                     }
@@ -267,7 +267,7 @@ struct InboxDetailSheet: View {
             } label: {
                 HStack(spacing: MacSpacing.xs) {
                     Image(systemName: "archivebox")
-                        .font(.system(size: 12))
+                        .font(MacTypography.smallBody)
                     Text("Archive")
                         .font(MacTypography.label)
                 }

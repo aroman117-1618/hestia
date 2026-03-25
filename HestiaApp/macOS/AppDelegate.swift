@@ -88,11 +88,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         cmdItem.target = self
         viewMenu.addItem(cmdItem)
 
-        let researchItem = NSMenuItem(title: "Memory", action: #selector(showResearchView), keyEquivalent: "2")
-        researchItem.target = self
-        viewMenu.addItem(researchItem)
+        let ordersItem = NSMenuItem(title: "Orders", action: #selector(showOrdersView), keyEquivalent: "2")
+        ordersItem.target = self
+        viewMenu.addItem(ordersItem)
 
-        let expItem = NSMenuItem(title: "Explorer", action: #selector(showExplorerView), keyEquivalent: "3")
+        let memoryItem = NSMenuItem(title: "Memory", action: #selector(showMemoryView), keyEquivalent: "3")
+        memoryItem.target = self
+        viewMenu.addItem(memoryItem)
+
+        let expItem = NSMenuItem(title: "Explorer", action: #selector(showExplorerView), keyEquivalent: "4")
         expItem.target = self
         viewMenu.addItem(expItem)
 
@@ -128,11 +132,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             case "1":
                 self?.switchView(to: .command)
                 return nil
-            // ⌘2 was Health — archived (Sprint 25.5)
             case "2":
-                self?.switchView(to: .research)
+                self?.switchView(to: .orders)
                 return nil
             case "3":
+                self?.switchView(to: .memory)
+                return nil
+            case "4":
                 self?.switchView(to: .explorer)
                 return nil
             case "5":
@@ -165,8 +171,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func showCommandView() { switchView(to: .command) }
-    @objc private func showHealthView() { switchView(to: .health) }
-    @objc private func showResearchView() { switchView(to: .research) }
+    @objc private func showOrdersView() { switchView(to: .orders) }
+    @objc private func showMemoryView() { switchView(to: .memory) }
     @objc private func showExplorerView() { switchView(to: .explorer) }
     @objc private func showSettingsView() { switchView(to: .settings) }
     @objc private func toggleChatPanel() { mainWindowController?.toggleChatPanel(nil) }

@@ -25,7 +25,7 @@ struct CalendarWeekStrip: View {
                 HStack(spacing: MacSpacing.sm) {
                     Button { withAnimation { weekOffset -= 1 } } label: {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 14))
+                            .font(MacTypography.body)
                             .foregroundStyle(MacColors.textSecondary)
                             .frame(width: 26, height: 26)
                     }
@@ -35,7 +35,7 @@ struct CalendarWeekStrip: View {
 
                     HStack(spacing: MacSpacing.xs) {
                         Image(systemName: "calendar")
-                            .font(.system(size: 12))
+                            .font(MacTypography.smallBody)
                             .foregroundStyle(MacColors.textSecondary)
                         Text("This Week")
                             .font(MacTypography.label)
@@ -44,7 +44,7 @@ struct CalendarWeekStrip: View {
 
                     Button { withAnimation { weekOffset += 1 } } label: {
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 14))
+                            .font(MacTypography.body)
                             .foregroundStyle(MacColors.textSecondary)
                             .frame(width: 26, height: 26)
                     }

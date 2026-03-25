@@ -13,6 +13,7 @@ struct HestiaContentRow: View {
     var isSelected: Bool = false
     var selectionAccent: Color = MacColors.amberAccent
     var action: (() -> Void)? = nil
+    @State private var isHovered = false
 
     var body: some View {
         Button(action: { action?() }) {
@@ -42,19 +43,32 @@ struct HestiaContentRow: View {
                         .padding(.vertical, 1)
                         .background(MacColors.textPrimary.opacity(0.06))
                         .clipShape(Capsule())
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(MacColors.subtleBorder, lineWidth: 0.5)
+                        )
                 }
             }
             .padding(.vertical, 3)
             .padding(.horizontal, MacSpacing.sm)
             .background(
                 isSelected
-                    ? selectionAccent.opacity(0.12)
-                    : Color.clear
+                    ? MacColors.panelBackground.opacity(0.5)
+                    : (isHovered ? MacColors.panelBackground.opacity(0.25) : Color.clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: MacCornerRadius.treeItem)
+                    .strokeBorder(isSelected ? MacColors.subtleBorder : Color.clear, lineWidth: 0.5)
             )
             .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.treeItem))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(MacAnimation.fastSpring) {
+                isHovered = hovering
+            }
+        }
     }
 
     @ViewBuilder

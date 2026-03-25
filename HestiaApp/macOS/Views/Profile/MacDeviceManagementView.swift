@@ -20,7 +20,7 @@ struct MacDeviceManagementView: View {
                     Task { await viewModel.loadDevices() }
                 } label: {
                     Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 14))
+                        .font(MacTypography.body)
                         .foregroundStyle(MacColors.textSecondary)
                 }
                 .buttonStyle(.hestia)
@@ -104,7 +104,7 @@ struct MacDeviceManagementView: View {
     private func deviceRow(_ device: DeviceItem) -> some View {
         HStack(spacing: MacSpacing.md) {
             Image(systemName: device.iconName)
-                .font(.system(size: 18))
+                .font(MacTypography.pageTitle)
                 .foregroundStyle(device.isActive ? MacColors.textPrimary : MacColors.textFaint)
                 .frame(width: 28)
 
@@ -195,7 +195,7 @@ struct MacDeviceManagementView: View {
     private func errorState(_ message: String) -> some View {
         VStack(spacing: MacSpacing.md) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 24))
+                .font(MacTypography.mediumValue)
                 .foregroundStyle(MacColors.healthAmber)
             Text(message)
                 .font(MacTypography.body)
@@ -213,7 +213,7 @@ struct MacDeviceManagementView: View {
     private var emptyState: some View {
         VStack(spacing: MacSpacing.md) {
             Image(systemName: "desktopcomputer")
-                .font(.system(size: 32))
+                .font(MacTypography.largeValue)
                 .foregroundStyle(MacColors.textFaint)
             Text("No devices registered")
                 .font(MacTypography.body)

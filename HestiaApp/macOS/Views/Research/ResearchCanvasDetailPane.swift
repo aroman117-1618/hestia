@@ -47,12 +47,12 @@ struct ResearchCanvasDetailPane: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(entity.name)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(MacTypography.bodyMedium)
                     .foregroundStyle(MacColors.textPrimary)
                     .lineLimit(2)
 
                 Text(entity.entityType.capitalized)
-                    .font(.system(size: 11))
+                    .font(MacTypography.caption)
                     .foregroundStyle(MacColors.textSecondary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 1)
@@ -69,7 +69,7 @@ struct ResearchCanvasDetailPane: View {
                 }
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 11))
+                    .font(MacTypography.caption)
                     .foregroundStyle(MacColors.textSecondary)
                     .padding(MacSpacing.xs)
                     .background(MacColors.textPrimary.opacity(0.06))
@@ -90,7 +90,7 @@ struct ResearchCanvasDetailPane: View {
                 detailLabel("Connections")
                 Spacer()
                 Text("\(entity.connectionCount)")
-                    .font(.system(size: 12))
+                    .font(MacTypography.smallBody)
                     .foregroundStyle(MacColors.textPrimary)
             }
 
@@ -99,7 +99,7 @@ struct ResearchCanvasDetailPane: View {
                     detailLabel("Created")
                     Spacer()
                     Text(formatDate(created))
-                        .font(.system(size: 12))
+                        .font(MacTypography.smallBody)
                         .foregroundStyle(MacColors.textSecondary)
                 }
             }
@@ -116,7 +116,7 @@ struct ResearchCanvasDetailPane: View {
 
             if viewModel.selectedEntityFacts.isEmpty {
                 Text("No facts recorded")
-                    .font(.system(size: 11))
+                    .font(MacTypography.caption)
                     .foregroundStyle(MacColors.textFaint)
                     .padding(.vertical, MacSpacing.xs)
             } else {
@@ -132,18 +132,18 @@ struct ResearchCanvasDetailPane: View {
     private func factRow(_ fact: ResearchTemporalFact) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(fact.predicate)
-                .font(.system(size: 11, weight: .medium))
+                .font(MacTypography.captionMedium)
                 .foregroundStyle(MacColors.textPrimary)
 
             HStack(spacing: MacSpacing.xs) {
                 if let from = fact.validFrom {
                     Text("from \(formatDate(from))")
-                        .font(.system(size: 10))
+                        .font(MacTypography.metadata)
                         .foregroundStyle(MacColors.textFaint)
                 }
                 if let to = fact.validTo {
                     Text("to \(formatDate(to))")
-                        .font(.system(size: 10))
+                        .font(MacTypography.metadata)
                         .foregroundStyle(MacColors.textFaint)
                 }
             }
@@ -163,7 +163,7 @@ struct ResearchCanvasDetailPane: View {
                 .frame(height: 3)
 
                 Text(String(format: "%.0f%%", fact.confidence * 100))
-                    .font(.system(size: 9))
+                    .font(MacTypography.micro)
                     .foregroundStyle(MacColors.textFaint)
                     .frame(width: 28, alignment: .trailing)
             }
@@ -179,7 +179,7 @@ struct ResearchCanvasDetailPane: View {
 
             if viewModel.selectedEntityReferences.isEmpty {
                 Text("No cross-links found")
-                    .font(.system(size: 11))
+                    .font(MacTypography.caption)
                     .foregroundStyle(MacColors.textFaint)
                     .padding(.vertical, MacSpacing.xs)
             } else {
@@ -228,14 +228,14 @@ struct ResearchCanvasDetailPane: View {
 
     private func detailSectionTitle(_ title: String) -> some View {
         Text(title)
-            .font(.system(size: 11, weight: .semibold))
+            .font(MacTypography.captionMedium)
             .foregroundStyle(MacColors.textSecondary)
             .textCase(.uppercase)
     }
 
     private func detailLabel(_ label: String) -> some View {
         Text(label)
-            .font(.system(size: 12))
+            .font(MacTypography.smallBody)
             .foregroundStyle(MacColors.textSecondary)
     }
 

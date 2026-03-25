@@ -53,13 +53,13 @@ struct InternalActivityView: View {
                     icon: "bed.double.fill",
                     label: "Sleep",
                     value: formattedSleep(summary),
-                    color: Color(hex: "5AC8FA")
+                    color: MacColors.sleepPurple
                 )
             }
         } else {
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: "heart.slash")
-                    .font(.system(size: 16))
+                    .font(MacTypography.sectionTitle)
                     .foregroundStyle(MacColors.textSecondary.opacity(0.5))
                 Text("Health data unavailable — check HealthKit permissions")
                     .font(MacTypography.label)
@@ -74,14 +74,14 @@ struct InternalActivityView: View {
         VStack(alignment: .leading, spacing: MacSpacing.sm) {
             HStack(spacing: MacSpacing.xs) {
                 Image(systemName: icon)
-                    .font(.system(size: 12))
+                    .font(MacTypography.smallBody)
                     .foregroundStyle(color)
                 Text(label)
                     .font(MacTypography.caption)
                     .foregroundStyle(MacColors.textSecondary)
             }
             Text(value)
-                .font(.system(size: 18, weight: .bold))
+                .font(MacTypography.pageTitle)
                 .foregroundStyle(MacColors.textPrimary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -97,7 +97,7 @@ struct InternalActivityView: View {
         if viewModel.calendarEvents.isEmpty {
             VStack(spacing: MacSpacing.sm) {
                 Image(systemName: "calendar.badge.checkmark")
-                    .font(.system(size: 20))
+                    .font(MacTypography.pageTitle)
                     .foregroundStyle(MacColors.textSecondary.opacity(0.5))
                 Text("No upcoming events")
                     .font(MacTypography.label)
@@ -119,7 +119,7 @@ struct InternalActivityView: View {
             // Time column
             VStack(spacing: 0) {
                 Text(event.startDate, style: .time)
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .font(MacTypography.code)
                     .foregroundStyle(MacColors.amberAccent)
             }
             .frame(width: 55, alignment: .trailing)

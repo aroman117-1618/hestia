@@ -28,7 +28,7 @@ struct MacWikiSidebarView: View {
         TimelineView(.periodic(from: .now, by: 60)) { _ in
             if let text = viewModel.lastUpdatedText {
                 Text(text)
-                    .font(.system(size: 10))
+                    .font(MacTypography.metadata)
                     .foregroundStyle(MacColors.textFaint)
                     .frame(maxWidth: .infinity)
                     .padding(.bottom, MacSpacing.xs)
@@ -48,13 +48,13 @@ struct MacWikiSidebarView: View {
                 } label: {
                     HStack(spacing: MacSpacing.sm) {
                         Image(systemName: tab.iconName)
-                            .font(.system(size: 13))
+                            .font(MacTypography.label)
                             .frame(width: 20)
                         Text(tab.rawValue)
                             .font(.system(size: 13, weight: viewModel.selectedTab == tab ? .semibold : .regular))
                         Spacer()
                         Text("\(articleCount(for: tab))")
-                            .font(.system(size: 11))
+                            .font(MacTypography.caption)
                             .foregroundStyle(MacColors.textFaint)
                     }
                     .foregroundStyle(viewModel.selectedTab == tab ? MacColors.amberAccent : MacColors.textSecondary)
@@ -113,13 +113,13 @@ struct MacWikiSidebarView: View {
         } label: {
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: "flag.checkered")
-                    .font(.system(size: 13))
+                    .font(MacTypography.label)
                     .frame(width: 20)
                 Text("Roadmap")
                     .font(.system(size: 13, weight: viewModel.showingRoadmap ? .semibold : .regular))
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 10))
+                    .font(MacTypography.metadata)
                     .foregroundStyle(MacColors.textFaint)
             }
             .foregroundStyle(viewModel.showingRoadmap ? MacColors.amberAccent : MacColors.textSecondary)
@@ -142,13 +142,13 @@ struct MacWikiSidebarView: View {
     private var emptyState: some View {
         VStack(spacing: MacSpacing.md) {
             Image(systemName: "doc.text.magnifyingglass")
-                .font(.system(size: 28))
+                .font(MacTypography.heroHeading)
                 .foregroundStyle(MacColors.textFaint)
             Text("No articles yet")
-                .font(.system(size: 13))
+                .font(MacTypography.label)
                 .foregroundStyle(MacColors.textSecondary)
             Text("Use the toolbar to generate or refresh content")
-                .font(.system(size: 11))
+                .font(MacTypography.caption)
                 .foregroundStyle(MacColors.textFaint)
                 .multilineTextAlignment(.center)
         }
@@ -158,10 +158,10 @@ struct MacWikiSidebarView: View {
     private func errorState(_ message: String) -> some View {
         VStack(spacing: MacSpacing.md) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 28))
+                .font(MacTypography.heroHeading)
                 .foregroundStyle(MacColors.healthRed)
             Text(message)
-                .font(.system(size: 13))
+                .font(MacTypography.label)
                 .foregroundStyle(MacColors.textSecondary)
                 .multilineTextAlignment(.center)
             Button {
@@ -171,7 +171,7 @@ struct MacWikiSidebarView: View {
                     Image(systemName: "arrow.clockwise")
                     Text("Retry")
                 }
-                .font(.system(size: 12, weight: .medium))
+                .font(MacTypography.smallMedium)
                 .foregroundStyle(MacColors.amberAccent)
                 .padding(.horizontal, MacSpacing.md)
                 .padding(.vertical, 4)

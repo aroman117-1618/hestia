@@ -23,7 +23,7 @@ struct HeaderChatToggle: View {
             NotificationCenter.default.post(name: .hestiaChatPanelToggle, object: nil)
         } label: {
             Image(systemName: "chevron.right.2")
-                .font(.system(size: 12, weight: .medium))
+                .font(MacTypography.smallMedium)
                 .foregroundStyle(isHovered ? MacColors.amberAccent : MacColors.textSecondary)
                 .frame(width: 28, height: 28)
                 .background(isHovered ? MacColors.activeNavBackground : Color.clear)

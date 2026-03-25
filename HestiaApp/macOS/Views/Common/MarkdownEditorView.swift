@@ -48,7 +48,7 @@ struct MarkdownEditorView: View {
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: showPreview ? "pencil" : "eye")
-                        .font(.system(size: 11))
+                        .font(MacTypography.caption)
                     Text(showPreview ? "Edit" : "Preview")
                         .font(MacTypography.caption)
                 }

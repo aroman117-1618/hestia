@@ -17,7 +17,7 @@ struct MacEditWorkflowSheet: View {
         VStack(alignment: .leading, spacing: MacSpacing.lg) {
             // Title
             Text("Edit Order")
-                .font(.system(size: 18, weight: .semibold))
+                .font(MacTypography.pageTitle)
                 .foregroundStyle(MacColors.textPrimary)
 
             // Name field
@@ -35,7 +35,7 @@ struct MacEditWorkflowSheet: View {
                     .font(MacTypography.label)
                     .foregroundStyle(MacColors.textSecondary)
                 TextEditor(text: $description)
-                    .font(.system(size: 13))
+                    .font(MacTypography.label)
                     .frame(minHeight: 60, maxHeight: 120)
                     .padding(4)
                     .background(MacColors.searchInputBackground)
@@ -48,7 +48,7 @@ struct MacEditWorkflowSheet: View {
 
             if let error = saveError {
                 Text(error)
-                    .font(.system(size: 11))
+                    .font(MacTypography.caption)
                     .foregroundStyle(MacColors.healthRed)
             }
 

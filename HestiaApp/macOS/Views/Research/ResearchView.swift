@@ -194,16 +194,16 @@ struct ResearchView: View {
     private var timeIndicatorBadge: some View {
         HStack(spacing: MacSpacing.sm) {
             Image(systemName: "clock.arrow.circlepath")
-                .font(.system(size: 12))
+                .font(MacTypography.smallBody)
             Text("Viewing: \(graphViewModel.timeSliderLabel)")
-                .font(.system(size: 11, weight: .medium))
+                .font(MacTypography.captionMedium)
         }
         .foregroundStyle(MacColors.amberAccent)
         .padding(.horizontal, MacSpacing.md)
         .padding(.vertical, MacSpacing.sm)
         .background(
             RoundedRectangle(cornerRadius: MacCornerRadius.search)
-                .fill(Color(red: 17/255, green: 11/255, blue: 3/255).opacity(0.92))
+                .fill(MacColors.panelBackground.opacity(0.92))
                 .overlay(
                     RoundedRectangle(cornerRadius: MacCornerRadius.search)
                         .strokeBorder(MacColors.amberAccent.opacity(0.2), lineWidth: 1)
@@ -216,21 +216,21 @@ struct ResearchView: View {
     private func hoverTooltip(_ node: MacNeuralNetViewModel.GraphNode) -> some View {
         HStack(spacing: MacSpacing.sm) {
             Image(systemName: node.displayIcon)
-                .font(.system(size: 11))
+                .font(MacTypography.caption)
                 .foregroundStyle(node.swiftUIColor)
             Text(node.label.isEmpty ? node.content : node.label)
-                .font(.system(size: 11))
+                .font(MacTypography.caption)
                 .foregroundStyle(MacColors.textPrimary)
                 .lineLimit(1)
             Text(node.displayName)
-                .font(.system(size: 9))
+                .font(MacTypography.micro)
                 .foregroundStyle(MacColors.textFaint)
         }
         .padding(.horizontal, MacSpacing.md)
         .padding(.vertical, MacSpacing.sm)
         .background(
             RoundedRectangle(cornerRadius: MacCornerRadius.search)
-                .fill(Color(red: 17/255, green: 11/255, blue: 3/255).opacity(0.92))
+                .fill(MacColors.panelBackground.opacity(0.92))
                 .overlay(
                     RoundedRectangle(cornerRadius: MacCornerRadius.search)
                         .strokeBorder(node.swiftUIColor.opacity(0.2), lineWidth: 1)
@@ -245,7 +245,7 @@ struct ResearchView: View {
             ProgressView()
                 .controlSize(.regular)
             Text("Mapping neural connections...")
-                .font(.system(size: 13))
+                .font(MacTypography.label)
                 .foregroundStyle(MacColors.textSecondary)
         }
     }
@@ -253,13 +253,13 @@ struct ResearchView: View {
     private var graphEmptyState: some View {
         VStack(spacing: MacSpacing.md) {
             Image(systemName: "brain")
-                .font(.system(size: 48))
+                .font(MacTypography.heroNumber)
                 .foregroundStyle(MacColors.textSecondary.opacity(0.3))
             Text("No memories yet")
-                .font(.system(size: 18, weight: .medium))
+                .font(MacTypography.pageTitle)
                 .foregroundStyle(MacColors.textSecondary)
             Text("Start chatting to build your neural net")
-                .font(.system(size: 13))
+                .font(MacTypography.label)
                 .foregroundStyle(MacColors.textFaint)
         }
     }
@@ -290,19 +290,19 @@ struct ResearchView: View {
                 .frame(height: 1)
                 .padding(.vertical, 2)
             Text("Node size = importance")
-                .font(.system(size: 10).italic())
+                .font(MacTypography.metadata.italic())
                 .foregroundStyle(MacColors.textFaint)
             Text("Edge brightness = connection strength")
-                .font(.system(size: 10).italic())
+                .font(MacTypography.metadata.italic())
                 .foregroundStyle(MacColors.textFaint)
         }
         .padding(MacSpacing.md)
         .background(
             RoundedRectangle(cornerRadius: MacCornerRadius.tab + 2)
-                .fill(Color(red: 17/255, green: 11/255, blue: 3/255).opacity(0.85))
+                .fill(MacColors.panelBackground.opacity(0.85))
                 .overlay(
                     RoundedRectangle(cornerRadius: MacCornerRadius.tab + 2)
-                        .strokeBorder(Color(red: 254/255, green: 154/255, blue: 0).opacity(0.08), lineWidth: 1)
+                        .strokeBorder(MacColors.cardBorder, lineWidth: 1)
                 )
         )
     }
@@ -310,11 +310,11 @@ struct ResearchView: View {
     private func legendDot(color: Color, icon: String, label: String) -> some View {
         HStack(spacing: MacSpacing.sm) {
             Image(systemName: icon)
-                .font(.system(size: 9))
+                .font(MacTypography.micro)
                 .foregroundStyle(color)
                 .frame(width: 12)
             Text(label)
-                .font(.system(size: 11))
+                .font(MacTypography.caption)
                 .foregroundStyle(MacColors.textSecondary)
         }
     }
@@ -325,20 +325,20 @@ struct ResearchView: View {
                 .fill(color)
                 .frame(width: 8, height: 8)
             Text(label)
-                .font(.system(size: 10))
+                .font(MacTypography.metadata)
                 .foregroundStyle(MacColors.textSecondary)
         }
     }
 
     private var nodeCountBadge: some View {
         Text("\(graphViewModel.nodes.count) nodes \u{00B7} \(graphViewModel.edges.count) edges")
-            .font(.system(size: 10, weight: .medium))
+            .font(MacTypography.metadata)
             .foregroundStyle(MacColors.textSecondary)
             .padding(.horizontal, MacSpacing.sm)
             .padding(.vertical, MacSpacing.xs)
             .background(
                 RoundedRectangle(cornerRadius: MacCornerRadius.search)
-                    .fill(Color(red: 17/255, green: 11/255, blue: 3/255).opacity(0.85))
+                    .fill(MacColors.panelBackground.opacity(0.85))
             )
     }
 
@@ -352,7 +352,7 @@ struct ResearchView: View {
                     .foregroundStyle(MacColors.textPrimary)
                 if !compact {
                     Text("Memory")
-                        .font(.system(size: 18))
+                        .font(MacTypography.pageTitle)
                         .foregroundStyle(MacColors.textPrimary)
                 }
             }
@@ -369,7 +369,7 @@ struct ResearchView: View {
                     Task { await graphViewModel.loadGraph() }
                 } label: {
                     Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 13))
+                        .font(MacTypography.label)
                         .foregroundStyle(MacColors.textSecondary)
                         .padding(MacSpacing.sm)
                         .background(MacColors.textPrimary.opacity(0.04))
@@ -406,10 +406,10 @@ struct ResearchView: View {
         } label: {
             HStack(spacing: MacSpacing.xs) {
                 Image(systemName: icon)
-                    .font(.system(size: 14))
+                    .font(MacTypography.body)
                 if !compact {
                     Text(label)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(MacTypography.labelMedium)
                 }
             }
             .foregroundStyle(selectedMode == mode ? MacColors.amberAccent : MacColors.textSecondary)
@@ -433,12 +433,12 @@ struct ResearchView: View {
         } label: {
             HStack(spacing: MacSpacing.xs) {
                 Image(systemName: "calendar")
-                    .font(.system(size: 13))
+                    .font(MacTypography.label)
                 if !compact {
                     Text(selectedTimeRange.label)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(MacTypography.smallMedium)
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 12))
+                        .font(MacTypography.smallBody)
                 }
             }
             .foregroundStyle(MacColors.textSecondary)
@@ -466,7 +466,7 @@ struct ResearchView: View {
             if compact {
                 Button {} label: {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 14))
+                        .font(MacTypography.body)
                         .foregroundStyle(MacColors.textPlaceholder)
                         .frame(width: 32, height: 31.5)
                         .background(MacColors.textPrimary.opacity(0.08))
@@ -476,11 +476,11 @@ struct ResearchView: View {
             } else {
                 HStack(spacing: MacSpacing.sm) {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 13))
+                        .font(MacTypography.label)
                         .foregroundStyle(MacColors.textPlaceholder)
                     TextField("Search tags, topics, people...", text: $searchText)
                         .textFieldStyle(.plain)
-                        .font(.system(size: 13))
+                        .font(MacTypography.label)
                         .foregroundStyle(MacColors.textPrimary)
                 }
                 .padding(.horizontal, MacSpacing.md)
@@ -506,10 +506,10 @@ struct ResearchView: View {
         } label: {
             HStack(spacing: compact ? 0 : MacSpacing.xs) {
                 Image(systemName: source.icon)
-                    .font(.system(size: 13))
+                    .font(MacTypography.label)
                 if !compact {
                     Text(source.label)
-                        .font(.system(size: 12))
+                        .font(MacTypography.smallBody)
                         .fixedSize()
                 }
             }
@@ -529,13 +529,13 @@ struct ResearchView: View {
     private var ambientBackground: some View {
         ZStack {
             Circle()
-                .fill(Color(red: 225/255, green: 113/255, blue: 0).opacity(0.04))
+                .fill(MacColors.amberDark.opacity(0.04))
                 .frame(width: 500, height: 500)
                 .blur(radius: 120)
                 .offset(x: 0, y: -100)
 
             Circle()
-                .fill(Color(red: 245/255, green: 73/255, blue: 0).opacity(0.03))
+                .fill(MacColors.amberDark.opacity(0.03))
                 .frame(width: 400, height: 400)
                 .blur(radius: 100)
                 .offset(x: 100, y: 200)
@@ -606,7 +606,7 @@ struct ResearchPrinciplesView: View {
             // Header
             HStack {
                 Text("Principles")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(MacTypography.cardTitle)
                     .foregroundStyle(MacColors.textPrimary)
 
                 Spacer()
@@ -622,10 +622,10 @@ struct ResearchPrinciplesView: View {
                                 .tint(MacColors.amberAccent)
                         } else {
                             Image(systemName: "sparkles")
-                                .font(.system(size: 12))
+                                .font(MacTypography.smallBody)
                         }
                         Text(viewModel.isDistilling ? "Distilling..." : "Distill New")
-                            .font(.system(size: 12, weight: .medium))
+                            .font(MacTypography.smallMedium)
                     }
                     .foregroundStyle(MacColors.buttonTextDark)
                     .padding(.horizontal, MacSpacing.md)
@@ -665,13 +665,13 @@ struct ResearchPrinciplesView: View {
         VStack(spacing: MacSpacing.md) {
             Spacer()
             Image(systemName: "wifi.slash")
-                .font(.system(size: 48))
+                .font(MacTypography.heroNumber)
                 .foregroundStyle(MacColors.statusWarning.opacity(0.4))
             Text(message)
-                .font(.system(size: 18, weight: .medium))
+                .font(MacTypography.pageTitle)
                 .foregroundStyle(MacColors.textSecondary)
             Text("Check that the Hestia server is running\nand your connection is active.")
-                .font(.system(size: 13))
+                .font(MacTypography.label)
                 .foregroundStyle(MacColors.textFaint)
                 .multilineTextAlignment(.center)
             Button {
@@ -679,9 +679,9 @@ struct ResearchPrinciplesView: View {
             } label: {
                 HStack(spacing: MacSpacing.xs) {
                     Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 12))
+                        .font(MacTypography.smallBody)
                     Text("Retry")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(MacTypography.smallMedium)
                 }
                 .foregroundStyle(MacColors.textPrimary)
                 .padding(.horizontal, MacSpacing.lg)
@@ -702,13 +702,13 @@ struct ResearchPrinciplesView: View {
         VStack(spacing: MacSpacing.md) {
             Spacer()
             Image(systemName: "lightbulb")
-                .font(.system(size: 48))
+                .font(MacTypography.heroNumber)
                 .foregroundStyle(MacColors.textSecondary.opacity(0.3))
             Text("No principles yet")
-                .font(.system(size: 18, weight: .medium))
+                .font(MacTypography.pageTitle)
                 .foregroundStyle(MacColors.textSecondary)
             Text("Chat more to build your knowledge base,\nthen click \"Distill New\" to extract patterns.\nPrinciples are also auto-distilled weekly.")
-                .font(.system(size: 13))
+                .font(MacTypography.label)
                 .foregroundStyle(MacColors.textFaint)
                 .multilineTextAlignment(.center)
             Spacer()
@@ -758,10 +758,10 @@ struct ResearchPrinciplesView: View {
                 .fill(color)
                 .frame(width: 8, height: 8)
             Text(title)
-                .font(.system(size: 12, weight: .semibold))
+                .font(MacTypography.smallMedium)
                 .foregroundStyle(MacColors.textSecondary)
             Text("(\(count))")
-                .font(.system(size: 11))
+                .font(MacTypography.caption)
                 .foregroundStyle(MacColors.textFaint)
             Spacer()
         }
@@ -773,7 +773,7 @@ struct ResearchPrinciplesView: View {
             // Domain badge + confidence
             HStack {
                 Text(principle.domain.capitalized)
-                    .font(.system(size: 10, weight: .bold))
+                    .font(MacTypography.metadata)
                     .foregroundStyle(MacColors.amberAccent)
                     .padding(.horizontal, MacSpacing.sm)
                     .padding(.vertical, 2)
@@ -783,14 +783,14 @@ struct ResearchPrinciplesView: View {
                 Spacer()
 
                 Text("\(Int(principle.confidence * 100))% confidence")
-                    .font(.system(size: 10))
+                    .font(MacTypography.metadata)
                     .foregroundStyle(MacColors.textFaint)
             }
 
             // Content — editable when in edit mode
             if editingPrincipleId == principle.id {
                 TextEditor(text: $editText)
-                    .font(.system(size: 13))
+                    .font(MacTypography.label)
                     .foregroundStyle(MacColors.textPrimary)
                     .scrollContentBackground(.hidden)
                     .background(MacColors.searchInputBackground)
@@ -798,7 +798,7 @@ struct ResearchPrinciplesView: View {
                     .frame(minHeight: 60, maxHeight: 120)
             } else {
                 Text(principle.content)
-                    .font(.system(size: 13))
+                    .font(MacTypography.label)
                     .foregroundStyle(MacColors.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -808,9 +808,9 @@ struct ResearchPrinciplesView: View {
                 if !principle.sourceChunkIds.isEmpty {
                     HStack(spacing: 2) {
                         Image(systemName: "link")
-                            .font(.system(size: 9))
+                            .font(MacTypography.micro)
                         Text("\(principle.sourceChunkIds.count) sources")
-                            .font(.system(size: 10))
+                            .font(MacTypography.metadata)
                     }
                     .foregroundStyle(MacColors.textFaint)
                 }
@@ -818,9 +818,9 @@ struct ResearchPrinciplesView: View {
                 if !principle.topics.isEmpty {
                     HStack(spacing: 2) {
                         Image(systemName: "tag")
-                            .font(.system(size: 9))
+                            .font(MacTypography.micro)
                         Text(principle.topics.prefix(3).joined(separator: ", "))
-                            .font(.system(size: 10))
+                            .font(MacTypography.metadata)
                             .lineLimit(1)
                     }
                     .foregroundStyle(MacColors.textFaint)
@@ -831,7 +831,7 @@ struct ResearchPrinciplesView: View {
                 if let dateStr = principle.createdAt,
                    let date = ISO8601DateFormatter().date(from: dateStr) {
                     Text(date, style: .relative)
-                        .font(.system(size: 10))
+                        .font(MacTypography.metadata)
                         .foregroundStyle(MacColors.textFaint)
                 }
             }
@@ -849,9 +849,9 @@ struct ResearchPrinciplesView: View {
                         } label: {
                             HStack(spacing: MacSpacing.xs) {
                                 Image(systemName: "checkmark.circle")
-                                    .font(.system(size: 11))
+                                    .font(MacTypography.caption)
                                 Text("Save Edit")
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(MacTypography.smallMedium)
                             }
                             .foregroundStyle(MacColors.buttonTextDark)
                             .padding(.horizontal, MacSpacing.md)
@@ -866,7 +866,7 @@ struct ResearchPrinciplesView: View {
                             editingPrincipleId = nil
                         } label: {
                             Text("Cancel")
-                                .font(.system(size: 12, weight: .medium))
+                                .font(MacTypography.smallMedium)
                                 .foregroundStyle(MacColors.textSecondary)
                                 .padding(.horizontal, MacSpacing.md)
                                 .padding(.vertical, MacSpacing.sm)
@@ -883,9 +883,9 @@ struct ResearchPrinciplesView: View {
                         } label: {
                             HStack(spacing: MacSpacing.xs) {
                                 Image(systemName: "checkmark")
-                                    .font(.system(size: 11))
+                                    .font(MacTypography.caption)
                                 Text("Approve")
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(MacTypography.smallMedium)
                             }
                             .foregroundStyle(MacColors.buttonTextDark)
                             .padding(.horizontal, MacSpacing.md)
@@ -901,9 +901,9 @@ struct ResearchPrinciplesView: View {
                         } label: {
                             HStack(spacing: MacSpacing.xs) {
                                 Image(systemName: "pencil")
-                                    .font(.system(size: 11))
+                                    .font(MacTypography.caption)
                                 Text("Edit")
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(MacTypography.smallMedium)
                             }
                             .foregroundStyle(MacColors.amberAccent)
                             .padding(.horizontal, MacSpacing.md)
@@ -920,9 +920,9 @@ struct ResearchPrinciplesView: View {
                         } label: {
                             HStack(spacing: MacSpacing.xs) {
                                 Image(systemName: "xmark")
-                                    .font(.system(size: 11))
+                                    .font(MacTypography.caption)
                                 Text("Reject")
-                                    .font(.system(size: 12, weight: .medium))
+                                    .font(MacTypography.smallMedium)
                             }
                             .foregroundStyle(MacColors.healthRed)
                             .padding(.horizontal, MacSpacing.md)

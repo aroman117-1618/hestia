@@ -21,13 +21,13 @@ struct MacWorkflowRow: View {
                 HStack(spacing: MacSpacing.sm) {
                     // Trigger type badge
                     Label(workflow.triggerType, systemImage: triggerIcon)
-                        .font(.system(size: 10))
+                        .font(MacTypography.metadata)
                         .foregroundStyle(MacColors.textFaint)
 
                     // Node count
                     if workflow.runCount > 0 {
                         Text("\(workflow.runCount) runs")
-                            .font(.system(size: 10))
+                            .font(MacTypography.metadata)
                             .foregroundStyle(MacColors.textFaint)
                     }
                 }
@@ -37,7 +37,7 @@ struct MacWorkflowRow: View {
 
             // Status badge
             Text(workflow.status.capitalized)
-                .font(.system(size: 10, weight: .medium))
+                .font(MacTypography.micro)
                 .foregroundStyle(statusColor)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)

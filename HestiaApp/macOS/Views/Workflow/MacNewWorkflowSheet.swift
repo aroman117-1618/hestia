@@ -93,7 +93,7 @@ struct MacNewWorkflowSheet: View {
     private var closeButton: some View {
         Button { dismiss() } label: {
             Image(systemName: "xmark")
-                .font(.system(size: 12, weight: .medium))
+                .font(MacTypography.smallMedium)
                 .foregroundStyle(MacColors.textSecondary)
                 .frame(width: 24, height: 24)
                 .background(MacColors.searchInputBackground)
@@ -160,7 +160,7 @@ struct MacNewWorkflowSheet: View {
                 // Day picker
                 VStack(alignment: .leading, spacing: MacSpacing.sm) {
                     Text("Repeat on")
-                        .font(.system(size: 11))
+                        .font(MacTypography.caption)
                         .foregroundStyle(MacColors.textFaint)
                     HStack(spacing: 4) {
                         ForEach(Weekday.allCases) { day in
@@ -172,7 +172,7 @@ struct MacNewWorkflowSheet: View {
                 // Time picker
                 VStack(alignment: .leading, spacing: MacSpacing.sm) {
                     Text("At time")
-                        .font(.system(size: 11))
+                        .font(MacTypography.caption)
                         .foregroundStyle(MacColors.textFaint)
                     DatePicker("", selection: $scheduleTime, displayedComponents: .hourAndMinute)
                         .datePickerStyle(.field)
@@ -183,7 +183,7 @@ struct MacNewWorkflowSheet: View {
                 // One-time: date + time picker
                 VStack(alignment: .leading, spacing: MacSpacing.sm) {
                     Text("Run on")
-                        .font(.system(size: 11))
+                        .font(MacTypography.caption)
                         .foregroundStyle(MacColors.textFaint)
                     HStack(spacing: MacSpacing.md) {
                         DatePicker("", selection: $scheduleDate, displayedComponents: .date)
@@ -200,10 +200,10 @@ struct MacNewWorkflowSheet: View {
             // Preview
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: "info.circle")
-                    .font(.system(size: 11))
+                    .font(MacTypography.caption)
                     .foregroundStyle(MacColors.textFaint)
                 Text(schedulePreview)
-                    .font(.system(size: 11))
+                    .font(MacTypography.caption)
                     .foregroundStyle(MacColors.textFaint)
             }
             .padding(.top, MacSpacing.xs)

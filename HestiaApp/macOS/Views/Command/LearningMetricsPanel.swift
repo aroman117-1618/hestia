@@ -62,14 +62,14 @@ struct LearningMetricsPanel: View {
         VStack(alignment: .leading, spacing: MacSpacing.sm) {
             HStack(spacing: MacSpacing.sm) {
                 Image(systemName: icon)
-                    .font(.system(size: 12))
+                    .font(MacTypography.smallBody)
                     .foregroundStyle(color)
                 Text(label)
                     .font(MacTypography.caption)
                     .foregroundStyle(MacColors.textSecondary)
             }
             Text(value)
-                .font(.system(size: 18, weight: .bold))
+                .font(MacTypography.pageTitle)
                 .foregroundStyle(MacColors.textPrimary)
 
             // Colored accent bar

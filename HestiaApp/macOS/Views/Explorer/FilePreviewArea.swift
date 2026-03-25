@@ -53,7 +53,7 @@ struct FilePreviewArea: View {
                     Button(action: onSelectFolder) {
                         HStack(spacing: MacSpacing.sm) {
                             Image(systemName: "folder.badge.plus")
-                                .font(.system(size: 14))
+                                .font(MacTypography.body)
                             Text("Open Folder")
                         }
                         .font(MacTypography.bodyMedium)
@@ -80,10 +80,10 @@ struct FilePreviewArea: View {
                 // File name + chevron
                 HStack(spacing: MacSpacing.sm) {
                     Text(file.name)
-                        .font(.system(size: 28))
+                        .font(MacTypography.heroHeading)
                         .foregroundStyle(MacColors.textPrimary)
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 14))
+                        .font(MacTypography.body)
                         .foregroundStyle(MacColors.textSecondary)
                 }
 
@@ -124,7 +124,7 @@ struct FilePreviewArea: View {
                 // More menu
                 Button {} label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 14))
+                        .font(MacTypography.body)
                         .foregroundStyle(MacColors.textSecondary)
                         .frame(width: 38, height: 38)
                         .background(MacColors.panelBackground)

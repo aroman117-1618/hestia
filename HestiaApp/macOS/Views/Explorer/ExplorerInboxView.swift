@@ -117,7 +117,7 @@ struct ExplorerInboxView: View {
                 } label: {
                     HStack(spacing: MacSpacing.xs) {
                         Image(systemName: "envelope.open")
-                            .font(.system(size: 12))
+                            .font(MacTypography.smallBody)
                         Text("Mark All Read")
                             .font(MacTypography.label)
                     }
@@ -136,7 +136,7 @@ struct ExplorerInboxView: View {
                 }
             } label: {
                 Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 13))
+                    .font(MacTypography.label)
                     .foregroundStyle(MacColors.textSecondary)
             }
             .buttonStyle(.hestia)
@@ -212,7 +212,7 @@ struct ExplorerInboxView: View {
         VStack(spacing: MacSpacing.lg) {
             Spacer()
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 36))
+                .font(MacTypography.largeValue)
                 .foregroundStyle(MacColors.statusWarning)
 
             Text(viewModel.error ?? "Something went wrong")
@@ -232,7 +232,7 @@ struct ExplorerInboxView: View {
             } label: {
                 HStack(spacing: MacSpacing.sm) {
                     Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 13))
+                        .font(MacTypography.label)
                     Text("Retry")
                         .font(MacTypography.bodyMedium)
                 }
@@ -272,7 +272,7 @@ struct ExplorerInboxView: View {
             } label: {
                 HStack(spacing: MacSpacing.sm) {
                     Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 13))
+                        .font(MacTypography.label)
                     Text("Refresh")
                         .font(MacTypography.bodyMedium)
                 }

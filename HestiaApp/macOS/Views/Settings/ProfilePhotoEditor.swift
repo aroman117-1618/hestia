@@ -50,12 +50,12 @@ struct ProfilePhotoEditor: View {
             // Hover overlay with camera icon
             if isHovering {
                 Circle()
-                    .fill(Color.black.opacity(0.5))
+                    .fill(MacColors.sidebarBackground.opacity(0.5))
                     .frame(width: size, height: size)
                     .overlay(
                         Image(systemName: "camera.fill")
                             .font(.system(size: size * 0.2))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(MacColors.textPrimary)
                     )
                     .transition(.opacity)
             }

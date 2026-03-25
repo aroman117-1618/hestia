@@ -9,7 +9,7 @@ struct HealthTopBar: View {
             // Title
             Text("Health")
                 .font(MacTypography.pageTitle)
-                .foregroundStyle(.white)
+                .foregroundStyle(MacColors.textPrimary)
                 .tracking(0.45)
 
             Spacer()
@@ -67,7 +67,7 @@ struct HealthTopBar: View {
             if let syncDate = viewModel.lastSyncDate {
                 HStack(spacing: MacSpacing.xs) {
                     Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 11))
+                        .font(MacTypography.caption)
                         .foregroundStyle(MacColors.textSecondary)
                     Text("Synced \(syncDate)")
                         .font(MacTypography.smallBody)
@@ -76,7 +76,7 @@ struct HealthTopBar: View {
             } else if !viewModel.hasData {
                 HStack(spacing: MacSpacing.xs) {
                     Image(systemName: "iphone.and.arrow.forward")
-                        .font(.system(size: 11))
+                        .font(MacTypography.caption)
                         .foregroundStyle(MacColors.textFaint)
                     Text("Sync from iPhone")
                         .font(MacTypography.smallBody)
@@ -105,14 +105,14 @@ struct HealthTopBar: View {
     private func metricPill(icon: String, label: String, value: String) -> some View {
         HStack(spacing: MacSpacing.sm) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(MacTypography.body)
                 .foregroundStyle(MacColors.healthGreen)
             Text(label + " ")
                 .font(MacTypography.label)
-                .foregroundStyle(.white)
+                .foregroundStyle(MacColors.textPrimary)
             +
             Text(value)
-                .font(.system(size: 18, weight: .medium))
+                .font(MacTypography.pageTitle)
                 .foregroundStyle(MacColors.healthGold)
         }
     }

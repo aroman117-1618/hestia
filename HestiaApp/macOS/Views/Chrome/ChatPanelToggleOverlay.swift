@@ -14,7 +14,7 @@ struct ChatPanelToggleOverlay: View {
             NotificationCenter.default.post(name: .hestiaChatPanelToggle, object: nil)
         } label: {
             Image(systemName: isVisible ? "sidebar.right" : "sidebar.right")
-                .font(.system(size: 13, weight: .medium))
+                .font(MacTypography.labelMedium)
                 .foregroundStyle(isHovered ? MacColors.amberAccent : MacColors.textSecondary)
                 .frame(width: 28, height: 28)
                 .background(

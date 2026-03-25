@@ -10,7 +10,7 @@ struct HestiaButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
-            .animation(.spring(response: 0.2, dampingFraction: 0.8), value: configuration.isPressed)
+            .animation(MacAnimation.fastSpring, value: configuration.isPressed)
             .contentShape(expandHitTarget ? .rect : .rect)
     }
 }
@@ -23,7 +23,7 @@ struct HestiaNavButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.94 : 1.0)
-            .animation(.spring(response: 0.2, dampingFraction: 0.8), value: configuration.isPressed)
+            .animation(MacAnimation.fastSpring, value: configuration.isPressed)
             .padding(2) // Expand 40pt → 44pt hit area
             .contentShape(Rectangle())
     }
@@ -36,8 +36,8 @@ struct HestiaIconButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.90 : 1.0)
-            .opacity(configuration.isPressed ? 0.7 : 1.0)
-            .animation(.spring(response: 0.15, dampingFraction: 0.8), value: configuration.isPressed)
+            .opacity(configuration.isPressed ? 0.85 : 1.0)
+            .animation(MacAnimation.fastSpring, value: configuration.isPressed)
             .contentShape(Rectangle())
     }
 }

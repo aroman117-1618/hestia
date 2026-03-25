@@ -69,7 +69,7 @@ struct HeroSection: View {
                 } label: {
                     HStack(spacing: MacSpacing.sm) {
                         Image(systemName: "bolt.fill")
-                            .font(.system(size: 14))
+                            .font(MacTypography.body)
                         if !layoutMode.isCompact {
                             Text("New Order")
                                 .font(MacTypography.bodyMedium)
@@ -125,7 +125,7 @@ struct HeroSection: View {
                 .frame(width: 44, height: 44)
                 .overlay {
                     Text(currentMode.displayName.prefix(1))
-                        .font(.system(size: 18, weight: .bold))
+                        .font(MacTypography.pageTitle)
                         .foregroundStyle(MacColors.amberAccent)
                 }
                 .overlay {
@@ -287,7 +287,7 @@ struct ProgressRing: View {
                     .rotationEffect(.degrees(-90))
                 Text(label)
                     .font(.system(size: labelFontSize, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(MacColors.textPrimary)
             }
             .frame(width: ringSize, height: ringSize)
 

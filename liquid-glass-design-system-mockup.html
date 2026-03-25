@@ -1,0 +1,2042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hestia — Liquid Glass Design System v1.0</title>
+<style>
+  /* ============================================
+     CSS CUSTOM PROPERTIES — DESIGN TOKENS
+     ============================================ */
+  :root {
+    /* Background Tiers */
+    --bg-base: #080503;
+    --bg-surface: #0D0802;
+    --bg-elevated: #110B03;
+    --bg-overlay: #1A1005;
+    --bg-input: #1E1308;
+
+    /* Amber Spectrum */
+    --amber-50: #FFF5E6;
+    --amber-100: #FFE0B2;
+    --amber-200: #FFCA80;
+    --amber-300: #FFB347;
+    --amber-400: #FF9F0A;
+    --amber-500: #E08A00;
+    --amber-600: #C07400;
+    --amber-700: #8B5500;
+
+    /* Green */
+    --green-300: #72F69E;
+    --green-400: #34C759;
+    --green-500: #2CC295;
+    --green-600: #00A86B;
+
+    /* Status */
+    --status-healthy: #34C759;
+    --status-warning: #FF9F0A;
+    --status-error: #FF453A;
+    --status-info: #0A84FF;
+    --status-neutral: #8E8E93;
+
+    /* Text */
+    --text-primary: #E8E2D9;
+    --text-secondary: rgba(232, 226, 217, 0.55);
+    --text-tertiary: rgba(232, 226, 217, 0.35);
+    --text-inverse: #1A1005;
+    --text-link: #FF9F0A;
+    --text-code: #FFCA80;
+
+    /* Borders */
+    --border-subtle: rgba(255, 159, 10, 0.06);
+    --border-default: rgba(255, 159, 10, 0.12);
+    --border-strong: rgba(255, 159, 10, 0.20);
+    --border-accent: rgba(255, 159, 10, 0.40);
+    --border-divider: rgba(232, 226, 217, 0.08);
+
+    /* Health */
+    --health-green: #00D492;
+    --health-red: #FF6467;
+    --health-gold: #FEE685;
+    --health-sleep: #8B5CF6;
+
+    /* Trading */
+    --trading-cyan: #00D7FF;
+    --trading-positive: #00FFB2;
+    --trading-negative: #FF6467;
+
+    /* Chat */
+    --chat-ai-bubble: rgba(232, 226, 217, 0.12);
+    --chat-user-bubble: rgba(255, 159, 10, 0.15);
+
+    /* Diagram */
+    --diagram-apple: #007AFF;
+    --diagram-cloud: #5AC8FA;
+
+    /* Editor */
+    --editor-bg: #1E1E1E;
+
+    /* Spacing */
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 12px;
+    --space-lg: 16px;
+    --space-xl: 20px;
+    --space-2xl: 24px;
+    --space-3xl: 32px;
+
+    /* Radii */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    --radius-pill: 9999px;
+
+    /* Motion */
+    --motion-fast: 0.15s;
+    --motion-normal: 0.25s;
+    --motion-slow: 0.4s;
+    --motion-gentle: 0.6s;
+  }
+
+  /* ============================================
+     BASE STYLES
+     ============================================ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif;
+    background: var(--bg-base);
+    color: var(--text-primary);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ============================================
+     LAYOUT
+     ============================================ */
+  .page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: var(--space-3xl) var(--space-2xl);
+  }
+
+  .page-header {
+    text-align: center;
+    margin-bottom: 64px;
+    position: relative;
+  }
+
+  .page-header::after {
+    content: '';
+    display: block;
+    width: 80px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--amber-400), transparent);
+    margin: var(--space-2xl) auto 0;
+  }
+
+  .brand-title {
+    font-family: 'Georgia', serif;
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.5px;
+  }
+
+  .brand-subtitle {
+    font-size: 15px;
+    color: var(--text-secondary);
+    margin-top: var(--space-sm);
+  }
+
+  .version-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--amber-400);
+    background: rgba(255, 159, 10, 0.1);
+    border: 0.5px solid rgba(255, 159, 10, 0.2);
+    padding: 4px 12px;
+    border-radius: var(--radius-pill);
+    margin-top: var(--space-lg);
+  }
+
+  /* Section */
+  .section {
+    margin-bottom: 72px;
+  }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-tertiary);
+    margin-bottom: var(--space-sm);
+  }
+
+  .section-title {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--space-xs);
+  }
+
+  .section-desc {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-2xl);
+    max-width: 640px;
+  }
+
+  /* ============================================
+     1. PHILOSOPHY CARDS
+     ============================================ */
+  .philosophy-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-lg);
+  }
+
+  .philosophy-card {
+    background: var(--bg-elevated);
+    border: 0.5px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: var(--space-2xl);
+    transition: border-color var(--motion-normal), box-shadow var(--motion-normal);
+  }
+
+  .philosophy-card:hover {
+    border-color: var(--border-strong);
+    box-shadow: 0 0 32px rgba(255, 159, 10, 0.08);
+    transform: translateY(-2px);
+  }
+
+  .philosophy-card .number {
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--amber-400);
+    margin-bottom: var(--space-md);
+    opacity: 0.6;
+  }
+
+  .philosophy-card h3 {
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: var(--space-sm);
+  }
+
+  .philosophy-card p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  /* ============================================
+     2. COLOR SYSTEM
+     ============================================ */
+  .color-group {
+    margin-bottom: var(--space-3xl);
+  }
+
+  .color-group-title {
+    font-size: 15px;
+    font-weight: 500;
+    margin-bottom: var(--space-md);
+    color: var(--text-primary);
+  }
+
+  .swatch-row {
+    display: flex;
+    gap: var(--space-sm);
+    flex-wrap: wrap;
+  }
+
+  .swatch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-xs);
+    min-width: 88px;
+  }
+
+  .swatch-color {
+    width: 72px;
+    height: 72px;
+    border-radius: var(--radius-md);
+    border: 0.5px solid rgba(255, 255, 255, 0.06);
+    transition: transform var(--motion-fast);
+  }
+
+  .swatch-color:hover {
+    transform: scale(1.12);
+    box-shadow: 0 0 16px rgba(255, 159, 10, 0.15);
+  }
+
+  .swatch-name {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+
+  .swatch-hex {
+    font-size: 10px;
+    font-family: 'SF Mono', 'Menlo', monospace;
+    color: var(--text-tertiary);
+    text-align: center;
+  }
+
+  /* Background tier demo */
+  .bg-tier-demo {
+    display: flex;
+    gap: 2px;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin-bottom: var(--space-lg);
+  }
+
+  .bg-tier {
+    flex: 1;
+    padding: var(--space-2xl) var(--space-lg);
+    text-align: center;
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-xs);
+  }
+
+  .bg-tier .tier-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .bg-tier .tier-hex {
+    font-size: 10px;
+    font-family: 'SF Mono', monospace;
+    color: var(--text-tertiary);
+  }
+
+  /* ============================================
+     3. TYPOGRAPHY
+     ============================================ */
+  .type-specimen {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xl);
+    background: var(--bg-surface);
+    border: 0.5px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: var(--space-3xl);
+  }
+
+  .type-row {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2xl);
+    padding-bottom: var(--space-lg);
+    border-bottom: 0.5px solid var(--border-divider);
+  }
+
+  .type-row:last-child { border-bottom: none; padding-bottom: 0; }
+
+  .type-meta {
+    min-width: 140px;
+    flex-shrink: 0;
+  }
+
+  .type-token {
+    font-size: 11px;
+    font-family: 'SF Mono', monospace;
+    color: var(--amber-400);
+    opacity: 0.7;
+  }
+
+  .type-spec {
+    font-size: 10px;
+    color: var(--text-tertiary);
+    margin-top: 2px;
+  }
+
+  .type-sample {
+    color: var(--text-primary);
+  }
+
+  .type-hero { font-size: 32px; font-weight: 600; }
+  .type-title { font-size: 22px; font-weight: 600; }
+  .type-heading { font-size: 18px; font-weight: 500; }
+  .type-subheading { font-size: 15px; font-weight: 500; }
+  .type-body { font-size: 14px; font-weight: 400; }
+  .type-body-medium { font-size: 14px; font-weight: 500; }
+  .type-caption { font-size: 12px; font-weight: 400; color: var(--text-secondary); }
+  .type-caption-medium { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+  .type-micro { font-size: 10px; font-weight: 500; color: var(--text-tertiary); }
+  .type-code { font-size: 13px; font-family: 'SF Mono', monospace; color: var(--text-code); }
+  .type-section-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-tertiary);
+  }
+
+  /* ============================================
+     4. SPACING
+     ============================================ */
+  .spacing-demo {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--space-lg);
+    padding: var(--space-2xl);
+    background: var(--bg-surface);
+    border: 0.5px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+  }
+
+  .spacing-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+
+  .spacing-bar {
+    width: 40px;
+    background: linear-gradient(180deg, var(--amber-400), var(--amber-600));
+    border-radius: 4px 4px 0 0;
+    opacity: 0.6;
+  }
+
+  .spacing-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .spacing-value {
+    font-size: 10px;
+    font-family: 'SF Mono', monospace;
+    color: var(--text-tertiary);
+  }
+
+  /* Corner radii */
+  .radii-demo {
+    display: flex;
+    gap: var(--space-lg);
+    flex-wrap: wrap;
+    margin-top: var(--space-lg);
+  }
+
+  .radius-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+
+  .radius-shape {
+    width: 64px;
+    height: 64px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+  }
+
+  .radius-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .radius-val {
+    font-size: 10px;
+    font-family: 'SF Mono', monospace;
+    color: var(--text-tertiary);
+  }
+
+  /* ============================================
+     5. GLASS MATERIALS
+     ============================================ */
+  .glass-demo-container {
+    position: relative;
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    height: 360px;
+    background:
+      radial-gradient(ellipse at 30% 40%, rgba(255, 159, 10, 0.08) 0%, transparent 60%),
+      radial-gradient(ellipse at 70% 60%, rgba(139, 85, 0, 0.06) 0%, transparent 50%),
+      var(--bg-base);
+  }
+
+  .glass-panel {
+    position: absolute;
+    backdrop-filter: blur(24px) saturate(1.2);
+    -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  }
+
+  .glass-sidebar {
+    left: 0; top: 0; bottom: 0;
+    width: 64px;
+    background: rgba(10, 6, 3, 0.85);
+    border-right: 0.5px solid var(--border-default);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: var(--space-lg);
+    gap: var(--space-md);
+  }
+
+  .glass-sidebar .nav-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--motion-fast);
+    position: relative;
+  }
+
+  .glass-sidebar .nav-icon:hover {
+    color: var(--text-primary);
+    background: var(--bg-elevated);
+  }
+
+  .glass-sidebar .nav-icon.active {
+    color: var(--amber-400);
+    background: rgba(255, 159, 10, 0.12);
+    border: 0.5px solid var(--border-accent);
+  }
+
+  .glass-sidebar .nav-icon.active::before {
+    content: '';
+    position: absolute;
+    left: -14px;
+    width: 3px;
+    height: 14px;
+    border-radius: 2px;
+    background: linear-gradient(180deg, #FFB900, #FF8904);
+  }
+
+  .glass-sidebar .sidebar-logo {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: radial-gradient(circle, var(--amber-400), var(--amber-600));
+    margin-bottom: var(--space-md);
+    box-shadow: 0 0 12px rgba(255, 159, 10, 0.3);
+  }
+
+  .glass-sidebar .sidebar-divider {
+    width: 24px;
+    height: 0.5px;
+    background: var(--border-divider);
+    margin-bottom: var(--space-xs);
+  }
+
+  .glass-content {
+    left: 64px; top: 0; right: 340px; bottom: 0;
+    background: var(--bg-surface);
+    padding: var(--space-2xl);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+  }
+
+  .glass-chat {
+    right: 0; top: 0; bottom: 0;
+    width: 340px;
+    background: rgba(13, 8, 2, 0.90);
+    border-left: 0.5px solid var(--border-default);
+    padding: var(--space-lg);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .glass-content-title {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .glass-mini-card {
+    background: var(--bg-elevated);
+    border: 0.5px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md);
+    flex: 1;
+  }
+
+  .glass-mini-card .card-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-tertiary);
+    margin-bottom: var(--space-sm);
+  }
+
+  .glass-mini-card .card-value {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .glass-mini-card .card-sub {
+    font-size: 12px;
+    color: var(--status-healthy);
+    margin-top: 2px;
+  }
+
+  .glass-card-row {
+    display: flex;
+    gap: var(--space-md);
+  }
+
+  .glass-chat-header {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    padding-bottom: var(--space-md);
+    border-bottom: 0.5px solid var(--border-divider);
+    margin-bottom: var(--space-md);
+  }
+
+  .chat-bubble {
+    padding: var(--space-md) var(--space-lg);
+    border-radius: var(--radius-lg);
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: var(--space-sm);
+    max-width: 90%;
+  }
+
+  .chat-bubble.ai {
+    background: var(--chat-ai-bubble);
+    color: var(--text-primary);
+    border: 0.5px solid var(--border-subtle);
+    align-self: flex-start;
+  }
+
+  .chat-bubble.user {
+    background: var(--chat-user-bubble);
+    color: var(--text-primary);
+    border: 0.5px solid rgba(255, 159, 10, 0.12);
+    align-self: flex-end;
+    margin-left: auto;
+  }
+
+  .chat-messages {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .chat-input-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    background: var(--bg-input);
+    border: 0.5px solid var(--border-default);
+    border-radius: var(--radius-pill);
+    padding: var(--space-sm) var(--space-lg);
+    margin-top: var(--space-md);
+  }
+
+  .chat-input-bar input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    font-size: 14px;
+    color: var(--text-primary);
+    font-family: inherit;
+  }
+
+  .chat-input-bar input::placeholder {
+    color: var(--text-tertiary);
+  }
+
+  .chat-input-bar .send-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--amber-400);
+    border: none;
+    color: var(--text-inverse);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform var(--motion-fast);
+  }
+
+  .chat-input-bar .send-btn:hover { transform: scale(1.1); box-shadow: 0 0 12px rgba(255, 159, 10, 0.4); }
+  .chat-input-bar .send-btn:active { transform: scale(0.92); }
+
+  /* ============================================
+     6. COMPONENTS
+     ============================================ */
+  .component-showcase {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-2xl);
+  }
+
+  .component-item {
+    background: var(--bg-surface);
+    border: 0.5px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: var(--space-2xl);
+  }
+
+  .component-name {
+    font-size: 13px;
+    font-family: 'SF Mono', monospace;
+    color: var(--amber-400);
+    opacity: 0.7;
+    margin-bottom: var(--space-lg);
+  }
+
+  /* GlassCard */
+  .glass-card {
+    background: var(--bg-elevated);
+    border: 0.5px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md);
+    transition: border-color var(--motion-normal), box-shadow var(--motion-normal);
+    cursor: default;
+  }
+
+  .glass-card:hover {
+    border-color: var(--border-strong);
+    box-shadow: 0 0 28px rgba(255, 159, 10, 0.08);
+    transform: translateY(-1px);
+  }
+
+  .glass-card.accent {
+    border-left: 2px solid var(--amber-400);
+  }
+
+  .glass-card .card-section-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-tertiary);
+    margin-bottom: var(--space-sm);
+  }
+
+  .glass-card .card-title {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: var(--space-xs);
+  }
+
+  .glass-card .card-body {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-md);
+  }
+
+  .glass-card .card-actions {
+    display: flex;
+    gap: var(--space-sm);
+  }
+
+  /* GlassPill */
+  .glass-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: var(--space-xs) var(--space-md);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: transform var(--motion-fast), opacity var(--motion-fast);
+    border: 0.5px solid;
+  }
+
+  .glass-pill:hover { transform: scale(1.04); filter: brightness(1.15); }
+  .glass-pill:active { transform: scale(0.93); opacity: 0.75; }
+
+  .glass-pill.amber {
+    color: var(--amber-400);
+    background: rgba(255, 159, 10, 0.12);
+    border-color: rgba(255, 159, 10, 0.20);
+  }
+
+  .glass-pill.green {
+    color: var(--green-400);
+    background: rgba(52, 199, 89, 0.12);
+    border-color: rgba(52, 199, 89, 0.20);
+  }
+
+  .glass-pill.blue {
+    color: var(--status-info);
+    background: rgba(10, 132, 255, 0.12);
+    border-color: rgba(10, 132, 255, 0.20);
+  }
+
+  .glass-pill.red {
+    color: var(--status-error);
+    background: rgba(255, 69, 58, 0.12);
+    border-color: rgba(255, 69, 58, 0.20);
+  }
+
+  /* GlassBadge */
+  .glass-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+  }
+
+  .glass-badge .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .glass-badge.healthy {
+    color: var(--status-healthy);
+    background: rgba(52, 199, 89, 0.08);
+  }
+  .glass-badge.healthy .dot {
+    background: var(--status-healthy);
+    box-shadow: 0 0 6px rgba(52, 199, 89, 0.4);
+  }
+
+  .glass-badge.warning {
+    color: var(--status-warning);
+    background: rgba(255, 159, 10, 0.08);
+  }
+  .glass-badge.warning .dot {
+    background: var(--status-warning);
+    box-shadow: 0 0 6px rgba(255, 159, 10, 0.4);
+  }
+
+  .glass-badge.error {
+    color: var(--status-error);
+    background: rgba(255, 69, 58, 0.08);
+  }
+  .glass-badge.error .dot {
+    background: var(--status-error);
+    box-shadow: 0 0 6px rgba(255, 69, 58, 0.4);
+  }
+
+  .glass-badge.neutral {
+    color: var(--status-neutral);
+    background: rgba(142, 142, 147, 0.08);
+  }
+  .glass-badge.neutral .dot {
+    background: var(--status-neutral);
+  }
+
+  /* GlassInput */
+  .glass-input {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    background: var(--bg-input);
+    border: 0.5px solid var(--border-default);
+    border-radius: var(--radius-pill);
+    padding: var(--space-sm) var(--space-lg);
+    transition: border-color var(--motion-fast), box-shadow var(--motion-fast);
+  }
+
+  .glass-input:focus-within {
+    border-color: var(--border-accent);
+    box-shadow: 0 0 20px rgba(255, 159, 10, 0.12), 0 0 40px rgba(255, 159, 10, 0.04);
+  }
+
+  .glass-input input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    font-size: 15px;
+    color: var(--text-primary);
+    font-family: inherit;
+  }
+
+  .glass-input input::placeholder {
+    color: var(--text-tertiary);
+  }
+
+  .glass-input .input-icon {
+    color: var(--text-tertiary);
+    font-size: 14px;
+  }
+
+  /* GlassSettingsBlock */
+  .glass-settings-block {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    background: var(--bg-elevated);
+    border: 0.5px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md);
+    cursor: pointer;
+    transition: border-color var(--motion-normal);
+  }
+
+  .glass-settings-block:hover {
+    border-color: var(--border-strong);
+    box-shadow: 0 0 20px rgba(255, 159, 10, 0.05);
+    transform: translateX(2px);
+  }
+
+  .glass-settings-block .block-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .glass-settings-block .block-icon.amber {
+    background: rgba(255, 159, 10, 0.12);
+    color: var(--amber-400);
+  }
+
+  .glass-settings-block .block-icon.green {
+    background: rgba(52, 199, 89, 0.12);
+    color: var(--green-400);
+  }
+
+  .glass-settings-block .block-icon.blue {
+    background: rgba(10, 132, 255, 0.12);
+    color: var(--status-info);
+  }
+
+  .glass-settings-block .block-text {
+    flex: 1;
+  }
+
+  .glass-settings-block .block-title {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .glass-settings-block .block-subtitle {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .glass-settings-block .block-chevron {
+    color: var(--text-tertiary);
+    font-size: 14px;
+  }
+
+  .component-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  /* ============================================
+     7. BORDER GLOW DEMO
+     ============================================ */
+  .border-demo {
+    display: flex;
+    gap: var(--space-lg);
+    flex-wrap: wrap;
+  }
+
+  .border-sample {
+    width: 120px;
+    height: 80px;
+    border-radius: var(--radius-lg);
+    background: var(--bg-elevated);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .border-sample .b-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .border-sample .b-value {
+    font-size: 10px;
+    font-family: 'SF Mono', monospace;
+    color: var(--text-tertiary);
+  }
+
+  .border-subtle-demo { border: 0.5px solid var(--border-subtle); }
+  .border-default-demo { border: 0.5px solid var(--border-default); }
+  .border-strong-demo { border: 0.5px solid var(--border-strong); }
+  .border-accent-demo { border: 0.5px solid var(--border-accent); }
+  .border-glow-demo {
+    border: 0.5px solid var(--border-default);
+    box-shadow: 0 0 12px rgba(255, 159, 10, 0.08);
+  }
+
+  /* ============================================
+     8. THE ORB
+     ============================================ */
+  .orb-demo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 500px;
+    border-radius: var(--radius-xl);
+    background:
+      radial-gradient(ellipse at 50% 30%, rgba(255, 159, 10, 0.10) 0%, transparent 40%),
+      radial-gradient(ellipse at 50% 35%, rgba(139, 85, 0, 0.08) 0%, transparent 55%),
+      radial-gradient(ellipse at 50% 80%, rgba(255, 159, 10, 0.04) 0%, transparent 35%),
+      var(--bg-base);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ============================
+     ORB v4 — Morphing Conic-Gradient Ribbons
+     No solid sphere. Bands morph via animated conic-gradient
+     brightness zones rotating independently of the ring spin.
+     ============================ */
+
+  /* Animated custom properties for morphing brightness zones */
+  @property --glow-angle-1 {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+  }
+  @property --glow-angle-2 {
+    syntax: '<angle>';
+    initial-value: 120deg;
+    inherits: false;
+  }
+  @property --glow-angle-3 {
+    syntax: '<angle>';
+    initial-value: 240deg;
+    inherits: false;
+  }
+
+  /* Container — 3D context + breathing pulse */
+  .orb {
+    width: 200px;
+    height: 200px;
+    position: relative;
+    perspective: 900px;
+    transform-style: preserve-3d;
+    animation: orb-breathe 4s ease-in-out infinite;
+  }
+
+  /* Faint volumetric center glow */
+  .orb-glow {
+    position: absolute;
+    inset: 10%;
+    border-radius: 50%;
+    background: radial-gradient(circle,
+      rgba(255, 159, 10, 0.12) 0%,
+      rgba(255, 139, 0, 0.05) 40%,
+      transparent 70%
+    );
+    box-shadow: 0 0 80px 20px rgba(255, 159, 10, 0.08);
+    pointer-events: none;
+  }
+
+  /* Wobble wrapper — oscillates tilt plane organically */
+  .orb-wobble {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+    will-change: transform;
+  }
+  .orb-wobble-1 { animation: orb-wobble-1 9s ease-in-out infinite; }
+  .orb-wobble-2 { animation: orb-wobble-2 11s ease-in-out infinite; }
+  .orb-wobble-3 { animation: orb-wobble-3 14s ease-in-out infinite; }
+
+  /* Ribbon base — a ring created via radial-gradient mask on a conic-gradient.
+     The conic-gradient provides smoothly varying brightness around the ring.
+     Its angle animates independently of the ring's Z-spin, so the bright
+     "hot spot" crawls around the band — creating the morphing effect. */
+  .orb-ribbon {
+    position: absolute;
+    border-radius: 50%;
+    will-change: transform;
+    mix-blend-mode: screen;
+  }
+
+  /* ::after = bloom glow halo (same technique, wider ring, heavy blur) */
+  .orb-ribbon::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+  }
+
+  /* --- RIBBON 1: Wide sweeping oval — the dominant band ---
+     Asymmetric inset → elliptical path. Offset center. */
+  .orb-ribbon-1 {
+    inset: -6% -16% -8% -4%;
+    background: conic-gradient(
+      from var(--glow-angle-1),
+      rgba(255, 215, 150, 0.95) 0deg,
+      rgba(255, 179, 71, 0.5) 60deg,
+      rgba(255, 130, 0, 0.04) 140deg,
+      rgba(255, 130, 0, 0.02) 220deg,
+      rgba(255, 179, 71, 0.35) 300deg,
+      rgba(255, 215, 150, 0.95) 360deg
+    );
+    -webkit-mask: radial-gradient(ellipse, transparent 60%, black 63%, black 69%, transparent 72%);
+    mask: radial-gradient(ellipse, transparent 60%, black 63%, black 69%, transparent 72%);
+    animation: orb-spin 6.5s linear infinite, orb-glow-shift-1 8s linear infinite;
+  }
+  .orb-ribbon-1::after {
+    inset: -14px;
+    background: conic-gradient(
+      from var(--glow-angle-1),
+      rgba(255, 179, 71, 0.5) 0deg,
+      rgba(255, 159, 10, 0.15) 90deg,
+      transparent 180deg,
+      rgba(255, 159, 10, 0.08) 270deg,
+      rgba(255, 179, 71, 0.5) 360deg
+    );
+    -webkit-mask: radial-gradient(ellipse, transparent 44%, black 48%, black 58%, transparent 62%);
+    mask: radial-gradient(ellipse, transparent 44%, black 48%, black 58%, transparent 62%);
+    filter: blur(14px);
+  }
+
+  /* --- RIBBON 2: Tighter rounder arc — crosses ribbon 1 ---
+     More circular shape, offset upward. Reverse spin. */
+  .orb-ribbon-2 {
+    inset: -10% -6% -3% -7%;
+    background: conic-gradient(
+      from var(--glow-angle-2),
+      rgba(255, 159, 10, 0.92) 0deg,
+      rgba(255, 200, 120, 0.4) 70deg,
+      rgba(255, 130, 0, 0.03) 150deg,
+      rgba(255, 130, 0, 0.01) 230deg,
+      rgba(255, 139, 0, 0.3) 310deg,
+      rgba(255, 159, 10, 0.92) 360deg
+    );
+    -webkit-mask: radial-gradient(ellipse, transparent 62%, black 65%, black 70%, transparent 73%);
+    mask: radial-gradient(ellipse, transparent 62%, black 65%, black 70%, transparent 73%);
+    animation: orb-spin 8s linear infinite reverse, orb-glow-shift-2 11s linear infinite;
+  }
+  .orb-ribbon-2::after {
+    inset: -12px;
+    background: conic-gradient(
+      from var(--glow-angle-2),
+      rgba(255, 139, 0, 0.4) 0deg,
+      rgba(255, 139, 0, 0.1) 100deg,
+      transparent 200deg,
+      rgba(255, 179, 71, 0.12) 300deg,
+      rgba(255, 139, 0, 0.4) 360deg
+    );
+    -webkit-mask: radial-gradient(ellipse, transparent 48%, black 52%, black 60%, transparent 64%);
+    mask: radial-gradient(ellipse, transparent 48%, black 52%, black 60%, transparent 64%);
+    filter: blur(16px);
+  }
+
+  /* --- RIBBON 3: Narrow steep ellipse — faint accent for depth ---
+     Very elongated, wide orbit, subtler. */
+  .orb-ribbon-3 {
+    inset: -18% -7% -12% -9%;
+    background: conic-gradient(
+      from var(--glow-angle-3),
+      rgba(192, 116, 0, 0.4) 0deg,
+      rgba(192, 116, 0, 0.12) 80deg,
+      rgba(139, 85, 0, 0.02) 160deg,
+      transparent 240deg,
+      rgba(139, 85, 0, 0.1) 310deg,
+      rgba(192, 116, 0, 0.4) 360deg
+    );
+    -webkit-mask: radial-gradient(ellipse, transparent 64%, black 67%, black 71%, transparent 74%);
+    mask: radial-gradient(ellipse, transparent 64%, black 67%, black 71%, transparent 74%);
+    animation: orb-spin 11s linear infinite, orb-glow-shift-3 15s linear infinite;
+  }
+  .orb-ribbon-3::after {
+    inset: -16px;
+    background: conic-gradient(
+      from var(--glow-angle-3),
+      rgba(192, 116, 0, 0.2) 0deg,
+      rgba(139, 85, 0, 0.05) 120deg,
+      transparent 240deg,
+      rgba(192, 116, 0, 0.2) 360deg
+    );
+    -webkit-mask: radial-gradient(ellipse, transparent 50%, black 54%, black 62%, transparent 66%);
+    mask: radial-gradient(ellipse, transparent 50%, black 54%, black 62%, transparent 66%);
+    filter: blur(22px);
+    opacity: 0.7;
+  }
+
+  /* === KEYFRAMES === */
+
+  /* Breathing pulse */
+  @keyframes orb-breathe {
+    0%, 100% { transform: scale(1); filter: brightness(1); }
+    50%      { transform: scale(1.02); filter: brightness(1.1); }
+  }
+
+  /* Ring Z-spin */
+  @keyframes orb-spin {
+    from { transform: rotateZ(0deg); }
+    to   { transform: rotateZ(360deg); }
+  }
+
+  /* Brightness zone rotation — animates the conic-gradient angle
+     independently of the ring spin, making the hot spot crawl
+     around the band at a different rate = morphing effect */
+  @keyframes orb-glow-shift-1 {
+    from { --glow-angle-1: 0deg; }
+    to   { --glow-angle-1: 360deg; }
+  }
+  @keyframes orb-glow-shift-2 {
+    from { --glow-angle-2: 120deg; }
+    to   { --glow-angle-2: 480deg; }
+  }
+  @keyframes orb-glow-shift-3 {
+    from { --glow-angle-3: 240deg; }
+    to   { --glow-angle-3: 600deg; }
+  }
+
+  /* Wobble — tilt plane oscillation */
+  @keyframes orb-wobble-1 {
+    0%   { transform: rotateX(65deg) rotateY(10deg); }
+    25%  { transform: rotateX(70deg) rotateY(6deg); }
+    50%  { transform: rotateX(63deg) rotateY(14deg); }
+    75%  { transform: rotateX(68deg) rotateY(8deg); }
+    100% { transform: rotateX(65deg) rotateY(10deg); }
+  }
+  @keyframes orb-wobble-2 {
+    0%   { transform: rotateX(48deg) rotateY(-32deg); }
+    33%  { transform: rotateX(53deg) rotateY(-28deg); }
+    66%  { transform: rotateX(45deg) rotateY(-36deg); }
+    100% { transform: rotateX(48deg) rotateY(-32deg); }
+  }
+  @keyframes orb-wobble-3 {
+    0%   { transform: rotateX(76deg) rotateY(22deg); }
+    50%  { transform: rotateX(72deg) rotateY(28deg); }
+    100% { transform: rotateX(76deg) rotateY(22deg); }
+  }
+
+  .orb-greeting {
+    margin-top: var(--space-3xl);
+    text-align: center;
+  }
+
+  .orb-greeting .greeting-small {
+    font-size: 15px;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-xs);
+  }
+
+  .orb-greeting .greeting-large {
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.25;
+  }
+
+  .orb-input {
+    margin-top: var(--space-3xl);
+    width: 360px;
+  }
+
+  /* ============================================
+     9. NAVIGATION DEMO
+     ============================================ */
+  .nav-demo {
+    display: flex;
+    gap: var(--space-2xl);
+  }
+
+  .nav-sidebar-demo {
+    width: 64px;
+    background: var(--bg-base);
+    border: 0.5px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg) 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-md);
+    backdrop-filter: blur(24px);
+  }
+
+  .nav-sidebar-demo .logo {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: radial-gradient(circle, var(--amber-400), var(--amber-600));
+    box-shadow: 0 0 12px rgba(255, 159, 10, 0.3);
+    margin-bottom: var(--space-sm);
+  }
+
+  .nav-sidebar-demo .divider {
+    width: 24px;
+    height: 0.5px;
+    background: var(--border-divider);
+  }
+
+  .nav-sidebar-demo .nav-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    font-size: 16px;
+    cursor: pointer;
+    transition: all var(--motion-fast);
+    position: relative;
+    border: none;
+    background: none;
+  }
+
+  .nav-sidebar-demo .nav-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .nav-sidebar-demo .nav-btn.active {
+    color: var(--amber-400);
+    background: rgba(255, 159, 10, 0.12);
+    border: 0.5px solid var(--border-accent);
+  }
+
+  .nav-sidebar-demo .nav-btn.active::before {
+    content: '';
+    position: absolute;
+    left: -14px;
+    width: 3px;
+    height: 14px;
+    border-radius: 2px;
+    background: linear-gradient(180deg, #FFB900, #FF8904);
+  }
+
+  .nav-labels {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding-top: 72px;
+    gap: 20px;
+  }
+
+  .nav-label-row {
+    height: 36px;
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+  }
+
+  .nav-label-text {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .nav-label-shortcut {
+    font-size: 11px;
+    font-family: 'SF Mono', monospace;
+    color: var(--text-tertiary);
+    background: var(--bg-elevated);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 0.5px solid var(--border-subtle);
+  }
+
+  /* Avatar at bottom */
+  .nav-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--amber-500), var(--amber-700));
+    border: 1.5px solid var(--border-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-top: auto;
+    cursor: pointer;
+  }
+
+  /* ============================================
+     10. ANIMATION STATES
+     ============================================ */
+  .states-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-lg);
+  }
+
+  .state-demo {
+    background: var(--bg-surface);
+    border: 0.5px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: var(--space-2xl);
+    text-align: center;
+  }
+
+  .state-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-lg);
+  }
+
+  .state-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-xl);
+    border-radius: var(--radius-md);
+    background: var(--amber-400);
+    color: var(--text-inverse);
+    font-size: 14px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    transition: transform var(--motion-fast) cubic-bezier(0.2, 0, 0, 1), opacity var(--motion-fast);
+  }
+
+  .state-button:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(255, 159, 10, 0.25); }
+  .state-button:active { transform: scale(0.93); opacity: 0.8; }
+
+  .state-button.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  .state-button.loading {
+    position: relative;
+    color: transparent;
+  }
+
+  .state-button.loading::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--text-inverse);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .focus-ring-demo {
+    border: 2px solid var(--border-accent);
+    box-shadow: 0 0 0 4px rgba(255, 159, 10, 0.2), 0 0 20px rgba(255, 159, 10, 0.12);
+  }
+
+  /* Hover card interactive */
+  .hover-card-demo {
+    background: var(--bg-elevated);
+    border: 0.5px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    transition: all var(--motion-normal);
+    cursor: pointer;
+  }
+
+  .hover-card-demo:hover {
+    border-color: var(--border-strong);
+    box-shadow: 0 0 32px rgba(255, 159, 10, 0.1), 0 0 60px rgba(255, 159, 10, 0.04);
+    transform: scale(1.01) translateY(-2px);
+  }
+
+  /* ============================================
+     11. HEALTH & TRADING TOKENS
+     ============================================ */
+  .token-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--space-sm);
+  }
+
+  .token-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+    background: var(--bg-elevated);
+    border-radius: var(--radius-sm);
+    border: 0.5px solid var(--border-subtle);
+  }
+
+  .token-dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+
+  .token-info {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .token-name {
+    font-size: 11px;
+    font-family: 'SF Mono', monospace;
+    color: var(--text-secondary);
+  }
+
+  .token-hex-label {
+    font-size: 10px;
+    font-family: 'SF Mono', monospace;
+    color: var(--text-tertiary);
+  }
+
+  /* ============================================
+     RESPONSIVE
+     ============================================ */
+  @media (max-width: 900px) {
+    .philosophy-grid { grid-template-columns: 1fr; }
+    .component-showcase { grid-template-columns: 1fr; }
+    .states-grid { grid-template-columns: 1fr; }
+    .glass-demo-container { display: none; }
+  }
+
+  /* Shimmer animation */
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  .shimmer-bar {
+    height: 14px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--bg-elevated) 25%, rgba(255, 159, 10, 0.06) 50%, var(--bg-elevated) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- ========== HEADER ========== -->
+  <header class="page-header">
+    <h1 class="brand-title">Hestia</h1>
+    <p class="brand-subtitle">Liquid Glass Design System</p>
+    <span class="version-badge">v1.0 — March 2026</span>
+  </header>
+
+  <!-- ========== 1. PHILOSOPHY ========== -->
+  <section class="section">
+    <div class="section-label">01 — Philosophy</div>
+    <h2 class="section-title">Three Pillars</h2>
+    <p class="section-desc">
+      Notion for architecture. Apple for aesthetics. Dark-first, amber-accented, generous with space.
+    </p>
+
+    <div class="philosophy-grid">
+      <div class="philosophy-card">
+        <div class="number">01</div>
+        <h3>Content Elevation</h3>
+        <p>Glass and translucency push content forward, not decorate. Every surface, border, and glow serves hierarchy — making the important things unmissable and the chrome invisible.</p>
+      </div>
+      <div class="philosophy-card">
+        <div class="number">02</div>
+        <h3>Warmth Through Restraint</h3>
+        <p>Amber is used surgically — active states, tinted glass, subtle glow. The dominant visual is deep dark with luminous punctuation, not an amber wash.</p>
+      </div>
+      <div class="philosophy-card">
+        <div class="number">03</div>
+        <h3>Breathing Room</h3>
+        <p>Generous negative space between elements. Cards float, don't stack. Text has room to read. The app should feel like it has less on screen than it actually does.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 2. COLORS ========== -->
+  <section class="section">
+    <div class="section-label">02 — Color System</div>
+    <h2 class="section-title">Background Tiers</h2>
+    <p class="section-desc">Near-black with warm brown undertones. Each tier ~3-5% lighter than the one below.</p>
+
+    <div class="bg-tier-demo">
+      <div class="bg-tier" style="background: var(--bg-base)">
+        <span class="tier-label">bg.base</span>
+        <span class="tier-hex">#080503</span>
+      </div>
+      <div class="bg-tier" style="background: var(--bg-surface)">
+        <span class="tier-label">bg.surface</span>
+        <span class="tier-hex">#0D0802</span>
+      </div>
+      <div class="bg-tier" style="background: var(--bg-elevated)">
+        <span class="tier-label">bg.elevated</span>
+        <span class="tier-hex">#110B03</span>
+      </div>
+      <div class="bg-tier" style="background: var(--bg-overlay)">
+        <span class="tier-label">bg.overlay</span>
+        <span class="tier-hex">#1A1005</span>
+      </div>
+      <div class="bg-tier" style="background: var(--bg-input)">
+        <span class="tier-label">bg.input</span>
+        <span class="tier-hex">#1E1308</span>
+      </div>
+    </div>
+
+    <div class="color-group">
+      <div class="color-group-title">Amber Spectrum — Primary Accent</div>
+      <div class="swatch-row">
+        <div class="swatch"><div class="swatch-color" style="background: var(--amber-50)"></div><div class="swatch-name">amber.50</div><div class="swatch-hex">#FFF5E6</div></div>
+        <div class="swatch"><div class="swatch-color" style="background: var(--amber-100)"></div><div class="swatch-name">amber.100</div><div class="swatch-hex">#FFE0B2</div></div>
+        <div class="swatch"><div class="swatch-color" style="background: var(--amber-200)"></div><div class="swatch-name">amber.200</div><div class="swatch-hex">#FFCA80</div></div>
+        <div class="swatch"><div class="swatch-color" style="background: var(--amber-300)"></div><div class="swatch-name">amber.300</div><div class="swatch-hex">#FFB347</div></div>
+        <div class="swatch"><div class="swatch-color" style="background: var(--amber-400); border: 1.5px solid rgba(255,159,10,0.4)"></div><div class="swatch-name" style="color: var(--amber-400); font-weight: 600">amber.400 ★</div><div class="swatch-hex">#FF9F0A</div></div>
+        <div class="swatch"><div class="swatch-color" style="background: var(--amber-500)"></div><div class="swatch-name">amber.500</div><div class="swatch-hex">#E08A00</div></div>
+        <div class="swatch"><div class="swatch-color" style="background: var(--amber-600)"></div><div class="swatch-name">amber.600</div><div class="swatch-hex">#C07400</div></div>
+        <div class="swatch"><div class="swatch-color" style="background: var(--amber-700)"></div><div class="swatch-name">amber.700</div><div class="swatch-hex">#8B5500</div></div>
+      </div>
+    </div>
+
+    <div class="color-group">
+      <div class="color-group-title">Green — Secondary Accent (status only)</div>
+      <div class="swatch-row">
+        <div class="swatch"><div class="swatch-color" style="background: var(--green-300)"></div><div class="swatch-name">green.300</div><div class="swatch-hex">#72F69E</div></div>
+        <div class="swatch"><div class="swatch-color" style="background: var(--green-400); border: 1px solid rgba(52,199,89,0.3)"></div><div class="swatch-name" style="color: var(--green-400); font-weight: 600">green.400 ★</div><div class="swatch-hex">#34C759</div></div>
+        <div class="swatch"><div class="swatch-color" style="background: var(--green-500)"></div><div class="swatch-name">green.500</div><div class="swatch-hex">#2CC295</div></div>
+        <div class="swatch"><div class="swatch-color" style="background: var(--green-600)"></div><div class="swatch-name">green.600</div><div class="swatch-hex">#00A86B</div></div>
+      </div>
+    </div>
+
+    <div class="color-group">
+      <div class="color-group-title">Semantic Status</div>
+      <div class="swatch-row">
+        <div class="swatch"><div class="swatch-color" style="background: var(--status-healthy)"></div><div class="swatch-name">healthy</div><div class="swatch-hex">#34C759</div></div>
+        <div class="swatch"><div class="swatch-color" style="background: var(--status-warning)"></div><div class="swatch-name">warning</div><div class="swatch-hex">#FF9F0A</div></div>
+        <div class="swatch"><div class="swatch-color" style="background: var(--status-error)"></div><div class="swatch-name">error</div><div class="swatch-hex">#FF453A</div></div>
+        <div class="swatch"><div class="swatch-color" style="background: var(--status-info)"></div><div class="swatch-name">info</div><div class="swatch-hex">#0A84FF</div></div>
+        <div class="swatch"><div class="swatch-color" style="background: var(--status-neutral)"></div><div class="swatch-name">neutral</div><div class="swatch-hex">#8E8E93</div></div>
+      </div>
+    </div>
+
+    <div class="color-group">
+      <div class="color-group-title">Health & Trading</div>
+      <div class="swatch-row">
+        <div class="swatch"><div class="swatch-color" style="background: var(--health-green)"></div><div class="swatch-name">health.green</div><div class="swatch-hex">#00D492</div></div>
+        <div class="swatch"><div class="swatch-color" style="background: var(--health-red)"></div><div class="swatch-name">health.red</div><div class="swatch-hex">#FF6467</div></div>
+        <div class="swatch"><div class="swatch-color" style="background: var(--health-gold)"></div><div class="swatch-name">health.gold</div><div class="swatch-hex">#FEE685</div></div>
+        <div class="swatch"><div class="swatch-color" style="background: var(--health-sleep)"></div><div class="swatch-name">health.sleep</div><div class="swatch-hex">#8B5CF6</div></div>
+        <div class="swatch"><div class="swatch-color" style="background: var(--trading-cyan)"></div><div class="swatch-name">trading.cyan</div><div class="swatch-hex">#00D7FF</div></div>
+        <div class="swatch"><div class="swatch-color" style="background: var(--trading-positive)"></div><div class="swatch-name">trading.pos</div><div class="swatch-hex">#00FFB2</div></div>
+      </div>
+    </div>
+
+    <div class="color-group">
+      <div class="color-group-title">Borders & Glow</div>
+      <div class="border-demo">
+        <div class="border-sample border-subtle-demo"><span class="b-label">subtle</span><span class="b-value">6%</span></div>
+        <div class="border-sample border-default-demo"><span class="b-label">default</span><span class="b-value">12%</span></div>
+        <div class="border-sample border-strong-demo"><span class="b-label">strong</span><span class="b-value">20%</span></div>
+        <div class="border-sample border-accent-demo"><span class="b-label">accent</span><span class="b-value">40%</span></div>
+        <div class="border-sample border-glow-demo"><span class="b-label">glow</span><span class="b-value">8% + blur</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 3. TYPOGRAPHY ========== -->
+  <section class="section">
+    <div class="section-label">03 — Typography</div>
+    <h2 class="section-title">Type Scale</h2>
+    <p class="section-desc">SF Pro throughout. Volkhov-Bold reserved for brand wordmark only.</p>
+
+    <div class="type-specimen">
+      <div class="type-row">
+        <div class="type-meta"><div class="type-token">type.hero</div><div class="type-spec">32pt Semibold</div></div>
+        <div class="type-sample type-hero">Dashboard Hero</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta"><div class="type-token">type.title</div><div class="type-spec">22pt Semibold</div></div>
+        <div class="type-sample type-title">Command Center</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta"><div class="type-token">type.heading</div><div class="type-spec">18pt Medium</div></div>
+        <div class="type-sample type-heading">Activity Feed</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta"><div class="type-token">type.subheading</div><div class="type-spec">15pt Medium</div></div>
+        <div class="type-sample type-subheading">Trading Bot Status</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta"><div class="type-token">type.body</div><div class="type-spec">14pt Regular</div></div>
+        <div class="type-sample type-body">The quick brown fox jumps over the lazy dog. Body text for cards, descriptions, and general content.</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta"><div class="type-token">type.bodyMedium</div><div class="type-spec">14pt Medium</div></div>
+        <div class="type-sample type-body-medium">Emphasized body text without using bold weight.</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta"><div class="type-token">type.caption</div><div class="type-spec">12pt Regular</div></div>
+        <div class="type-sample type-caption">Last updated 2 hours ago · 4 active bots</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta"><div class="type-token">type.sectionLabel</div><div class="type-spec">11pt Semibold Upper</div></div>
+        <div class="type-sample type-section-label">SYSTEM STATUS</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta"><div class="type-token">type.micro</div><div class="type-spec">10pt Medium</div></div>
+        <div class="type-sample type-micro">Chart axis labels and fine print</div>
+      </div>
+      <div class="type-row">
+        <div class="type-meta"><div class="type-token">type.code</div><div class="type-spec">13pt Mono</div></div>
+        <div class="type-sample type-code">const endpoint = "/v1/trading/bots"</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 4. SPACING ========== -->
+  <section class="section">
+    <div class="section-label">04 — Spacing & Radii</div>
+    <h2 class="section-title">8pt Rhythm</h2>
+    <p class="section-desc">Consistent spacing scale from 4pt to 32pt. Corner radii from 8pt (badges) to capsule (inputs).</p>
+
+    <div class="spacing-demo">
+      <div class="spacing-item"><div class="spacing-bar" style="height: 16px"></div><span class="spacing-label">xs</span><span class="spacing-value">4pt</span></div>
+      <div class="spacing-item"><div class="spacing-bar" style="height: 32px"></div><span class="spacing-label">sm</span><span class="spacing-value">8pt</span></div>
+      <div class="spacing-item"><div class="spacing-bar" style="height: 48px"></div><span class="spacing-label">md</span><span class="spacing-value">12pt</span></div>
+      <div class="spacing-item"><div class="spacing-bar" style="height: 64px"></div><span class="spacing-label">lg</span><span class="spacing-value">16pt</span></div>
+      <div class="spacing-item"><div class="spacing-bar" style="height: 80px"></div><span class="spacing-label">xl</span><span class="spacing-value">20pt</span></div>
+      <div class="spacing-item"><div class="spacing-bar" style="height: 96px"></div><span class="spacing-label">2xl</span><span class="spacing-value">24pt</span></div>
+      <div class="spacing-item"><div class="spacing-bar" style="height: 128px"></div><span class="spacing-label">3xl</span><span class="spacing-value">32pt</span></div>
+    </div>
+
+    <div class="radii-demo">
+      <div class="radius-item"><div class="radius-shape" style="border-radius: var(--radius-sm)"></div><span class="radius-label">sm</span><span class="radius-val">8pt</span></div>
+      <div class="radius-item"><div class="radius-shape" style="border-radius: var(--radius-md)"></div><span class="radius-label">md</span><span class="radius-val">12pt</span></div>
+      <div class="radius-item"><div class="radius-shape" style="border-radius: var(--radius-lg)"></div><span class="radius-label">lg</span><span class="radius-val">16pt</span></div>
+      <div class="radius-item"><div class="radius-shape" style="border-radius: var(--radius-xl)"></div><span class="radius-label">xl</span><span class="radius-val">20pt</span></div>
+      <div class="radius-item"><div class="radius-shape" style="border-radius: var(--radius-pill); width: 96px"></div><span class="radius-label">pill</span><span class="radius-val">capsule</span></div>
+      <div class="radius-item"><div class="radius-shape" style="border-radius: 50%"></div><span class="radius-label">circle</span><span class="radius-val">50%</span></div>
+    </div>
+  </section>
+
+  <!-- ========== 5. GLASS LAYOUT ========== -->
+  <section class="section">
+    <div class="section-label">05 — Glass Layout</div>
+    <h2 class="section-title">App Shell</h2>
+    <p class="section-desc">
+      64pt translucent sidebar + flexible content + 340pt chat panel. Hybrid glass:
+      real translucency on edges, simulated on content areas.
+    </p>
+
+    <div class="glass-demo-container">
+      <!-- Sidebar -->
+      <div class="glass-panel glass-sidebar">
+        <div class="sidebar-logo"></div>
+        <div class="sidebar-divider"></div>
+        <div class="nav-icon active">⌂</div>
+        <div class="nav-icon">⚡</div>
+        <div class="nav-icon">◎</div>
+        <div class="nav-icon">⌕</div>
+        <div style="flex:1"></div>
+        <div class="nav-avatar" style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--amber-500),var(--amber-700));display:flex;align-items:center;justify-content:center;font-size:10px;border:1px solid var(--border-accent);margin-bottom:var(--space-lg)">A</div>
+      </div>
+
+      <!-- Content -->
+      <div class="glass-panel glass-content">
+        <div class="glass-content-title">Command Center</div>
+        <div class="glass-card-row">
+          <div class="glass-mini-card">
+            <div class="card-label">SYSTEM</div>
+            <div style="display:flex;align-items:center;gap:8px"><div class="card-value">All Clear</div><span class="glass-badge healthy" style="font-size:11px;padding:2px 6px"><span class="dot" style="width:6px;height:6px"></span>Healthy</span></div>
+          </div>
+          <div class="glass-mini-card">
+            <div class="card-label">TRADING</div>
+            <div class="card-value">4 Bots</div>
+            <div class="card-sub">+$12.40 today</div>
+          </div>
+          <div class="glass-mini-card">
+            <div class="card-label">ORDERS</div>
+            <div class="card-value">3 Active</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:2px">Next: 2:00 PM</div>
+          </div>
+        </div>
+        <div style="flex:1; display:flex;flex-direction:column;gap:8px">
+          <div style="font-size:13px;font-weight:500;color:var(--text-secondary)">Activity</div>
+          <div class="shimmer-bar" style="width: 80%"></div>
+          <div class="shimmer-bar" style="width: 65%"></div>
+          <div class="shimmer-bar" style="width: 72%"></div>
+        </div>
+      </div>
+
+      <!-- Chat -->
+      <div class="glass-panel glass-chat">
+        <div class="glass-chat-header">Hestia</div>
+        <div class="chat-messages">
+          <div class="chat-bubble ai">Good morning, Andrew. Trading bots are running normally. 4 fills overnight.</div>
+          <div class="chat-bubble user">Show me the P&L</div>
+          <div class="chat-bubble ai">Here's today's summary: BTC +$4.20, ETH +$3.10, SOL +$2.80, DOGE +$2.30.</div>
+        </div>
+        <div class="chat-input-bar">
+          <input type="text" placeholder="Ask anything..." />
+          <button class="send-btn">↑</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 6. COMPONENTS ========== -->
+  <section class="section">
+    <div class="section-label">06 — Glass Components</div>
+    <h2 class="section-title">Component Library</h2>
+    <p class="section-desc">Reusable building blocks with consistent glass styling, hover states, and press interactions.</p>
+
+    <div class="component-showcase">
+      <!-- GlassCard -->
+      <div class="component-item">
+        <div class="component-name">HestiaGlassCard</div>
+        <div style="display:flex; flex-direction:column; gap: var(--space-md)">
+          <div class="glass-card">
+            <div class="card-section-label">DEFAULT</div>
+            <div class="card-title">Trading Bot: BTC-USD</div>
+            <div class="card-body">Mean Reversion strategy. Running since Mar 24.</div>
+            <div class="card-actions">
+              <span class="glass-pill amber">⚡ View Details</span>
+              <span class="glass-pill green">● Running</span>
+            </div>
+          </div>
+          <div class="glass-card accent">
+            <div class="card-section-label">ACCENT VARIANT</div>
+            <div class="card-title">Active Order: Morning Briefing</div>
+            <div class="card-body">Scheduled daily at 7:00 AM. Next run in 3h 20m.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GlassInput -->
+      <div class="component-item">
+        <div class="component-name">HestiaGlassInput</div>
+        <div style="display:flex; flex-direction:column; gap: var(--space-lg)">
+          <div class="glass-input">
+            <span class="input-icon">⌕</span>
+            <input type="text" placeholder="Search memory..." />
+          </div>
+          <div class="glass-input" style="border-color: var(--border-accent); box-shadow: 0 0 12px rgba(255,159,10,0.08)">
+            <span class="input-icon" style="color: var(--amber-400)">⌕</span>
+            <input type="text" placeholder="Focused state" value="trading bots" />
+          </div>
+          <div>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px">Command Palette (⌘K)</div>
+            <div class="glass-input" style="background: var(--bg-overlay)">
+              <span class="input-icon">⌘</span>
+              <input type="text" placeholder="Type a command..." />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GlassPill & GlassBadge -->
+      <div class="component-item">
+        <div class="component-name">HestiaGlassPill + HestiaGlassBadge</div>
+        <div style="display:flex; flex-direction:column; gap: var(--space-xl)">
+          <div>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px">Pills (tinted actions)</div>
+            <div style="display:flex; gap: var(--space-sm); flex-wrap: wrap">
+              <span class="glass-pill amber">⚡ New Order</span>
+              <span class="glass-pill green">● Start Bot</span>
+              <span class="glass-pill blue">↗ Open Chat</span>
+              <span class="glass-pill red">■ Kill Switch</span>
+            </div>
+          </div>
+          <div>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px">Badges (status indicators)</div>
+            <div style="display:flex; gap: var(--space-sm); flex-wrap: wrap">
+              <span class="glass-badge healthy"><span class="dot"></span>Healthy</span>
+              <span class="glass-badge warning"><span class="dot"></span>Degraded</span>
+              <span class="glass-badge error"><span class="dot"></span>Error</span>
+              <span class="glass-badge neutral"><span class="dot"></span>Offline</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GlassSettingsBlock -->
+      <div class="component-item">
+        <div class="component-name">HestiaGlassSettingsBlock</div>
+        <div class="component-stack">
+          <div class="glass-settings-block">
+            <div class="block-icon amber"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/></svg></div>
+            <div class="block-text">
+              <div class="block-title">Profile</div>
+              <div class="block-subtitle">Name, bio, timezone, notifications</div>
+            </div>
+            <span class="block-chevron">▸</span>
+          </div>
+          <div class="glass-settings-block">
+            <div class="block-icon amber"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4m-7.07-3.93 2.83-2.83m8.48-8.48 2.83-2.83M2 12h4m12 0h4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83"/></svg></div>
+            <div class="block-text">
+              <div class="block-title">Agents</div>
+              <div class="block-subtitle">Hestia configuration and model routing</div>
+            </div>
+            <span class="block-chevron">▸</span>
+          </div>
+          <div class="glass-settings-block">
+            <div class="block-icon green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 12h.01M8 12h.01M16 12h.01"/></svg></div>
+            <div class="block-text">
+              <div class="block-title">Integrations</div>
+              <div class="block-subtitle">Cloud APIs, devices, Coinbase, Alpaca</div>
+            </div>
+            <span class="block-chevron">▸</span>
+          </div>
+          <div class="glass-settings-block">
+            <div class="block-icon blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg></div>
+            <div class="block-text">
+              <div class="block-title">Field Guide</div>
+              <div class="block-subtitle">Architecture docs, API reference, ADRs</div>
+            </div>
+            <span class="block-chevron">▸</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 7. INTERACTION STATES ========== -->
+  <section class="section">
+    <div class="section-label">07 — Interaction States</div>
+    <h2 class="section-title">Motion & Feedback</h2>
+    <p class="section-desc">Spring animations, press scale, focus rings, and loading shimmer. Try clicking the buttons.</p>
+
+    <div class="states-grid">
+      <div class="state-demo">
+        <div class="state-label">Default → Hover → Press</div>
+        <button class="state-button">New Order</button>
+      </div>
+      <div class="state-demo">
+        <div class="state-label">Disabled</div>
+        <button class="state-button disabled">Unavailable</button>
+      </div>
+      <div class="state-demo">
+        <div class="state-label">Loading</div>
+        <button class="state-button loading">Searching</button>
+      </div>
+      <div class="state-demo">
+        <div class="state-label">Focus Ring</div>
+        <button class="state-button focus-ring-demo">Focused</button>
+      </div>
+      <div class="state-demo">
+        <div class="state-label">Card Hover (try it)</div>
+        <div class="hover-card-demo">
+          <div style="font-size:14px;font-weight:500;margin-bottom:4px">Interactive Card</div>
+          <div style="font-size:12px;color:var(--text-secondary)">Hover for glow + scale</div>
+        </div>
+      </div>
+      <div class="state-demo">
+        <div class="state-label">Shimmer Loading</div>
+        <div style="display:flex;flex-direction:column;gap:8px;padding:12px">
+          <div class="shimmer-bar" style="width: 60%"></div>
+          <div class="shimmer-bar" style="width: 80%"></div>
+          <div class="shimmer-bar" style="width: 45%"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 8. NAVIGATION ========== -->
+  <section class="section">
+    <div class="section-label">08 — Navigation</div>
+    <h2 class="section-title">5-Tab Sidebar</h2>
+    <p class="section-desc">Icon sidebar with active indicator pill, keyboard shortcuts, and settings avatar.</p>
+
+    <div class="nav-demo">
+      <div class="nav-sidebar-demo">
+        <div class="logo"></div>
+        <div class="divider"></div>
+        <button class="nav-btn active">⌂</button>
+        <button class="nav-btn">⚡</button>
+        <button class="nav-btn">◎</button>
+        <button class="nav-btn">⌕</button>
+        <div style="flex:1"></div>
+        <div class="nav-avatar">A</div>
+      </div>
+      <div class="nav-labels">
+        <div class="nav-label-row"><span class="nav-label-text">Command</span><span class="nav-label-shortcut">⌘1</span></div>
+        <div class="nav-label-row"><span class="nav-label-text">Orders</span><span class="nav-label-shortcut">⌘2</span></div>
+        <div class="nav-label-row"><span class="nav-label-text">Memory</span><span class="nav-label-shortcut">⌘3</span></div>
+        <div class="nav-label-row"><span class="nav-label-text">Explorer</span><span class="nav-label-shortcut">⌘4</span></div>
+        <div style="flex:1"></div>
+        <div class="nav-label-row"><span class="nav-label-text">Settings</span><span class="nav-label-shortcut">⌘5</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 9. THE ORB ========== -->
+  <section class="section">
+    <div class="section-label">09 — The Orb</div>
+    <h2 class="section-title">Login & Loading</h2>
+    <p class="section-desc">Luminous amber orb as Hestia's visual identity. Breathing animation on idle. Login/loading screen only for v1.</p>
+
+    <div class="orb-demo">
+      <div class="orb">
+        <!-- Faint center glow — implies volume without blocking bands -->
+        <div class="orb-glow"></div>
+        <!-- Ribbon 1: wobble (tilt oscillation) > ribbon (Z spin + stroke + bloom) -->
+        <div class="orb-wobble orb-wobble-1">
+          <div class="orb-ribbon orb-ribbon-1"></div>
+        </div>
+        <!-- Ribbon 2 -->
+        <div class="orb-wobble orb-wobble-2">
+          <div class="orb-ribbon orb-ribbon-2"></div>
+        </div>
+        <!-- Ribbon 3 -->
+        <div class="orb-wobble orb-wobble-3">
+          <div class="orb-ribbon orb-ribbon-3"></div>
+        </div>
+      </div>
+      <div class="orb-greeting">
+        <div class="greeting-small">Hello Andrew</div>
+        <div class="greeting-large">How can I help<br>you today?</div>
+      </div>
+      <div class="orb-input">
+        <div class="glass-input" style="background: rgba(30, 19, 8, 0.7); backdrop-filter: blur(16px)">
+          <input type="text" placeholder="Ask anything..." />
+          <button class="send-btn" style="width:32px;height:32px;font-size:16px">↑</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== FOOTER ========== -->
+  <footer style="text-align:center; padding: 48px 0; border-top: 0.5px solid var(--border-divider)">
+    <div style="font-size: 13px; color: var(--text-tertiary)">
+      Hestia Liquid Glass Design System v1.0 — March 2026
+    </div>
+    <div style="font-size: 11px; color: var(--text-tertiary); margin-top: 4px">
+      Dark mode only · Single accent (amber) · Apple-native glass · 8pt rhythm
+    </div>
+  </footer>
+
+</div>
+
+</body>
+</html>
