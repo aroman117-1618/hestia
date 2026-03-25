@@ -1,4 +1,5 @@
 import SwiftUI
+import HestiaShared
 
 /// Type-appropriate detail panel for a selected graph node.
 /// Memory nodes show chunk content; topic/entity nodes show connected counts;
