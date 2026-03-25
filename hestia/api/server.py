@@ -933,9 +933,11 @@ def run_server(
         "port": port,
         "reload": reload,
         "log_level": log_level,
-        # Recycle worker after ~5000 requests to prevent memory leak accumulation.
+        # Recycle worker after N requests to prevent memory leak accumulation.
         # launchd KeepAlive restarts the process automatically.
-        "limit_max_requests": 5000,
+        # Set high enough that workflow executions (which generate many
+        # internal inference + tool calls) aren't interrupted mid-run.
+        "limit_max_requests": 50000,
     }
 
     if cert_path and key_path:
