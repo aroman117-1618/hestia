@@ -16,8 +16,8 @@ struct IconSidebar: View {
             VStack(spacing: 6) {
                 navIcon(.command, systemName: "house", shortcut: 1)
                     .padding(.top, MacSpacing.lg)
-                navIcon(.workflow, systemName: "bolt.fill", shortcut: 2)
-                navIcon(.research, systemName: "point.3.connected.trianglepath.dotted", shortcut: 3)
+                navIcon(.orders, systemName: "bolt.fill", shortcut: 2)
+                navIcon(.memory, systemName: "brain.head.profile", shortcut: 3)
                 navIcon(.explorer, systemName: "magnifyingglass", shortcut: 4)
             }
             .padding(.top, MacSpacing.xxl)
@@ -101,10 +101,9 @@ struct IconSidebar: View {
     private func accessibilityLabel(for view: WorkspaceView) -> String {
         switch view {
         case .command: "Command Center"
-        case .health: "Vitals"
-        case .research: "Memory"
+        case .orders: "Orders"
+        case .memory: "Memory"
         case .explorer: "Explorer"
-        case .workflow: "Orders"
         case .settings: "Settings"
         }
     }
@@ -142,7 +141,7 @@ struct IconSidebar: View {
                 Text("HS")
                     .font(.system(size: 11))
                     .tracking(0.065)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(MacColors.textPrimary)
             }
             .frame(width: MacSize.navIconButton, height: MacSize.navIconButton)
             .opacity(isHovered && !isActive ? 0.85 : 1.0)
