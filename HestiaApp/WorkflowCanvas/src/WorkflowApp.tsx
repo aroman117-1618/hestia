@@ -86,7 +86,7 @@ interface AddMenuState {
   afterNodeId?: string
 }
 
-export default function App() {
+export default function WorkflowApp() {
   const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<CanvasEdge>([])
   const [addMenu, setAddMenu] = useState<AddMenuState | null>(null)
