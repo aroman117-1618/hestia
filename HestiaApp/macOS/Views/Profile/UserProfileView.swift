@@ -9,21 +9,11 @@ struct UserProfileView: View {
             // Left: File/command sidebar
             profileSidebar
                 .frame(minWidth: 200, idealWidth: MacSize.fileSidebarWidth, maxWidth: 320)
-                .background(MacColors.panelBackground)
-                .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
-                .overlay {
-                    RoundedRectangle(cornerRadius: MacCornerRadius.panel)
-                        .strokeBorder(MacColors.cardBorder, lineWidth: 1)
-                }
+                .hestiaPanel()
 
             // Right: Content editor
             contentArea
-                .background(MacColors.panelBackground)
-                .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
-                .overlay {
-                    RoundedRectangle(cornerRadius: MacCornerRadius.panel)
-                        .strokeBorder(MacColors.cardBorder, lineWidth: 1)
-                }
+                .hestiaPanel()
         }
         .padding(MacSpacing.xl)
         .background(MacColors.windowBackground)

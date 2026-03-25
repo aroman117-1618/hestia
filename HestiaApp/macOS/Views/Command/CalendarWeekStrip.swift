@@ -66,12 +66,7 @@ struct CalendarWeekStrip: View {
             legendRow
         }
         .padding(MacSpacing.xl)
-        .background(MacColors.panelBackground)
-        .overlay {
-            RoundedRectangle(cornerRadius: MacCornerRadius.panel)
-                .strokeBorder(MacColors.cardBorder, lineWidth: 1)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
+        .hestiaPanel()
     }
 
     private func dayColumn(date: Date) -> some View {

@@ -10,12 +10,7 @@ struct MacCloudSettingsView: View {
             // Provider list (sidebar)
             providerList
                 .frame(minWidth: 200, idealWidth: MacSize.fileSidebarWidth, maxWidth: 320)
-                .background(MacColors.panelBackground)
-                .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
-                .overlay {
-                    RoundedRectangle(cornerRadius: MacCornerRadius.panel)
-                        .strokeBorder(MacColors.cardBorder, lineWidth: 1)
-                }
+                .hestiaPanel()
 
             // Detail pane
             if let provider = selectedProvider {
@@ -23,20 +18,10 @@ struct MacCloudSettingsView: View {
                     provider: provider,
                     viewModel: viewModel
                 )
-                .background(MacColors.panelBackground)
-                .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
-                .overlay {
-                    RoundedRectangle(cornerRadius: MacCornerRadius.panel)
-                        .strokeBorder(MacColors.cardBorder, lineWidth: 1)
-                }
+                .hestiaPanel()
             } else {
                 noSelectionView
-                    .background(MacColors.panelBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: MacCornerRadius.panel)
-                            .strokeBorder(MacColors.cardBorder, lineWidth: 1)
-                    }
+                    .hestiaPanel()
             }
         }
         .padding(MacSpacing.xl)

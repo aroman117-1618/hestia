@@ -39,12 +39,7 @@ struct ExplorerFilesView: View {
             // Bottom bar
             bottomBar
         }
-        .background(MacColors.panelBackground)
-        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
-        .overlay {
-            RoundedRectangle(cornerRadius: MacCornerRadius.panel)
-                .strokeBorder(MacColors.cardBorder, lineWidth: 1)
-        }
+        .hestiaPanel()
         .padding(.horizontal, MacSpacing.xl)
         .padding(.bottom, MacSpacing.xl)
         .task {

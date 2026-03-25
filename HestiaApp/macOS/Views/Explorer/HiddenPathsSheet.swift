@@ -36,12 +36,7 @@ struct HiddenPathsSheet: View {
             footer
         }
         .frame(width: 380, height: 420)
-        .background(MacColors.panelBackground)
-        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
-        .overlay {
-            RoundedRectangle(cornerRadius: MacCornerRadius.panel)
-                .strokeBorder(MacColors.cardBorder, lineWidth: 1)
-        }
+        .hestiaPanel()
     }
 
     // MARK: - Header

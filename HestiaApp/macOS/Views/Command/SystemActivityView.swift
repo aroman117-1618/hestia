@@ -494,11 +494,6 @@ struct CollapsibleSection<Content: View>: View {
                 }
             }
         }
-        .background(MacColors.panelBackground)
-        .overlay {
-            RoundedRectangle(cornerRadius: MacCornerRadius.panel)
-                .strokeBorder(MacColors.cardBorder, lineWidth: 1)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
+        .hestiaPanel()
     }
 }
