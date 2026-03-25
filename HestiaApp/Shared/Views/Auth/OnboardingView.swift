@@ -1,34 +1,51 @@
 #if os(iOS)
 import SwiftUI
 import HestiaShared
+import AuthenticationServices
 
-/// Multi-step onboarding flow for new device registration via QR code (iOS)
+/// Redesigned onboarding: dark atmospheric background, animated orb,
+/// Apple Sign In, smart server URL pre-fill, QR fallback.
 struct OnboardingView: View {
     @EnvironmentObject var authService: AuthService
     @EnvironmentObject var apiClientProvider: APIClientProvider
     @StateObject private var viewModel = OnboardingViewModel()
     @State private var isConfigured = false
+    @State private var showQRScanner = false
+    @State private var successOffset: CGFloat = 0
+    @State private var successOpacity: Double = 1.0
 
     var body: some View {
-        ZStack {
-            StaticGradientBackground(mode: .tia)
+        GeometryReader { geo in
+            ZStack {
+                OnboardingBackground()
 
-            switch viewModel.step {
-            case .welcome:
-                welcomeStep
+                switch viewModel.step {
+                case .welcome:
+                    welcomeStep(geo: geo)
+                        .transition(.opacity)
 
-            case .scanQR:
-                scanStep
+                case .appleSignIn:
+                    appleSignInStep(geo: geo)
+                        .transition(.opacity)
 
-            case .connecting:
-                connectingStep
+                case .serverURL:
+                    serverURLStep(geo: geo)
+                        .transition(.opacity)
 
-            case .success:
-                successStep
+                case .connecting:
+                    connectingStep(geo: geo)
+                        .transition(.opacity)
 
-            case .error(let message):
-                errorStep(message: message)
+                case .success:
+                    successStep(geo: geo)
+                        .transition(.opacity)
+
+                case .error(let message):
+                    errorStep(message: message, geo: geo)
+                        .transition(.opacity)
+                }
             }
+            .animation(.easeInOut(duration: 0.4), value: viewModel.step)
         }
         .onAppear {
             if !isConfigured {
@@ -36,138 +53,198 @@ struct OnboardingView: View {
                 isConfigured = true
             }
         }
+        .sheet(isPresented: $showQRScanner) {
+            QRScannerView { code in
+                showQRScanner = false
+                viewModel.handleScannedCode(code)
+            }
+        }
     }
 
     // MARK: - Welcome Step
 
-    private var welcomeStep: some View {
-        VStack(spacing: Spacing.xl) {
+    private func welcomeStep(geo: GeometryProxy) -> some View {
+        VStack(spacing: 0) {
             Spacer()
+                .frame(height: geo.size.height * 0.15)
 
-            LottieView(
-                animationName: "ai_blob",
-                fallbackSymbol: "brain.head.profile",
-                fallbackColor: .white.opacity(0.6)
-            )
-            .frame(width: Size.Avatar.xlarge, height: Size.Avatar.xlarge)
-            .shadow(color: .black.opacity(0.3), radius: 10, x: 0, y: 5)
+            // Orb — centered in upper portion
+            HestiaOrbView(state: viewModel.orbState, size: 150)
+                .frame(height: geo.size.height * 0.35)
 
+            // Title area
             VStack(spacing: Spacing.sm) {
                 Text("Hestia")
-                    .font(.greeting)
+                    .font(.system(size: 38, weight: .bold))
                     .foregroundColor(.white)
 
                 Text("Your personal AI assistant")
-                    .font(.subheading)
-                    .foregroundColor(.white.opacity(0.8))
+                    .font(.system(size: 16))
+                    .foregroundColor(.white.opacity(0.4))
             }
 
             Spacer()
 
-            VStack(spacing: Spacing.md) {
-                Text("Scan the QR code from your Hestia server to get started.")
-                    .font(.body)
-                    .foregroundColor(.white.opacity(0.7))
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, Spacing.lg)
-
-                Button {
-                    viewModel.startScanning()
-                } label: {
-                    HStack(spacing: Spacing.sm) {
-                        Image(systemName: "qrcode.viewfinder")
-                            .font(.system(size: 24))
-                        Text("Scan QR Code")
-                            .font(.buttonText)
-                    }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(Spacing.md)
-                    .background(Color.white.opacity(0.2))
-                    .cornerRadius(CornerRadius.button)
-                }
-                .accessibilityLabel("Scan QR code to connect to Hestia server")
+            // Get Started button — Liquid Glass pill
+            liquidGlassButton(title: "Get Started") {
+                viewModel.getStartedTapped()
             }
-
-            Spacer()
-                .frame(height: Spacing.xxl)
+            .padding(.bottom, geo.safeAreaInsets.bottom + 60)
         }
         .padding(.horizontal, Spacing.xl)
     }
 
-    // MARK: - Scan Step
+    // MARK: - Apple Sign In Step
 
-    private var scanStep: some View {
-        VStack(spacing: 0) {
-            // Header
-            HStack {
-                Button {
-                    viewModel.goBack()
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 18, weight: .medium))
+    private func appleSignInStep(geo: GeometryProxy) -> some View {
+        ZStack {
+            // Same layout as welcome, dimmed slightly
+            VStack(spacing: 0) {
+                Spacer()
+                    .frame(height: geo.size.height * 0.15)
+
+                HestiaOrbView(state: viewModel.orbState, size: 150)
+                    .frame(height: geo.size.height * 0.35)
+
+                VStack(spacing: Spacing.sm) {
+                    Text("Hestia")
+                        .font(.system(size: 38, weight: .bold))
                         .foregroundColor(.white)
+
+                    Text("Your personal AI assistant")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white.opacity(0.4))
                 }
-                .accessibilityLabel("Go back")
 
                 Spacer()
+            }
+            .padding(.horizontal, Spacing.xl)
 
-                Text("Scan QR Code")
-                    .font(.headline)
+            // Apple Sign In overlay at bottom
+            VStack {
+                Spacer()
+
+                VStack(spacing: Spacing.md) {
+                    Text("Sign in to get started")
+                        .font(.system(size: 15))
+                        .foregroundColor(.white.opacity(0.5))
+
+                    SignInWithAppleButton(.signIn) { request in
+                        request.requestedScopes = [.email, .fullName]
+                    } onCompletion: { result in
+                        viewModel.handleAppleSignIn(result: result)
+                    }
+                    .signInWithAppleButtonStyle(.white)
+                    .frame(height: 50)
+                    .cornerRadius(25)
+                    .padding(.horizontal, 40)
+
+                    Button {
+                        viewModel.goBack()
+                    } label: {
+                        Text("Cancel")
+                            .font(.system(size: 15))
+                            .foregroundColor(.white.opacity(0.4))
+                    }
+                    .padding(.top, Spacing.sm)
+                }
+                .padding(.bottom, geo.safeAreaInsets.bottom + 60)
+            }
+        }
+    }
+
+    // MARK: - Server URL Step
+
+    private func serverURLStep(geo: GeometryProxy) -> some View {
+        VStack(spacing: 0) {
+            Spacer()
+                .frame(height: geo.size.height * 0.15)
+
+            HestiaOrbView(state: .idle, size: 120)
+                .frame(height: geo.size.height * 0.28)
+
+            VStack(spacing: Spacing.sm) {
+                Text("Connect to Server")
+                    .font(.system(size: 28, weight: .bold))
                     .foregroundColor(.white)
 
-                Spacer()
-
-                // Balance the back button
-                Color.clear.frame(width: 18, height: 18)
+                Text("Enter your Hestia server address")
+                    .font(.system(size: 15))
+                    .foregroundColor(.white.opacity(0.4))
             }
-            .padding(.horizontal, Spacing.lg)
-            .padding(.vertical, Spacing.md)
-
-            // Camera viewfinder
-            ZStack {
-                QRScannerView { code in
-                    viewModel.handleScannedCode(code)
-                }
-                .cornerRadius(CornerRadius.card)
-
-                // Viewfinder overlay
-                RoundedRectangle(cornerRadius: CornerRadius.card)
-                    .stroke(Color.white.opacity(0.3), lineWidth: 2)
-            }
-            .padding(.horizontal, Spacing.lg)
-
-            // Instructions
-            Text("Point your camera at the QR code displayed on your Hestia server")
-                .font(.footnote)
-                .foregroundColor(.white.opacity(0.6))
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, Spacing.xl)
-                .padding(.vertical, Spacing.lg)
 
             Spacer()
+                .frame(height: Spacing.xl)
+
+            // Frosted glass text field
+            HStack {
+                Image(systemName: "link")
+                    .foregroundColor(.white.opacity(0.4))
+                    .font(.system(size: 15))
+
+                TextField("https://hestia-3.local:8443", text: $viewModel.serverURL)
+                    .foregroundColor(.white)
+                    .font(.system(size: 16, design: .monospaced))
+                    .autocapitalization(.none)
+                    .disableAutocorrection(true)
+                    .keyboardType(.URL)
+                    .textContentType(.URL)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Color.white.opacity(0.07))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                    )
+            )
+            .padding(.horizontal, Spacing.xl)
+
+            Spacer()
+
+            VStack(spacing: Spacing.md) {
+                // Connect button
+                liquidGlassButton(title: "Connect") {
+                    viewModel.connectToServer()
+                }
+
+                // QR fallback
+                Button {
+                    showQRScanner = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "qrcode.viewfinder")
+                            .font(.system(size: 14))
+                        Text("Scan QR code instead")
+                            .font(.system(size: 14))
+                    }
+                    .foregroundColor(.white.opacity(0.35))
+                }
+            }
+            .padding(.bottom, geo.safeAreaInsets.bottom + 60)
         }
+        .padding(.horizontal, Spacing.xl)
     }
 
     // MARK: - Connecting Step
 
-    private var connectingStep: some View {
-        VStack(spacing: Spacing.lg) {
+    private func connectingStep(geo: GeometryProxy) -> some View {
+        VStack(spacing: 0) {
             Spacer()
+                .frame(height: geo.size.height * 0.2)
 
-            LottieView(
-                animationName: "ai_blob",
-                speed: 1.5,
-                fallbackSymbol: "brain.head.profile"
-            )
-            .frame(width: 120, height: 120)
+            HestiaOrbView(state: .thinking, size: 150)
+                .frame(height: geo.size.height * 0.35)
 
             SnarkyBylineView(isRegistration: true)
+                .padding(.bottom, Spacing.md)
 
             if !viewModel.serverURL.isEmpty {
-                Text("Connecting to \(viewModel.serverURL)")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.5))
+                Text(viewModel.serverURL)
+                    .font(.system(size: 13, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.3))
             }
 
             Spacer()
@@ -176,70 +253,52 @@ struct OnboardingView: View {
 
     // MARK: - Success Step
 
-    private var successStep: some View {
-        VStack(spacing: Spacing.xl) {
+    private func successStep(geo: GeometryProxy) -> some View {
+        VStack(spacing: 0) {
             Spacer()
+                .frame(height: geo.size.height * 0.2)
 
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 80))
-                .foregroundColor(.healthyGreen)
-                .shadow(color: Color.healthyGreen.opacity(0.4), radius: 20)
+            HestiaOrbView(state: .success, size: 150)
+                .frame(height: geo.size.height * 0.35)
+                .offset(y: successOffset)
+                .opacity(successOpacity)
 
-            VStack(spacing: Spacing.sm) {
-                Text("Connected")
-                    .font(.greeting)
-                    .foregroundColor(.white)
-
-                Text("Your device is registered with Hestia")
-                    .font(.subheading)
-                    .foregroundColor(.white.opacity(0.8))
-            }
-
-            Spacer()
-
-            Button {
-                Task {
-                    try? await authService.authenticate()
-                }
-            } label: {
-                HStack(spacing: Spacing.sm) {
-                    Image(systemName: authService.biometricType.iconName)
-                        .font(.system(size: 24))
-                    Text("Continue")
-                        .font(.buttonText)
-                }
+            Text("Connected")
+                .font(.system(size: 28, weight: .bold))
                 .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(Spacing.md)
-                .background(Color.white.opacity(0.2))
-                .cornerRadius(CornerRadius.button)
-            }
-            .accessibilityLabel("Continue to Hestia")
+                .opacity(successOpacity)
 
             Spacer()
-                .frame(height: Spacing.xxl)
         }
-        .padding(.horizontal, Spacing.xl)
+        .onAppear {
+            // After a brief pause, animate the orb upward and fade
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                withAnimation(.easeIn(duration: 0.8)) {
+                    successOffset = -geo.size.height
+                    successOpacity = 0
+                }
+            }
+        }
     }
 
     // MARK: - Error Step
 
-    private func errorStep(message: String) -> some View {
-        VStack(spacing: Spacing.xl) {
+    private func errorStep(message: String, geo: GeometryProxy) -> some View {
+        VStack(spacing: 0) {
             Spacer()
+                .frame(height: geo.size.height * 0.15)
 
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 60))
-                .foregroundColor(.warningYellow)
+            HestiaOrbView(state: .idle, size: 120)
+                .frame(height: geo.size.height * 0.28)
 
             VStack(spacing: Spacing.sm) {
                 Text("Connection Failed")
-                    .font(.title2.bold())
+                    .font(.system(size: 24, weight: .bold))
                     .foregroundColor(.white)
 
                 Text(message)
-                    .font(.body)
-                    .foregroundColor(.white.opacity(0.7))
+                    .font(.system(size: 15))
+                    .foregroundColor(.white.opacity(0.5))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Spacing.lg)
             }
@@ -247,35 +306,57 @@ struct OnboardingView: View {
             Spacer()
 
             VStack(spacing: Spacing.md) {
-                Button {
+                liquidGlassButton(title: "Try Again") {
                     viewModel.retry()
-                } label: {
-                    HStack(spacing: Spacing.sm) {
-                        Image(systemName: "arrow.counterclockwise")
-                            .font(.system(size: 20))
-                        Text("Try Again")
-                            .font(.buttonText)
-                    }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(Spacing.md)
-                    .background(Color.white.opacity(0.2))
-                    .cornerRadius(CornerRadius.button)
                 }
 
                 Button {
                     viewModel.goBack()
                 } label: {
                     Text("Back")
-                        .font(.body)
-                        .foregroundColor(.white.opacity(0.6))
+                        .font(.system(size: 15))
+                        .foregroundColor(.white.opacity(0.4))
                 }
             }
-
-            Spacer()
-                .frame(height: Spacing.xxl)
+            .padding(.bottom, geo.safeAreaInsets.bottom + 60)
         }
         .padding(.horizontal, Spacing.xl)
+    }
+
+    // MARK: - Liquid Glass Button
+
+    private func liquidGlassButton(title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(.white.opacity(0.95))
+                .padding(.horizontal, 48)
+                .padding(.vertical, 16)
+                .background(
+                    Capsule()
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            Capsule()
+                                .fill(Color.white.opacity(0.08))
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(0.18),
+                                            Color.white.opacity(0.12),
+                                            Color.white.opacity(0.06),
+                                        ],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    ),
+                                    lineWidth: 1
+                                )
+                        )
+                )
+                .shadow(color: .black.opacity(0.3), radius: 12, x: 0, y: 4)
+        }
     }
 }
 

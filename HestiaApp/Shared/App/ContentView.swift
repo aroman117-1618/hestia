@@ -39,7 +39,7 @@ struct RootView: View {
                     }
             }
 
-            // Network offline banner
+            // Network offline banner — outside the auth transition
             if !networkMonitor.isConnected {
                 VStack {
                     OfflineBanner()
@@ -47,6 +47,7 @@ struct RootView: View {
                 }
             }
         }
+        .animation(.easeInOut(duration: 0.5), value: authService.isDeviceRegistered)
     }
 }
 
