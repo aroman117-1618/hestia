@@ -5,6 +5,7 @@ import { nodeColors, textColors } from '../../shared/theme'
 export function GroupNode({ data }: NodeProps) {
   const initialLabel = String(data.label ?? 'Group')
   const onLabelChange = data.onLabelChange as ((id: string, label: string) => void) | undefined
+  const onCollapseChange = data.onCollapseChange as ((id: string, collapsed: boolean) => void) | undefined
   const nodeId = String(data.nodeId ?? '')
 
   const [label, setLabel] = useState(initialLabel)
@@ -16,8 +17,12 @@ export function GroupNode({ data }: NodeProps) {
   }, [nodeId, onLabelChange])
 
   const toggleCollapse = useCallback(() => {
-    setCollapsed(prev => !prev)
-  }, [])
+    setCollapsed(prev => {
+      const next = !prev
+      onCollapseChange?.(nodeId, next)
+      return next
+    })
+  }, [nodeId, onCollapseChange])
 
   return (
     <div style={{

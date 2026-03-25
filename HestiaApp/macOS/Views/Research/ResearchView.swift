@@ -386,10 +386,9 @@ struct ResearchView: View {
 
     private func modeToggle(compact: Bool) -> some View {
         HStack(spacing: 2) {
-            modeButton(.canvas,     icon: "rectangle.3.group.bubble",              label: "Research Canvas", compact: compact)
-            modeButton(.graph,      icon: "point.3.connected.trianglepath.dotted", label: "Knowledge Atlas", compact: compact)
+            modeButton(.graph,      icon: "point.3.connected.trianglepath.dotted", label: "Knowledge", compact: compact)
             modeButton(.principles, icon: "lightbulb",                              label: "Principles", compact: compact)
-            modeButton(.memory,     icon: "brain.head.profile",                    label: "Memory",     compact: compact)
+            modeButton(.canvas,     icon: "rectangle.3.group.bubble",              label: "Canvas", compact: compact)
         }
         .padding(MacSpacing.xs)
         .background(MacColors.textPrimary.opacity(0.04))

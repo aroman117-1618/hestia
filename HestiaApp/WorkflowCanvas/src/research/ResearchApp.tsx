@@ -134,6 +134,22 @@ function ResearchCanvas() {
     setNodes(nds => nds.filter(n => n.id !== nodeId))
   }, [setNodes])
 
+  // Group collapse handler — update node style dimensions so React Flow respects the size
+  const handleGroupCollapse = useCallback((nodeId: string, collapsed: boolean) => {
+    setNodes(nds => nds.map(n => {
+      if (n.id !== nodeId) return n
+      return {
+        ...n,
+        style: {
+          ...n.style,
+          width: collapsed ? 180 : 300,
+          height: collapsed ? 40 : undefined,
+        },
+        data: { ...n.data, collapsed },
+      }
+    }))
+  }, [setNodes])
+
   // Group label change handler
   const handleGroupLabelChange = useCallback((nodeId: string, label: string) => {
     bridge.sendGroupUpdated(nodeId, label)
@@ -151,10 +167,10 @@ function ResearchCanvas() {
       return { ...n, data: { ...n.data, nodeId: n.id, onTextChange: handleAnnotationTextChange, onDelete: handleAnnotationDelete } }
     }
     if (n.type === 'group') {
-      return { ...n, data: { ...n.data, nodeId: n.id, onLabelChange: handleGroupLabelChange } }
+      return { ...n, data: { ...n.data, nodeId: n.id, onLabelChange: handleGroupLabelChange, onCollapseChange: handleGroupCollapse } }
     }
     return n
-  }), [nodes, handlePrincipleApprove, handlePrincipleReject, handleAnnotationTextChange, handleAnnotationDelete, handleGroupLabelChange])
+  }), [nodes, handlePrincipleApprove, handlePrincipleReject, handleAnnotationTextChange, handleAnnotationDelete, handleGroupLabelChange, handleGroupCollapse])
 
   // Register bridge handlers and signal ready
   useEffect(() => {
@@ -376,8 +392,9 @@ function ResearchCanvas() {
         nodeTypes={researchNodeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
         fitView
-        selectionOnDrag
-        panOnDrag={[1, 2]}
+        panOnDrag={[2]}
+        selectionOnDrag={false}
+        nodesDraggable
         proOptions={{ hideAttribution: true }}
         deleteKeyCode={['Backspace', 'Delete']}
         multiSelectionKeyCode="Meta"

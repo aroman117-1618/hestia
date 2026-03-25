@@ -16,11 +16,9 @@ struct IconSidebar: View {
             VStack(spacing: 6) {
                 navIcon(.command, systemName: "house", shortcut: 1)
                     .padding(.top, MacSpacing.lg)
-                // Health tab archived — data surfaces via Internal activity feed (Sprint 25.5)
-                // navIcon(.health, systemName: "waveform.path.ecg", shortcut: 2)
-                navIcon(.research, systemName: "point.3.connected.trianglepath.dotted", shortcut: 2)
-                navIcon(.explorer, systemName: "magnifyingglass", shortcut: 3)
-                navIcon(.workflow, systemName: "arrow.triangle.branch", shortcut: 4)
+                navIcon(.workflow, systemName: "bolt.fill", shortcut: 2)
+                navIcon(.research, systemName: "point.3.connected.trianglepath.dotted", shortcut: 3)
+                navIcon(.explorer, systemName: "magnifyingglass", shortcut: 4)
             }
             .padding(.top, MacSpacing.xxl)
 
