@@ -64,6 +64,7 @@ class ToolExecutor:
         self,
         call: ToolCall,
         request_id: Optional[str] = None,
+        skip_gate: bool = False,
     ) -> ToolResult:
         """
         Execute a single tool call.
@@ -71,6 +72,8 @@ class ToolExecutor:
         Args:
             call: Tool call to execute
             request_id: Request ID for logging/tracing
+            skip_gate: Skip the external communication gate (e.g. for
+                pre-approved workflow/order executions)
 
         Returns:
             ToolResult with execution outcome
@@ -91,8 +94,8 @@ class ToolExecutor:
         # 2. Get the tool
         tool = self.registry.get_required(call.tool_name)
 
-        # 3. Check external communication gate
-        if tool.requires_approval:
+        # 3. Check external communication gate (skipped for workflow executions)
+        if tool.requires_approval and not skip_gate:
             gate = await self._get_gate()
             decision = await gate.check_approval(
                 service=call.tool_name,

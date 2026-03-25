@@ -1498,7 +1498,8 @@ class RequestHandler:
 
                 self.state_machine.await_tool(task, tool_name)
                 call = ToolCall.create(tool_name=tool_name, arguments=arguments)
-                result = await executor.execute(call, request.id)
+                skip_gate = request.source == RequestSource.WORKFLOW
+                result = await executor.execute(call, request.id, skip_gate=skip_gate)
                 self.state_machine.resume_processing(task)
 
                 if result.success:
@@ -2262,7 +2263,9 @@ class RequestHandler:
                 self.state_machine.await_tool(task, tool_name)
 
                 call = ToolCall.create(tool_name=tool_name, arguments=arguments)
-                result = await executor.execute(call, request.id)
+                # Workflow/order executions are pre-approved — skip the gate
+                skip_gate = request.source == RequestSource.WORKFLOW
+                result = await executor.execute(call, request.id, skip_gate=skip_gate)
 
                 # State machine: resume processing after tool execution
                 self.state_machine.resume_processing(task)
