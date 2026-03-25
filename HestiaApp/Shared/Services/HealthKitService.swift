@@ -87,7 +87,7 @@ final class HealthKitService: ObservableObject {
         (HKQuantityType(.appleExerciseTime), "appleExerciseTime", .minute()),
         (HKQuantityType(.appleStandTime), "appleStandTime", .minute()),
         (HKQuantityType(.flightsClimbed), "flightsClimbed", .count()),
-        (HKQuantityType(.vo2Max), "vo2Max", HKUnit(from: "mL/kg/min")),
+        (HKQuantityType(.vo2Max), "vo2Max", HKUnit.literUnit(with: .milli).unitDivided(by: HKUnit.gramUnit(with: .kilo)).unitDivided(by: HKUnit.minute())),
         // Heart
         (HKQuantityType(.heartRate), "heartRate", HKUnit.count().unitDivided(by: .minute())),
         (HKQuantityType(.restingHeartRate), "restingHeartRate", HKUnit.count().unitDivided(by: .minute())),
