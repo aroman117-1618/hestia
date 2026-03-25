@@ -60,7 +60,8 @@ coding_model:
   context_limit: 32768
   max_tokens: 4096
   temperature: 0.0
-  request_timeout: 90.0
+  # Bumped to 180s: workflow tool-calling prompts with 13+ tool schemas need time on M1
+  request_timeout: 180.0
   enabled: true
   default_agent: "olly"
 
