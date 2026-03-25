@@ -95,7 +95,7 @@ function ResearchCanvas() {
   const [edges, setEdges, onEdgesChange] = useEdgesState<CanvasEdge>([])
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([])
   const [selectionCenter, setSelectionCenter] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
-  const { screenToFlowPosition } = useReactFlow()
+  const { flowToScreenPosition } = useReactFlow()
 
   // Inject global CSS
   useEffect(() => {
@@ -281,20 +281,18 @@ function ResearchCanvas() {
     if (ids.length >= 2) {
       bridge.sendNodesSelected(ids)
 
-      // Compute average position for action bar placement
+      // Compute average flow position, then convert to screen coordinates
       const avgX = selectedNodes.reduce((sum, n) => sum + (n.position?.x ?? 0), 0) / selectedNodes.length
       const avgY = selectedNodes.reduce((sum, n) => sum + (n.position?.y ?? 0), 0) / selectedNodes.length
 
-      // Convert flow coordinates to screen coordinates for positioning
       try {
-        const screenPos = screenToFlowPosition({ x: avgX, y: avgY })
-        // Use the avg position directly since the bar is inside the ReactFlow panel
-        setSelectionCenter({ x: avgX, y: screenPos.y })
+        const screenPos = flowToScreenPosition({ x: avgX, y: avgY })
+        setSelectionCenter(screenPos)
       } catch {
         setSelectionCenter({ x: avgX, y: avgY })
       }
     }
-  }, [screenToFlowPosition])
+  }, [flowToScreenPosition])
 
   // FloatingActionBar actions
   const handleDistill = useCallback(() => {
