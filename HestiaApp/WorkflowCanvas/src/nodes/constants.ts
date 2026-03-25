@@ -1,4 +1,4 @@
-import { darkTheme } from '../theme'
+import { darkTheme } from '../shared/theme'
 
 export const NODE_COLORS = {
   prompt: darkTheme.nodeType.run_prompt,

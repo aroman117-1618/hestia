@@ -20,10 +20,13 @@ import {
   type DefaultEdgeOptions,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { bridge } from './bridge'
-import { darkTheme } from './theme'
+import { createBridge, initBridgeGlobals } from './shared/bridge'
+import { darkTheme } from './shared/theme'
 import { nodeTypes } from './nodes'
 import { AddStepMenu } from './components/AddStepMenu'
+
+const bridge = createBridge('workflow')
+initBridgeGlobals(bridge)
 
 type NodeData = Record<string, unknown>
 type CanvasNode = Node<NodeData>

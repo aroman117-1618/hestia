@@ -1,6 +1,6 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { NODE_COLORS } from './constants'
-import { darkTheme } from '../theme'
+import { darkTheme } from '../shared/theme'
 
 export function ActionNode({ data, selected }: NodeProps) {
   const nodeType = data.nodeType as string | undefined
