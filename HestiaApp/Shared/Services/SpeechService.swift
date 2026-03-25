@@ -24,6 +24,10 @@ class SpeechService: ObservableObject {
     @Published var hasPermission: Bool = false
     @Published var audioLevel: CGFloat = 0
 
+    /// Called on each audio buffer with the normalized audio level (0.0-1.0).
+    /// Used by VoiceActivityDetector for silence detection.
+    var onAudioLevel: ((CGFloat) -> Void)?
+
     // MARK: - Private State
 
     private var audioEngine: AVAudioEngine?
@@ -203,6 +207,7 @@ class SpeechService: ObservableObject {
         let normalized = CGFloat(min(avg * 10, 1.0))
         Task { @MainActor [weak self] in
             self?.audioLevel = normalized
+            self?.onAudioLevel?(normalized)
         }
     }
 

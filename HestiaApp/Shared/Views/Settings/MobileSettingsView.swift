@@ -25,6 +25,16 @@ struct MobileSettingsView: View {
                         // Profile header
                         profileHeader
 
+                        // Voice & Audio block
+                        HestiaSettingsBlock(
+                            icon: "waveform.circle.fill",
+                            iconColor: .orange,
+                            title: "Voice & Audio",
+                            subtitle: "Hestia's voice, conversation settings"
+                        ) {
+                            VoiceSettingsView()
+                        }
+
                         // Agents block
                         HestiaSettingsBlock(
                             icon: "person.3.fill",

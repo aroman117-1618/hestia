@@ -125,6 +125,124 @@ class ChatViewModel: ObservableObject {
         isLoading = false
     }
 
+    /// Send a message and return SSE tokens via callbacks.
+    /// Used by VoiceConversationManager to feed tokens to TTS in real-time.
+    /// Also populates the chat history (user + assistant messages).
+    func sendAndStreamResponse(
+        _ text: String,
+        appState: AppState,
+        onToken: @escaping (String) -> Void,
+        onClearStream: @escaping () -> Void,
+        onComplete: @escaping (String) -> Void,
+        onError: @escaping (String) -> Void
+    ) async {
+        guard !isLoading else { return }
+        isLoading = true
+        currentStage = "thinking"
+
+        let userMessage = ConversationMessage(
+            id: UUID().uuidString,
+            role: .user,
+            content: text,
+            timestamp: Date(),
+            mode: appState.currentMode,
+            inputMode: "voice"
+        )
+        messages.append(userMessage)
+
+        let assistantMessage = ConversationMessage(
+            id: UUID().uuidString,
+            role: .assistant,
+            content: "",
+            timestamp: Date(),
+            mode: appState.currentMode
+        )
+        messages.append(assistantMessage)
+        let messageIndex = messages.count - 1
+
+        var fullResponse = ""
+
+        defer {
+            isLoading = false
+            isTyping = false
+            currentTypingText = nil
+            currentStage = nil
+        }
+
+        do {
+            let stream = client.sendMessageStream(
+                text,
+                sessionId: sessionId,
+                forceLocal: forceLocal,
+                metadata: ["input_mode": "voice"]
+            )
+
+            for try await event in stream {
+                switch event {
+                case .token(let content, _):
+                    if !isTyping {
+                        isTyping = true
+                        currentTypingText = ""
+                        currentStage = nil
+                    }
+                    fullResponse += content
+                    currentTypingText = (currentTypingText ?? "") + content
+                    messages[messageIndex].content = fullResponse
+                    onToken(content)
+
+                case .clearStream:
+                    fullResponse = ""
+                    currentTypingText = ""
+                    messages[messageIndex].content = ""
+                    onClearStream()
+
+                case .status(let stage, _):
+                    currentStage = stage
+
+                case .done(_, _, let mode, let returnedSessionId, let bylines):
+                    if self.sessionId == nil, let sid = returnedSessionId {
+                        self.sessionId = sid
+                    }
+                    if let newMode = HestiaMode(rawValue: mode),
+                       newMode != appState.currentMode {
+                        appState.switchMode(to: newMode)
+                    }
+                    if let bylines = bylines, !bylines.isEmpty {
+                        messages[messageIndex].bylines = bylines
+                    }
+
+                case .reasoning(let aspect, let summary, _):
+                    if messages[messageIndex].reasoningSteps == nil {
+                        messages[messageIndex].reasoningSteps = []
+                    }
+                    messages[messageIndex].reasoningSteps?.append(
+                        ReasoningStep(aspect: aspect, summary: summary)
+                    )
+
+                case .verification(let risk):
+                    messages[messageIndex].hallucinationRisk = risk
+
+                case .error(_, let message):
+                    onError(message)
+
+                case .toolResult, .insight:
+                    break
+                }
+            }
+
+            if fullResponse.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                fullResponse = "Sorry, I ran into a problem processing that."
+                messages[messageIndex].content = fullResponse
+            }
+
+            onComplete(fullResponse)
+        } catch {
+            let message = error.localizedDescription
+            onError(message)
+            messages[messageIndex].content = "Sorry, I couldn't process that. Please try again."
+        }
+    }
+
     /// Switch to a different mode
     func switchMode(to mode: HestiaMode, appState: AppState) async {
         guard mode != appState.currentMode else { return }

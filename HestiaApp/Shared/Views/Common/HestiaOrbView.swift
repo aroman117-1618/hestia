@@ -8,6 +8,7 @@ enum HestiaOrbState: Equatable {
     case thinking
     case success
     case listening
+    case speaking
 }
 
 // MARK: - HestiaOrbView
@@ -441,6 +442,8 @@ struct HestiaOrbView: View {
             return 0.8
         case .listening:
             return 0.7 + Double(audioLevel) * 1.0
+        case .speaking:
+            return 1.2
         }
     }
 }
