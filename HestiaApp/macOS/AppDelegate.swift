@@ -88,7 +88,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         cmdItem.target = self
         viewMenu.addItem(cmdItem)
 
-        let researchItem = NSMenuItem(title: "Research", action: #selector(showResearchView), keyEquivalent: "2")
+        let researchItem = NSMenuItem(title: "Memory", action: #selector(showResearchView), keyEquivalent: "2")
         researchItem.target = self
         viewMenu.addItem(researchItem)
 

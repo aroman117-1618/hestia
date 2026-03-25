@@ -102,7 +102,7 @@ struct IconSidebar: View {
         switch view {
         case .command: "Command Center"
         case .health: "Vitals"
-        case .research: "Research"
+        case .research: "Memory"
         case .explorer: "Explorer"
         case .workflow: "Orders"
         case .settings: "Settings"

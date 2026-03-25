@@ -351,7 +351,7 @@ struct ResearchView: View {
                     .font(.system(size: MacSize.navIcon))
                     .foregroundStyle(MacColors.textPrimary)
                 if !compact {
-                    Text("Research")
+                    Text("Memory")
                         .font(.system(size: 18))
                         .foregroundStyle(MacColors.textPrimary)
                 }
