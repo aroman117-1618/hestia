@@ -1,11 +1,11 @@
 import { createHashRouter, RouterProvider } from 'react-router-dom';
 import WorkflowApp from './WorkflowApp';
-import PerformancePrototype from './research/PerformancePrototype';
+import ResearchApp from './research/ResearchApp';
 
 const router = createHashRouter([
   { path: '/', element: <WorkflowApp /> },
   { path: '/workflow', element: <WorkflowApp /> },
-  { path: '/research', element: <PerformancePrototype /> },
+  { path: '/research', element: <ResearchApp /> },
 ]);
 
 export function AppRouter() {
