@@ -25,20 +25,10 @@ struct MobileSettingsView: View {
                         // Profile header
                         profileHeader
 
-                        // Voice & Audio block
-                        HestiaSettingsBlock(
-                            icon: "waveform.circle.fill",
-                            iconColor: .orange,
-                            title: "Voice & Audio",
-                            subtitle: "Hestia's voice, conversation settings"
-                        ) {
-                            VoiceSettingsView()
-                        }
-
                         // Agents block
                         HestiaSettingsBlock(
                             icon: "person.3.fill",
-                            iconColor: .agentAmber,
+                            iconColor: .accent,
                             title: "Agents",
                             subtitle: agentSubtitle
                         ) {
@@ -48,7 +38,7 @@ struct MobileSettingsView: View {
                         // Resources block
                         HestiaSettingsBlock(
                             icon: "externaldrive.connected.to.line.below.fill",
-                            iconColor: .agentTeal,
+                            iconColor: .accent,
                             title: "Resources",
                             subtitle: resourcesSubtitle
                         ) {
@@ -58,7 +48,7 @@ struct MobileSettingsView: View {
                         // System block
                         HestiaSettingsBlock(
                             icon: "gearshape.2.fill",
-                            iconColor: .white.opacity(0.7),
+                            iconColor: .textPrimary.opacity(0.7),
                             title: "System",
                             subtitle: systemSubtitle
                         ) {
@@ -93,21 +83,21 @@ struct MobileSettingsView: View {
         VStack(spacing: Spacing.sm) {
             // Avatar
             Circle()
-                .fill(Color.agentAmber.opacity(0.2))
+                .fill(Color.accent.opacity(0.2))
                 .frame(width: 80, height: 80)
                 .overlay(
                     Text("A")
                         .font(.system(size: 32, weight: .bold))
-                        .foregroundColor(.agentAmber)
+                        .foregroundColor(.accent)
                 )
 
             // Name + version
             Text("Andrew")
                 .font(.title3.weight(.semibold))
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
             Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?") · \(viewModel.serverOnline ? "Server Online" : "Offline")")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(.textSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Spacing.lg)

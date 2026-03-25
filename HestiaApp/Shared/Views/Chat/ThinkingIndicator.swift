@@ -25,7 +25,7 @@ struct ThinkingIndicator: View {
             HStack(spacing: Spacing.sm) {
                 // Pulsing dot
                 Circle()
-                    .fill(Color.white.opacity(0.5))
+                    .fill(Color.accent.opacity(0.5))
                     .frame(width: 6, height: 6)
                     .scaleEffect(isPulsing ? 1.3 : 0.8)
                     .animation(
@@ -36,7 +36,7 @@ struct ThinkingIndicator: View {
                 Text(displayText)
                     .font(.caption)
                     .italic()
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(.textSecondary)
             }
             .padding(.horizontal, Spacing.md)
             .padding(.vertical, Spacing.sm)

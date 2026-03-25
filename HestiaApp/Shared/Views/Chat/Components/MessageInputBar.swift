@@ -15,10 +15,10 @@ struct MessageInputBar: View {
             // Text field
             TextField(placeholder, text: $text)
                 .font(.inputField)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .padding(.horizontal, Spacing.md)
                 .padding(.vertical, Spacing.sm)
-                .background(Color.white.opacity(0.15))
+                .background(Color.bgOverlay)
                 .cornerRadius(CornerRadius.input)
                 .focused($isFocused)
                 .submitLabel(.send)
@@ -39,12 +39,12 @@ struct MessageInputBar: View {
             }) {
                 ZStack {
                     Circle()
-                        .fill(canSend ? Color.white.opacity(0.9) : Color.white.opacity(0.2))
+                        .fill(canSend ? Color.textPrimary.opacity(0.9) : Color.textPrimary.opacity(0.2))
                         .frame(width: 36, height: 36)
 
                     Image(systemName: "arrow.up")
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(canSend ? modeColor : .white.opacity(0.5))
+                        .foregroundColor(canSend ? .accent : .textSecondary)
                 }
             }
             .disabled(!canSend)
@@ -53,7 +53,7 @@ struct MessageInputBar: View {
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.vertical, Spacing.md)
-        .background(Color.black.opacity(0.3))
+        .background(Color.bgInput)
     }
 
     // MARK: - Computed Properties

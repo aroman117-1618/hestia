@@ -76,11 +76,11 @@ struct OnboardingView: View {
             VStack(spacing: Spacing.sm) {
                 Text("Hestia")
                     .font(.system(size: 38, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
 
                 Text("Your personal AI assistant")
                     .font(.system(size: 16))
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(.textTertiary)
             }
 
             Spacer()
@@ -109,11 +109,11 @@ struct OnboardingView: View {
                 VStack(spacing: Spacing.sm) {
                     Text("Hestia")
                         .font(.system(size: 38, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
 
                     Text("Your personal AI assistant")
                         .font(.system(size: 16))
-                        .foregroundColor(.white.opacity(0.4))
+                        .foregroundColor(.textTertiary)
                 }
 
                 Spacer()
@@ -127,7 +127,7 @@ struct OnboardingView: View {
                 VStack(spacing: Spacing.md) {
                     Text("Sign in to get started")
                         .font(.system(size: 15))
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(.textSecondary)
 
                     SignInWithAppleButton(.signIn) { request in
                         request.requestedScopes = [.email, .fullName]
@@ -144,7 +144,7 @@ struct OnboardingView: View {
                     } label: {
                         Text("Cancel")
                             .font(.system(size: 15))
-                            .foregroundColor(.white.opacity(0.4))
+                            .foregroundColor(.textTertiary)
                     }
                     .padding(.top, Spacing.sm)
                 }
@@ -166,11 +166,11 @@ struct OnboardingView: View {
             VStack(spacing: Spacing.sm) {
                 Text("Connect to Server")
                     .font(.system(size: 28, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
 
                 Text("Enter your Hestia server address")
                     .font(.system(size: 15))
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(.textTertiary)
             }
 
             Spacer()
@@ -179,11 +179,11 @@ struct OnboardingView: View {
             // Frosted glass text field
             HStack {
                 Image(systemName: "link")
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(.textTertiary)
                     .font(.system(size: 15))
 
                 TextField("https://hestia-3.local:8443", text: $viewModel.serverURL)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                     .font(.system(size: 16, design: .monospaced))
                     .autocapitalization(.none)
                     .disableAutocorrection(true)
@@ -194,10 +194,10 @@ struct OnboardingView: View {
             .padding(.vertical, 14)
             .background(
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(Color.white.opacity(0.07))
+                    .fill(Color.bgOverlay.opacity(0.5))
                     .overlay(
                         RoundedRectangle(cornerRadius: 14)
-                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                            .stroke(Color.iosCardBorder, lineWidth: 1)
                     )
             )
             .padding(.horizontal, Spacing.xl)
@@ -220,7 +220,7 @@ struct OnboardingView: View {
                         Text("Scan QR code instead")
                             .font(.system(size: 14))
                     }
-                    .foregroundColor(.white.opacity(0.35))
+                    .foregroundColor(.textTertiary)
                 }
             }
             .padding(.bottom, geo.safeAreaInsets.bottom + 60)
@@ -244,7 +244,7 @@ struct OnboardingView: View {
             if !viewModel.serverURL.isEmpty {
                 Text(viewModel.serverURL)
                     .font(.system(size: 13, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.3))
+                    .foregroundColor(.textTertiary)
             }
 
             Spacer()
@@ -265,7 +265,7 @@ struct OnboardingView: View {
 
             Text("Connected")
                 .font(.system(size: 28, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .opacity(successOpacity)
 
             Spacer()
@@ -294,11 +294,11 @@ struct OnboardingView: View {
             VStack(spacing: Spacing.sm) {
                 Text("Connection Failed")
                     .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
 
                 Text(message)
                     .font(.system(size: 15))
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Spacing.lg)
             }
@@ -315,7 +315,7 @@ struct OnboardingView: View {
                 } label: {
                     Text("Back")
                         .font(.system(size: 15))
-                        .foregroundColor(.white.opacity(0.4))
+                        .foregroundColor(.textTertiary)
                 }
             }
             .padding(.bottom, geo.safeAreaInsets.bottom + 60)
@@ -329,7 +329,7 @@ struct OnboardingView: View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundColor(.white.opacity(0.95))
+                .foregroundColor(.textPrimary)
                 .padding(.horizontal, 48)
                 .padding(.vertical, 16)
                 .background(
@@ -337,16 +337,16 @@ struct OnboardingView: View {
                         .fill(.ultraThinMaterial)
                         .overlay(
                             Capsule()
-                                .fill(Color.white.opacity(0.08))
+                                .fill(Color.bgOverlay.opacity(0.5))
                         )
                         .overlay(
                             Capsule()
                                 .stroke(
                                     LinearGradient(
                                         colors: [
-                                            Color.white.opacity(0.18),
-                                            Color.white.opacity(0.12),
-                                            Color.white.opacity(0.06),
+                                            Color.accent.opacity(0.18),
+                                            Color.iosCardBorder,
+                                            Color.accent.opacity(0.06),
                                         ],
                                         startPoint: .top,
                                         endPoint: .bottom

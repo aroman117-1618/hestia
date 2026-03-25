@@ -66,7 +66,7 @@ struct HealthCoachingPreferencesView: View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text("Coaching")
                 .font(.sectionHeader)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
                 .textCase(.uppercase)
                 .padding(.horizontal, Spacing.lg)
 
@@ -75,7 +75,7 @@ struct HealthCoachingPreferencesView: View {
                     .foregroundColor(.pink)
 
                 Text("Health Coaching")
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
 
                 Spacer()
 
@@ -91,7 +91,7 @@ struct HealthCoachingPreferencesView: View {
 
             Text("When enabled, Hestia provides health insights in daily briefings and responds to health-related questions.")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.3))
+                .foregroundColor(.textTertiary)
                 .padding(.horizontal, Spacing.lg)
         }
     }
@@ -102,7 +102,7 @@ struct HealthCoachingPreferencesView: View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text("Domains")
                 .font(.sectionHeader)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
                 .textCase(.uppercase)
                 .padding(.horizontal, Spacing.lg)
 
@@ -120,11 +120,11 @@ struct HealthCoachingPreferencesView: View {
     private func domainToggle(title: String, icon: String, isOn: Binding<Bool>) -> some View {
         HStack {
             Image(systemName: icon)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
                 .frame(width: 24)
 
             Text(title)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
 
             Spacer()
 
@@ -144,7 +144,7 @@ struct HealthCoachingPreferencesView: View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text("Daily Goals")
                 .font(.sectionHeader)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
                 .textCase(.uppercase)
                 .padding(.horizontal, Spacing.lg)
 
@@ -200,16 +200,16 @@ struct HealthCoachingPreferencesView: View {
     private func goalRow(title: String, icon: String, value: String, stepper: AnyView) -> some View {
         HStack {
             Image(systemName: icon)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
                 .frame(width: 24)
 
             Text(title)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
 
             Spacer()
 
             Text(value)
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(.textSecondary)
                 .font(.caption)
 
             stepper
@@ -223,18 +223,18 @@ struct HealthCoachingPreferencesView: View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text("Notifications")
                 .font(.sectionHeader)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
                 .textCase(.uppercase)
                 .padding(.horizontal, Spacing.lg)
 
             VStack(spacing: Spacing.sm) {
                 HStack {
                     Image(systemName: "bell.fill")
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.textSecondary)
                         .frame(width: 24)
 
                     Text("Daily Summary")
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
 
                     Spacer()
 
@@ -247,11 +247,11 @@ struct HealthCoachingPreferencesView: View {
 
                 HStack {
                     Image(systemName: "target")
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.textSecondary)
                         .frame(width: 24)
 
                     Text("Goal Alerts")
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
 
                     Spacer()
 
@@ -264,11 +264,11 @@ struct HealthCoachingPreferencesView: View {
 
                 HStack {
                     Image(systemName: "exclamationmark.triangle")
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.textSecondary)
                         .frame(width: 24)
 
                     Text("Anomaly Alerts")
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
 
                     Spacer()
 
@@ -289,7 +289,7 @@ struct HealthCoachingPreferencesView: View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text("Coaching Tone")
                 .font(.sectionHeader)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
                 .textCase(.uppercase)
                 .padding(.horizontal, Spacing.lg)
 
@@ -322,7 +322,7 @@ struct HealthCoachingPreferencesView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                         .font(.subheadline)
 
                     Text(description)
@@ -337,7 +337,7 @@ struct HealthCoachingPreferencesView: View {
                         .foregroundColor(.healthyGreen)
                 } else {
                     Image(systemName: "circle")
-                        .foregroundColor(.white.opacity(0.3))
+                        .foregroundColor(.textTertiary)
                 }
             }
             .settingsRow()
@@ -350,18 +350,18 @@ struct HealthCoachingPreferencesView: View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text("Data Sync")
                 .font(.sectionHeader)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
                 .textCase(.uppercase)
                 .padding(.horizontal, Spacing.lg)
 
             VStack(spacing: Spacing.sm) {
                 HStack {
                     Image(systemName: "arrow.triangle.2.circlepath")
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.textSecondary)
                         .frame(width: 24)
 
                     Text("Sync Now")
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
 
                     Spacer()
 
@@ -392,7 +392,7 @@ struct HealthCoachingPreferencesView: View {
 
             Text("Health data is synced from Apple Health to Hestia's backend for analysis. Data stays on your devices and server.")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.3))
+                .foregroundColor(.textTertiary)
                 .padding(.horizontal, Spacing.lg)
         }
     }

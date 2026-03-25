@@ -30,19 +30,19 @@ struct WikiDiagramListView: View {
         HStack(spacing: Spacing.md) {
             Image(systemName: article.moduleIcon)
                 .font(.system(size: 20))
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .frame(width: 40, height: 40)
-                .background(Color.white.opacity(0.15))
+                .background(Color.bgOverlay)
                 .cornerRadius(CornerRadius.small)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(article.title)
                     .font(.cardTitle)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
 
                 Text(article.subtitle)
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(.textSecondary)
             }
 
             Spacer()
@@ -54,7 +54,7 @@ struct WikiDiagramListView: View {
             }
 
             Image(systemName: "chevron.right")
-                .foregroundColor(.white.opacity(0.3))
+                .foregroundColor(.textTertiary)
                 .font(.caption)
         }
         .settingsRow()
@@ -69,16 +69,16 @@ struct WikiDiagramListView: View {
 
             Image(systemName: "diagram.flow")
                 .font(.system(size: 48))
-                .foregroundColor(.white.opacity(0.2))
+                .foregroundColor(.textTertiary)
 
             VStack(spacing: Spacing.sm) {
                 Text("Architecture Diagrams")
                     .font(.headline)
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(.textSecondary)
 
                 Text("Generate Mermaid diagrams showing system architecture, request lifecycle, and data flow.")
                     .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(.textTertiary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Spacing.xl)
             }
@@ -91,7 +91,7 @@ struct WikiDiagramListView: View {
                 HStack(spacing: Spacing.sm) {
                     if viewModel.isGenerating {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .progressViewStyle(CircularProgressViewStyle(tint: .accent))
                             .scaleEffect(0.8)
                     } else {
                         Image(systemName: "sparkles")
@@ -99,10 +99,10 @@ struct WikiDiagramListView: View {
                     Text("Generate All (~$0.80)")
                 }
                 .font(.subheadline.weight(.semibold))
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .padding(.horizontal, Spacing.lg)
                 .padding(.vertical, Spacing.sm)
-                .background(Color.white.opacity(0.2))
+                .background(Color.bgOverlay)
                 .cornerRadius(CornerRadius.small)
             }
             .disabled(viewModel.isGenerating)
@@ -117,7 +117,7 @@ struct WikiDiagramDetailView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color.bgBase.ignoresSafeArea()
 
             if article.isGenerated {
                 MermaidWebView(mermaidSource: article.content)
@@ -127,9 +127,9 @@ struct WikiDiagramDetailView: View {
                     Spacer()
                     Image(systemName: "diagram.flow")
                         .font(.system(size: 48))
-                        .foregroundColor(.white.opacity(0.2))
+                        .foregroundColor(.textTertiary)
                     Text("Diagram not generated yet")
-                        .foregroundColor(.white.opacity(0.4))
+                        .foregroundColor(.textTertiary)
                     Spacer()
                 }
             }

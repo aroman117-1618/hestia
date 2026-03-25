@@ -86,7 +86,7 @@ struct AgentProfileView: View {
                     Button("Save") {
                         saveProfile()
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                 }
             }
         }
@@ -129,7 +129,7 @@ struct AgentProfileView: View {
                             .overlay(
                                 Text(viewModel.profile.initial)
                                     .font(.system(size: 48, weight: .bold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.textPrimary)
                             )
                     }
                 }
@@ -142,7 +142,7 @@ struct AgentProfileView: View {
                 .overlay(
                     Image(systemName: "camera.fill")
                         .font(.system(size: 20))
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                         .padding(Spacing.sm)
                         .background(Color.black.opacity(0.6))
                         .clipShape(Circle())
@@ -162,7 +162,7 @@ struct AgentProfileView: View {
 
             Text("Agent Avatar")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(.textSecondary)
         }
     }
 
@@ -202,7 +202,7 @@ struct AgentProfileView: View {
 
             TextEditor(text: $viewModel.profile.instructions)
                 .font(.body)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .scrollContentBackground(.hidden)
                 .frame(minHeight: 150)
                 .padding(Spacing.md)
@@ -214,7 +214,7 @@ struct AgentProfileView: View {
 
             Text("This prompt context is sent with every interaction. Define the agent's focus, tone, and goals.")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(.textSecondary)
         }
     }
 
@@ -291,7 +291,7 @@ struct AgentProfileView: View {
 
             Text("These colors form the gradient theme when this agent is active")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(.textSecondary)
         }
     }
 
@@ -324,7 +324,7 @@ struct AgentProfileView: View {
                 } label: {
                     Text("Save Changes")
                         .font(.buttonText)
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                         .frame(maxWidth: .infinity)
                         .padding(Spacing.md)
                         .background(Color.white.opacity(0.2))
@@ -360,7 +360,7 @@ struct AgentProfileView: View {
 
             Text("Deleted agents can be recovered for 90 days")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(.textSecondary)
         }
         .padding(.top, Spacing.xl)
     }

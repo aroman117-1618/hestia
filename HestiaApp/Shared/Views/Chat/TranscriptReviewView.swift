@@ -13,7 +13,7 @@ struct TranscriptReviewView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Color.black.opacity(0.95)
+                Color.bgBase.opacity(0.95)
                     .ignoresSafeArea()
 
                 VStack(spacing: Spacing.lg) {
@@ -24,14 +24,14 @@ struct TranscriptReviewView: View {
                     VStack(alignment: .leading, spacing: Spacing.sm) {
                         Text("Transcript")
                             .font(.caption)
-                            .foregroundColor(.white.opacity(0.6))
+                            .foregroundColor(.textSecondary)
 
                         TextEditor(text: $viewModel.editableTranscript)
                             .font(.body)
-                            .foregroundColor(.white)
+                            .foregroundColor(.textPrimary)
                             .frame(minHeight: 120, maxHeight: 200)
                             .padding(Spacing.sm)
-                            .background(Color.white.opacity(0.1))
+                            .background(Color.bgOverlay)
                             .cornerRadius(CornerRadius.small)
                             .scrollContentBackground(.hidden)
                     }
@@ -51,7 +51,7 @@ struct TranscriptReviewView: View {
                         } label: {
                             Text("Send to Chat")
                                 .font(.body.weight(.semibold))
-                                .foregroundColor(.white)
+                                .foregroundColor(.textPrimary)
                                 .frame(maxWidth: .infinity)
                                 .padding(Spacing.md)
                                 .background(Color.healthyGreen)
@@ -63,7 +63,7 @@ struct TranscriptReviewView: View {
                         } label: {
                             Text("Discard")
                                 .font(.body)
-                                .foregroundColor(.white.opacity(0.6))
+                                .foregroundColor(.textSecondary)
                                 .frame(maxWidth: .infinity)
                                 .padding(Spacing.md)
                         }
@@ -78,7 +78,7 @@ struct TranscriptReviewView: View {
                     Button("Cancel") {
                         onCancel()
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                 }
             }
         }
@@ -134,7 +134,7 @@ struct TranscriptReviewView: View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             Text("Possible Issues (\(viewModel.flaggedWords.count))")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
 
             ForEach(viewModel.flaggedWords, id: \.uniqueKey) { flagged in
                 FlaggedWordCard(
@@ -168,10 +168,10 @@ struct FlaggedWordCard: View {
                 if !flaggedWord.reason.isEmpty {
                     Text(flaggedWord.reason)
                         .font(.caption2)
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(.textSecondary)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color.white.opacity(0.1))
+                        .background(Color.bgOverlay)
                         .cornerRadius(4)
                 }
             }
@@ -198,7 +198,7 @@ struct FlaggedWordCard: View {
             }
         }
         .padding(Spacing.sm)
-        .background(Color.white.opacity(0.05))
+        .background(Color.bgSurface)
         .cornerRadius(CornerRadius.small)
     }
 }

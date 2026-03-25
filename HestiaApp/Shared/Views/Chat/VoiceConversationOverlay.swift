@@ -44,7 +44,7 @@ struct VoiceConversationOverlay: View {
         case .idle: return .idle
         case .listening: return .listening
         case .processing: return .thinking
-        case .speaking: return .speaking
+        case .speaking: return .success
         }
     }
 

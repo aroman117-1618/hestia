@@ -16,7 +16,7 @@ struct OrdersWidget: View {
             HStack {
                 Text("Orders")
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
 
                 Spacer()
 
@@ -30,10 +30,10 @@ struct OrdersWidget: View {
                         Text(isFormExpanded ? "Cancel" : "Add Order")
                     }
                     .font(.caption.weight(.semibold))
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(.textSecondary)
                     .padding(.horizontal, Spacing.sm)
                     .padding(.vertical, Spacing.xs)
-                    .background(Color.white.opacity(0.1))
+                    .background(Color.bgOverlay)
                     .cornerRadius(CornerRadius.small)
                 }
             }
@@ -69,20 +69,20 @@ struct OrdersWidget: View {
         VStack(spacing: Spacing.sm) {
             Image(systemName: "clock.badge.questionmark")
                 .font(.system(size: 32))
-                .foregroundColor(.white.opacity(0.3))
+                .foregroundColor(.textTertiary)
 
             Text("No orders yet")
                 .font(.subheadline)
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(.textSecondary)
 
             Text("Orders are scheduled prompts that Hestia executes automatically")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.3))
+                .foregroundColor(.textTertiary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(Spacing.xl)
-        .background(Color.white.opacity(0.05))
+        .background(Color.bgSurface)
         .cornerRadius(CornerRadius.card)
         .padding(.horizontal, Spacing.lg)
     }
@@ -110,21 +110,21 @@ struct OrderRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(order.name)
                     .font(.subheadline.weight(.medium))
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
 
                 HStack(spacing: Spacing.xs) {
                     // Frequency
                     Text(order.frequency.displayName)
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(.textSecondary)
 
                     Text("\u{2022}")
-                        .foregroundColor(.white.opacity(0.3))
+                        .foregroundColor(.textTertiary)
 
                     // Resources count
                     Text("\(order.resources.count) resources")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(.textSecondary)
                 }
 
                 // Last execution status
@@ -136,7 +136,7 @@ struct OrderRow: View {
 
                         Text(lastExecution.formattedTimestamp)
                             .font(.caption2)
-                            .foregroundColor(.white.opacity(0.4))
+                            .foregroundColor(.textTertiary)
                     }
                 }
             }
@@ -149,11 +149,11 @@ struct OrderRow: View {
             } label: {
                 Image(systemName: "trash")
                     .font(.system(size: 14))
-                    .foregroundColor(.white.opacity(0.3))
+                    .foregroundColor(.textTertiary)
             }
         }
         .padding(Spacing.md)
-        .background(Color.white.opacity(0.05))
+        .background(Color.bgSurface)
         .cornerRadius(CornerRadius.card)
         .padding(.horizontal, Spacing.lg)
         .confirmationDialog("Delete Order?", isPresented: $showingDeleteConfirmation) {
@@ -171,7 +171,7 @@ struct OrderRow: View {
         case .success: return .healthyGreen
         case .failed: return .errorRed
         case .running: return .warningYellow
-        case .scheduled: return .white.opacity(0.5)
+        case .scheduled: return .textSecondary
         }
     }
 }
@@ -214,7 +214,7 @@ struct OrderInlineForm: View {
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text("Name")
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(.textSecondary)
 
                 TextField("Morning Brief", text: $name)
                     .textFieldStyle(OrderTextFieldStyle())
@@ -225,7 +225,7 @@ struct OrderInlineForm: View {
                 HStack {
                     Text("Prompt")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.textSecondary)
 
                     Spacer()
 
@@ -236,11 +236,11 @@ struct OrderInlineForm: View {
 
                 TextEditor(text: $prompt)
                     .font(.body)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                     .scrollContentBackground(.hidden)
                     .frame(height: 80)
                     .padding(Spacing.sm)
-                    .background(Color.white.opacity(0.1))
+                    .background(Color.bgOverlay)
                     .cornerRadius(CornerRadius.small)
             }
 
@@ -250,7 +250,7 @@ struct OrderInlineForm: View {
                 VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text("Time")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.textSecondary)
 
                     DatePicker("", selection: $scheduledTime, displayedComponents: .hourAndMinute)
                         .labelsHidden()
@@ -261,7 +261,7 @@ struct OrderInlineForm: View {
                 VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text("Frequency")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.textSecondary)
 
                     Menu {
                         ForEach([OrderFrequency.once, .daily, .weekly, .monthly], id: \.typeString) { freq in
@@ -277,13 +277,13 @@ struct OrderInlineForm: View {
                     } label: {
                         HStack {
                             Text(frequency.displayName)
-                                .foregroundColor(.white)
+                                .foregroundColor(.textPrimary)
                             Image(systemName: "chevron.down")
-                                .foregroundColor(.white.opacity(0.5))
+                                .foregroundColor(.textSecondary)
                         }
                         .padding(.horizontal, Spacing.md)
                         .padding(.vertical, Spacing.sm)
-                        .background(Color.white.opacity(0.1))
+                        .background(Color.bgOverlay)
                         .cornerRadius(CornerRadius.small)
                     }
                 }
@@ -293,16 +293,16 @@ struct OrderInlineForm: View {
             if showingCustomFrequency {
                 HStack {
                     Text("Every")
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(.textSecondary)
 
                     Stepper("\(customMinutes) minutes", value: $customMinutes, in: 15...1440, step: 15)
                         .labelsHidden()
 
                     Text("\(customMinutes) minutes")
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                 }
                 .padding(Spacing.sm)
-                .background(Color.white.opacity(0.05))
+                .background(Color.bgSurface)
                 .cornerRadius(CornerRadius.small)
                 .onChange(of: customMinutes) { newValue in
                     frequency = .custom(minutes: newValue)
@@ -313,7 +313,7 @@ struct OrderInlineForm: View {
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text("Resources")
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(.textSecondary)
 
                 LazyVGrid(columns: [
                     GridItem(.flexible()),
@@ -352,16 +352,16 @@ struct OrderInlineForm: View {
             } label: {
                 Text("Create Order")
                     .font(.buttonText)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(Spacing.md)
-                    .background(isValid ? Color.white.opacity(0.2) : Color.white.opacity(0.05))
+                    .background(isValid ? Color.bgOverlay : Color.bgSurface)
                     .cornerRadius(CornerRadius.button)
             }
             .disabled(!isValid)
         }
         .padding(Spacing.md)
-        .background(Color.white.opacity(0.05))
+        .background(Color.bgSurface)
         .cornerRadius(CornerRadius.card)
         .padding(.horizontal, Spacing.lg)
     }
@@ -400,10 +400,10 @@ struct ResourceChip: View {
                     .font(.caption)
                     .lineLimit(1)
             }
-            .foregroundColor(isSelected ? .white : .white.opacity(0.5))
+            .foregroundColor(isSelected ? .white : .textSecondary)
             .padding(.horizontal, Spacing.sm)
             .padding(.vertical, Spacing.xs)
-            .background(isSelected ? Color.white.opacity(0.2) : Color.white.opacity(0.05))
+            .background(isSelected ? Color.bgOverlay : Color.bgSurface)
             .cornerRadius(CornerRadius.small)
         }
     }
@@ -415,9 +415,9 @@ struct OrderTextFieldStyle: TextFieldStyle {
     func _body(configuration: TextField<Self._Label>) -> some View {
         configuration
             .font(.body)
-            .foregroundColor(.white)
+            .foregroundColor(.textPrimary)
             .padding(Spacing.sm)
-            .background(Color.white.opacity(0.1))
+            .background(Color.bgOverlay)
             .cornerRadius(CornerRadius.small)
     }
 }
@@ -427,7 +427,7 @@ struct OrderTextFieldStyle: TextFieldStyle {
 struct OrdersWidget_Previews: PreviewProvider {
     static var previews: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color.bgBase.ignoresSafeArea()
 
             ScrollView {
                 OrdersWidget(

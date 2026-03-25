@@ -314,7 +314,7 @@ When offline, Hestia gracefully degrades:
     private func sectionHeader(_ text: String) -> some View {
         Text(text)
             .font(.title3.weight(.bold))
-            .foregroundColor(.white)
+            .foregroundColor(.textPrimary)
     }
     
     private func sectionText(_ text: String) -> some View {
@@ -328,13 +328,13 @@ When offline, Hestia gracefully degrades:
         HStack(alignment: .top, spacing: Spacing.md) {
             Image(systemName: "circle.fill")
                 .font(.system(size: 6))
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(.textSecondary)
                 .padding(.top, 6)
             
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(title)
                     .font(.body.weight(.semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                 
                 Text(description)
                     .font(.body)
@@ -352,7 +352,7 @@ When offline, Hestia gracefully degrades:
                 
                 Text(title)
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                 
                 Spacer()
             }

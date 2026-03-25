@@ -73,7 +73,7 @@ struct UserProfileView: View {
                             .overlay(
                                 Text(viewModel.profile.initial)
                                     .font(.system(size: 48, weight: .bold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.textPrimary)
                             )
                     }
                 }
@@ -86,7 +86,7 @@ struct UserProfileView: View {
                 .overlay(
                     Image(systemName: "camera.fill")
                         .font(.system(size: 20))
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                         .padding(Spacing.sm)
                         .background(Color.black.opacity(0.6))
                         .clipShape(Circle())
@@ -106,7 +106,7 @@ struct UserProfileView: View {
 
             Text("Tap to change photo")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(.textSecondary)
         }
     }
 
@@ -141,7 +141,7 @@ struct UserProfileView: View {
                 set: { viewModel.profile.description = $0.isEmpty ? nil : $0 }
             ))
             .font(.body)
-            .foregroundColor(.white)
+            .foregroundColor(.textPrimary)
             .scrollContentBackground(.hidden)
             .frame(minHeight: 100)
             .padding(Spacing.md)
@@ -153,7 +153,7 @@ struct UserProfileView: View {
 
             Text("Optional description that Hestia can use to personalize responses")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(.textSecondary)
         }
     }
 
@@ -169,9 +169,9 @@ struct UserProfileView: View {
             Toggle(isOn: $viewModel.profile.pushNotificationsEnabled) {
                 HStack {
                     Image(systemName: "bell.fill")
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                     Text("Push Notifications")
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                 }
             }
             .toggleStyle(SwitchToggleStyle(tint: appState.currentMode.gradientColors.first ?? .orange))
@@ -184,7 +184,7 @@ struct UserProfileView: View {
 
             Text("Receive notifications for order failures and important alerts")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(.textSecondary)
         }
     }
 
@@ -196,7 +196,7 @@ struct UserProfileView: View {
         } label: {
             Text("Save Changes")
                 .font(.buttonText)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .frame(maxWidth: .infinity)
                 .padding(Spacing.md)
                 .background(appState.currentMode.gradientColors.first?.opacity(0.8) ?? Color.white.opacity(0.2))

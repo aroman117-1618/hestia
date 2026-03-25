@@ -10,7 +10,7 @@ struct GradientBackground: View {
 
     var body: some View {
         LinearGradient(
-            colors: mode.gradientColors,
+            colors: [Color.bgBase, Color(hex: "1A0F03"), Color(hex: "2A1505")],
             startPoint: animateGradient ? .topLeading : .top,
             endPoint: animateGradient ? .bottomTrailing : .bottom
         )
@@ -89,8 +89,8 @@ struct GradientOverlay: View {
     var body: some View {
         LinearGradient(
             colors: [
-                Color.black.opacity(0),
-                Color.black.opacity(opacity)
+                Color.bgBase.opacity(0),
+                Color.bgBase.opacity(opacity)
             ],
             startPoint: .top,
             endPoint: .bottom

@@ -79,7 +79,7 @@ struct DeviceManagementView: View {
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
             .font(.sectionHeader)
-            .foregroundColor(.white.opacity(0.6))
+            .foregroundColor(.textSecondary)
             .textCase(.uppercase)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -177,7 +177,7 @@ struct DeviceManagementView: View {
             ProgressView()
                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
             Text("Loading devices...")
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
             Spacer()
         }
         .settingsRow()
@@ -193,7 +193,7 @@ struct DeviceManagementView: View {
             Button("Retry") {
                 Task { await viewModel.loadDevices() }
             }
-            .foregroundColor(.white)
+            .foregroundColor(.textPrimary)
         }
         .settingsRow()
     }

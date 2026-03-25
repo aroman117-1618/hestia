@@ -75,21 +75,21 @@ struct AgentCustomizationView: View {
                     VStack(spacing: Spacing.xs) {
                         Circle()
                             .fill(mode == selectedMode ?
-                                  mode.gradientColors.first ?? .gray :
-                                  Color.white.opacity(0.2))
+                                  Color.accent :
+                                  Color.textPrimary.opacity(0.2))
                             .frame(width: 50, height: 50)
                             .overlay(
                                 Text(mode.displayName.prefix(1))
                                     .font(.system(size: 20, weight: .bold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.textPrimary)
                             )
 
                         Text(mode.displayName)
                             .font(.caption)
-                            .foregroundColor(mode == selectedMode ? .white : .white.opacity(0.6))
+                            .foregroundColor(mode == selectedMode ? .textPrimary : .textSecondary)
                     }
                     .padding(Spacing.sm)
-                    .background(mode == selectedMode ? Color.white.opacity(0.15) : Color.clear)
+                    .background(mode == selectedMode ? Color.bgOverlay : Color.clear)
                     .cornerRadius(CornerRadius.small)
                 }
             }
@@ -102,7 +102,7 @@ struct AgentCustomizationView: View {
         VStack(spacing: Spacing.md) {
             Text("Profile Photo")
                 .font(.headline)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
 
             PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
                 ZStack {
@@ -113,11 +113,11 @@ struct AgentCustomizationView: View {
                             .scaledToFill()
                     } else {
                         Circle()
-                            .fill(Color.white.opacity(0.2))
+                            .fill(Color.bgOverlay)
                             .overlay(
                                 Text(selectedMode.displayName.prefix(1))
                                     .font(.system(size: 40, weight: .bold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.textPrimary)
                             )
                     }
                 }
@@ -125,14 +125,14 @@ struct AgentCustomizationView: View {
                 .clipShape(Circle())
                 .overlay(
                     Circle()
-                        .stroke(Color.white.opacity(0.3), lineWidth: 3)
+                        .stroke(Color.accent.opacity(0.3), lineWidth: 3)
                 )
                 .overlay(
                     Image(systemName: "camera.fill")
                         .font(.system(size: 20))
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                         .padding(Spacing.sm)
-                        .background(Color.black.opacity(0.6))
+                        .background(Color.bgBase.opacity(0.6))
                         .clipShape(Circle())
                         .offset(x: 40, y: 40)
                 )
@@ -155,7 +155,7 @@ struct AgentCustomizationView: View {
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text("Full Name")
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(.textSecondary)
 
                 TextField("Hestia", text: $agentName)
                     .customTextField()
@@ -167,7 +167,7 @@ struct AgentCustomizationView: View {
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text("Nickname")
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(.textSecondary)
 
                 TextField("Tia", text: $agentNickname)
                     .customTextField()
@@ -184,13 +184,13 @@ struct AgentCustomizationView: View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text("Color Palette")
                 .font(.headline)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
 
             VStack(spacing: Spacing.sm) {
                 ForEach(Array(customColors.enumerated()), id: \.offset) { index, color in
                     HStack {
                         Text("Color \(index + 1)")
-                            .foregroundColor(.white.opacity(0.7))
+                            .foregroundColor(.textSecondary)
 
                         Spacer()
 
@@ -206,7 +206,7 @@ struct AgentCustomizationView: View {
                             .frame(width: 30, height: 30)
                     }
                     .padding(Spacing.sm)
-                    .background(Color.white.opacity(0.1))
+                    .background(Color.bgOverlay)
                     .cornerRadius(CornerRadius.small)
                 }
             }
@@ -219,27 +219,27 @@ struct AgentCustomizationView: View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text("Personality Traits")
                 .font(.headline)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
 
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 ForEach(selectedMode.traits, id: \.self) { trait in
                     HStack {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.white.opacity(0.5))
+                            .foregroundColor(.textSecondary)
 
                         Text(trait)
                             .font(.body)
-                            .foregroundColor(.white.opacity(0.8))
+                            .foregroundColor(.textPrimary.opacity(0.8))
                     }
                 }
             }
             .padding(Spacing.md)
-            .background(Color.white.opacity(0.1))
+            .background(Color.bgOverlay)
             .cornerRadius(CornerRadius.small)
 
             Text("Traits are defined by the system and cannot be customized.")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(.textSecondary)
         }
     }
 
@@ -251,10 +251,10 @@ struct AgentCustomizationView: View {
         } label: {
             Text("Save Changes")
                 .font(.buttonText)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .frame(maxWidth: .infinity)
                 .padding(Spacing.md)
-                .background(Color.white.opacity(0.2))
+                .background(Color.bgOverlay)
                 .cornerRadius(CornerRadius.button)
         }
     }
@@ -282,9 +282,9 @@ extension View {
     func customTextField() -> some View {
         self
             .font(.body)
-            .foregroundColor(.white)
+            .foregroundColor(.textPrimary)
             .padding(Spacing.md)
-            .background(Color.white.opacity(0.15))
+            .background(Color.bgOverlay)
             .cornerRadius(CornerRadius.input)
     }
 }

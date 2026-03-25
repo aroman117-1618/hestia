@@ -44,12 +44,12 @@ struct NewsfeedTimeline: View {
 
                 if item.id != viewModel.filteredItems.last?.id {
                     Divider()
-                        .background(Color.white.opacity(0.06))
+                        .background(Color.bgSurface)
                         .padding(.leading, 52)
                 }
             }
         }
-        .background(Color.white.opacity(0.05))
+        .background(Color.bgSurface)
         .cornerRadius(CornerRadius.card)
         .padding(.horizontal, Spacing.lg)
     }
@@ -60,15 +60,15 @@ struct NewsfeedTimeline: View {
         VStack(spacing: Spacing.md) {
             Image(systemName: "tray")
                 .font(.system(size: 40))
-                .foregroundColor(.white.opacity(0.3))
+                .foregroundColor(.textTertiary)
 
             Text("Nothing to see here")
                 .font(.headline)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
 
             Text("Your timeline will populate as Hestia works — orders run, memories form, tasks update.")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.4))
+                .foregroundColor(.textTertiary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, Spacing.xl)
 
@@ -79,10 +79,10 @@ struct NewsfeedTimeline: View {
             } label: {
                 Text("Refresh")
                     .font(.caption.weight(.semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                     .padding(.horizontal, Spacing.md)
                     .padding(.vertical, Spacing.xs)
-                    .background(Color.white.opacity(0.15))
+                    .background(Color.bgOverlay)
                     .cornerRadius(CornerRadius.small)
             }
         }
@@ -95,10 +95,10 @@ struct NewsfeedTimeline: View {
     private var loadingState: some View {
         VStack(spacing: Spacing.sm) {
             ProgressView()
-                .tint(.white)
+                .tint(.accent)
             Text("Loading timeline...")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.4))
+                .foregroundColor(.textTertiary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Spacing.xl)

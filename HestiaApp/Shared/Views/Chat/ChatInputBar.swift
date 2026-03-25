@@ -31,7 +31,7 @@ struct ChatInputBar: View {
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.vertical, Spacing.md)
-        .background(Color.black.opacity(0.3))
+        .background(Color.bgInput)
     }
 
     // MARK: - Mode Toggle
@@ -44,9 +44,9 @@ struct ChatInputBar: View {
         } label: {
             Image(systemName: inputMode.icon)
                 .font(.system(size: 18, weight: .medium))
-                .foregroundColor(inputMode.color)
+                .foregroundColor(.accent)
                 .frame(width: 32, height: 32)
-                .background(inputMode.color.opacity(0.15))
+                .background(Color.accent.opacity(0.15))
                 .clipShape(Circle())
         }
         .accessibilityLabel("\(inputMode.rawValue.capitalized) mode")
@@ -70,7 +70,7 @@ struct ChatInputBar: View {
         Button(action: onToggleLocal) {
             Image(systemName: forceLocal ? "lock.fill" : "lock.open")
                 .font(.system(size: 14, weight: .medium))
-                .foregroundColor(forceLocal ? .warningYellow : .white.opacity(0.4))
+                .foregroundColor(forceLocal ? .warningYellow : .textSecondary)
         }
         .accessibilityLabel(forceLocal ? "Private mode on" : "Private mode off")
         .accessibilityHint("Toggle private mode to keep this message local")
@@ -81,14 +81,14 @@ struct ChatInputBar: View {
     private var textField: some View {
         TextField(placeholderText, text: $messageText)
             .font(.inputField)
-            .foregroundColor(.white)
+            .foregroundColor(.textPrimary)
             .padding(.horizontal, Spacing.md)
             .padding(.vertical, Spacing.sm)
-            .background(Color.white.opacity(0.15))
+            .background(Color.bgOverlay)
             .cornerRadius(CornerRadius.input)
             .overlay(
                 RoundedRectangle(cornerRadius: CornerRadius.input)
-                    .stroke(inputMode == .chat ? Color.clear : inputMode.color.opacity(0.3), lineWidth: 1)
+                    .stroke(inputMode == .chat ? Color.clear : Color.accent.opacity(0.3), lineWidth: 1)
             )
             .focused(isInputFocused)
             .submitLabel(.send)
@@ -104,15 +104,15 @@ struct ChatInputBar: View {
 
     private var recordingIndicator: some View {
         HStack(spacing: Spacing.sm) {
-            WaveformView(audioLevel: audioLevel, tintColor: inputMode.color)
+            WaveformView(audioLevel: audioLevel, tintColor: .accent)
             Text("Listening...")
                 .font(.caption)
-                .foregroundColor(inputMode.color.opacity(0.8))
+                .foregroundColor(Color.accent.opacity(0.8))
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, Spacing.sm)
-        .background(inputMode.color.opacity(0.08))
+        .background(Color.accent.opacity(0.08))
         .cornerRadius(CornerRadius.input)
     }
 
@@ -125,14 +125,14 @@ struct ChatInputBar: View {
             Button { onSend(messageText) } label: {
                 Image(systemName: "stop.circle.fill")
                     .font(.system(size: 32))
-                    .foregroundColor(inputMode.color)
+                    .foregroundColor(.accent)
             }
             .accessibilityLabel("Stop recording and send")
         } else if canSend {
             Button { onSend(messageText) } label: {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.system(size: 32))
-                    .foregroundColor(forceLocal ? .warningYellow : inputMode == .chat ? .white : inputMode.color)
+                    .foregroundColor(forceLocal ? .warningYellow : .accent)
             }
             .accessibilityLabel("Send message")
         } else if inputMode != .chat {
@@ -142,9 +142,9 @@ struct ChatInputBar: View {
             } label: {
                 Image(systemName: "mic.fill")
                     .font(.system(size: 20))
-                    .foregroundColor(inputMode.color)
+                    .foregroundColor(.accent)
                     .frame(width: 36, height: 36)
-                    .background(inputMode.color.opacity(0.15))
+                    .background(Color.accent.opacity(0.15))
                     .clipShape(Circle())
             }
             .disabled(isLoading)
@@ -157,7 +157,7 @@ struct ChatInputBar: View {
             } label: {
                 Image(systemName: "mic.fill")
                     .font(.system(size: 20))
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(.textPrimary.opacity(0.7))
                     .frame(width: 32, height: 32)
             }
             .disabled(isLoading)

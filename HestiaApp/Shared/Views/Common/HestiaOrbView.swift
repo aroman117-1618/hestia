@@ -8,7 +8,6 @@ enum HestiaOrbState: Equatable {
     case thinking
     case success
     case listening
-    case speaking
 }
 
 // MARK: - HestiaOrbView
@@ -27,11 +26,11 @@ struct HestiaOrbView: View {
 
     // MARK: - Color Palette
 
-    private static let primaryAmber = Color(hex: "E0A050")
-    private static let secondaryBrown = Color(hex: "A54B17")
-    private static let highlightGold = Color(hex: "FFE0A8")
-    private static let deepBrown = Color(hex: "8B3A0F")
-    private static let coreWhite = Color(hex: "FFF5E0")
+    private static let primaryAmber = Color(hex: "FF9F0A")
+    private static let secondaryBrown = Color(hex: "B36B07")
+    private static let highlightGold = Color(hex: "FFD080")
+    private static let deepBrown = Color(hex: "7A4505")
+    private static let coreWhite = Color(hex: "FFF0D0")
 
     // MARK: - Body
 
@@ -442,8 +441,6 @@ struct HestiaOrbView: View {
             return 0.8
         case .listening:
             return 0.7 + Double(audioLevel) * 1.0
-        case .speaking:
-            return 1.2
         }
     }
 }

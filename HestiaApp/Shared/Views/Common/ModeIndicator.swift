@@ -11,17 +11,17 @@ struct ModeIndicator: View {
             HStack(spacing: Spacing.xs) {
                 // Status dot
                 Circle()
-                    .fill(Color.white)
+                    .fill(Color.accent)
                     .frame(width: 8, height: 8)
 
                 // Mode name
                 Text(mode.displayName)
                     .font(.modeLabel)
-                    .foregroundColor(.white.opacity(0.9))
+                    .foregroundColor(.textPrimary.opacity(0.9))
             }
             .padding(.horizontal, Spacing.sm)
             .padding(.vertical, Spacing.xs)
-            .background(Color.white.opacity(0.2))
+            .background(Color.bgOverlay)
             .cornerRadius(CornerRadius.small)
         }
         .buttonStyle(.plain)
@@ -64,21 +64,21 @@ struct ModeSelectorButton: View {
             VStack(spacing: Spacing.xs) {
                 // Mode icon/avatar
                 Circle()
-                    .fill(isSelected ? mode.gradientColors.first ?? .white : Color.white.opacity(0.2))
+                    .fill(isSelected ? Color.accent : Color.textPrimary.opacity(0.2))
                     .frame(width: 50, height: 50)
                     .overlay(
                         Text(mode.displayName.prefix(1))
                             .font(.system(size: 20, weight: .bold))
-                            .foregroundColor(isSelected ? .white : .white.opacity(0.6))
+                            .foregroundColor(isSelected ? .textPrimary : .textSecondary)
                     )
 
                 // Mode name
                 Text(mode.displayName)
                     .font(.caption)
-                    .foregroundColor(isSelected ? .white : .white.opacity(0.6))
+                    .foregroundColor(isSelected ? .textPrimary : .textSecondary)
             }
             .padding(Spacing.sm)
-            .background(isSelected ? Color.white.opacity(0.15) : Color.clear)
+            .background(isSelected ? Color.bgOverlay : Color.clear)
             .cornerRadius(CornerRadius.small)
         }
         .buttonStyle(.plain)

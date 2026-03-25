@@ -98,7 +98,7 @@ struct CommandCenterView: View {
                     .overlay(
                         Text(appState.currentMode.displayName.prefix(1))
                             .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.white)
+                            .foregroundColor(.textPrimary)
                     )
             }
         }

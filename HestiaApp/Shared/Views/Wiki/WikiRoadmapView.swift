@@ -28,16 +28,16 @@ struct WikiRoadmapView: View {
 
             Image(systemName: "flag")
                 .font(.system(size: 48))
-                .foregroundColor(.white.opacity(0.2))
+                .foregroundColor(.textTertiary)
 
             VStack(spacing: Spacing.sm) {
                 Text("Development Roadmap")
                     .font(.headline)
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(.textSecondary)
 
                 Text("Tap the refresh button to load the development plan from the server.")
                     .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(.textTertiary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Spacing.xl)
             }

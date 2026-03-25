@@ -9,7 +9,7 @@ struct WikiView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color.bgBase.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 // Tab selector
@@ -34,7 +34,7 @@ struct WikiView: View {
                     }
                 } label: {
                     Image(systemName: "arrow.clockwise")
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.textSecondary)
                 }
 
                 // Generate all AI content
@@ -42,7 +42,7 @@ struct WikiView: View {
                     showingGenerateConfirmation = true
                 } label: {
                     Image(systemName: "sparkles")
-                        .foregroundColor(viewModel.isGenerating ? .white.opacity(0.3) : .white.opacity(0.6))
+                        .foregroundColor(viewModel.isGenerating ? .textTertiary : .textSecondary)
                 }
                 .disabled(viewModel.isGenerating)
             }
@@ -84,12 +84,12 @@ struct WikiView: View {
                             Text(tab.rawValue)
                                 .font(.subheadline.weight(.semibold))
                         }
-                        .foregroundColor(viewModel.selectedTab == tab ? .white : .white.opacity(0.5))
+                        .foregroundColor(viewModel.selectedTab == tab ? .textPrimary : .textSecondary)
                         .padding(.vertical, Spacing.sm)
                         .padding(.horizontal, Spacing.md)
                         .background(
                             viewModel.selectedTab == tab ?
-                            Color.white.opacity(0.2) :
+                            Color.bgOverlay :
                             Color.clear
                         )
                         .cornerRadius(CornerRadius.small)
@@ -97,7 +97,7 @@ struct WikiView: View {
                 }
             }
             .padding(Spacing.xs)
-            .background(Color.white.opacity(0.1))
+            .background(Color.bgSurface)
             .cornerRadius(CornerRadius.small)
         }
         .padding(.horizontal, Spacing.lg)
@@ -128,9 +128,9 @@ struct WikiView: View {
         VStack(spacing: Spacing.lg) {
             Spacer()
             ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                .progressViewStyle(CircularProgressViewStyle(tint: .accent))
             Text("Loading wiki...")
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
             Spacer()
         }
     }
@@ -164,16 +164,16 @@ struct WikiOverviewTab: View {
 
             Image(systemName: "building.columns")
                 .font(.system(size: 48))
-                .foregroundColor(.white.opacity(0.2))
+                .foregroundColor(.textTertiary)
 
             VStack(spacing: Spacing.sm) {
                 Text("Architecture Overview")
                     .font(.headline)
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(.textSecondary)
 
                 Text("Generate an AI-written narrative walkthrough of how Hestia works.")
                     .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(.textTertiary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Spacing.xl)
             }
@@ -186,7 +186,7 @@ struct WikiOverviewTab: View {
                 HStack(spacing: Spacing.sm) {
                     if viewModel.isGenerating {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .progressViewStyle(CircularProgressViewStyle(tint: .accent))
                             .scaleEffect(0.8)
                     } else {
                         Image(systemName: "sparkles")
@@ -194,10 +194,10 @@ struct WikiOverviewTab: View {
                     Text("Generate Overview (~$0.15)")
                 }
                 .font(.subheadline.weight(.semibold))
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .padding(.horizontal, Spacing.lg)
                 .padding(.vertical, Spacing.sm)
-                .background(Color.white.opacity(0.2))
+                .background(Color.bgOverlay)
                 .cornerRadius(CornerRadius.small)
             }
             .disabled(viewModel.isGenerating)
@@ -216,30 +216,30 @@ struct WikiArticleContentView: View {
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(article.title)
                     .font(.greeting)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
 
                 if !article.subtitle.isEmpty {
                     Text(article.subtitle)
                         .font(.subheading)
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.textSecondary)
                 }
 
                 // Meta badges
                 HStack(spacing: Spacing.sm) {
                     Label(article.readTimeBadge, systemImage: "clock")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.4))
+                        .foregroundColor(.textTertiary)
 
                     if article.isGenerated, let _ = article.generatedAt {
                         Label("AI Generated", systemImage: "sparkles")
                             .font(.caption)
-                            .foregroundColor(.white.opacity(0.4))
+                            .foregroundColor(.textTertiary)
                     }
 
                     if article.isStatic {
                         Label("From Docs", systemImage: "doc.text")
                             .font(.caption)
-                            .foregroundColor(.white.opacity(0.4))
+                            .foregroundColor(.textTertiary)
                     }
                 }
                 .padding(.top, Spacing.xs)
@@ -249,7 +249,7 @@ struct WikiArticleContentView: View {
             // Content body
             Text(markdownAttributed(article.content))
                 .font(.messageBody)
-                .foregroundColor(.white.opacity(0.85))
+                .foregroundColor(.textPrimary)
                 .textSelection(.enabled)
         }
         .padding(Spacing.lg)

@@ -50,12 +50,12 @@ struct ResourcesView: View {
                         Text(tab.rawValue)
                             .font(.subheadline.weight(.semibold))
                     }
-                    .foregroundColor(viewModel.selectedTab == tab ? .white : .white.opacity(0.5))
+                    .foregroundColor(viewModel.selectedTab == tab ? .textPrimary : .textSecondary)
                     .padding(.vertical, Spacing.sm)
                     .padding(.horizontal, Spacing.md)
                     .background(
                         viewModel.selectedTab == tab ?
-                        Color.white.opacity(0.2) :
+                        Color.bgOverlay :
                         Color.clear
                     )
                     .cornerRadius(CornerRadius.small)
@@ -63,7 +63,7 @@ struct ResourcesView: View {
             }
         }
         .padding(Spacing.xs)
-        .background(Color.white.opacity(0.1))
+        .background(Color.bgSurface)
         .cornerRadius(CornerRadius.small)
         .padding(.horizontal, Spacing.lg)
         .padding(.vertical, Spacing.md)
@@ -77,22 +77,22 @@ struct ResourcesView: View {
 
             Image(systemName: icon)
                 .font(.system(size: 48))
-                .foregroundColor(.white.opacity(0.2))
+                .foregroundColor(.textTertiary)
 
             VStack(spacing: Spacing.sm) {
                 Text(title)
                     .font(.headline)
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(.textSecondary)
 
                 Text(subtitle)
                     .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(.textTertiary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Spacing.xl)
 
                 Text(comingSoon)
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.3))
+                    .foregroundColor(.textTertiary)
                     .padding(.top, Spacing.xs)
             }
 

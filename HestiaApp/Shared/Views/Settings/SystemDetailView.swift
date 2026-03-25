@@ -21,13 +21,13 @@ struct SystemDetailView: View {
                         VStack(spacing: Spacing.md) {
                             Toggle(isOn: .constant(viewModel.biometricEnabled)) {
                                 Label("Face ID", systemImage: "faceid")
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.textPrimary)
                             }
                             .tint(.healthyGreen)
 
                             HStack {
                                 Label("Auto-Lock", systemImage: "clock.fill")
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.textPrimary)
                                 Spacer()
                                 Text("\(viewModel.autoLockMinutes) min")
                                     .foregroundColor(.white.opacity(0.5))
@@ -49,7 +49,7 @@ struct SystemDetailView: View {
                     HestiaCard(label: "SERVER") {
                         HStack {
                             Text("Status")
-                                .foregroundColor(.white)
+                                .foregroundColor(.textPrimary)
                             Spacer()
                             HestiaStatusBadge(
                                 text: viewModel.serverOnline ? "Online" : "Offline",
@@ -62,7 +62,7 @@ struct SystemDetailView: View {
                     HestiaCard(label: "VERSION") {
                         HStack {
                             Text("Build")
-                                .foregroundColor(.white)
+                                .foregroundColor(.textPrimary)
                             Spacer()
                             Text("\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?") (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"))")
                                 .foregroundColor(.white.opacity(0.5))

@@ -8,9 +8,6 @@ struct ChatView: View {
     @EnvironmentObject var authService: AuthService
     @StateObject private var viewModel = ChatViewModel()
     @StateObject private var voiceViewModel = VoiceInputViewModel()
-    @StateObject private var conversationManager = VoiceConversationManager()
-    @State private var showConversationOverlay = false
-    @State private var conversationConfigured = false
 
     @State private var messageText = ""
     @State private var inputMode: ChatInputMode = .chat
@@ -31,7 +28,7 @@ struct ChatView: View {
             // Ripple effect overlay - allowsHitTesting(false) ensures it doesn't block touches
             if viewModel.modeSwitchTrigger {
                 Circle()
-                    .fill(appState.currentMode.gradientColors.first?.opacity(0.3) ?? Color.white.opacity(0.2))
+                    .fill(Color.accent.opacity(0.3))
                     .frame(width: 20, height: 20)
                     .position(avatarPosition)
                     .modifier(ExpandingRipple())
@@ -72,16 +69,6 @@ struct ChatView: View {
                 // Input bar - always at bottom
                 inputBar
             }
-
-            // Voice conversation overlay
-            if showConversationOverlay {
-                VoiceConversationOverlay(
-                    manager: conversationManager,
-                    onStop: {
-                        stopVoiceConversation()
-                    }
-                )
-            }
         }
         .onAppear {
             // Configure with real API client when available
@@ -90,14 +77,6 @@ struct ChatView: View {
                 voiceViewModel.configure(client: apiClientProvider.client)
             }
             // Empty state — user generates the first message
-            if !conversationConfigured {
-                conversationManager.configure(
-                    speechService: voiceViewModel.speechService,
-                    chatViewModel: viewModel,
-                    appState: appState
-                )
-                conversationConfigured = true
-            }
         }
         .onChange(of: apiClientProvider.isReady) { isReady in
             // Also configure when client becomes ready later
@@ -212,14 +191,14 @@ struct ChatView: View {
                     // Voice conversation active — show listening indicator
                     HStack(spacing: Spacing.xs) {
                         Circle()
-                            .fill(ChatInputMode.voice.color)
+                            .fill(Color.accent)
                             .frame(width: 6, height: 6)
                         Text("Listening...")
                             .font(.caption)
-                            .foregroundColor(ChatInputMode.voice.color)
+                            .foregroundColor(Color.accent)
                         Text(formatDuration(voiceViewModel.recordingDuration))
                             .font(.caption.monospacedDigit())
-                            .foregroundColor(.white.opacity(0.5))
+                            .foregroundColor(.textSecondary)
                     }
                 } else {
                     ModeIndicator(mode: appState.currentMode) {
@@ -254,7 +233,7 @@ struct ChatView: View {
             } label: {
                 Image(systemName: "ellipsis.circle.fill")
                     .font(.system(size: 24))
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(.textPrimary.opacity(0.7))
             }
             .accessibilityLabel("Options menu")
         }
@@ -274,11 +253,11 @@ struct ChatView: View {
         } else {
             // Fallback to letter placeholder
             Circle()
-                .fill(Color.white.opacity(0.2))
+                .fill(Color.textPrimary.opacity(0.2))
                 .overlay(
                     Text(appState.currentMode.displayName.prefix(1))
                         .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                 )
         }
     }
@@ -342,7 +321,7 @@ struct ChatView: View {
         HStack(spacing: 4) {
             ForEach(0..<3) { index in
                 Circle()
-                    .fill(Color.white.opacity(0.5))
+                    .fill(Color.accent.opacity(0.5))
                     .frame(width: 8, height: 8)
                     .modifier(BouncingDot(delay: Double(index) * 0.15))
             }
@@ -360,7 +339,7 @@ struct ChatView: View {
         HStack {
             Text(text)
                 .font(.messageBody)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .padding(Spacing.md)
                 .background(Color.assistantBubbleBackground)
                 .cornerRadius(CornerRadius.standard)
@@ -453,12 +432,22 @@ struct ChatView: View {
 
     // MARK: - Voice Conversation Mode
 
-    /// Start inline voice conversation — delegates to VoiceConversationManager.
+    /// Start inline voice conversation — creates a live transcript bubble in the chat.
     private func startVoiceConversation() {
-        showConversationOverlay = true
+        let placeholderId = UUID().uuidString
+        let liveMessage = ConversationMessage(
+            id: placeholderId,
+            role: .user,
+            content: "",
+            timestamp: Date(),
+            mode: nil,
+            inputMode: "voice"
+        )
+        viewModel.messages.append(liveMessage)
+        liveTranscriptId = placeholderId
+
         Task {
-            conversationManager.loadSettings()
-            await conversationManager.start()
+            await voiceViewModel.startRecording()
         }
     }
 
@@ -494,12 +483,28 @@ struct ChatView: View {
         }
     }
 
-    /// Stop voice conversation — delegates to VoiceConversationManager.
+    /// Stop voice conversation and send the transcript.
     private func stopVoiceConversation() {
         Task {
-            await conversationManager.stop()
+            guard let transcript = await voiceViewModel.stopAndReturnTranscript() else {
+                // No speech detected — remove the live bubble
+                if let id = liveTranscriptId {
+                    viewModel.messages.removeAll { $0.id == id }
+                }
+                liveTranscriptId = nil
+                return
+            }
+
+            // Finalize the live bubble content
+            if let id = liveTranscriptId,
+               let index = viewModel.messages.firstIndex(where: { $0.id == id }) {
+                viewModel.messages[index].content = transcript
+            }
+            liveTranscriptId = nil
+
+            // Send the transcript to Hestia
+            await viewModel.sendMessage(transcript, appState: appState)
         }
-        showConversationOverlay = false
     }
 
     private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {

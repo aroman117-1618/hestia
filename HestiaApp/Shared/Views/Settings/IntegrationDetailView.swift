@@ -52,7 +52,7 @@ struct IntegrationDetailView: View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text("Status")
                 .font(.sectionHeader)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
                 .textCase(.uppercase)
                 .padding(.horizontal, Spacing.lg)
 
@@ -80,7 +80,7 @@ struct IntegrationDetailView: View {
                 .foregroundColor(.healthyGreen)
 
             Text("Connected")
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
 
             Spacer()
 
@@ -96,10 +96,10 @@ struct IntegrationDetailView: View {
         VStack(spacing: Spacing.sm) {
             HStack {
                 Image(systemName: "exclamationmark.circle")
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(.textSecondary)
 
                 Text("Not Connected")
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
 
                 Spacer()
             }
@@ -114,7 +114,7 @@ struct IntegrationDetailView: View {
                     Image(systemName: "lock.open.fill")
                     Text("Grant Access")
                 }
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .frame(maxWidth: .infinity)
                 .padding(Spacing.md)
                 .background(Color.white.opacity(0.15))
@@ -123,7 +123,7 @@ struct IntegrationDetailView: View {
 
             Text("Hestia needs permission to access your \(integrationType.displayName.lowercased()) on this device.")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.4))
+                .foregroundColor(.textTertiary)
         }
         .padding(.horizontal, Spacing.lg)
     }
@@ -135,7 +135,7 @@ struct IntegrationDetailView: View {
                     .foregroundColor(.errorRed)
 
                 Text("Permission Denied")
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
 
                 Spacer()
             }
@@ -150,7 +150,7 @@ struct IntegrationDetailView: View {
                     Image(systemName: "gear")
                     Text("Open Settings")
                 }
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .frame(maxWidth: .infinity)
                 .padding(Spacing.md)
                 .background(Color.white.opacity(0.15))
@@ -159,7 +159,7 @@ struct IntegrationDetailView: View {
 
             Text("Go to Settings > Privacy > \(integrationType.displayName) to grant access.")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.4))
+                .foregroundColor(.textTertiary)
         }
         .padding(.horizontal, Spacing.lg)
     }
@@ -171,7 +171,7 @@ struct IntegrationDetailView: View {
                     .foregroundColor(.blue)
 
                 Text("Available via Backend")
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
 
                 Spacer()
 
@@ -183,7 +183,7 @@ struct IntegrationDetailView: View {
 
             Text("This integration works through Hestia's backend server. No device permissions needed.")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.4))
+                .foregroundColor(.textTertiary)
         }
         .padding(.horizontal, Spacing.lg)
     }
@@ -194,7 +194,7 @@ struct IntegrationDetailView: View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text("Available Tools")
                 .font(.sectionHeader)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
                 .textCase(.uppercase)
                 .padding(.horizontal, Spacing.lg)
 
@@ -214,7 +214,7 @@ struct IntegrationDetailView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: Spacing.xs) {
                     Text(tool.name)
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                         .font(.subheadline)
 
                     if tool.requiresApproval {
@@ -230,7 +230,7 @@ struct IntegrationDetailView: View {
 
                 Text(tool.description)
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(.textSecondary)
             }
 
             Spacer()
@@ -244,7 +244,7 @@ struct IntegrationDetailView: View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text("Configuration")
                 .font(.sectionHeader)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
                 .textCase(.uppercase)
                 .padding(.horizontal, Spacing.lg)
 
@@ -256,12 +256,12 @@ struct IntegrationDetailView: View {
                         .foregroundColor(.pink)
 
                     Text("Coaching Preferences")
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
 
                     Spacer()
 
                     Image(systemName: "chevron.right")
-                        .foregroundColor(.white.opacity(0.3))
+                        .foregroundColor(.textTertiary)
                         .font(.caption)
                 }
                 .settingsRow()
@@ -270,7 +270,7 @@ struct IntegrationDetailView: View {
 
             Text("Configure health coaching domains, goals, notifications, and coaching tone.")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.3))
+                .foregroundColor(.textTertiary)
                 .padding(.horizontal, Spacing.lg)
         }
     }
@@ -281,7 +281,7 @@ struct IntegrationDetailView: View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text("Configuration")
                 .font(.sectionHeader)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
                 .textCase(.uppercase)
                 .padding(.horizontal, Spacing.lg)
 
@@ -289,7 +289,7 @@ struct IntegrationDetailView: View {
                 // Exclude all-day events toggle
                 HStack {
                     Text("Exclude All-Day Events")
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
 
                     Spacer()
 
@@ -302,7 +302,7 @@ struct IntegrationDetailView: View {
                 // Look-ahead days stepper
                 HStack {
                     Text("Look-Ahead")
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
 
                     Spacer()
 
@@ -322,7 +322,7 @@ struct IntegrationDetailView: View {
 
             Text("These settings affect the calendar widget in Command Center. Backend tools are unaffected.")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.3))
+                .foregroundColor(.textTertiary)
                 .padding(.horizontal, Spacing.lg)
         }
     }
@@ -338,7 +338,7 @@ struct IntegrationDetailView: View {
             if available.isEmpty {
                 Text("No calendars found. Grant calendar access first.")
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(.textTertiary)
                     .settingsRow()
             } else {
                 ForEach(available, id: \.self) { calendarName in
@@ -359,7 +359,7 @@ struct IntegrationDetailView: View {
                             if isExcluded {
                                 Text("Excluded")
                                     .font(.caption2)
-                                    .foregroundColor(.white.opacity(0.3))
+                                    .foregroundColor(.textTertiary)
                             }
                         }
                     }

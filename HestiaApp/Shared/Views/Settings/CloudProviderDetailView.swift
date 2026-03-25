@@ -76,7 +76,7 @@ struct CloudProviderDetailView: View {
                 .foregroundColor(provider.provider.color)
 
             Text(provider.provider.displayName)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .font(.title2)
                 .fontWeight(.bold)
 
@@ -119,11 +119,11 @@ struct CloudProviderDetailView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(state.displayName)
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.textPrimary)
 
                                 Text(state.description)
                                     .font(.caption)
-                                    .foregroundColor(.white.opacity(0.6))
+                                    .foregroundColor(.textSecondary)
                             }
 
                             Spacer()
@@ -133,7 +133,7 @@ struct CloudProviderDetailView: View {
                                     .foregroundColor(state.color)
                             } else {
                                 Image(systemName: "circle")
-                                    .foregroundColor(.white.opacity(0.3))
+                                    .foregroundColor(.textTertiary)
                             }
                         }
                     }
@@ -151,7 +151,7 @@ struct CloudProviderDetailView: View {
                 if provider.availableModels.isEmpty {
                     HStack {
                         Text("No models detected")
-                            .foregroundColor(.white.opacity(0.6))
+                            .foregroundColor(.textSecondary)
                         Spacer()
                     }
                     .settingsRow()
@@ -165,7 +165,7 @@ struct CloudProviderDetailView: View {
                         } label: {
                             HStack {
                                 Text(modelId)
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.textPrimary)
                                     .font(.system(.body, design: .monospaced))
                                     .lineLimit(1)
 
@@ -176,7 +176,7 @@ struct CloudProviderDetailView: View {
                                         .foregroundColor(.healthyGreen)
                                 } else {
                                     Image(systemName: "circle")
-                                        .foregroundColor(.white.opacity(0.3))
+                                        .foregroundColor(.textTertiary)
                                 }
                             }
                         }
@@ -196,7 +196,7 @@ struct CloudProviderDetailView: View {
                     .foregroundColor(provider.hasApiKey ? .healthyGreen : .errorRed)
 
                 Text(provider.hasApiKey ? "Configured (stored in Keychain)" : "Not configured")
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
 
                 Spacer()
 
@@ -221,7 +221,7 @@ struct CloudProviderDetailView: View {
                             .foregroundColor(.white.opacity(0.7))
                         Spacer()
                         Text(lastCheck, style: .relative)
-                            .foregroundColor(.white.opacity(0.6))
+                            .foregroundColor(.textSecondary)
                     }
                     .settingsRow()
                 }
@@ -254,7 +254,7 @@ struct CloudProviderDetailView: View {
                         Text(viewModel.isCheckingHealth ? "Checking..." : "Run Health Check")
                         Spacer()
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                 }
                 .settingsRow()
                 .disabled(viewModel.isCheckingHealth)
@@ -286,7 +286,7 @@ struct CloudProviderDetailView: View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text(title)
                 .font(.sectionHeader)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
                 .textCase(.uppercase)
                 .padding(.horizontal, Spacing.lg)
 

@@ -48,11 +48,11 @@ struct MemoryReviewView: View {
     private var loadingState: some View {
         VStack(spacing: Spacing.md) {
             ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                .progressViewStyle(CircularProgressViewStyle(tint: .accent))
                 .scaleEffect(1.5)
 
             Text("Loading pending reviews...")
-                .foregroundColor(.white.opacity(0.7))
+                .foregroundColor(.textSecondary)
         }
     }
 
@@ -64,11 +64,11 @@ struct MemoryReviewView: View {
 
             Text("All Caught Up")
                 .font(.title2.weight(.semibold))
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
 
             Text("No pending memory updates to review")
                 .font(.subheadline)
-                .foregroundColor(.white.opacity(0.7))
+                .foregroundColor(.textSecondary)
         }
     }
 
@@ -81,7 +81,7 @@ struct MemoryReviewView: View {
                 HStack {
                     Text("\(viewModel.pendingCount) Pending Review\(viewModel.pendingCount == 1 ? "" : "s")")
                         .font(.headline)
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
 
                     Spacer()
                 }
@@ -114,7 +114,7 @@ struct MemoryReviewView: View {
     private var approvalSheet: some View {
         NavigationView {
             ZStack {
-                Color.black.opacity(0.95)
+                Color.bgBase.opacity(0.95)
                     .ignoresSafeArea()
 
                 VStack(spacing: Spacing.lg) {
@@ -123,19 +123,19 @@ struct MemoryReviewView: View {
                         VStack(alignment: .leading, spacing: Spacing.md) {
                             Text("Approving Memory")
                                 .font(.headline)
-                                .foregroundColor(.white)
+                                .foregroundColor(.textPrimary)
 
                             Text(chunk.content)
                                 .font(.body)
-                                .foregroundColor(.white.opacity(0.8))
+                                .foregroundColor(.textPrimary.opacity(0.8))
                                 .padding()
-                                .background(Color.white.opacity(0.1))
+                                .background(Color.bgOverlay)
                                 .cornerRadius(CornerRadius.small)
 
                             // Confidence score
                             HStack {
                                 Text("Confidence:")
-                                    .foregroundColor(.white.opacity(0.6))
+                                    .foregroundColor(.textSecondary)
                                 Text("\(Int(chunk.metadata.confidence * 100))%")
                                     .foregroundColor(confidenceColor(chunk.metadata.confidence))
                             }
@@ -146,14 +146,14 @@ struct MemoryReviewView: View {
                         VStack(alignment: .leading, spacing: Spacing.sm) {
                             Text("Reviewer Notes (Optional)")
                                 .font(.caption)
-                                .foregroundColor(.white.opacity(0.6))
+                                .foregroundColor(.textSecondary)
 
                             TextEditor(text: $reviewerNotes)
                                 .font(.body)
-                                .foregroundColor(.white)
+                                .foregroundColor(.textPrimary)
                                 .frame(height: 100)
                                 .padding(Spacing.sm)
-                                .background(Color.white.opacity(0.1))
+                                .background(Color.bgOverlay)
                                 .cornerRadius(CornerRadius.small)
                         }
 
@@ -172,7 +172,7 @@ struct MemoryReviewView: View {
                         } label: {
                             Text("Approve & Commit")
                                 .font(.buttonText)
-                                .foregroundColor(.white)
+                                .foregroundColor(.textPrimary)
                                 .frame(maxWidth: .infinity)
                                 .padding(Spacing.md)
                                 .background(Color.healthyGreen)
@@ -190,7 +190,7 @@ struct MemoryReviewView: View {
                         reviewerNotes = ""
                         showingApprovalSheet = false
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                 }
             }
         }
@@ -221,7 +221,7 @@ struct MemoryReviewCard: View {
                 // Type badge
                 Text(chunk.chunkType.rawValue.capitalized)
                     .font(.caption.weight(.semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                     .padding(.horizontal, Spacing.sm)
                     .padding(.vertical, Spacing.xs)
                     .background(typeColor.opacity(0.3))
@@ -242,7 +242,7 @@ struct MemoryReviewCard: View {
             // Content
             Text(chunk.content)
                 .font(.body)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .lineLimit(4)
 
             // Tags
@@ -252,10 +252,10 @@ struct MemoryReviewCard: View {
                         ForEach(chunk.tags.topics, id: \.self) { topic in
                             Text(topic)
                                 .font(.caption2)
-                                .foregroundColor(.white.opacity(0.7))
+                                .foregroundColor(.textSecondary)
                                 .padding(.horizontal, Spacing.sm)
                                 .padding(.vertical, 2)
-                                .background(Color.white.opacity(0.1))
+                                .background(Color.bgOverlay)
                                 .cornerRadius(8)
                         }
                     }
@@ -305,9 +305,9 @@ struct MemoryReviewCard: View {
         switch chunk.chunkType {
         case .preference: return .purple
         case .fact: return .blue
-        case .decision: return .orange
+        case .decision: return .accent
         case .actionItem: return .red
-        default: return .gray
+        default: return .statusNeutral
         }
     }
 

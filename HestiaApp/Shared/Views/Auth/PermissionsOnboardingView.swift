@@ -118,7 +118,7 @@ struct PermissionsOnboardingView: View {
             HStack(spacing: Spacing.xs) {
                 ForEach(0..<availableSteps.count, id: \.self) { index in
                     Circle()
-                        .fill(index <= currentIndex ? Color.white : Color.white.opacity(0.3))
+                        .fill(index <= currentIndex ? Color.accent : Color.textTertiary)
                         .frame(width: 8, height: 8)
                 }
             }
@@ -133,11 +133,11 @@ struct PermissionsOnboardingView: View {
             VStack(spacing: Spacing.sm) {
                 Text(step.title)
                     .font(.title2.bold())
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
 
                 Text(step.description)
                     .font(.body)
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Spacing.xl)
             }
@@ -158,10 +158,10 @@ struct PermissionsOnboardingView: View {
                                 .font(.buttonText)
                         }
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(Spacing.md)
-                    .background(Color.white.opacity(0.2))
+                    .background(Color.bgOverlay)
                     .cornerRadius(CornerRadius.button)
                 }
                 .disabled(isRequesting)
@@ -171,7 +171,7 @@ struct PermissionsOnboardingView: View {
                 } label: {
                     Text("Skip")
                         .font(.body)
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(.textSecondary)
                 }
                 .disabled(isRequesting)
             }
@@ -195,11 +195,11 @@ struct PermissionsOnboardingView: View {
             VStack(spacing: Spacing.sm) {
                 Text("All Set")
                     .font(.greeting)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
 
                 Text("Hestia is ready to assist you.")
                     .font(.subheading)
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(.textPrimary.opacity(0.8))
             }
 
             // Summary of grants
@@ -210,7 +210,7 @@ struct PermissionsOnboardingView: View {
                             .foregroundColor(grantResults[step.id] == true ? .healthyGreen : .white.opacity(0.3))
                         Text(step.title)
                             .font(.body)
-                            .foregroundColor(.white.opacity(0.8))
+                            .foregroundColor(.textPrimary.opacity(0.8))
                         Spacer()
                     }
                 }

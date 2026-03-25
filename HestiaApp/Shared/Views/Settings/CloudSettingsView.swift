@@ -62,7 +62,7 @@ struct CloudSettingsView: View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text("Cloud Routing")
                 .font(.sectionHeader)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
                 .textCase(.uppercase)
                 .padding(.horizontal, Spacing.lg)
 
@@ -73,7 +73,7 @@ struct CloudSettingsView: View {
                         .font(.caption)
 
                     Text(viewModel.effectiveStateDisplay)
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                         .font(.headline)
                 }
 
@@ -93,7 +93,7 @@ struct CloudSettingsView: View {
 
             Text(cloudStateExplanation)
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.4))
+                .foregroundColor(.textTertiary)
                 .padding(.horizontal, Spacing.lg)
         }
     }
@@ -115,7 +115,7 @@ struct CloudSettingsView: View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text("Providers")
                 .font(.sectionHeader)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
                 .textCase(.uppercase)
                 .padding(.horizontal, Spacing.lg)
 
@@ -141,7 +141,7 @@ struct CloudSettingsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
                     Text(provider.provider.displayName)
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
 
                     Text(provider.state.displayName)
                         .font(.caption2)
@@ -154,7 +154,7 @@ struct CloudSettingsView: View {
 
                 Text(provider.activeModelId ?? "Default model")
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(.textSecondary)
             }
 
             Spacer()
@@ -165,7 +165,7 @@ struct CloudSettingsView: View {
                 .frame(width: 8, height: 8)
 
             Image(systemName: "chevron.right")
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(.textSecondary)
         }
         .settingsRow()
     }
@@ -176,15 +176,15 @@ struct CloudSettingsView: View {
         VStack(spacing: Spacing.md) {
             Image(systemName: "cloud")
                 .font(.system(size: 48))
-                .foregroundColor(.white.opacity(0.3))
+                .foregroundColor(.textTertiary)
 
             Text("No Cloud Providers")
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .font(.headline)
 
             Text("Add a cloud provider to enable hybrid inference.\nLocal models will be used as fallback.")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
@@ -197,7 +197,7 @@ struct CloudSettingsView: View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text("Usage (30 days)")
                 .font(.sectionHeader)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
                 .textCase(.uppercase)
                 .padding(.horizontal, Spacing.lg)
 
@@ -214,7 +214,7 @@ struct CloudSettingsView: View {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
                     Text("Loading usage...")
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.textSecondary)
                     Spacer()
                 }
                 .settingsRow()
@@ -229,7 +229,7 @@ struct CloudSettingsView: View {
                 .foregroundColor(.white.opacity(0.7))
             Spacer()
             Text(value)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .font(.system(.body, design: .monospaced))
         }
         .settingsRow()
@@ -254,7 +254,7 @@ struct CloudSettingsView: View {
                 Image(systemName: "plus.circle.fill")
                 Text("Add Cloud Provider")
             }
-            .foregroundColor(.white)
+            .foregroundColor(.textPrimary)
             .frame(maxWidth: .infinity)
             .padding(Spacing.md)
             .background(Color.white.opacity(0.1))

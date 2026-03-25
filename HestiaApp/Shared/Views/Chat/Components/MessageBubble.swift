@@ -44,11 +44,11 @@ struct MessageBubble: View {
                     // Show tool execution indicator instead of raw JSON
                     HStack(spacing: Spacing.sm) {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .progressViewStyle(CircularProgressViewStyle(tint: .textPrimary))
                             .scaleEffect(0.8)
                         Text("Working on that...")
                             .font(.messageBody)
-                            .foregroundColor(.white.opacity(0.8))
+                            .foregroundColor(.textPrimary.opacity(0.8))
                     }
                     .padding(.horizontal, Spacing.md)
                     .padding(.vertical, Spacing.sm + 2)
@@ -57,7 +57,7 @@ struct MessageBubble: View {
                 } else {
                     Text(message.content)
                         .font(.messageBody)
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                         .padding(.horizontal, Spacing.md)
                         .padding(.vertical, Spacing.sm + 2)
                         .background(bubbleBackground)
@@ -70,7 +70,7 @@ struct MessageBubble: View {
                         ForEach(bylines, id: \.agent) { byline in
                             Text(byline.formatted)
                                 .font(.messageTimestamp)
-                                .foregroundColor(.white.opacity(0.45))
+                                .foregroundColor(.textSecondary)
                         }
                     }
                     .padding(.horizontal, Spacing.xs)
@@ -79,7 +79,7 @@ struct MessageBubble: View {
                 // Timestamp
                 Text(message.timestamp, style: .time)
                     .font(.messageTimestamp)
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(.textSecondary)
                     .padding(.horizontal, Spacing.xs)
 
                 // Verification risk indicator (amber dot)
@@ -132,7 +132,7 @@ private struct VerificationRiskDot: View {
             showPopover = true
         } label: {
             Circle()
-                .fill(Color.orange)
+                .fill(Color.accent)
                 .frame(width: 8, height: 8)
         }
         .buttonStyle(.plain)

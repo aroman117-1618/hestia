@@ -30,9 +30,9 @@ struct WikiModuleListView: View {
             // Module icon
             Image(systemName: article.moduleIcon)
                 .font(.system(size: 20))
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .frame(width: 40, height: 40)
-                .background(Color.white.opacity(0.15))
+                .background(Color.bgOverlay)
                 .cornerRadius(CornerRadius.small)
 
             // Title and subtitle
@@ -40,18 +40,18 @@ struct WikiModuleListView: View {
                 HStack {
                     Text(article.title)
                         .font(.cardTitle)
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
 
                     if article.isPending {
                         Circle()
-                            .fill(Color.white.opacity(0.3))
+                            .fill(Color.textTertiary)
                             .frame(width: 6, height: 6)
                     }
                 }
 
                 Text(article.subtitle)
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(.textSecondary)
                     .lineLimit(1)
             }
 
@@ -61,15 +61,15 @@ struct WikiModuleListView: View {
             if article.isGenerated {
                 Text(article.readTimeBadge)
                     .font(.caption2)
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(.textTertiary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Color.white.opacity(0.1))
+                    .background(Color.bgSurface)
                     .cornerRadius(4)
             }
 
             Image(systemName: "chevron.right")
-                .foregroundColor(.white.opacity(0.3))
+                .foregroundColor(.textTertiary)
                 .font(.caption)
         }
         .settingsRow()
@@ -84,16 +84,16 @@ struct WikiModuleListView: View {
 
             Image(systemName: "puzzlepiece")
                 .font(.system(size: 48))
-                .foregroundColor(.white.opacity(0.2))
+                .foregroundColor(.textTertiary)
 
             VStack(spacing: Spacing.sm) {
                 Text("Module Deep Dives")
                     .font(.headline)
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(.textSecondary)
 
                 Text("Generate field guide entries for each of Hestia's 19 backend modules.")
                     .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(.textTertiary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Spacing.xl)
             }
@@ -106,7 +106,7 @@ struct WikiModuleListView: View {
                 HStack(spacing: Spacing.sm) {
                     if viewModel.isGenerating {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .progressViewStyle(CircularProgressViewStyle(tint: .accent))
                             .scaleEffect(0.8)
                     } else {
                         Image(systemName: "sparkles")
@@ -114,10 +114,10 @@ struct WikiModuleListView: View {
                     Text("Generate All (~$0.80)")
                 }
                 .font(.subheadline.weight(.semibold))
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .padding(.horizontal, Spacing.lg)
                 .padding(.vertical, Spacing.sm)
-                .background(Color.white.opacity(0.2))
+                .background(Color.bgOverlay)
                 .cornerRadius(CornerRadius.small)
             }
             .disabled(viewModel.isGenerating)

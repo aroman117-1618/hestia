@@ -14,13 +14,13 @@ struct MemoryWidget: View {
             HStack {
                 Text("Memory Reviews")
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
 
                 Spacer()
 
                 if viewModel.isLoading {
                     ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .progressViewStyle(CircularProgressViewStyle(tint: .accent))
                         .scaleEffect(0.8)
                 } else {
                     Button {
@@ -30,7 +30,7 @@ struct MemoryWidget: View {
                     } label: {
                         Image(systemName: "arrow.clockwise")
                             .font(.subheadline)
-                            .foregroundColor(.white.opacity(0.5))
+                            .foregroundColor(.textSecondary)
                     }
                 }
             }
@@ -66,15 +66,15 @@ struct MemoryWidget: View {
     private var loadingState: some View {
         VStack(spacing: Spacing.sm) {
             ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                .progressViewStyle(CircularProgressViewStyle(tint: .accent))
 
             Text("Loading reviews...")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(.textSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding(Spacing.xl)
-        .background(Color.white.opacity(0.05))
+        .background(Color.bgSurface)
         .cornerRadius(CornerRadius.card)
         .padding(.horizontal, Spacing.lg)
     }
@@ -87,16 +87,16 @@ struct MemoryWidget: View {
 
             Text("All Caught Up")
                 .font(.subheadline.weight(.medium))
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
 
             Text("No pending memory updates to review")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(.textSecondary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(Spacing.xl)
-        .background(Color.white.opacity(0.05))
+        .background(Color.bgSurface)
         .cornerRadius(CornerRadius.card)
         .padding(.horizontal, Spacing.lg)
     }
@@ -109,7 +109,7 @@ struct MemoryWidget: View {
             HStack {
                 Text("\(viewModel.pendingCount) pending")
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(.textSecondary)
                 Spacer()
             }
             .padding(.horizontal, Spacing.lg)
@@ -136,7 +136,7 @@ struct MemoryWidget: View {
     private var approvalSheet: some View {
         NavigationView {
             ZStack {
-                Color.black.opacity(0.95)
+                Color.bgBase.opacity(0.95)
                     .ignoresSafeArea()
 
                 VStack(spacing: Spacing.lg) {
@@ -145,19 +145,19 @@ struct MemoryWidget: View {
                         VStack(alignment: .leading, spacing: Spacing.md) {
                             Text("Approving Memory")
                                 .font(.headline)
-                                .foregroundColor(.white)
+                                .foregroundColor(.textPrimary)
 
                             Text(chunk.content)
                                 .font(.body)
-                                .foregroundColor(.white.opacity(0.8))
+                                .foregroundColor(.textPrimary.opacity(0.8))
                                 .padding()
-                                .background(Color.white.opacity(0.1))
+                                .background(Color.bgOverlay)
                                 .cornerRadius(CornerRadius.small)
 
                             // Confidence score
                             HStack {
                                 Text("Confidence:")
-                                    .foregroundColor(.white.opacity(0.6))
+                                    .foregroundColor(.textSecondary)
                                 Text("\(Int(chunk.metadata.confidence * 100))%")
                                     .foregroundColor(confidenceColor(chunk.metadata.confidence))
                             }
@@ -168,14 +168,14 @@ struct MemoryWidget: View {
                         VStack(alignment: .leading, spacing: Spacing.sm) {
                             Text("Reviewer Notes (Optional)")
                                 .font(.caption)
-                                .foregroundColor(.white.opacity(0.6))
+                                .foregroundColor(.textSecondary)
 
                             TextEditor(text: $reviewerNotes)
                                 .font(.body)
-                                .foregroundColor(.white)
+                                .foregroundColor(.textPrimary)
                                 .frame(height: 100)
                                 .padding(Spacing.sm)
-                                .background(Color.white.opacity(0.1))
+                                .background(Color.bgOverlay)
                                 .cornerRadius(CornerRadius.small)
                         }
 
@@ -194,7 +194,7 @@ struct MemoryWidget: View {
                         } label: {
                             Text("Approve & Commit")
                                 .font(.buttonText)
-                                .foregroundColor(.white)
+                                .foregroundColor(.textPrimary)
                                 .frame(maxWidth: .infinity)
                                 .padding(Spacing.md)
                                 .background(Color.healthyGreen)
@@ -212,7 +212,7 @@ struct MemoryWidget: View {
                         reviewerNotes = ""
                         showingApprovalSheet = false
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                 }
             }
         }
@@ -243,7 +243,7 @@ struct MemoryWidgetCard: View {
                 // Type badge
                 Text(chunk.chunkType.rawValue.capitalized)
                     .font(.caption2.weight(.semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                     .padding(.horizontal, Spacing.xs)
                     .padding(.vertical, 2)
                     .background(typeColor.opacity(0.3))
@@ -264,7 +264,7 @@ struct MemoryWidgetCard: View {
             // Content
             Text(chunk.content)
                 .font(.subheadline)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .lineLimit(3)
 
             // Tags
@@ -274,10 +274,10 @@ struct MemoryWidgetCard: View {
                         ForEach(chunk.tags.topics.prefix(3), id: \.self) { topic in
                             Text(topic)
                                 .font(.caption2)
-                                .foregroundColor(.white.opacity(0.6))
+                                .foregroundColor(.textSecondary)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
-                                .background(Color.white.opacity(0.1))
+                                .background(Color.bgOverlay)
                                 .cornerRadius(4)
                         }
                     }
@@ -318,7 +318,7 @@ struct MemoryWidgetCard: View {
             }
         }
         .padding(Spacing.md)
-        .background(Color.white.opacity(0.05))
+        .background(Color.bgSurface)
         .cornerRadius(CornerRadius.card)
         .padding(.horizontal, Spacing.lg)
     }
@@ -329,7 +329,7 @@ struct MemoryWidgetCard: View {
         case .fact: return .blue
         case .decision: return .orange
         case .actionItem: return .red
-        default: return .gray
+        default: return .statusNeutral
         }
     }
 
@@ -349,7 +349,7 @@ struct MemoryWidgetCard: View {
 struct MemoryWidget_Previews: PreviewProvider {
     static var previews: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color.bgBase.ignoresSafeArea()
 
             ScrollView {
                 MemoryWidget()

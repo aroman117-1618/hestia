@@ -14,7 +14,7 @@ struct ErrorBanner: View {
 
             Text(error.userMessage)
                 .font(.subheadline)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .lineLimit(2)
 
             Spacer()
@@ -24,14 +24,14 @@ struct ErrorBanner: View {
                     retry()
                 }
                 .font(.subheadline.weight(.semibold))
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
             }
 
             Button {
                 onDismiss()
             } label: {
                 Image(systemName: "xmark")
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(.textSecondary)
             }
         }
         .padding(Spacing.md)
@@ -59,7 +59,7 @@ struct ErrorScreen: View {
             // Error message
             Text(error.userMessage)
                 .font(.headline)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, Spacing.xl)
 
@@ -71,10 +71,10 @@ struct ErrorScreen: View {
                     } label: {
                         Text("Try Again")
                             .font(.buttonText)
-                            .foregroundColor(.white)
+                            .foregroundColor(.textPrimary)
                             .frame(maxWidth: .infinity)
                             .padding(Spacing.md)
-                            .background(Color.white.opacity(0.2))
+                            .background(Color.bgOverlay)
                             .cornerRadius(CornerRadius.button)
                     }
                 }
@@ -84,7 +84,7 @@ struct ErrorScreen: View {
                 } label: {
                     Text("Dismiss")
                         .font(.buttonText)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(.textSecondary)
                 }
             }
             .padding(.horizontal, Spacing.xl)
@@ -103,12 +103,12 @@ struct OfflineBanner: View {
 
             Text("No connection")
                 .font(.subheadline)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
 
             Spacer()
         }
         .padding(Spacing.sm)
-        .background(Color.black.opacity(0.6))
+        .background(Color.bgBase.opacity(0.6))
     }
 }
 

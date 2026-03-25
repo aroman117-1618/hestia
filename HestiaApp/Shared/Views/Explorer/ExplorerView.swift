@@ -22,7 +22,7 @@ struct ExplorerView: View {
                 if viewModel.isLoading && viewModel.resources.isEmpty {
                     Spacer()
                     ProgressView()
-                        .tint(.white)
+                        .tint(.accent)
                     Spacer()
                 } else if viewModel.resources.isEmpty {
                     emptyState
@@ -30,7 +30,7 @@ struct ExplorerView: View {
                     resourceList
                 }
             }
-            .background(Color.black)
+            .background(Color.bgBase)
             .navigationTitle("Explorer")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -39,7 +39,7 @@ struct ExplorerView: View {
                         showingNewDraft = true
                     } label: {
                         Image(systemName: "square.and.pencil")
-                            .foregroundColor(.white)
+                            .foregroundColor(.textPrimary)
                     }
                 }
             }
@@ -71,12 +71,12 @@ struct ExplorerView: View {
                     } label: {
                         Text(tab.label)
                             .font(.subheadline.weight(selectedTabIndex == index ? .semibold : .regular))
-                            .foregroundColor(selectedTabIndex == index ? .white : .white.opacity(0.5))
+                            .foregroundColor(selectedTabIndex == index ? .textPrimary : .textSecondary)
                             .padding(.horizontal, Spacing.md)
                             .padding(.vertical, Spacing.xs)
                             .background(
                                 selectedTabIndex == index
-                                    ? Color.white.opacity(0.15)
+                                    ? Color.bgOverlay
                                     : Color.clear
                             )
                             .cornerRadius(CornerRadius.button)
@@ -93,10 +93,10 @@ struct ExplorerView: View {
     private var searchBar: some View {
         HStack(spacing: Spacing.sm) {
             Image(systemName: "magnifyingglass")
-                .foregroundColor(.white.opacity(0.4))
+                .foregroundColor(.textTertiary)
 
             TextField("Search resources...", text: $viewModel.searchText)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .autocapitalization(.none)
                 .disableAutocorrection(true)
                 .onSubmit {
@@ -109,12 +109,12 @@ struct ExplorerView: View {
                     Task { await viewModel.search() }
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.white.opacity(0.4))
+                        .foregroundColor(.textTertiary)
                 }
             }
         }
         .padding(Spacing.sm)
-        .background(Color.white.opacity(0.08))
+        .background(Color.bgSurface)
         .cornerRadius(CornerRadius.small)
         .padding(.horizontal, Spacing.lg)
         .padding(.bottom, Spacing.sm)
@@ -127,7 +127,7 @@ struct ExplorerView: View {
             ForEach(viewModel.resources) { resource in
                 ExplorerResourceRow(resource: resource)
                     .listRowBackground(Color.clear)
-                    .listRowSeparatorTint(.white.opacity(0.1))
+                    .listRowSeparatorTint(.iosCardBorder)
             }
             .onDelete { indexSet in
                 guard let index = indexSet.first else { return }
@@ -151,16 +151,16 @@ struct ExplorerView: View {
 
             Image(systemName: selectedTabIcon)
                 .font(.system(size: 48))
-                .foregroundColor(.white.opacity(0.3))
+                .foregroundColor(.textTertiary)
 
             Text("No resources found")
                 .font(.headline)
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(.textSecondary)
 
             if !viewModel.searchText.isEmpty {
                 Text("Try a different search term")
                     .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.3))
+                    .foregroundColor(.textTertiary)
             }
 
             Spacer()

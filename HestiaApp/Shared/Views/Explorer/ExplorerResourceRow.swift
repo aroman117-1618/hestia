@@ -19,7 +19,7 @@ struct ExplorerResourceRow: View {
                 HStack(spacing: Spacing.xs) {
                     Text(resource.title)
                         .font(.body.weight(.medium))
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                         .lineLimit(1)
 
                     Spacer()
@@ -31,7 +31,7 @@ struct ExplorerResourceRow: View {
                 if let preview = resource.preview, !preview.isEmpty {
                     Text(preview)
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(.textSecondary)
                         .lineLimit(2)
                 }
 
@@ -39,18 +39,18 @@ struct ExplorerResourceRow: View {
                 HStack(spacing: Spacing.sm) {
                     Text(sourceLabel)
                         .font(.caption2)
-                        .foregroundColor(.white.opacity(0.3))
+                        .foregroundColor(.textTertiary)
 
                     if let date = formattedDate {
                         Text(date)
                             .font(.caption2)
-                            .foregroundColor(.white.opacity(0.3))
+                            .foregroundColor(.textTertiary)
                     }
 
                     if let extra = metadataExtra {
                         Text(extra)
                             .font(.caption2)
-                            .foregroundColor(.white.opacity(0.3))
+                            .foregroundColor(.textTertiary)
                     }
                 }
             }
@@ -74,9 +74,9 @@ struct ExplorerResourceRow: View {
         switch resource.type {
         case .draft: return .blue
         case .mail: return .cyan
-        case .task: return .orange
+        case .task: return .accent
         case .note: return .yellow
-        case .file: return .gray
+        case .file: return .statusNeutral
         }
     }
 
@@ -93,7 +93,7 @@ struct ExplorerResourceRow: View {
             if resource.flags.contains(.flagged) {
                 Image(systemName: "flag.fill")
                     .font(.caption2)
-                    .foregroundColor(.orange)
+                    .foregroundColor(.accent)
             }
             if resource.flags.contains(.urgent) {
                 Image(systemName: "exclamationmark.triangle.fill")

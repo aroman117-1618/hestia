@@ -12,7 +12,7 @@ struct IntegrationsView: View {
                 VStack(alignment: .leading, spacing: Spacing.sm) {
                     Text("Apple Integrations")
                         .font(.sectionHeader)
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.textSecondary)
                         .textCase(.uppercase)
                         .padding(.horizontal, Spacing.lg)
 
@@ -40,7 +40,7 @@ struct IntegrationsView: View {
                 // Footer
                 Text("More integrations coming soon")
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.3))
+                    .foregroundColor(.textTertiary)
                     .padding(.top, Spacing.md)
 
                 Spacer()
@@ -59,14 +59,14 @@ struct IntegrationsView: View {
         HStack(spacing: Spacing.md) {
             // Integration icon
             Image(systemName: integration.iconName)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .font(.title3)
                 .frame(width: 32)
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: Spacing.xs) {
                     Text(integration.name)
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
 
                     // Status badge
                     Text(integration.status.displayName)
@@ -80,7 +80,7 @@ struct IntegrationsView: View {
 
                 Text("\(integration.toolCount) tools available")
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(.textSecondary)
             }
 
             Spacer()

@@ -44,17 +44,17 @@ struct FilterBar: View {
                 if let count = count, count > 0 {
                     Text("\(count)")
                         .font(.caption2.weight(.bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 1)
                         .background(Color.errorRed)
                         .cornerRadius(6)
                 }
             }
-            .foregroundColor(isSelected ? .white : .white.opacity(0.6))
+            .foregroundColor(isSelected ? .textPrimary : .textSecondary)
             .padding(.vertical, Spacing.xs)
             .padding(.horizontal, Spacing.sm)
-            .background(isSelected ? Color.white.opacity(0.2) : Color.white.opacity(0.05))
+            .background(isSelected ? Color.bgOverlay : Color.bgSurface)
             .cornerRadius(CornerRadius.small)
         }
         .buttonStyle(.plain)

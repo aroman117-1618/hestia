@@ -12,13 +12,13 @@ struct AlertsWidget: View {
             HStack {
                 Text("Alerts")
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
 
                 Spacer()
 
                 Text("Last 48 hours")
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(.textTertiary)
             }
             .padding(.horizontal, Spacing.lg)
 
@@ -39,20 +39,20 @@ struct AlertsWidget: View {
         VStack(spacing: Spacing.sm) {
             Image(systemName: "bell.slash")
                 .font(.system(size: 32))
-                .foregroundColor(.white.opacity(0.3))
+                .foregroundColor(.textTertiary)
 
             Text("No recent alerts")
                 .font(.subheadline)
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(.textSecondary)
 
             Text("Order executions from the last 48 hours will appear here")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.3))
+                .foregroundColor(.textTertiary)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(Spacing.xl)
-        .background(Color.white.opacity(0.05))
+        .background(Color.bgSurface)
         .cornerRadius(CornerRadius.card)
         .padding(.horizontal, Spacing.lg)
     }
@@ -88,7 +88,7 @@ struct AlertRow: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(orderName)
                             .font(.subheadline.weight(.medium))
-                            .foregroundColor(.white)
+                            .foregroundColor(.textPrimary)
 
                         HStack(spacing: Spacing.xs) {
                             Text(execution.status.displayName)
@@ -96,11 +96,11 @@ struct AlertRow: View {
                                 .foregroundColor(statusColor)
 
                             Text("\u{2022}")
-                                .foregroundColor(.white.opacity(0.3))
+                                .foregroundColor(.textTertiary)
 
                             Text(execution.formattedTimestamp)
                                 .font(.caption)
-                                .foregroundColor(.white.opacity(0.5))
+                                .foregroundColor(.textSecondary)
                         }
                     }
 
@@ -110,7 +110,7 @@ struct AlertRow: View {
                     if execution.hestiaRead != nil || execution.fullResponse != nil {
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                             .font(.caption)
-                            .foregroundColor(.white.opacity(0.4))
+                            .foregroundColor(.textTertiary)
                     }
                 }
                 .padding(Spacing.md)
@@ -124,11 +124,11 @@ struct AlertRow: View {
                         VStack(alignment: .leading, spacing: Spacing.xs) {
                             Text("Analysis")
                                 .font(.caption.weight(.semibold))
-                                .foregroundColor(.white.opacity(0.6))
+                                .foregroundColor(.textSecondary)
 
                             Text(hestiaRead)
                                 .font(.caption)
-                                .foregroundColor(.white.opacity(0.8))
+                                .foregroundColor(.textPrimary.opacity(0.8))
                         }
                     }
 
@@ -136,11 +136,11 @@ struct AlertRow: View {
                         VStack(alignment: .leading, spacing: Spacing.xs) {
                             Text("Full Response")
                                 .font(.caption.weight(.semibold))
-                                .foregroundColor(.white.opacity(0.6))
+                                .foregroundColor(.textSecondary)
 
                             Text(fullResponse)
                                 .font(.caption)
-                                .foregroundColor(.white.opacity(0.7))
+                                .foregroundColor(.textSecondary)
                                 .lineLimit(10)
                         }
                     }
@@ -150,7 +150,7 @@ struct AlertRow: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(Color.white.opacity(0.05))
+        .background(Color.bgSurface)
         .cornerRadius(CornerRadius.card)
         .padding(.horizontal, Spacing.lg)
     }
@@ -160,7 +160,7 @@ struct AlertRow: View {
         case .success: return .healthyGreen
         case .failed: return .errorRed
         case .running: return .warningYellow
-        case .scheduled: return .white.opacity(0.5)
+        case .scheduled: return .textSecondary
         }
     }
 }
@@ -170,7 +170,7 @@ struct AlertRow: View {
 struct AlertsWidget_Previews: PreviewProvider {
     static var previews: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color.bgBase.ignoresSafeArea()
 
             ScrollView {
                 AlertsWidget(

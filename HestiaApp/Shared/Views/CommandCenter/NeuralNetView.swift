@@ -37,7 +37,7 @@ struct NeuralNetView: View {
                 }
             }
             .frame(height: 320)
-            .background(Color.black.opacity(0.3))
+            .background(Color.bgBase.opacity(0.3))
             .cornerRadius(CornerRadius.card)
             .clipped()
 
@@ -59,18 +59,18 @@ struct NeuralNetView: View {
     private var headerBar: some View {
         HStack {
             Image(systemName: "brain.head.profile")
-                .foregroundColor(.white.opacity(0.7))
+                .foregroundColor(.textSecondary)
 
             Text("Neural Net")
                 .font(.headline)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
 
             Spacer()
 
             if viewModel.memoryCount > 0 {
                 Text("\(viewModel.memoryCount) nodes")
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(.textSecondary)
             }
         }
         .padding(.horizontal, Spacing.md)
@@ -82,12 +82,12 @@ struct NeuralNetView: View {
     private var loadingState: some View {
         VStack(spacing: Spacing.md) {
             ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                .progressViewStyle(CircularProgressViewStyle(tint: .accent))
                 .scaleEffect(1.2)
 
             Text("Mapping neural connections...")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(.textSecondary)
         }
     }
 
@@ -97,15 +97,15 @@ struct NeuralNetView: View {
         VStack(spacing: Spacing.sm) {
             Image(systemName: "brain")
                 .font(.system(size: 32))
-                .foregroundColor(.white.opacity(0.3))
+                .foregroundColor(.textTertiary)
 
             Text("No memories yet")
                 .font(.subheadline)
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(.textSecondary)
 
             Text("Start chatting to build your neural net")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.3))
+                .foregroundColor(.textTertiary)
         }
     }
 
@@ -141,7 +141,7 @@ struct NeuralNetView: View {
             }
         }
         .padding(Spacing.sm)
-        .background(Color.black.opacity(0.5))
+        .background(Color.bgBase.opacity(0.5))
         .cornerRadius(8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
         .padding(Spacing.sm)
@@ -155,7 +155,7 @@ struct NeuralNetView: View {
 
             Text(label)
                 .font(.system(size: 9))
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
         }
     }
 
@@ -164,10 +164,10 @@ struct NeuralNetView: View {
     private var nodeCountBadge: some View {
         Text("\(viewModel.nodes.count) nodes")
             .font(.system(size: 10, weight: .medium))
-            .foregroundColor(.white.opacity(0.5))
+            .foregroundColor(.textSecondary)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(Color.black.opacity(0.5))
+            .background(Color.bgBase.opacity(0.5))
             .cornerRadius(8)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             .padding(Spacing.sm)
@@ -185,11 +185,11 @@ struct NeuralNetView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(node.displayName)
                     .font(.caption.weight(.semibold))
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(.textPrimary.opacity(0.8))
 
                 Text(node.content)
                     .font(.caption2)
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(.textSecondary)
                     .lineLimit(2)
             }
 
@@ -198,10 +198,10 @@ struct NeuralNetView: View {
             // Confidence badge
             Text("\(Int(node.confidence * 100))%")
                 .font(.caption2.weight(.bold))
-                .foregroundColor(.white.opacity(0.7))
+                .foregroundColor(.textSecondary)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
-                .background(Color.white.opacity(0.1))
+                .background(Color.bgOverlay)
                 .cornerRadius(4)
 
             // Dismiss button
@@ -211,12 +211,12 @@ struct NeuralNetView: View {
                 }
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(.textTertiary)
                     .font(.system(size: 16))
             }
         }
         .padding(Spacing.sm)
-        .background(Color.white.opacity(0.08))
+        .background(Color.bgSurface)
         .cornerRadius(CornerRadius.small)
         .padding(.top, Spacing.xs)
         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -506,7 +506,7 @@ struct SceneKitGraphView: UIViewRepresentable {
 struct NeuralNetView_Previews: PreviewProvider {
     static var previews: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color.bgBase.ignoresSafeArea()
             NeuralNetView()
         }
     }

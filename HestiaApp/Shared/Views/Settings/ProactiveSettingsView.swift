@@ -84,7 +84,7 @@ struct ProactiveSettingsView: View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text(title)
                 .font(.sectionHeader)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
                 .textCase(.uppercase)
                 .padding(.horizontal, Spacing.lg)
 
@@ -103,10 +103,10 @@ struct ProactiveSettingsView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(option.displayName)
-                                .foregroundColor(.white)
+                                .foregroundColor(.textPrimary)
                             Text(option.description)
                                 .font(.caption)
-                                .foregroundColor(.white.opacity(0.5))
+                                .foregroundColor(.textSecondary)
                         }
 
                         Spacer()
@@ -116,7 +116,7 @@ struct ProactiveSettingsView: View {
                                 .foregroundColor(.healthyGreen)
                         } else {
                             Image(systemName: "circle")
-                                .foregroundColor(.white.opacity(0.3))
+                                .foregroundColor(.textTertiary)
                         }
                     }
                 }
@@ -145,7 +145,7 @@ struct ProactiveSettingsView: View {
         VStack(spacing: Spacing.sm) {
             Toggle(isOn: $viewModel.briefingEnabled) {
                 Text("Enable Daily Briefing")
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
             }
             .tint(.healthyGreen)
             .settingsRow()
@@ -153,7 +153,7 @@ struct ProactiveSettingsView: View {
             if viewModel.briefingEnabled {
                 HStack {
                     Text("Briefing Time")
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                     Spacer()
                     DatePicker("", selection: $viewModel.briefingTime, displayedComponents: .hourAndMinute)
                         .labelsHidden()
@@ -171,7 +171,7 @@ struct ProactiveSettingsView: View {
         VStack(spacing: Spacing.sm) {
             Toggle(isOn: $viewModel.quietHoursEnabled) {
                 Text("Enable Quiet Hours")
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
             }
             .tint(.healthyGreen)
             .settingsRow()
@@ -179,7 +179,7 @@ struct ProactiveSettingsView: View {
             if viewModel.quietHoursEnabled {
                 HStack {
                     Text("Start")
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                     Spacer()
                     DatePicker("", selection: $viewModel.quietHoursStart, displayedComponents: .hourAndMinute)
                         .labelsHidden()
@@ -189,7 +189,7 @@ struct ProactiveSettingsView: View {
 
                 HStack {
                     Text("End")
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                     Spacer()
                     DatePicker("", selection: $viewModel.quietHoursEnd, displayedComponents: .hourAndMinute)
                         .labelsHidden()
@@ -208,12 +208,12 @@ struct ProactiveSettingsView: View {
             Toggle(isOn: $viewModel.patternDetectionEnabled) {
                 HStack {
                     Text("Enable Pattern Detection")
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                     Spacer()
                     if viewModel.patternCount > 0 {
                         Text("\(viewModel.patternCount) patterns")
                             .font(.caption)
-                            .foregroundColor(.white.opacity(0.5))
+                            .foregroundColor(.textSecondary)
                     }
                 }
             }
@@ -229,7 +229,7 @@ struct ProactiveSettingsView: View {
         VStack(spacing: Spacing.sm) {
             Toggle(isOn: $viewModel.weatherEnabled) {
                 Text("Include Weather in Briefing")
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
             }
             .tint(.healthyGreen)
             .settingsRow()
@@ -237,11 +237,11 @@ struct ProactiveSettingsView: View {
             if viewModel.weatherEnabled {
                 HStack {
                     Text("Location")
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                     Spacer()
                     TextField("City name", text: $viewModel.weatherLocation)
                         .multilineTextAlignment(.trailing)
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                         .frame(maxWidth: 200)
                 }
                 .settingsRow()
@@ -257,7 +257,7 @@ struct ProactiveSettingsView: View {
             ProgressView()
                 .progressViewStyle(CircularProgressViewStyle(tint: .white))
             Text("Loading settings...")
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
             Spacer()
         }
         .settingsRow()
@@ -274,7 +274,7 @@ struct ProactiveSettingsView: View {
             Button("Retry") {
                 Task { await viewModel.loadPolicy() }
             }
-            .foregroundColor(.white)
+            .foregroundColor(.textPrimary)
         }
         .settingsRow()
         .padding(.horizontal, Spacing.lg)

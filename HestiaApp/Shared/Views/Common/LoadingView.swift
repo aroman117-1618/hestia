@@ -9,7 +9,7 @@ struct LoadingView: View {
         HStack(spacing: 6) {
             ForEach(0..<3) { index in
                 Circle()
-                    .fill(Color.white.opacity(0.7))
+                    .fill(Color.accent.opacity(0.7))
                     .frame(width: 8, height: 8)
                     .offset(y: animatingDots ? -5 : 0)
                     .animation(
@@ -33,7 +33,7 @@ struct LoadingBubble: View {
             LottieView(
                 animationName: "typing_indicator",
                 colorOverrides: [
-                    ("**.Fill 1.Color", .white.opacity(0.7))
+                    ("**.Fill 1.Color", .accent.opacity(0.7))
                 ],
                 fallbackSymbol: "ellipsis"
             )
@@ -59,22 +59,22 @@ struct LoadingOverlay: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.4)
+            Color.bgBase.opacity(0.4)
                 .ignoresSafeArea()
 
             VStack(spacing: Spacing.md) {
                 ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    .progressViewStyle(CircularProgressViewStyle(tint: .accent))
                     .scaleEffect(1.5)
 
                 if let message = message {
                     Text(message)
                         .font(.subheadline)
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                 }
             }
             .padding(Spacing.xl)
-            .background(Color.black.opacity(0.6))
+            .background(Color.bgBase.opacity(0.6))
             .cornerRadius(CornerRadius.standard)
         }
     }
@@ -89,9 +89,9 @@ struct SkeletonView: View {
             .fill(
                 LinearGradient(
                     colors: [
-                        Color.white.opacity(0.1),
-                        Color.white.opacity(0.2),
-                        Color.white.opacity(0.1)
+                        Color.bgOverlay.opacity(0.5),
+                        Color.bgOverlay,
+                        Color.bgOverlay.opacity(0.5)
                     ],
                     startPoint: .leading,
                     endPoint: .trailing

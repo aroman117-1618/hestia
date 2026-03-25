@@ -30,16 +30,16 @@ struct WikiDecisionsView: View {
             // ADR number badge
             Text(adrNumber(from: article.title))
                 .font(.system(size: 11, weight: .bold, design: .monospaced))
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
                 .frame(width: 40, height: 40)
-                .background(Color.white.opacity(0.15))
+                .background(Color.bgOverlay)
                 .cornerRadius(CornerRadius.small)
 
             // Title and status
             VStack(alignment: .leading, spacing: 2) {
                 Text(adrTitle(from: article.title))
                     .font(.cardTitle)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
 
@@ -51,7 +51,7 @@ struct WikiDecisionsView: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .foregroundColor(.white.opacity(0.3))
+                .foregroundColor(.textTertiary)
                 .font(.caption)
         }
         .settingsRow()
@@ -95,16 +95,16 @@ struct WikiDecisionsView: View {
 
             Image(systemName: "doc.text")
                 .font(.system(size: 48))
-                .foregroundColor(.white.opacity(0.2))
+                .foregroundColor(.textTertiary)
 
             VStack(spacing: Spacing.sm) {
                 Text("Architectural Decisions")
                     .font(.headline)
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(.textSecondary)
 
                 Text("Tap the refresh button to load ADRs from the decision log.")
                     .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(.textTertiary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, Spacing.xl)
             }

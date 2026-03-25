@@ -25,7 +25,7 @@ struct BriefingCard: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(Color.white.opacity(0.08))
+        .background(Color.bgSurface)
         .cornerRadius(CornerRadius.card)
         .padding(.horizontal, Spacing.lg)
     }
@@ -42,21 +42,21 @@ struct BriefingCard: View {
                 if let briefing = briefing {
                     Text(briefing.greeting)
                         .font(.headline)
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                 } else if isLoading {
                     Text("Loading briefing...")
                         .font(.headline)
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.textSecondary)
                 } else {
                     Text("Daily Briefing")
                         .font(.headline)
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                 }
 
                 if let briefing = briefing {
                     Text(briefingSummary(briefing))
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.textSecondary)
                         .lineLimit(1)
                 }
             }
@@ -65,7 +65,7 @@ struct BriefingCard: View {
 
             Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.4))
+                .foregroundColor(.textTertiary)
         }
         .padding(Spacing.md)
     }
@@ -75,13 +75,13 @@ struct BriefingCard: View {
     private func expandedContent(_ briefing: BriefingResponse) -> some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             Divider()
-                .background(Color.white.opacity(0.1))
+                .background(Color.bgOverlay)
 
             // Briefing text
             if !briefing.text.isEmpty {
                 Text(briefing.text)
                     .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(.textPrimary.opacity(0.8))
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -117,7 +117,7 @@ struct BriefingCard: View {
                 VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text("Suggestions")
                         .font(.caption.weight(.semibold))
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(.textSecondary)
 
                     ForEach(briefing.suggestions, id: \.self) { suggestion in
                         HStack(alignment: .top, spacing: Spacing.xs) {
@@ -126,7 +126,7 @@ struct BriefingCard: View {
                                 .foregroundColor(.warningYellow)
                             Text(suggestion)
                                 .font(.caption)
-                                .foregroundColor(.white.opacity(0.7))
+                                .foregroundColor(.textSecondary)
                         }
                     }
                 }
@@ -145,7 +145,7 @@ struct BriefingCard: View {
             Text("\(count) \(label)")
                 .font(.caption)
         }
-        .foregroundColor(.white.opacity(0.6))
+        .foregroundColor(.textSecondary)
     }
 
     private func briefingSummary(_ briefing: BriefingResponse) -> String {

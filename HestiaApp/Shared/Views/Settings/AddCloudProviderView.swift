@@ -62,7 +62,7 @@ struct AddCloudProviderView: View {
                     Button("Cancel") {
                         dismiss()
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                 }
             }
         }
@@ -74,7 +74,7 @@ struct AddCloudProviderView: View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text("Provider")
                 .font(.sectionHeader)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
                 .textCase(.uppercase)
                 .padding(.horizontal, Spacing.lg)
 
@@ -83,7 +83,7 @@ struct AddCloudProviderView: View {
                     Image(systemName: "checkmark.circle")
                         .foregroundColor(.healthyGreen)
                     Text("All providers configured")
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.textSecondary)
                     Spacer()
                 }
                 .settingsRow()
@@ -102,11 +102,11 @@ struct AddCloudProviderView: View {
 
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(provider.displayName)
-                                        .foregroundColor(.white)
+                                        .foregroundColor(.textPrimary)
 
                                     Text(providerSubtitle(provider))
                                         .font(.caption)
-                                        .foregroundColor(.white.opacity(0.6))
+                                        .foregroundColor(.textSecondary)
                                 }
 
                                 Spacer()
@@ -142,20 +142,20 @@ struct AddCloudProviderView: View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text("API Key")
                 .font(.sectionHeader)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
                 .textCase(.uppercase)
                 .padding(.horizontal, Spacing.lg)
 
             VStack(spacing: Spacing.sm) {
                 SecureField("Paste your API key", text: $apiKey)
                     .textContentType(.password)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                     .accentColor(.white)
                     .settingsRow()
 
                 Text("Stored securely in macOS Keychain. Never transmitted in API responses.")
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(.textTertiary)
                     .padding(.horizontal, Spacing.md)
             }
             .padding(.horizontal, Spacing.lg)
@@ -168,7 +168,7 @@ struct AddCloudProviderView: View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text("Routing Mode")
                 .font(.sectionHeader)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
                 .textCase(.uppercase)
                 .padding(.horizontal, Spacing.lg)
 
@@ -180,11 +180,11 @@ struct AddCloudProviderView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(state.displayName)
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.textPrimary)
 
                                 Text(state.description)
                                     .font(.caption)
-                                    .foregroundColor(.white.opacity(0.6))
+                                    .foregroundColor(.textSecondary)
                             }
 
                             Spacer()
@@ -211,19 +211,19 @@ struct AddCloudProviderView: View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text("Model (Optional)")
                 .font(.sectionHeader)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
                 .textCase(.uppercase)
                 .padding(.horizontal, Spacing.lg)
 
             VStack(spacing: Spacing.sm) {
                 TextField("Leave blank for provider default", text: $modelId)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                     .accentColor(.white)
                     .settingsRow()
 
                 Text("Provider's default model will be used if left empty.")
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(.textTertiary)
                     .padding(.horizontal, Spacing.md)
             }
             .padding(.horizontal, Spacing.lg)
@@ -256,10 +256,10 @@ struct AddCloudProviderView: View {
                 }
                 Text(viewModel.isAddingProvider ? "Adding..." : "Add \(selectedProvider.displayName)")
             }
-            .foregroundColor(.white)
+            .foregroundColor(.textPrimary)
             .frame(maxWidth: .infinity)
             .padding(Spacing.md)
-            .background(canAdd ? Color.white.opacity(0.15) : Color.white.opacity(0.05))
+            .background(canAdd ? Color.bgOverlay : Color.white.opacity(0.05))
             .cornerRadius(CornerRadius.small)
         }
         .disabled(!canAdd || viewModel.isAddingProvider)

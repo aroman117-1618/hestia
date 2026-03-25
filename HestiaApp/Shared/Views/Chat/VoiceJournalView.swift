@@ -9,12 +9,12 @@ struct VoiceJournalView: View {
     let onCancel: () -> Void
     @State private var cursorOpacity: Double = 1.0
 
-    private let journalColor = Color.agentTeal
+    private let journalColor = Color.accent
 
     var body: some View {
         NavigationView {
             ZStack {
-                Color.black.ignoresSafeArea()
+                Color.bgBase.ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     // Header badge + timer
@@ -66,7 +66,7 @@ struct VoiceJournalView: View {
                         .frame(width: 8, height: 8)
                     Text(formatDuration(voiceViewModel.recordingDuration))
                         .font(.caption.monospacedDigit())
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.textSecondary)
                 }
             }
         }
@@ -80,13 +80,13 @@ struct VoiceJournalView: View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             if voiceViewModel.rawTranscript.isEmpty && voiceViewModel.isRecording {
                 Text("Listening...")
-                    .font(.custom("Georgia", size: 17))
+                    .font(.system(size: 17))
                     .italic()
-                    .foregroundColor(.white.opacity(0.3))
+                    .foregroundColor(.textTertiary)
             } else {
                 Text(voiceViewModel.rawTranscript)
-                    .font(.custom("Georgia", size: 17))
-                    .foregroundColor(.white.opacity(0.9))
+                    .font(.system(size: 17))
+                    .foregroundColor(.textPrimary)
                     .lineSpacing(8) // ~1.65 line height at 17px
                     .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -114,7 +114,7 @@ struct VoiceJournalView: View {
             Button(action: onCancel) {
                 Text("Discard")
                     .font(.body)
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(.textSecondary)
             }
 
             Spacer()
@@ -143,7 +143,7 @@ struct VoiceJournalView: View {
                         Text("Submit")
                             .font(.body.weight(.semibold))
                     }
-                    .foregroundColor(.black)
+                    .foregroundColor(.textInverse)
                     .padding(.horizontal, Spacing.lg)
                     .padding(.vertical, Spacing.md)
                     .background(journalColor)
@@ -154,7 +154,7 @@ struct VoiceJournalView: View {
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.vertical, Spacing.md)
-        .background(Color.black.opacity(0.5))
+        .background(Color.bgBase.opacity(0.5))
     }
 
     // MARK: - Helpers

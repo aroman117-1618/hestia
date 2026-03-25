@@ -8,7 +8,7 @@ struct WikiArticleDetailView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color.bgBase.ignoresSafeArea()
 
             if article.isGenerated || article.isStatic {
                 ScrollView {
@@ -22,16 +22,16 @@ struct WikiArticleDetailView: View {
 
                     Image(systemName: article.moduleIcon)
                         .font(.system(size: 48))
-                        .foregroundColor(.white.opacity(0.2))
+                        .foregroundColor(.textTertiary)
 
                     VStack(spacing: Spacing.sm) {
                         Text(article.title)
                             .font(.headline)
-                            .foregroundColor(.white.opacity(0.6))
+                            .foregroundColor(.textSecondary)
 
                         Text("This article hasn't been generated yet.")
                             .font(.subheadline)
-                            .foregroundColor(.white.opacity(0.4))
+                            .foregroundColor(.textTertiary)
                     }
 
                     Button {
@@ -45,7 +45,7 @@ struct WikiArticleDetailView: View {
                         HStack(spacing: Spacing.sm) {
                             if viewModel.isGenerating {
                                 ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .accent))
                                     .scaleEffect(0.8)
                             } else {
                                 Image(systemName: "sparkles")
@@ -53,10 +53,10 @@ struct WikiArticleDetailView: View {
                             Text("Generate (~$0.03)")
                         }
                         .font(.subheadline.weight(.semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                         .padding(.horizontal, Spacing.lg)
                         .padding(.vertical, Spacing.sm)
-                        .background(Color.white.opacity(0.2))
+                        .background(Color.bgOverlay)
                         .cornerRadius(CornerRadius.small)
                     }
                     .disabled(viewModel.isGenerating)

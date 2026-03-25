@@ -14,7 +14,7 @@ struct LockScreenView: View {
     var body: some View {
         ZStack {
             // Blurred background
-            Color.black.opacity(0.9)
+            Color.bgBase.opacity(0.9)
                 .ignoresSafeArea()
 
             VStack(spacing: Spacing.xl) {
@@ -23,17 +23,17 @@ struct LockScreenView: View {
                 // Lock icon
                 Image(systemName: "lock.fill")
                     .font(.system(size: 60))
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(.textSecondary)
 
                 // Message
                 VStack(spacing: Spacing.sm) {
                     Text("Hestia is Locked")
                         .font(.title2.weight(.semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
 
                     Text("Authenticate to continue")
                         .font(.subheadline)
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(.textSecondary)
                 }
 
                 Spacer()
@@ -51,10 +51,10 @@ struct LockScreenView: View {
                         Text("Authenticate")
                             .font(.buttonText)
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(Spacing.md)
-                    .background(Color.white.opacity(0.2))
+                    .background(Color.bgOverlay)
                     .cornerRadius(CornerRadius.button)
                 }
                 .disabled(isLoading)
@@ -67,7 +67,7 @@ struct LockScreenView: View {
             // Loading state
             if isLoading {
                 ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    .progressViewStyle(CircularProgressViewStyle(tint: .accent))
                     .scaleEffect(1.5)
             }
         }

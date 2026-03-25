@@ -79,7 +79,7 @@ struct SettingsView: View {
                             .overlay(
                                 Text("A")
                                     .font(.system(size: 14, weight: .bold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.textPrimary)
                             )
                     }
                 }
@@ -115,7 +115,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text(title)
                 .font(.sectionHeader)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(.textSecondary)
                 .textCase(.uppercase)
                 .padding(.horizontal, Spacing.lg)
 
@@ -134,7 +134,7 @@ struct SettingsView: View {
                         .foregroundColor(health.status.color)
 
                     Text(health.status.displayText)
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
 
                     Spacer()
 
@@ -145,7 +145,7 @@ struct SettingsView: View {
                         }
                     } label: {
                         Image(systemName: "arrow.clockwise")
-                            .foregroundColor(.white.opacity(0.5))
+                            .foregroundColor(.textSecondary)
                     }
                 }
                 .settingsRow()
@@ -162,7 +162,7 @@ struct SettingsView: View {
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
 
                     Text("Checking system status...")
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.textSecondary)
 
                     Spacer()
                 }
@@ -182,7 +182,7 @@ struct SettingsView: View {
                             await viewModel.refresh()
                         }
                     }
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                 }
                 .settingsRow()
             }
@@ -193,7 +193,7 @@ struct SettingsView: View {
                     .foregroundColor(.white.opacity(0.7))
                 Spacer()
                 Text("\(viewModel.appVersion) (\(viewModel.buildNumber))")
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(.textSecondary)
                     .font(.caption)
             }
             .settingsRow()
@@ -221,22 +221,22 @@ struct SettingsView: View {
         NavigationLink(destination: ResourcesView()) {
             HStack {
                 Image(systemName: "square.grid.2x2")
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                     .frame(width: 32)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("LLMs, Integrations & MCPs")
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
 
                     Text("Manage cloud providers and connections")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.textSecondary)
                 }
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(.textSecondary)
             }
         }
         .settingsRow()
@@ -250,22 +250,22 @@ struct SettingsView: View {
         NavigationLink(destination: WikiView().environmentObject(appState)) {
             HStack {
                 Image(systemName: "book")
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                     .frame(width: 32)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Architecture Field Guide")
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
 
                     Text("Explore how Hestia works, inside the app")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.textSecondary)
                 }
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(.textSecondary)
             }
         }
         .settingsRow()
@@ -279,22 +279,22 @@ struct SettingsView: View {
         NavigationLink(destination: ProactiveSettingsView()) {
             HStack {
                 Image(systemName: "brain.head.profile")
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
                     .frame(width: 32)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Proactive Intelligence")
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
 
                     Text("Briefings, quiet hours, and pattern detection")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.6))
+                        .foregroundColor(.textSecondary)
                 }
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(.textSecondary)
             }
         }
         .settingsRow()
@@ -323,18 +323,18 @@ struct SettingsView: View {
                             .overlay(
                                 Text(profile?.initial ?? "\(index + 1)")
                                     .font(.system(size: 18, weight: .bold))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.textPrimary)
                             )
 
                         VStack(alignment: .leading, spacing: 2) {
                             HStack {
                                 Text(profile?.name ?? "Agent \(index + 1)")
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.textPrimary)
 
                                 if index == 0 {
                                     Text("Primary")
                                         .font(.caption2)
-                                        .foregroundColor(.white.opacity(0.5))
+                                        .foregroundColor(.textSecondary)
                                         .padding(.horizontal, 6)
                                         .padding(.vertical, 2)
                                         .background(Color.white.opacity(0.1))
@@ -344,14 +344,14 @@ struct SettingsView: View {
 
                             Text(agentDescription(for: profile))
                                 .font(.caption)
-                                .foregroundColor(.white.opacity(0.6))
+                                .foregroundColor(.textSecondary)
                                 .lineLimit(1)
                         }
 
                         Spacer()
 
                         Image(systemName: "chevron.right")
-                            .foregroundColor(.white.opacity(0.5))
+                            .foregroundColor(.textSecondary)
                     }
                 }
                 .settingsRow()
@@ -360,7 +360,7 @@ struct SettingsView: View {
             // Info text
             Text("3 agent slots available. Primary agent cannot be deleted.")
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.4))
+                .foregroundColor(.textTertiary)
                 .padding(.horizontal, Spacing.md)
         }
         .padding(.horizontal, Spacing.lg)
@@ -378,7 +378,7 @@ struct SettingsView: View {
                 Text(viewModel.biometricType == .none ?
                      "No Biometrics Available" :
                      viewModel.biometricType.displayName)
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
 
                 Spacer()
 
@@ -397,7 +397,7 @@ struct SettingsView: View {
             // Auto-lock timeout
             HStack {
                 Text("Auto-Lock")
-                    .foregroundColor(.white)
+                    .foregroundColor(.textPrimary)
 
                 Spacer()
 
@@ -418,12 +418,12 @@ struct SettingsView: View {
             NavigationLink(destination: DeviceManagementView()) {
                 HStack {
                     Image(systemName: "desktopcomputer")
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                     Text("Manage Devices")
-                        .foregroundColor(.white)
+                        .foregroundColor(.textPrimary)
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(.textSecondary)
                 }
             }
             .settingsRow()
@@ -437,7 +437,7 @@ struct SettingsView: View {
                     Text("Lock Now")
                     Spacer()
                 }
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
             }
             .settingsRow()
         }

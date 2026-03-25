@@ -16,7 +16,7 @@ struct ResourcesDetailView: View {
                     // Cloud LLMs
                     HestiaSettingsBlock(
                         icon: "cloud.fill",
-                        iconColor: .agentPurple,
+                        iconColor: .accent,
                         title: "Cloud LLMs",
                         subtitle: "Manage cloud AI providers"
                     ) {

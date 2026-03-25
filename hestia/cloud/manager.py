@@ -45,6 +45,21 @@ class CloudManager:
             self._database = await get_cloud_database()
 
         providers = await self._database.list_providers()
+
+        # Ensure file fallbacks exist for all provider keys.
+        # On startup with GUI session, Keychain is accessible — seed the
+        # encrypted file fallback so launchd restarts without GUI still work.
+        for p in providers:
+            key_file = self._key_file_path(p.credential_key)
+            if not key_file.exists():
+                raw_key = self._get_api_key(p.credential_key)
+                if raw_key:
+                    self._store_key_file(p.credential_key, raw_key)
+                    self.logger.info(
+                        f"Seeded key file fallback for {p.provider.value}",
+                        component=LogComponent.INFERENCE,
+                    )
+
         self.logger.info(
             "Cloud manager initialized",
             component=LogComponent.INFERENCE,
@@ -470,24 +485,30 @@ class CloudManager:
     # ── API Key Management ─────────────────────────────────────────────
 
     def _store_api_key(self, credential_key: str, api_key: str) -> None:
-        """Store an API key in the Keychain via CredentialManager."""
-        # Always keep in-memory fallback for environments without Keychain
+        """Store an API key in Keychain + encrypted file fallback."""
+        # Always keep in-memory fallback
         if not hasattr(self, "_key_fallback"):
             self._key_fallback: Dict[str, str] = {}
         self._key_fallback[credential_key] = api_key
 
+        # Store in Keychain (primary)
         try:
             from hestia.security import get_credential_manager
             cm = get_credential_manager()
             cm.store_operational(credential_key, api_key)
         except Exception as e:
             self.logger.warning(
-                f"Keychain storage failed, using in-memory fallback: {type(e).__name__}",
+                f"Keychain storage failed: {type(e).__name__}",
                 component=LogComponent.INFERENCE,
             )
 
+        # Store encrypted file fallback (survives launchd restarts
+        # when Keychain is inaccessible without GUI session)
+        self._store_key_file(credential_key, api_key)
+
     def _get_api_key(self, credential_key: str) -> Optional[str]:
-        """Retrieve an API key from the Keychain."""
+        """Retrieve an API key: Keychain → file fallback → in-memory."""
+        # Try Keychain first
         try:
             from hestia.security import get_credential_manager
             cm = get_credential_manager()
@@ -496,17 +517,23 @@ class CloudManager:
                 return result
         except Exception:
             pass
-        # Fallback for testing environments without Keychain
+
+        # Try encrypted file fallback
+        result = self._load_key_file(credential_key)
+        if result is not None:
+            return result
+
+        # In-memory fallback (current process only)
         if hasattr(self, "_key_fallback"):
             return self._key_fallback.get(credential_key)
         return None
 
     def _delete_api_key(self, credential_key: str) -> None:
-        """Delete an API key from the Keychain."""
-        # Clear in-memory fallback
+        """Delete an API key from all storage layers."""
         if hasattr(self, "_key_fallback"):
             self._key_fallback.pop(credential_key, None)
 
+        # Delete from Keychain
         try:
             from hestia.security import get_credential_manager
             cm = get_credential_manager()
@@ -516,6 +543,51 @@ class CloudManager:
                 f"Keychain deletion failed: {type(e).__name__}",
                 component=LogComponent.INFERENCE,
             )
+
+        # Delete file fallback
+        key_file = self._key_file_path(credential_key)
+        if key_file.exists():
+            key_file.unlink()
+
+    def _key_file_path(self, credential_key: str) -> "Path":
+        """Get the path for an encrypted key file."""
+        from pathlib import Path
+        data_dir = Path(__file__).parent.parent / "data"
+        data_dir.mkdir(exist_ok=True)
+        return data_dir / f".{credential_key}.enc"
+
+    def _store_key_file(self, credential_key: str, api_key: str) -> None:
+        """Store an API key as an encrypted file."""
+        try:
+            from cryptography.fernet import Fernet
+            import base64, hashlib, os
+            # Derive a machine-stable key from hostname + data dir path
+            # (not cryptographically strong, but prevents casual reading)
+            seed = f"{os.uname().nodename}:{self._key_file_path(credential_key).parent}"
+            fernet_key = base64.urlsafe_b64encode(hashlib.sha256(seed.encode()).digest())
+            cipher = Fernet(fernet_key)
+            encrypted = cipher.encrypt(api_key.encode())
+            self._key_file_path(credential_key).write_bytes(encrypted)
+        except Exception as e:
+            self.logger.warning(
+                f"Key file storage failed: {type(e).__name__}",
+                component=LogComponent.INFERENCE,
+            )
+
+    def _load_key_file(self, credential_key: str) -> Optional[str]:
+        """Load an API key from the encrypted file fallback."""
+        try:
+            key_file = self._key_file_path(credential_key)
+            if not key_file.exists():
+                return None
+            from cryptography.fernet import Fernet
+            import base64, hashlib, os
+            seed = f"{os.uname().nodename}:{key_file.parent}"
+            fernet_key = base64.urlsafe_b64encode(hashlib.sha256(seed.encode()).digest())
+            cipher = Fernet(fernet_key)
+            return cipher.decrypt(key_file.read_bytes()).decode()
+        except Exception:
+            return None
 
     async def get_api_key(self, provider: CloudProvider) -> Optional[str]:
         """Get the API key for a provider."""

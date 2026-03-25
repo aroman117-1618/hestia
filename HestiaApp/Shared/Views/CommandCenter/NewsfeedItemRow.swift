@@ -22,7 +22,7 @@ struct NewsfeedItemRow: View {
                     HStack {
                         Text(item.title)
                             .font(.subheadline.weight(.medium))
-                            .foregroundColor(.white)
+                            .foregroundColor(.textPrimary)
                             .lineLimit(1)
 
                         Spacer()
@@ -38,14 +38,14 @@ struct NewsfeedItemRow: View {
                     if let body = item.body, !body.isEmpty {
                         Text(body)
                             .font(.caption)
-                            .foregroundColor(.white.opacity(0.6))
+                            .foregroundColor(.textSecondary)
                             .lineLimit(2)
                     }
 
                     // Timestamp
                     Text(item.relativeTime)
                         .font(.caption2)
-                        .foregroundColor(.white.opacity(0.4))
+                        .foregroundColor(.textTertiary)
                 }
             }
             .padding(.vertical, Spacing.sm)

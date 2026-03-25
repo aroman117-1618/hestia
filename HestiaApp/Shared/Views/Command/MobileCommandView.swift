@@ -93,7 +93,7 @@ struct MobileCommandView: View {
                 if viewModel.bots.isEmpty && !viewModel.failedSections.contains("bots") {
                     Text("No active bots")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.4))
+                        .foregroundColor(.textTertiary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, Spacing.md)
                 } else {
@@ -102,10 +102,10 @@ struct MobileCommandView: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(bot.name)
                                     .font(.body.weight(.medium))
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.textPrimary)
                                 Text(bot.pair)
                                     .font(.caption)
-                                    .foregroundColor(.white.opacity(0.5))
+                                    .foregroundColor(.textSecondary)
                             }
                             Spacer()
                             HestiaStatusBadge(
@@ -158,7 +158,7 @@ struct MobileCommandView: View {
             if viewModel.workflows.isEmpty && !viewModel.failedSections.contains("workflows") {
                 Text("No active orders")
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(.textTertiary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, Spacing.md)
             } else {
@@ -167,7 +167,7 @@ struct MobileCommandView: View {
                         HStack {
                             Text(workflow.name)
                                 .font(.body)
-                                .foregroundColor(.white)
+                                .foregroundColor(.textPrimary)
                                 .lineLimit(1)
                             Spacer()
                             HestiaStatusBadge(
@@ -179,7 +179,7 @@ struct MobileCommandView: View {
                     if viewModel.workflows.count > 3 {
                         Text("+\(viewModel.workflows.count - 3) more")
                             .font(.caption)
-                            .foregroundColor(.white.opacity(0.4))
+                            .foregroundColor(.textTertiary)
                     }
                 }
             }
@@ -193,7 +193,7 @@ struct MobileCommandView: View {
             if viewModel.newsfeedItems.isEmpty && !viewModel.failedSections.contains("newsfeed") {
                 Text("No recent items")
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.4))
+                    .foregroundColor(.textTertiary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, Spacing.md)
             } else {
@@ -209,12 +209,12 @@ struct MobileCommandView: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(item.title)
                                     .font(.body)
-                                    .foregroundColor(.white)
+                                    .foregroundColor(.textPrimary)
                                     .lineLimit(1)
                                 if let summary = item.summary {
                                     Text(summary)
                                         .font(.caption)
-                                        .foregroundColor(.white.opacity(0.5))
+                                        .foregroundColor(.textSecondary)
                                         .lineLimit(2)
                                 }
                             }
@@ -231,15 +231,15 @@ struct MobileCommandView: View {
     private var quickActionsCard: some View {
         HestiaCard(label: "QUICK ACTIONS") {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: Spacing.sm) {
-                HestiaPillButton(title: "Cloud Mode", icon: "cloud.fill", tint: .agentPurple) {
+                HestiaPillButton(title: "Cloud Mode", icon: "cloud.fill", tint: .accent) {
                     Task {
                         _ = try? await apiClientProvider.client.cycleCloudState()
                     }
                 }
-                HestiaPillButton(title: "Investigate", icon: "magnifyingglass", tint: .agentTeal) {
+                HestiaPillButton(title: "Investigate", icon: "magnifyingglass", tint: .accent) {
                     // TODO: Navigate to investigate sheet
                 }
-                HestiaPillButton(title: "Journal", icon: "book.fill", tint: .agentTeal) {
+                HestiaPillButton(title: "Journal", icon: "book.fill", tint: .accent) {
                     // TODO: Switch to chat tab in journal mode
                 }
                 HestiaPillButton(title: "Lock", icon: "lock.fill", tint: .errorRed) {
@@ -255,10 +255,10 @@ struct MobileCommandView: View {
         VStack(spacing: 2) {
             Text(value)
                 .font(.title3.weight(.bold).monospacedDigit())
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
             Text(label)
                 .font(.caption2)
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(.textSecondary)
         }
     }
 

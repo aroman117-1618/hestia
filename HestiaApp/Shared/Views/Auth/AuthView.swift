@@ -70,7 +70,7 @@ struct AuthView: View {
                 fallbackColor: .white.opacity(0.6)
             )
             .frame(width: Size.Avatar.xlarge, height: Size.Avatar.xlarge)
-            .shadow(color: .black.opacity(0.3), radius: 10, x: 0, y: 5)
+            .shadow(color: .bgBase.opacity(0.3), radius: 10, x: 0, y: 5)
         }
     }
 
@@ -78,13 +78,13 @@ struct AuthView: View {
         VStack(spacing: Spacing.sm) {
             Text("Hestia")
                 .font(.greeting)
-                .foregroundColor(.white)
+                .foregroundColor(.textPrimary)
 
             // Only show byline for returning users
             if viewModel.isDeviceRegistered {
                 Text("Welcome back, Boss.")
                     .font(.subheading)
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(.textPrimary.opacity(0.8))
             }
         }
     }
@@ -95,7 +95,7 @@ struct AuthView: View {
     private var snarkyLoadingOverlay: some View {
         ZStack {
             // Dim background
-            Color.black.opacity(0.7)
+            Color.bgBase.opacity(0.7)
                 .ignoresSafeArea()
 
             VStack(spacing: Spacing.lg) {
@@ -131,10 +131,10 @@ struct AuthView: View {
                 Text("Unlock with \(viewModel.biometricType.displayName)")
                     .font(.buttonText)
             }
-            .foregroundColor(.white)
+            .foregroundColor(.textPrimary)
             .frame(maxWidth: .infinity)
             .padding(Spacing.md)
-            .background(Color.white.opacity(0.2))
+            .background(Color.bgOverlay)
             .cornerRadius(CornerRadius.button)
         }
         .disabled(viewModel.isLoading)
@@ -154,10 +154,10 @@ struct AuthView: View {
                 Text("Get Started")
                     .font(.buttonText)
             }
-            .foregroundColor(.white)
+            .foregroundColor(.textPrimary)
             .frame(maxWidth: .infinity)
             .padding(Spacing.md)
-            .background(Color.white.opacity(0.2))
+            .background(Color.bgOverlay)
             .cornerRadius(CornerRadius.button)
         }
         .disabled(viewModel.isLoading)
@@ -201,7 +201,7 @@ struct SnarkyBylineView: View {
         TimelineView(.periodic(from: .now, by: 2.5)) { timeline in
             Text(bylines[currentIndex % bylines.count])
                 .font(.subheadline)
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundColor(.textPrimary.opacity(0.8))
                 .animation(.easeInOut(duration: 0.3), value: currentIndex)
                 .onChange(of: timeline.date) { _ in
                     currentIndex += 1
