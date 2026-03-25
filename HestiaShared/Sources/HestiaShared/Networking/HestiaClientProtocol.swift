@@ -60,6 +60,12 @@ extension HestiaClientProtocol {
         try await sendMessage(message, sessionId: sessionId, forceLocal: false)
     }
 
+    /// Send message stream with metadata (for journal entries, etc.)
+    public func sendMessageStream(_ message: String, sessionId: String?, forceLocal: Bool, metadata: [String: String]?) -> AsyncThrowingStream<ChatStreamEvent, Error> {
+        // Default: ignore metadata, fall back to base implementation
+        sendMessageStream(message, sessionId: sessionId, forceLocal: forceLocal)
+    }
+
     /// Approve memory without notes
     public func approveMemory(chunkId: String) async throws {
         try await approveMemory(chunkId: chunkId, notes: nil)

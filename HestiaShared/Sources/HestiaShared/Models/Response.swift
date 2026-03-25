@@ -231,13 +231,15 @@ public struct HestiaRequest: Codable, Sendable {
     public let deviceId: String?
     public let forceLocal: Bool
     public let contextHints: [String: String]?
+    public let metadata: [String: String]?
 
-    public init(message: String, sessionId: String?, deviceId: String?, forceLocal: Bool, contextHints: [String: String]?) {
+    public init(message: String, sessionId: String?, deviceId: String?, forceLocal: Bool, contextHints: [String: String]?, metadata: [String: String]? = nil) {
         self.message = message
         self.sessionId = sessionId
         self.deviceId = deviceId
         self.forceLocal = forceLocal
         self.contextHints = contextHints
+        self.metadata = metadata
     }
 }
 

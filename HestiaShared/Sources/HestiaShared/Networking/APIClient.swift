@@ -188,6 +188,16 @@ public class APIClient: HestiaClientProtocol {
         sessionId: String?,
         forceLocal: Bool = false
     ) -> AsyncThrowingStream<ChatStreamEvent, Error> {
+        sendMessageStream(message, sessionId: sessionId, forceLocal: forceLocal, metadata: nil)
+    }
+
+    /// Returns an AsyncThrowingStream with optional metadata (for journal entries, etc.)
+    public func sendMessageStream(
+        _ message: String,
+        sessionId: String?,
+        forceLocal: Bool,
+        metadata: [String: String]?
+    ) -> AsyncThrowingStream<ChatStreamEvent, Error> {
         AsyncThrowingStream { [weak self] continuation in
             Task { [weak self] in
                 guard let self else {
@@ -200,7 +210,8 @@ public class APIClient: HestiaClientProtocol {
                         sessionId: sessionId,
                         deviceId: nil,
                         forceLocal: forceLocal,
-                        contextHints: nil
+                        contextHints: nil,
+                        metadata: metadata
                     )
 
                     var request = URLRequest(url: makeURL("/chat/stream"))

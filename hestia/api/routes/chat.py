@@ -129,6 +129,13 @@ async def send_message(
         if request.context_hints:
             internal_request.context_hints = request.context_hints
 
+        # Forward client metadata (voice journal source, agent hint, etc.)
+        if request.metadata:
+            internal_request.context_hints.update({
+                k: v for k, v in request.metadata.items()
+                if k in ("source", "input_mode", "agent_hint", "duration")
+            })
+
         # Detect implicit signal from previous response (Learning Cycle)
         try:
             outcome_mgr = await get_outcome_manager()
@@ -301,6 +308,13 @@ async def send_message_stream(
             internal_request.force_local = request.force_local
             if request.context_hints:
                 internal_request.context_hints = request.context_hints
+
+            # Forward client metadata (voice journal source, agent hint, etc.)
+            if request.metadata:
+                internal_request.context_hints.update({
+                    k: v for k, v in request.metadata.items()
+                    if k in ("source", "input_mode", "agent_hint", "duration")
+                })
 
             # Detect implicit signal from previous response (Learning Cycle)
             try:

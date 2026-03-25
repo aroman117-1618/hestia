@@ -14,6 +14,7 @@ struct ChatView: View {
     @State private var avatarPosition: CGPoint = .zero
     @State private var scrollViewContentSize: CGSize = .zero
     @State private var showVoiceReview = false
+    @State private var showJournalSheet = false
     @State private var liveTranscriptId: String?
     @FocusState private var isInputFocused: Bool
 
@@ -52,6 +53,12 @@ struct ChatView: View {
 
                 // Messages - bottom anchored
                 messageList
+
+                // Thinking indicator (visible reasoning stages)
+                if let stage = viewModel.currentStage, !viewModel.isTyping {
+                    ThinkingIndicator(stage: stage)
+                        .transition(.opacity)
+                }
 
                 // Typewriter text (if typing, only when content has arrived)
                 if viewModel.isTyping, let typingText = viewModel.currentTypingText, !typingText.isEmpty {
@@ -139,6 +146,20 @@ struct ChatView: View {
             if let index = viewModel.messages.firstIndex(where: { $0.id == id }) {
                 viewModel.messages[index].content = transcript
             }
+        }
+        // Voice journal sheet
+        .sheet(isPresented: $showJournalSheet) {
+            VoiceJournalView(
+                voiceViewModel: voiceViewModel,
+                onSubmit: { transcript, duration in
+                    showJournalSheet = false
+                    submitJournalEntry(transcript: transcript, duration: duration)
+                },
+                onCancel: {
+                    showJournalSheet = false
+                    voiceViewModel.cancel()
+                }
+            )
         }
         // Voice error alert
         .alert("Voice Error", isPresented: $voiceViewModel.showError) {
@@ -355,6 +376,8 @@ struct ChatView: View {
             onStartVoice: {
                 if inputMode == .voice {
                     startVoiceConversation()
+                } else if inputMode == .journal {
+                    startJournalRecording()
                 } else {
                     Task {
                         await voiceViewModel.startRecording()
@@ -425,6 +448,38 @@ struct ChatView: View {
 
         Task {
             await voiceViewModel.startRecording()
+        }
+    }
+
+    // MARK: - Voice Journal Mode
+
+    /// Open the journal sheet and start recording.
+    private func startJournalRecording() {
+        showJournalSheet = true
+        Task {
+            await voiceViewModel.startRecording()
+        }
+    }
+
+    /// Submit a completed journal entry as a chat message with Artemis routing metadata.
+    private func submitJournalEntry(transcript: String, duration: TimeInterval) {
+        guard !transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+        // Add a condensed journal message to the chat
+        let journalMessage = ConversationMessage(
+            id: UUID().uuidString,
+            role: .user,
+            content: transcript,
+            timestamp: Date(),
+            mode: nil,
+            inputMode: "journal"
+        )
+        viewModel.messages.append(journalMessage)
+
+        // Send with journal metadata for Artemis routing
+        let metadata = JournalMetadata(duration: duration)
+        Task {
+            await viewModel.sendJournalEntry(transcript, metadata: metadata, appState: appState)
         }
     }
 

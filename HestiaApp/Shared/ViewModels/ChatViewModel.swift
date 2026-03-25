@@ -15,6 +15,7 @@ class ChatViewModel: ObservableObject {
     @Published var showError: Bool = false
     @Published var modeSwitchTrigger: Bool = false  // For ripple animation
     @Published var forceLocal: Bool = false  // Per-message private mode toggle
+    @Published var currentStage: String?  // Pipeline stage for ThinkingIndicator
 
     // MARK: - Private State
 
@@ -167,6 +168,56 @@ class ChatViewModel: ObservableObject {
         }
     }
 
+    /// Send a journal entry with Artemis routing metadata.
+    func sendJournalEntry(_ text: String, metadata: JournalMetadata, appState: AppState) async {
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+        errorState = nil
+        showError = false
+        isLoading = true
+
+        do {
+            let wasForceLocal = forceLocal
+            forceLocal = false
+
+            // Convert metadata to string dict for the API
+            let metadataDict: [String: String] = [
+                "source": "journal",
+                "input_mode": "journal",
+                "agent_hint": "artemis",
+                "duration": String(format: "%.1f", metadata.duration),
+            ]
+
+            // Use streaming with metadata
+            do {
+                try await sendMessageStreamingWithMetadata(
+                    text,
+                    sessionId: sessionId,
+                    forceLocal: wasForceLocal,
+                    metadata: metadataDict,
+                    appState: appState
+                )
+            } catch {
+                #if DEBUG
+                print("[ChatVM] Journal streaming failed, falling back to REST: \(error)")
+                #endif
+                if let lastMsg = messages.last, lastMsg.role == .assistant,
+                   lastMsg.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    messages.removeLast()
+                }
+                isTyping = false
+                currentTypingText = nil
+                try await sendMessageREST(text, sessionId: sessionId, forceLocal: wasForceLocal, appState: appState)
+            }
+        } catch let error as HestiaError {
+            handleError(error)
+        } catch {
+            handleError(.unknown(error.localizedDescription))
+        }
+
+        isLoading = false
+    }
+
     /// Dismiss the current error
     func dismissError() {
         showError = false
@@ -183,6 +234,90 @@ class ChatViewModel: ObservableObject {
     }
 
     // MARK: - Private Methods
+
+    /// Send via SSE streaming with optional metadata (journal entries, etc.)
+    private func sendMessageStreamingWithMetadata(
+        _ text: String,
+        sessionId: String?,
+        forceLocal: Bool,
+        metadata: [String: String],
+        appState: AppState
+    ) async throws {
+        let assistantMessage = ConversationMessage(
+            id: UUID().uuidString,
+            role: .assistant,
+            content: "",
+            timestamp: Date(),
+            mode: appState.currentMode
+        )
+        messages.append(assistantMessage)
+        let messageIndex = messages.count - 1
+
+        defer {
+            isTyping = false
+            currentTypingText = nil
+            currentStage = nil
+        }
+
+        let stream = client.sendMessageStream(text, sessionId: sessionId, forceLocal: forceLocal, metadata: metadata)
+
+        for try await event in stream {
+            switch event {
+            case .token(let content, _):
+                if !isTyping {
+                    isTyping = true
+                    currentTypingText = ""
+                    currentStage = nil
+                }
+                currentTypingText = (currentTypingText ?? "") + content
+                messages[messageIndex].content += content
+
+            case .clearStream:
+                currentTypingText = ""
+                messages[messageIndex].content = ""
+
+            case .status(let stage, _):
+                currentStage = stage
+
+            case .done(_, _, let mode, let returnedSessionId, let bylines):
+                if self.sessionId == nil, let sid = returnedSessionId {
+                    self.sessionId = sid
+                }
+                if let newMode = HestiaMode(rawValue: mode),
+                   newMode != appState.currentMode {
+                    appState.switchMode(to: newMode)
+                }
+                if let bylines = bylines, !bylines.isEmpty {
+                    messages[messageIndex].bylines = bylines
+                }
+
+            case .reasoning(let aspect, let summary, _):
+                if messages[messageIndex].reasoningSteps == nil {
+                    messages[messageIndex].reasoningSteps = []
+                }
+                messages[messageIndex].reasoningSteps?.append(
+                    ReasoningStep(aspect: aspect, summary: summary)
+                )
+
+            case .verification(let risk):
+                messages[messageIndex].hallucinationRisk = risk
+
+            case .toolResult, .insight:
+                break
+
+            case .error(_, let message):
+                throw HestiaError.serverError(statusCode: 0, message: message)
+            }
+        }
+
+        if messages[messageIndex].content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            messages[messageIndex].content = "Sorry, I ran into a problem processing that. Want me to try again?"
+        }
+
+        if messages.count > Constants.Limits.maxConversationHistory {
+            messages.removeFirst(messages.count - Constants.Limits.maxConversationHistory)
+        }
+    }
 
     /// Send via SSE streaming — tokens appear in real-time as the LLM generates them.
     private func sendMessageStreaming(
@@ -208,6 +343,7 @@ class ChatViewModel: ObservableObject {
         defer {
             isTyping = false
             currentTypingText = nil
+            currentStage = nil
         }
 
         let stream = client.sendMessageStream(text, sessionId: sessionId, forceLocal: forceLocal)
@@ -215,10 +351,11 @@ class ChatViewModel: ObservableObject {
         for try await event in stream {
             switch event {
             case .token(let content, _):
-                // Start typing indicator on first token
+                // Start typing indicator on first token — clear thinking stage
                 if !isTyping {
                     isTyping = true
                     currentTypingText = ""
+                    currentStage = nil
                 }
                 currentTypingText = (currentTypingText ?? "") + content
                 messages[messageIndex].content += content
@@ -235,7 +372,8 @@ class ChatViewModel: ObservableObject {
                 // Tool results are followed by synthesis tokens — don't display raw result
                 _ = result
 
-            case .status(_, let detail):
+            case .status(let stage, let detail):
+                currentStage = stage
                 #if DEBUG
                 print("[ChatVM] \(detail)")
                 #endif

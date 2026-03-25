@@ -38,6 +38,10 @@ class ChatRequest(BaseModel):
         default_factory=dict,
         description="Additional context hints"
     )
+    metadata: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Client metadata (e.g. source, input_mode, duration for voice journal)"
+    )
 
 
 class AgentBylineSchema(BaseModel):
