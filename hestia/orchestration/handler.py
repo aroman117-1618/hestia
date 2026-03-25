@@ -1837,21 +1837,24 @@ class RequestHandler:
                 tool_result = await self._try_execute_tool_from_response(content, request, task)
 
             if tool_result is not None:
-                # Try council Responder first, fall back to existing personality formatter
+                # Try council Responder first, fall back to existing personality formatter.
+                # Skip council synthesis for workflow requests with force_cloud — council
+                # has its own routing that doesn't honor inference_route.
                 synthesized = None
-                try:
-                    if council_result and not council_result.fallback_used:
-                        council = self._get_council_manager()
-                        synthesized = await council.synthesize_response(
-                            user_message=request.content,
-                            tool_result=tool_result,
-                            mode=request.mode.value,
+                if not _force_cloud:
+                    try:
+                        if council_result and not council_result.fallback_used:
+                            council = self._get_council_manager()
+                            synthesized = await council.synthesize_response(
+                                user_message=request.content,
+                                tool_result=tool_result,
+                                mode=request.mode.value,
+                            )
+                    except Exception as synth_err:
+                        self.logger.warning(
+                            f"Council synthesis failed: {type(synth_err).__name__}",
+                            component=LogComponent.ORCHESTRATION,
                         )
-                except Exception as synth_err:
-                    self.logger.warning(
-                        f"Council synthesis failed: {type(synth_err).__name__}",
-                        component=LogComponent.ORCHESTRATION,
-                    )
 
                 if synthesized:
                     final_content = synthesized
