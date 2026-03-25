@@ -480,11 +480,31 @@ async def register_with_apple(request: AppleRegisterRequest) -> AppleRegisterRes
     existing = await store.find_device_by_apple_id(apple_sub)
 
     if not existing:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No Hestia account linked to this Apple ID. "
-                   "Register via QR code first, then use Apple Sign In for future devices.",
+        # Check if ANY device has an apple_user_id (i.e., an owner is already set)
+        owner_check = await store._connection.execute(
+            "SELECT COUNT(*) as cnt FROM registered_devices WHERE apple_user_id IS NOT NULL"
         )
+        owner_row = await owner_check.fetchone()
+        has_apple_owner = owner_row["cnt"] > 0 if owner_row else False
+
+        if has_apple_owner:
+            # Owner exists but this isn't them — reject
+            logger.warning(
+                "Apple Sign In rejected: owner already established",
+                component=LogComponent.SECURITY,
+                data={"apple_sub": apple_sub[:8] + "..."},
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This Hestia server already has an owner linked via Apple ID.",
+            )
+        else:
+            # First-time setup: no owner yet — approve and establish as owner
+            logger.info(
+                "First Apple Sign In — establishing server owner",
+                component=LogComponent.SECURITY,
+                data={"apple_sub": apple_sub[:8] + "..."},
+            )
 
     device_id = f"device-{uuid4().hex[:12]}"
     device_name = request.device_name or "Unknown"

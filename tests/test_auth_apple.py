@@ -162,16 +162,70 @@ async def test_register_with_apple_invalid_token():
 
 
 @pytest.mark.asyncio
-async def test_register_with_apple_unknown_user():
-    """Test rejection when Apple ID is not registered."""
+async def test_register_with_apple_first_time_owner():
+    """Test first Apple Sign In auto-approves when no owner exists."""
     app = _make_auth_app()
+
+    # Clean slate: remove any devices with apple_user_id
+    store = await get_invite_store()
+    await store._connection.execute(
+        "DELETE FROM registered_devices WHERE apple_user_id IS NOT NULL"
+    )
+    await store._connection.commit()
 
     with patch("hestia.api.routes.auth.verify_apple_identity_token") as mock_verify:
         mock_verify.return_value = {
             "iss": "https://appleid.apple.com",
             "aud": "com.andrewlonati.hestia",
             "exp": 9999999999,
-            "sub": "unknown.user.apple",
+            "sub": "first.owner.apple",
+            "email": "owner@example.com",
+        }
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="https://test") as client:
+            response = await client.post(
+                "/v1/auth/register-with-apple",
+                json={
+                    "identity_token": "fake.jwt.token",
+                    "device_name": "Owner iPhone",
+                    "device_type": "ios",
+                },
+            )
+
+        # First-time: should auto-approve
+        assert response.status_code == 200
+        data = response.json()
+        assert "token" in data
+
+    # Cleanup
+    await store._connection.execute(
+        "DELETE FROM registered_devices WHERE apple_user_id = ?",
+        ("first.owner.apple",)
+    )
+    await store._connection.commit()
+
+
+@pytest.mark.asyncio
+async def test_register_with_apple_rejected_after_owner_set():
+    """Test rejection when a different Apple ID tries to register after owner is set."""
+    app = _make_auth_app()
+
+    # Seed an existing owner
+    store = await get_invite_store()
+    await store.register_device(
+        device_id="owner-device",
+        device_name="Owner iPhone",
+        device_type="ios",
+        apple_user_id="existing.owner.apple",
+    )
+
+    with patch("hestia.api.routes.auth.verify_apple_identity_token") as mock_verify:
+        mock_verify.return_value = {
+            "iss": "https://appleid.apple.com",
+            "aud": "com.andrewlonati.hestia",
+            "exp": 9999999999,
+            "sub": "stranger.apple.id",
             "email": "stranger@example.com",
         }
 
@@ -186,4 +240,12 @@ async def test_register_with_apple_unknown_user():
                 },
             )
 
+        # Different Apple ID after owner set: should reject
         assert response.status_code == 403
+
+    # Cleanup
+    await store._connection.execute(
+        "DELETE FROM registered_devices WHERE apple_user_id = ?",
+        ("existing.owner.apple",)
+    )
+    await store._connection.commit()
