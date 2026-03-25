@@ -277,7 +277,7 @@ struct MacWorkflowDetailPane: View {
                     set: { if !$0 { viewModel.selectedNodeId = nil } }
                 )) {
                     MacNodeInspectorView(viewModel: viewModel, node: node)
-                        .frame(width: 420, height: 500)
+                        .frame(minWidth: 400, idealWidth: 440, minHeight: 400, idealHeight: 600)
                 }
             }
         }

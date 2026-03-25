@@ -97,7 +97,7 @@ struct MacNodeInspectorView: View {
             saveBar
         }
         .padding(MacSpacing.lg)
-        .frame(width: 260)
+        .frame(minWidth: 340, idealWidth: 400)
         .background(MacColors.panelBackground)
         .onAppear {
             loadFromNode()
@@ -153,12 +153,13 @@ struct MacNodeInspectorView: View {
             }
             fieldGroup("Inference") {
                 Picker("", selection: $inferenceRoute) {
-                    Text("Local (device only)").tag("local")
-                    Text("Smart Cloud (local-first, cloud fallback)").tag("smart_cloud")
-                    Text("Full Cloud (always cloud)").tag("full_cloud")
+                    Text("Local").tag("local")
+                    Text("Smart").tag("smart_cloud")
+                    Text("Cloud").tag("full_cloud")
                 }
                 .labelsHidden()
                 .pickerStyle(.segmented)
+                .help("Local: device only — Smart: local-first, cloud fallback — Cloud: always cloud")
             }
             HStack {
                 Toggle("Save to Memory", isOn: $memoryWrite)
@@ -548,16 +549,15 @@ struct MacNodeInspectorView: View {
                 nodeId: node.id,
                 request: request
             )
-            // Refresh the workflow detail so the canvas reflects the change
+            didSave = true
+            // Close inspector and refresh detail after a brief delay
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            viewModel.selectedNodeId = nil
             if let wfId = viewModel.selectedWorkflowId {
                 await viewModel.loadWorkflowDetail(wfId)
             }
-            didSave = true
-            // Auto-dismiss "Saved" after 2 seconds
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-            didSave = false
         } catch {
-            saveError = "Save failed"
+            saveError = "Save failed: \(error.localizedDescription)"
             #if DEBUG
             print("[NodeInspector] Failed to save node \(node.id): \(error)")
             #endif
