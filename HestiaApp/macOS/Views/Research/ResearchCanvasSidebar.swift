@@ -58,7 +58,10 @@ struct ResearchCanvasSidebar: View {
     // MARK: - Entities Section
 
     private var entitiesSection: some View {
-        DisclosureGroup(
+        HestiaSidebarSection(
+            title: "Entities",
+            icon: "person.text.rectangle",
+            count: viewModel.filteredEntities.count,
             isExpanded: $viewModel.entitiesExpanded
         ) {
             if viewModel.filteredEntities.isEmpty {
@@ -68,51 +71,27 @@ struct ResearchCanvasSidebar: View {
                     entityRow(entity)
                 }
             }
-        } label: {
-            sidebarSectionHeader(icon: "person.text.rectangle", title: "Entities", count: viewModel.filteredEntities.count)
         }
-        .tint(MacColors.textSecondary)
     }
 
     private func entityRow(_ entity: ResearchCanvasEntity) -> some View {
-        Button {
+        HestiaContentRow(
+            title: entity.name,
+            dotColor: entityTypeColor(entity.entityType),
+            trailingText: entity.connectionCount > 0 ? "\(entity.connectionCount)" : nil,
+            isSelected: viewModel.selectedEntity?.id == entity.id
+        ) {
             viewModel.selectEntity(entity)
-        } label: {
-            HStack(spacing: MacSpacing.sm) {
-                Circle()
-                    .fill(entityTypeColor(entity.entityType))
-                    .frame(width: 6, height: 6)
-                Text(entity.name)
-                    .font(.system(size: 11))
-                    .foregroundStyle(MacColors.textPrimary)
-                    .lineLimit(1)
-                Spacer()
-                if entity.connectionCount > 0 {
-                    Text("\(entity.connectionCount)")
-                        .font(.system(size: 9))
-                        .foregroundStyle(MacColors.textFaint)
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 1)
-                        .background(MacColors.textPrimary.opacity(0.06))
-                        .clipShape(Capsule())
-                }
-            }
-            .padding(.vertical, 3)
-            .padding(.horizontal, MacSpacing.sm)
-            .background(
-                viewModel.selectedEntity?.id == entity.id
-                    ? MacColors.amberAccent.opacity(0.12)
-                    : Color.clear
-            )
-            .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.treeItem))
         }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Principles Section
 
     private var principlesSection: some View {
-        DisclosureGroup(
+        HestiaSidebarSection(
+            title: "Principles",
+            icon: "lightbulb",
+            count: viewModel.filteredPrinciples.count,
             isExpanded: $viewModel.principlesExpanded
         ) {
             // Status filter
@@ -131,10 +110,7 @@ struct ResearchCanvasSidebar: View {
                     principleRow(principle)
                 }
             }
-        } label: {
-            sidebarSectionHeader(icon: "lightbulb", title: "Principles", count: viewModel.filteredPrinciples.count)
         }
-        .tint(MacColors.textSecondary)
     }
 
     private func statusFilterPill(_ status: String?, label: String) -> some View {
@@ -181,7 +157,10 @@ struct ResearchCanvasSidebar: View {
     // MARK: - Memories Section
 
     private var memoriesSection: some View {
-        DisclosureGroup(
+        HestiaSidebarSection(
+            title: "Memories",
+            icon: "brain",
+            count: viewModel.filteredMemories.count,
             isExpanded: $viewModel.memoriesExpanded
         ) {
             if viewModel.filteredMemories.isEmpty {
@@ -191,10 +170,7 @@ struct ResearchCanvasSidebar: View {
                     memoryRow(chunk)
                 }
             }
-        } label: {
-            sidebarSectionHeader(icon: "brain", title: "Memories", count: viewModel.filteredMemories.count)
         }
-        .tint(MacColors.textSecondary)
     }
 
     private func memoryRow(_ chunk: MemoryChunkItem) -> some View {
@@ -221,35 +197,23 @@ struct ResearchCanvasSidebar: View {
     // MARK: - Collections Section (Boards)
 
     private var collectionsSection: some View {
-        DisclosureGroup(
+        HestiaSidebarSection(
+            title: "Collections",
+            icon: "tray.2",
+            count: viewModel.boards.count,
             isExpanded: $viewModel.collectionsExpanded
         ) {
             if viewModel.boards.isEmpty {
                 sidebarEmptyLabel("No saved boards")
             } else {
                 ForEach(viewModel.boards) { board in
-                    Button {
+                    HestiaContentRow(
+                        title: board.name,
+                        systemImage: "rectangle.3.group",
+                        isSelected: viewModel.currentBoard?.id == board.id
+                    ) {
                         viewModel.currentBoard = board
-                    } label: {
-                        HStack(spacing: MacSpacing.sm) {
-                            Image(systemName: "rectangle.3.group")
-                                .font(.system(size: 10))
-                                .foregroundStyle(MacColors.textSecondary)
-                            Text(board.name)
-                                .font(.system(size: 11))
-                                .foregroundStyle(MacColors.textPrimary)
-                                .lineLimit(1)
-                        }
-                        .padding(.vertical, 3)
-                        .padding(.horizontal, MacSpacing.sm)
-                        .background(
-                            viewModel.currentBoard?.id == board.id
-                                ? MacColors.amberAccent.opacity(0.12)
-                                : Color.clear
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.treeItem))
                     }
-                    .buttonStyle(.plain)
                 }
             }
 
@@ -267,43 +231,23 @@ struct ResearchCanvasSidebar: View {
                 .padding(.horizontal, MacSpacing.sm)
             }
             .buttonStyle(.plain)
-        } label: {
-            sidebarSectionHeader(icon: "tray.2", title: "Collections", count: viewModel.boards.count)
         }
-        .tint(MacColors.textSecondary)
     }
 
     // MARK: - Investigations Section
 
     private var investigationsSection: some View {
-        DisclosureGroup(
+        HestiaSidebarSection(
+            title: "Investigations",
+            icon: "doc.text.magnifyingglass",
+            count: 0,
             isExpanded: $viewModel.investigationsExpanded
         ) {
             sidebarEmptyLabel("No investigations")
-        } label: {
-            sidebarSectionHeader(icon: "doc.text.magnifyingglass", title: "Investigations", count: 0)
         }
-        .tint(MacColors.textSecondary)
     }
 
     // MARK: - Helpers
-
-    private func sidebarSectionHeader(icon: String, title: String, count: Int) -> some View {
-        HStack(spacing: MacSpacing.sm) {
-            Image(systemName: icon)
-                .font(.system(size: 11))
-                .foregroundStyle(MacColors.textSecondary)
-            Text(title)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(MacColors.textPrimary)
-            Spacer()
-            if count > 0 {
-                Text("\(count)")
-                    .font(.system(size: 9))
-                    .foregroundStyle(MacColors.textFaint)
-            }
-        }
-    }
 
     private func sidebarEmptyLabel(_ text: String) -> some View {
         Text(text)
