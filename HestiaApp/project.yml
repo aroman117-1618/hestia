@@ -85,8 +85,14 @@ targets:
         NSRemindersUsageDescription: Hestia needs reminders access to help you manage tasks and to-dos.
         NSRemindersFullAccessUsageDescription: Hestia needs full reminders access to show your tasks, create new reminders, and help you stay organized.
         NSHealthShareUsageDescription: Hestia reads your health data to provide personalized health coaching, daily briefings, and activity insights. Your data stays on your devices and server — it is never shared with third parties.
+        NSHealthUpdateUsageDescription: Hestia does not write health data. This key is required because the HealthKit framework is linked.
         NSSpeechRecognitionUsageDescription: Hestia uses speech recognition to transcribe your voice journal entries.
         NSMicrophoneUsageDescription: Hestia needs microphone access to record your voice journal entries.
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
         UIAppFonts:
           - Volkhov-Regular.ttf
           - Volkhov-Bold.ttf

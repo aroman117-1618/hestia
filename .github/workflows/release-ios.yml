@@ -118,11 +118,16 @@ jobs:
             exit 1
           fi
           echo "Uploading: $IPA_PATH"
-          xcrun altool --upload-app \
+          UPLOAD_OUTPUT=$(xcrun altool --upload-app \
             --file "$IPA_PATH" \
             --type ios \
             --apiKey "$ASC_KEY_ID" \
-            --apiIssuer "$ASC_ISSUER_ID"
+            --apiIssuer "$ASC_ISSUER_ID" 2>&1) || true
+          echo "$UPLOAD_OUTPUT"
+          if echo "$UPLOAD_OUTPUT" | grep -q "UPLOAD FAILED"; then
+            echo "::error::TestFlight upload failed — see validation errors above"
+            exit 1
+          fi
 
       - name: Clean up API key
         if: always()
