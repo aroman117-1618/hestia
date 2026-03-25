@@ -18,11 +18,22 @@ def _extract_sync(url: str) -> dict:
     """Synchronous extraction — runs in thread pool."""
     try:
         import trafilatura
+        from configparser import ConfigParser
     except ImportError:
         return {"error": "trafilatura not installed. Run: pip install trafilatura"}
 
     try:
-        downloaded = trafilatura.fetch_url(url)
+        # Use a tighter fetch timeout (15s) to fail fast on slow CDNs.
+        # Default trafilatura DOWNLOAD_TIMEOUT is 30s which is too generous
+        # when running multiple investigate_url calls in a workflow.
+        config = ConfigParser()
+        config.read_dict({"DEFAULT": {
+            "DOWNLOAD_TIMEOUT": "15",
+            "MAX_FILE_SIZE": "20000000",
+            "MIN_FILE_SIZE": "10",
+            "MAX_REDIRECTS": "2",
+        }})
+        downloaded = trafilatura.fetch_url(url, config=config)
         if not downloaded:
             return {"error": f"Failed to download: {url}"}
 

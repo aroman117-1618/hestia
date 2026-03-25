@@ -75,7 +75,7 @@ def get_investigate_tools() -> List[Tool]:
             },
             handler=investigate_url,
             category="investigate",
-            timeout=120.0,
+            timeout=300.0,
         ),
         Tool(
             name="investigate_compare",

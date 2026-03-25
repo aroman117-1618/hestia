@@ -2205,6 +2205,7 @@ class RequestHandler:
         Execute tool calls returned natively by Ollama API.
 
         Ollama returns tool_calls as: [{"function": {"name": "...", "arguments": {...}}}]
+        Multiple tool calls execute in parallel via asyncio.gather().
 
         Returns the formatted result if successful, or None on failure.
         """
@@ -2212,70 +2213,61 @@ class RequestHandler:
 
         executor = await self._get_tool_executor()
         registry = get_tool_registry()
-        results = []
+        skip_gate = request.source == RequestSource.WORKFLOW
 
+        # Parse and validate all tool calls first
+        valid_calls = []
         for tc in tool_calls:
-            try:
-                func = tc.get("function", {})
-                tool_name = func.get("name", "")
-                arguments = func.get("arguments", {})
+            func = tc.get("function", {})
+            tool_name = func.get("name", "")
+            arguments = func.get("arguments", {})
 
-                if not tool_name:
-                    self.logger.warning(
-                        "Native tool call missing tool name, skipping",
-                        component=LogComponent.ORCHESTRATION,
-                        data={"request_id": request.id, "raw_entry": str(tc)[:200]},
-                    )
-                    continue
-
-                # Ollama may return arguments as JSON string instead of dict
-                if isinstance(arguments, str):
-                    try:
-                        arguments = json.loads(arguments)
-                    except (json.JSONDecodeError, TypeError):
-                        self.logger.warning(
-                            f"Could not parse arguments string for {tool_name}",
-                            component=LogComponent.ORCHESTRATION,
-                            data={"request_id": request.id, "raw_args": arguments[:200]},
-                        )
-                        arguments = {}
-
-                # Validate tool exists in registry
-                if not registry.has_tool(tool_name):
-                    self.logger.warning(
-                        f"Native tool call references unknown tool: {tool_name}",
-                        component=LogComponent.ORCHESTRATION,
-                        data={"request_id": request.id},
-                    )
-                    continue
-
-                self.logger.info(
-                    f"Executing native tool call: {tool_name}",
+            if not tool_name:
+                self.logger.warning(
+                    "Native tool call missing tool name, skipping",
                     component=LogComponent.ORCHESTRATION,
-                    data={
-                        "request_id": request.id,
-                        "tool_name": tool_name,
-                        "arguments": arguments,
-                    },
+                    data={"request_id": request.id, "raw_entry": str(tc)[:200]},
                 )
+                continue
 
-                # State machine: transition to AWAITING_TOOL
-                self.state_machine.await_tool(task, tool_name)
+            # Ollama may return arguments as JSON string instead of dict
+            if isinstance(arguments, str):
+                try:
+                    arguments = json.loads(arguments)
+                except (json.JSONDecodeError, TypeError):
+                    self.logger.warning(
+                        f"Could not parse arguments string for {tool_name}",
+                        component=LogComponent.ORCHESTRATION,
+                        data={"request_id": request.id, "raw_args": arguments[:200]},
+                    )
+                    arguments = {}
 
+            if not registry.has_tool(tool_name):
+                self.logger.warning(
+                    f"Native tool call references unknown tool: {tool_name}",
+                    component=LogComponent.ORCHESTRATION,
+                    data={"request_id": request.id},
+                )
+                continue
+
+            valid_calls.append((tool_name, arguments))
+
+        if not valid_calls:
+            return None
+
+        # Execute a single tool call (used both sequentially and in parallel)
+        async def _run_tool(tool_name: str, arguments: dict) -> str:
+            self.logger.info(
+                f"Executing native tool call: {tool_name}",
+                component=LogComponent.ORCHESTRATION,
+                data={"request_id": request.id, "tool_name": tool_name, "arguments": arguments},
+            )
+            try:
                 call = ToolCall.create(tool_name=tool_name, arguments=arguments)
-                # Workflow/order executions are pre-approved — skip the gate
-                skip_gate = request.source == RequestSource.WORKFLOW
                 result = await executor.execute(call, request.id, skip_gate=skip_gate)
-
-                # State machine: resume processing after tool execution
-                self.state_machine.resume_processing(task)
-
                 if result.success:
                     result_data = result.output
-                    if isinstance(result_data, dict):
-                        results.append(json.dumps(result_data, indent=2))
-                    else:
-                        results.append(str(result_data))
+                    return json.dumps(result_data, indent=2) if isinstance(result_data, dict) else str(result_data)
                 else:
                     error_msg = result.error or "Unknown error"
                     self.logger.warning(
@@ -2283,24 +2275,37 @@ class RequestHandler:
                         component=LogComponent.ORCHESTRATION,
                         data={"request_id": request.id, "tool_name": tool_name},
                     )
-                    results.append(
-                        f"Tool {tool_name} failed: {error_msg}"
-                    )
+                    return f"Tool {tool_name} failed: {error_msg}"
             except Exception as e:
                 self.logger.warning(
                     f"Error executing native tool call: {type(e).__name__}",
                     component=LogComponent.ORCHESTRATION,
-                    data={"request_id": request.id, "tool_name": tc.get("function", {}).get("name", "unknown")},
+                    data={"request_id": request.id, "tool_name": tool_name},
                 )
-                # Ensure state machine returns to processing on error
-                try:
-                    self.state_machine.resume_processing(task)
-                except Exception:
-                    pass
+                return f"Tool {tool_name} error: {type(e).__name__}"
 
-        if results:
-            return "\n\n".join(results)
-        return None
+        # State machine: transition to AWAITING_TOOL (use first tool name)
+        tool_names = [name for name, _ in valid_calls]
+        self.state_machine.await_tool(task, ", ".join(tool_names))
+
+        # Execute all tool calls in parallel
+        results = await asyncio.gather(
+            *[_run_tool(name, args) for name, args in valid_calls],
+            return_exceptions=True,
+        )
+
+        # State machine: resume processing after all tools complete
+        self.state_machine.resume_processing(task)
+
+        # Collect results (convert exceptions to error strings)
+        formatted = []
+        for i, r in enumerate(results):
+            if isinstance(r, Exception):
+                formatted.append(f"Tool {valid_calls[i][0]} error: {type(r).__name__}")
+            else:
+                formatted.append(r)
+
+        return "\n\n".join(formatted) if formatted else None
 
     async def _execute_council_tools(
         self,
