@@ -1857,7 +1857,8 @@ class RequestHandler:
                     final_content = synthesized
                 else:
                     final_content = await self._format_tool_result_with_personality(
-                        tool_result, request, current_messages, temperature, max_tokens
+                        tool_result, request, current_messages, temperature, max_tokens,
+                        force_cloud=_force_cloud,
                     )
 
                 # Guard: if synthesis produced nothing, fall back to raw tool result
@@ -2423,6 +2424,7 @@ class RequestHandler:
         original_messages: list,
         temperature: float,
         max_tokens: int,
+        force_cloud: bool = False,
     ) -> str:
         """
         Send tool results back through the LLM to get a personality-appropriate response.
@@ -2458,6 +2460,7 @@ class RequestHandler:
                 messages=follow_up_messages,
                 temperature=temperature,
                 max_tokens=max_tokens,
+                force_cloud=force_cloud,
             )
             return formatted_response.content
         except Exception as e:
