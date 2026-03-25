@@ -10,6 +10,7 @@ struct ChatView: View {
     @StateObject private var voiceViewModel = VoiceInputViewModel()
 
     @State private var messageText = ""
+    @State private var inputMode: ChatInputMode = .chat
     @State private var avatarPosition: CGPoint = .zero
     @State private var scrollViewContentSize: CGSize = .zero
     @State private var showVoiceReview = false
@@ -308,65 +309,27 @@ struct ChatView: View {
     // MARK: - Input Bar
 
     private var inputBar: some View {
-        HStack(spacing: Spacing.md) {
-            // Private mode toggle
-            Button(action: { viewModel.forceLocal.toggle() }) {
-                Image(systemName: viewModel.forceLocal ? "lock.fill" : "lock.open")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(viewModel.forceLocal ? .warningYellow : .white.opacity(0.4))
+        ChatInputBar(
+            messageText: $messageText,
+            inputMode: $inputMode,
+            isInputFocused: $isInputFocused,
+            isLoading: viewModel.isLoading,
+            isRecording: voiceViewModel.phase == .recording,
+            audioLevel: 0, // TODO: Wire audio level from VoiceInputViewModel in Task 3
+            forceLocal: viewModel.forceLocal,
+            currentModeName: appState.currentMode.displayName,
+            onSend: { text in
+                sendMessage()
+            },
+            onToggleLocal: {
+                viewModel.forceLocal.toggle()
+            },
+            onStartVoice: {
+                Task {
+                    await voiceViewModel.startRecording()
+                }
             }
-            .accessibilityLabel(viewModel.forceLocal ? "Private mode on" : "Private mode off")
-            .accessibilityHint("Toggle private mode to keep this message local")
-
-            // Text input
-            TextField(
-                viewModel.forceLocal
-                    ? "Private — stays local..."
-                    : "Message \(appState.currentMode.displayName)...",
-                text: $messageText
-            )
-                .font(.inputField)
-                .foregroundColor(.white)
-                .padding(.horizontal, Spacing.md)
-                .padding(.vertical, Spacing.sm)
-                .background(Color.white.opacity(0.15))
-                .cornerRadius(CornerRadius.input)
-                .focused($isInputFocused)
-                .submitLabel(.send)
-                .onSubmit {
-                    sendMessage()
-                }
-                .accessibilityLabel("Message input")
-                .accessibilityHint("Type your message to \(appState.currentMode.displayName)")
-
-            if canSend {
-                // Send button (shown when text is entered)
-                Button(action: sendMessage) {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 32))
-                        .foregroundColor(viewModel.forceLocal ? .warningYellow : .white)
-                }
-                .accessibilityLabel("Send message")
-            } else {
-                // Mic button (shown when text field is empty)
-                Button {
-                    Task {
-                        await voiceViewModel.startRecording()
-                    }
-                } label: {
-                    Image(systemName: "mic.fill")
-                        .font(.system(size: 20))
-                        .foregroundColor(.white.opacity(0.7))
-                        .frame(width: 32, height: 32)
-                }
-                .disabled(viewModel.isLoading)
-                .accessibilityLabel("Voice input")
-                .accessibilityHint("Tap to start voice recording")
-            }
-        }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.vertical, Spacing.md)
-        .background(Color.black.opacity(0.3))
+        )
     }
 
     // MARK: - Helpers
