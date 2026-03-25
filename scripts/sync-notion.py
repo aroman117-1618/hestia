@@ -151,6 +151,21 @@ class NotionClient:
             cursor = data.get("next_cursor")
         return results
 
+    def search(self, query: str, filter_type: Optional[str] = None, page_size: int = 10) -> list[dict]:
+        """Search the workspace for pages/databases by title."""
+        body: dict[str, Any] = {"query": query, "page_size": page_size}
+        if filter_type in ("page", "database"):
+            body["filter"] = {"value": filter_type, "property": "object"}
+        return self._request("POST", "/search", json=body).get("results", [])
+
+    def get_page(self, page_id: str) -> dict:
+        """Get page metadata (properties, parent, etc.)."""
+        return self._request("GET", f"/pages/{page_id}")
+
+    def get_database(self, database_id: str) -> dict:
+        """Get database metadata (title, properties schema)."""
+        return self._request("GET", f"/databases/{database_id}")
+
     def close(self) -> None:
         self._client.close()
 
@@ -673,6 +688,309 @@ def blocks_to_markdown(blocks: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def extract_property_value(prop: dict) -> str:
+    """Extract a human-readable value from a Notion property object."""
+    ptype = prop.get("type", "")
+
+    if ptype == "title":
+        return "".join(r.get("plain_text", "") for r in prop.get("title", []))
+    elif ptype == "rich_text":
+        return "".join(r.get("plain_text", "") for r in prop.get("rich_text", []))
+    elif ptype == "number":
+        val = prop.get("number")
+        return str(val) if val is not None else ""
+    elif ptype == "select":
+        sel = prop.get("select")
+        return sel["name"] if sel else ""
+    elif ptype == "multi_select":
+        return ", ".join(s["name"] for s in prop.get("multi_select", []))
+    elif ptype == "status":
+        st = prop.get("status")
+        return st["name"] if st else ""
+    elif ptype == "date":
+        d = prop.get("date")
+        if not d:
+            return ""
+        start = d.get("start", "")
+        end = d.get("end", "")
+        return f"{start} → {end}" if end else start
+    elif ptype == "checkbox":
+        return "Yes" if prop.get("checkbox") else "No"
+    elif ptype == "url":
+        return prop.get("url", "") or ""
+    elif ptype == "email":
+        return prop.get("email", "") or ""
+    elif ptype == "phone_number":
+        return prop.get("phone_number", "") or ""
+    elif ptype == "people":
+        return ", ".join(p.get("name", "Unknown") for p in prop.get("people", []))
+    elif ptype == "relation":
+        return f"[{len(prop.get('relation', []))} relations]"
+    elif ptype == "rollup":
+        rollup = prop.get("rollup", {})
+        rtype = rollup.get("type", "")
+        if rtype == "number":
+            return str(rollup.get("number", ""))
+        elif rtype == "array":
+            return f"[{len(rollup.get('array', []))} items]"
+        return f"[rollup:{rtype}]"
+    elif ptype == "formula":
+        formula = prop.get("formula", {})
+        ftype = formula.get("type", "")
+        return str(formula.get(ftype, ""))
+    elif ptype == "created_time":
+        return prop.get("created_time", "")
+    elif ptype == "last_edited_time":
+        return prop.get("last_edited_time", "")
+    elif ptype == "created_by":
+        return prop.get("created_by", {}).get("name", "")
+    elif ptype == "last_edited_by":
+        return prop.get("last_edited_by", {}).get("name", "")
+    elif ptype == "files":
+        files = prop.get("files", [])
+        return ", ".join(f.get("name", "") for f in files) if files else ""
+    else:
+        return f"[{ptype}]"
+
+
+def format_page_properties(properties: dict) -> str:
+    """Format all properties of a Notion page as readable text."""
+    lines: list[str] = []
+    # Put title first
+    for name, prop in sorted(properties.items()):
+        if prop.get("type") == "title":
+            lines.insert(0, f"**{name}**: {extract_property_value(prop)}")
+        else:
+            val = extract_property_value(prop)
+            if val:
+                lines.append(f"**{name}**: {val}")
+    return "\n".join(lines)
+
+
+def format_search_result(result: dict) -> str:
+    """Format a search result (page or database) as a one-line summary."""
+    obj_type = result.get("object", "")
+    obj_id = result.get("id", "")
+
+    if obj_type == "page":
+        props = result.get("properties", {})
+        # Find title property
+        title = ""
+        for prop in props.values():
+            if prop.get("type") == "title":
+                title = "".join(r.get("plain_text", "") for r in prop.get("title", []))
+                break
+        parent = result.get("parent", {})
+        parent_type = parent.get("type", "")
+        return f"[page] {title or '(untitled)'}  (id: {obj_id}, parent: {parent_type})"
+    elif obj_type == "database":
+        title_parts = result.get("title", [])
+        title = "".join(r.get("plain_text", "") for r in title_parts)
+        return f"[database] {title or '(untitled)'}  (id: {obj_id})"
+    return f"[{obj_type}] (id: {obj_id})"
+
+
+# ---------------------------------------------------------------------------
+# Commands — Read
+# ---------------------------------------------------------------------------
+
+def cmd_search(client: NotionClient, query: str, filter_type: Optional[str], verbose: bool) -> None:
+    """Search the workspace for pages or databases."""
+    results = client.search(query, filter_type=filter_type)
+    if not results:
+        print(f"No results found for '{query}'")
+        return
+
+    print(f"Found {len(results)} result(s) for '{query}':\n")
+    for i, r in enumerate(results, 1):
+        print(f"  {i}. {format_search_result(r)}")
+        if verbose:
+            if r.get("object") == "page":
+                props = r.get("properties", {})
+                for name, prop in props.items():
+                    val = extract_property_value(prop)
+                    if val and prop.get("type") != "title":
+                        print(f"       {name}: {val}")
+            print()
+
+
+def cmd_read_page(client: NotionClient, page_id: str, include_props: bool) -> None:
+    """Read a page's properties and content."""
+    # Normalize ID (accept with or without dashes)
+    page_id = page_id.replace("-", "").strip()
+    if len(page_id) == 32:
+        page_id = f"{page_id[:8]}-{page_id[8:12]}-{page_id[12:16]}-{page_id[16:20]}-{page_id[20:]}"
+
+    page = client.get_page(page_id)
+
+    if include_props:
+        props = page.get("properties", {})
+        print("## Properties\n")
+        print(format_page_properties(props))
+        print("\n---\n")
+
+    print("## Content\n")
+    blocks = client.get_blocks(page_id)
+    if blocks:
+        # Recursively read child blocks for toggles and other containers
+        expanded = _expand_child_blocks(client, blocks)
+        print(blocks_to_markdown(expanded))
+    else:
+        print("(empty page)")
+
+
+def cmd_update_page(client: NotionClient, page_id: str, markdown_file: Optional[str],
+                     status: Optional[str]) -> None:
+    """Update a page's content from a markdown file and/or update its status property."""
+    # Normalize ID
+    page_id = page_id.replace("-", "").strip()
+    if len(page_id) == 32:
+        page_id = f"{page_id[:8]}-{page_id[8:12]}-{page_id[12:16]}-{page_id[16:20]}-{page_id[20:]}"
+
+    # Update properties (status)
+    if status:
+        # Detect property type (status vs select)
+        page = client.get_page(page_id)
+        props = page.get("properties", {})
+        status_prop = None
+        status_type = None
+        for pname, pdef in props.items():
+            if pdef.get("type") == "status":
+                status_prop = pname
+                status_type = "status"
+                break
+            elif pdef.get("type") == "select" and pname.lower() == "status":
+                status_prop = pname
+                status_type = "select"
+                break
+        if status_prop:
+            if status_type == "status":
+                client.update_page(page_id, {status_prop: {"status": {"name": status}}})
+            else:
+                client.update_page(page_id, {status_prop: {"select": {"name": status}}})
+            print(f"Updated {status_prop} → {status}")
+
+    # Update content from markdown file
+    if markdown_file:
+        filepath = Path(markdown_file)
+        if not filepath.exists():
+            # Try relative to project root
+            filepath = PROJECT_ROOT / markdown_file
+        if not filepath.exists():
+            print(f"Error: File not found: {markdown_file}", file=sys.stderr)
+            sys.exit(1)
+        content = filepath.read_text(encoding="utf-8")
+        blocks = MarkdownToBlocks.convert(content)
+        client.replace_page_content(page_id, blocks)
+        print(f"Updated page content from {filepath.name} ({len(blocks)} blocks)")
+
+    if not status and not markdown_file:
+        print("Nothing to update. Use --content <file> and/or --status <value>.")
+
+
+def _expand_child_blocks(client: NotionClient, blocks: list[dict], depth: int = 0) -> list[dict]:
+    """Recursively fetch child blocks for containers (toggles, synced blocks, etc.)."""
+    if depth > 3:  # prevent infinite recursion
+        return blocks
+    expanded: list[dict] = []
+    for b in blocks:
+        expanded.append(b)
+        if b.get("has_children", False):
+            children = client.get_blocks(b["id"])
+            if children:
+                child_expanded = _expand_child_blocks(client, children, depth + 1)
+                expanded.extend(child_expanded)
+    return expanded
+
+
+def cmd_query_db(client: NotionClient, db_name_or_id: str, text_filter: Optional[str],
+                 status_filter: Optional[str], verbose: bool) -> None:
+    """Query a database by name or ID, with optional filters."""
+    # Resolve database ID
+    db_id = DATABASES.get(db_name_or_id)
+    if not db_id:
+        # Try as raw ID
+        if len(db_name_or_id.replace("-", "")) == 32:
+            db_id = db_name_or_id
+        else:
+            # Search for it
+            results = client.search(db_name_or_id, filter_type="database")
+            if results:
+                db_id = results[0]["id"]
+                title = "".join(r.get("plain_text", "") for r in results[0].get("title", []))
+                print(f"Resolved to database: {title} ({db_id})\n")
+            else:
+                print(f"Could not find database '{db_name_or_id}'")
+                print(f"Known databases: {', '.join(DATABASES.keys())}")
+                return
+
+    # Build filter
+    filter_obj: Optional[dict] = None
+    filters: list[dict] = []
+
+    if text_filter:
+        # We don't know the title property name, so get schema first
+        db_meta = client.get_database(db_id)
+        db_props = db_meta.get("properties", {})
+        title_prop = None
+        for pname, pdef in db_props.items():
+            if pdef.get("type") == "title":
+                title_prop = pname
+                break
+        if title_prop:
+            filters.append({
+                "property": title_prop,
+                "title": {"contains": text_filter},
+            })
+
+    if status_filter:
+        db_meta = db_meta if "db_meta" in dir() else client.get_database(db_id)
+        db_props = db_meta.get("properties", {})
+        status_prop = None
+        for pname, pdef in db_props.items():
+            if pdef.get("type") == "status":
+                status_prop = pname
+                break
+        if status_prop:
+            filters.append({
+                "property": status_prop,
+                "status": {"equals": status_filter},
+            })
+
+    if len(filters) == 1:
+        filter_obj = filters[0]
+    elif len(filters) > 1:
+        filter_obj = {"and": filters}
+
+    results = client.query_database(db_id, filter_obj)
+    if not results:
+        print("No results found.")
+        return
+
+    print(f"Found {len(results)} item(s):\n")
+    for i, page in enumerate(results, 1):
+        props = page.get("properties", {})
+        # Extract title
+        title = ""
+        for prop in props.values():
+            if prop.get("type") == "title":
+                title = "".join(r.get("plain_text", "") for r in prop.get("title", []))
+                break
+        page_id = page.get("id", "")
+        print(f"  {i}. {title or '(untitled)'}  (id: {page_id})")
+
+        if verbose:
+            for name, prop in sorted(props.items()):
+                val = extract_property_value(prop)
+                if val and prop.get("type") != "title":
+                    print(f"       {name}: {val}")
+            print()
+
+
+# ---------------------------------------------------------------------------
+# Commands — Write / Push
+# ---------------------------------------------------------------------------
+
 def cmd_push(client: NotionClient, state: SyncState, target_path: Optional[str], force: bool, incremental: bool) -> None:
     """Push docs to Notion databases."""
     # Collect files to process
@@ -913,6 +1231,30 @@ def main() -> None:
     # status
     subparsers.add_parser("status", help="Show sync status")
 
+    # search
+    search_parser = subparsers.add_parser("search", help="Search Notion workspace")
+    search_parser.add_argument("query", help="Search text")
+    search_parser.add_argument("--type", choices=["page", "database"], help="Filter by object type")
+    search_parser.add_argument("-v", "--verbose", action="store_true", help="Show properties")
+
+    # read-page
+    read_page_parser = subparsers.add_parser("read-page", help="Read a page by ID")
+    read_page_parser.add_argument("page_id", help="Notion page ID (with or without dashes)")
+    read_page_parser.add_argument("--no-props", action="store_true", help="Skip properties, show content only")
+
+    # query-db
+    query_db_parser = subparsers.add_parser("query-db", help="Query a database")
+    query_db_parser.add_argument("database", help="Database name (sprints, planning_logs, adr_registry, archive) or ID")
+    query_db_parser.add_argument("--title", help="Filter by title contains")
+    query_db_parser.add_argument("--status", help="Filter by status equals")
+    query_db_parser.add_argument("-v", "--verbose", action="store_true", help="Show all properties")
+
+    # update-page
+    update_page_parser = subparsers.add_parser("update-page", help="Update a page's content and/or status")
+    update_page_parser.add_argument("page_id", help="Notion page ID")
+    update_page_parser.add_argument("--content", help="Markdown file to push as page content")
+    update_page_parser.add_argument("--status", dest="page_status", help="Set status property value")
+
     args = parser.parse_args()
 
     # Validate token
@@ -933,6 +1275,14 @@ def main() -> None:
             cmd_push_adrs(client, state)
         elif args.command == "status":
             cmd_status(state)
+        elif args.command == "search":
+            cmd_search(client, args.query, args.type, args.verbose)
+        elif args.command == "read-page":
+            cmd_read_page(client, args.page_id, include_props=not args.no_props)
+        elif args.command == "query-db":
+            cmd_query_db(client, args.database, args.title, args.status, args.verbose)
+        elif args.command == "update-page":
+            cmd_update_page(client, args.page_id, args.content, args.page_status)
     finally:
         client.close()
 

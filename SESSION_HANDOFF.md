@@ -1,69 +1,71 @@
-# Session Handoff — 2026-03-24 (Session E — Notion-Level UI Redesign)
+# Session Handoff — 2026-03-24 (Session F — iOS Refresh Discovery & Planning)
 
 ## Mission
-Design and implement the Notion-Level UI Redesign — dual-mode Research tab (2D Research Canvas + 3D Knowledge Atlas), shared SwiftUI component library, cross-linking infrastructure, and Apple design language enforcement.
+Spec and plan the iOS Refresh: transform the iOS app from a 2-tab companion into a full 3-tab experience with TestFlight distribution, three-mode voice input, card-based Mobile Command, and rebuilt Notion-style Settings.
 
 ## Completed
-- **Brainstorming** — Full product design session with visual companion mockups (Research Canvas layout, Distill Principle flow). Established: Notion for architecture, Apple for aesthetics.
-- **Discovery** — `docs/discoveries/notion-level-ui-redesign-2026-03-24.md`
-- **Second Opinion** — `docs/plans/notion-level-ui-redesign-second-opinion-2026-03-24.md`. 11-phase audit, Claude + Gemini cross-model validation. Verdict: APPROVE WITH CONDITIONS.
-- **Implementation Plan** — `docs/superpowers/plans/2026-03-24-notion-level-ui-redesign.md`. 12 tasks, reviewed and approved.
-- **All 12 implementation tasks** via subagent-driven development:
-  - Task 1: `HestiaPanelModifier` — 16 instances migrated across 12 views (`a151d42`)
-  - Task 2: `entity_references` table + 3 API endpoints + 10 tests (`3047616`)
-  - Task 3: Performance prototype — 300-node stress test, GO confirmed (`8a04cbb`, `f9c7a3c`)
-  - Task 4: Unified bridge protocol — typed `BridgeAction` union, `createBridge()` factory (`7eeebf9`)
-  - Task 5: Research Canvas React — 6 node types, FloatingActionBar, lasso selection (`8d9ff2c`)
-  - Task 6: Swift integration — WebView, ViewModel, sidebar, detail pane, `.canvas` mode (`bb742b7`)
-  - Task 7: Board persistence — `research_boards` table, CRUD API, distill-from-selection (`2a67fd4`)
-  - Task 8: Component extraction — `HestiaDetailPane`, `HestiaContentRow`, `HestiaSidebarSection` (`887ce9a`)
-  - Task 9: Cross-link UI — `HestiaDeepLink`, `HestiaCrossLinkBadge`, batch indexer (`95ec001`)
-  - Task 10: 3D Atlas refinement — centrality sizing, recency color, confidence opacity (`134c644`)
-  - Task 11: Deploy pipeline — canvas build step in deploy-to-mini.sh (`a17df49`)
-  - Task 12: Docs update — CLAUDE.md counts updated (`541c0db`)
-  - Fix: Missing `import HestiaShared` in NodeDetailPopover (`3e83674`)
+- **iOS Refresh design spec** — `docs/superpowers/specs/2026-03-24-ios-refresh-design.md`
+  - 4 workstreams fully spec'd: WS0 TestFlight, WS1 Chat+Voice, WS2 Mobile Command, WS3 Settings Rebuild
+  - Design decisions validated via browser mockups (`.superpowers/brainstorm/`)
+  - Agent color mapping confirmed: Amber=Hestia (conversation), Teal=Artemis (journal/transcript)
+  - Voice Journal multi-speaker architecture designed (nullable speaker fields, extensible pipeline)
+- **iOS Refresh implementation plan** — `docs/superpowers/plans/2026-03-24-ios-refresh.md`
+  - 7 tasks with step-by-step checkboxes, file lists, acceptance criteria
+  - Dependency graph and sprint mapping (~48-63h, 5-7 weeks)
+- **Notion sync script enhanced** — `scripts/sync-notion.py` gained 4 new commands:
+  - `search` — workspace-wide page/database search
+  - `read-page` — read any page by ID (properties + content, recursive child expansion)
+  - `query-db` — query databases with title/status filters
+  - `update-page` — update page content from markdown file + set status
+- **Notion updated** — iOS Refresh card set to "In Progress" with full plan content; spec and plan docs pushed to planning_logs database
+- **CLAUDE.md** — test file count corrected (102 = 95 backend + 7 CLI)
 
 ## In Progress
-- **Git push to main** — Pre-push hook running. Should complete within 5 minutes.
-- **Visual QA** — Code complete but not visually tested in the full app with real data.
+- Nothing — this was a planning-only session, no code changes besides Notion tooling
 
 ## Decisions Made
-- Unified React canvas over separate Vite projects (Gemini recommendation)
-- "Research Canvas" naming over "Investigation Board" (avoids InvestigationModels collision)
-- Canvas as workbench, not warehouse — sidebar = inventory, canvas = focused workspace (20-50 nodes typical)
-- Distill Principle = Hestia augments with her broader knowledge, not just summarizes visible nodes
-- Batch cross-link indexing — never on the chat write path
-- Apple design language — SF Symbols, geometric indicators, no emoji as UI chrome
+- **3 equal tabs** — Chat, Command, Settings (standard iOS tab bar, not chat-primary)
+- **Icon toggle for voice modes** — circular mode icon left of input field, tap to cycle (Chat/Voice/Journal), long-press for picker
+- **Cards for viewing, blocks for editing** — Command = card dashboard, Settings = Notion-style blocks
+- **4 settings blocks** — Profile, Agents, Resources (unified: Cloud + Integrations + Health), System (Security + Devices + Server)
+- **Voice Conversation = amber (Hestia)**, Voice Journal = teal (Artemis) — colors map to which agent does the work
+- **TestFlight for iOS distribution** — mirrors macOS Sparkle pipeline via GitHub Actions
+- **Voice Journal is multi-speaker ready** — TranscriptSegment model has nullable speakerId/speakerLabel fields
+- **Vertical slice build order** — WS0 (TestFlight) first to unblock device testing, then features end-to-end
 
 ## Test Status
-- 3029 total (2894 backend + 135 CLI), 95 test files
-- 50 new tests added (entity references, boards, indexer)
-- All passing
+- 3029 passing (2894 backend + 135 CLI), 0 failing, 0 skipped
+- All tests green — no code changes to backend this session
 
 ## Uncommitted Changes
-- `SPRINT.md` — UI Redesign section added
-- `SESSION_HANDOFF.md` — this file
-- `scripts/sync-notion.py` — modified (not by this session)
-- Several untracked docs files from prior sessions
+- `scripts/sync-notion.py` — **MODIFIED**: 4 new commands (search, read-page, query-db, update-page) + NotionClient methods (search, get_page, get_database) + helpers. ~350 lines added.
+- `docs/superpowers/specs/2026-03-24-ios-refresh-design.md` — **NEW**: Full design spec
+- `docs/superpowers/plans/2026-03-24-ios-refresh.md` — **NEW**: Implementation plan
+- `CLAUDE.md` — **MODIFIED**: test file count fix (95 → 102)
+- Multiple untracked files from parallel sessions: docs/discoveries/*, docs/plans/*, docs/mockups/, HestiaApp/iOS/steward-icon-knot-v3-teal-dark.png
 
 ## Known Issues / Landmines
-- **xcodegen required** after pulling — `.xcodeproj` is gitignored, run `cd HestiaApp && xcodegen generate` after adding Swift files
-- **Scheme mismatch** — subagents tested with `-scheme HestiaApp`, pre-push hook uses `-scheme HestiaWorkspace`. Always use HestiaWorkspace for macOS build verification.
-- **Board CRUD ViewModel stubs** — `ResearchCanvasViewModel` guards some calls with `#if DEBUG`. Full wiring needs server deployed with new endpoints.
-- **`WKProcessPool` deprecation** — harmless warnings on macOS 12.0+. Can remove in cleanup.
-- **Chat message indexing NOT implemented** — batch indexer covers research canvas + workflow steps only. Chat deferred to avoid touching the chat pipeline.
-- **Push may need rebase** if remote diverged — `git fetch origin main && git rebase origin/main && git push`
+- **App Store Connect setup required before WS0 can complete** — Andrew needs to manually create the app record in App Store Connect, generate an API key, and add secrets to GitHub. The pipeline workflow can be written first but can't be tested without these.
+- **iOS 26.0 deployment target** — SpeechAnalyzer (used for voice transcription) requires iOS 26+. Fine for Andrew's phone but limits testing on older devices.
+- **Parallel session files** — Several untracked files from other sessions (Notion UI redesign, workflow orchestrator P2, memory synthesis engine) are in the working tree. Don't commit these as part of the iOS Refresh work.
+- **Notion sync script needs commit** — The 4 new commands are uncommitted. Commit before starting WS0.
 
 ## Process Learnings
-- **First-pass success: 10/12 tasks (83%)** — 2 required fixes (routing timing, missing import)
-- **Top blocker:** Scheme difference between subagent testing and pre-push hook
-- **Proposed fix:** Add to CLAUDE.md: "Always build with `-scheme HestiaWorkspace` for macOS"
-- **Gemini cross-model validation was high-value** — "unify canvases" recommendation saved significant maintenance burden
-- **Visual companion worked well** for UI brainstorming — confirmed in memory for future sessions
 
-## Next Steps
-1. Verify push completed: `git log origin/main --oneline -3`
-2. Deploy to Mac Mini: push triggers CI/CD, or `./scripts/deploy-to-mini.sh`
-3. Visual QA: Open Hestia app → Research tab → "Research Canvas" mode → verify sidebar loads, canvas renders, mode toggle works
-4. Test with real data: Add entities to canvas, lasso-select 3+, click "Distill Principle", verify end-to-end
-5. If visual issues: test canvas standalone at `http://localhost:8888/index.html#/research`
+### First-Pass Success
+- 5/5 tasks completed on first attempt (100%)
+- **Top blocker**: None — planning sessions have fewer failure modes than implementation sessions
+
+### Agent Orchestration
+- @hestia-explorer: 4 parallel deep-dives (TestFlight, Chat/Voice, Command Center, Settings audit) — highly effective
+- @hestia-reviewer: plan audit completed but JSONL output extraction needs better tooling
+- Visual companion: 5 mockup iterations — excellent for UI design decisions
+
+### Proposals
+1. **SKILL** — Enhance `/pickup` to include `query-db sprints -v` output showing Notion sprint board state
+2. **CLAUDE.MD** — Add "Notion Integration" section documenting `scripts/sync-notion.py` commands and database IDs
+
+## Next Step
+1. **Commit the Notion tooling + iOS Refresh docs**: stage `scripts/sync-notion.py`, `docs/superpowers/specs/2026-03-24-ios-refresh-design.md`, `docs/superpowers/plans/2026-03-24-ios-refresh.md`, `CLAUDE.md`, `SESSION_HANDOFF.md`
+2. **Andrew manual steps**: Create App Store Connect app record, generate API key, add GitHub secrets (`APP_STORE_CONNECT_API_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_KEY_BASE64`)
+3. **Start WS0: TestFlight Pipeline** — Plan file is build-ready at `docs/superpowers/plans/2026-03-24-ios-refresh.md`. Next session can invoke `superpowers:executing-plans` to begin Task 1.

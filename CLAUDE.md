@@ -143,7 +143,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 **Active: Trading Module (Sprints 21-30).** Sprints 21-27 COMPLETE. **Live trading active on Mac Mini since 2026-03-24** — 4 Mean Reversion bots (BTC/ETH/SOL/DOGE) running via `bot_service.py` launchd service, market orders on Coinbase. Alpaca (stocks) paused — API key pending with support team.
 
-3029 tests (2894 backend + 135 CLI), 95 test files. Full details: `python -m pytest tests/ -v --timeout=30`
+3029 tests (2894 backend + 135 CLI), 102 test files (95 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -254,7 +254,7 @@ hestia/
 │   ├── macOS/                       # macOS app: Views, ViewModels, Models, Services, DesignSystem
 │   ├── WorkflowCanvas/              # React Flow + Vite — unified canvas (Workflow + Research Canvas via hash routing)
 │   └── project.yml                  # xcodegen config (iOS 26.0, macOS 15.0, Swift 6.1)
-├── tests/                           # 3029 tests, 95 files
+├── tests/                           # 3029 tests, 102 files (95 backend + 7 CLI)
 ├── scripts/                         # deploy, test-api, auto-test, validate-security, ollama
 ├── docs/                            # api-contract, decision-log, security-architecture
 └── data/ + logs/                    # Runtime storage
