@@ -1,81 +1,70 @@
-# Session Handoff — 2026-03-24 (Session C — Step Builder)
+# Session Handoff — 2026-03-24 (Session D — Workflow Fix + Cloud Persona)
 
 ## Mission
-Build the Workflow Step Builder — the UX layer that lets Andrew create, configure, and link workflow steps from the visual canvas. Then fix bugs found during live testing and ship to production.
+Troubleshoot the failed Evening Research workflow, fix execution bugs, and enrich the cloud inference path so Andrew can use Hestia (via Anthropic) as a development interface with conversations feeding the memory pipeline.
 
 ## Completed
-
-### Step Builder (11 tasks, 15 new tests)
-- `ba82fe5` feat: DELAY node type — asyncio.sleep executor with 180-day cap
-- `d46083f` feat: enhance GET /v1/tools/categories — labels, icons, parameter schemas
-- `c983d06` feat: POST /nodes/from-step — Step-to-DAG translation endpoint (the "compiler")
-- `f9070f1` feat: Swift models — StepCreateRequest, ToolCategory, NodeCreateRequest
-- `86460f1` feat: 6 custom React Flow node components with typed handles
-- `f800c21` feat: Add Step menu — right-click canvas + edge "+" button
-- `fac8060` feat: bridge addStep handler — canvas → translation API → inspector auto-open
-- `613bc89` feat: resource picker, DELAY inspector, auto-trigger on new workflow
-
-### Bug Fixes (live testing)
-- `8a5e8c6` fix: handle all step types in addStepFromCanvas (non-prompt types used direct node API)
-- `7b6ca1c` fix: canvas re-renders on node add (tracked node/edge count, not just workflow ID)
-- `c910dd2` fix: enlarge canvas handles for reliable edge connections
-- `6aac9f3` fix: remove /v1 double prefix from all direct API calls in ViewModel
-- `6aac9f3` fix: tool step defaults to read_file (backend rejects empty tool_name)
-- `6aac9f3` fix: notification channel is segmented picker (macOS/Push/Both)
-- `79b48a3` fix: delay limits — minutes/hours/days, min 1, max 180 days
-- `1acffea` feat: memory_write + force_local toggles in prompt step inspector
-- `2fe1392` feat: wire Workflows into Command Center System Activity card
-- `ec20923` fix: rename "Workflows" to "Orders" across all user-facing strings
-
-### Shipped
-- v1.5.0 (build 22) — Step Builder core
-- v1.5.1 (build 23) — Bug fixes + toggles
-- v1.5.2 (build 24) — Orders rename + Command Center card
+- **Evening Research workflow fixed** — 3 bugs in `hestia/workflows/nodes.py`:
+  - `get_handler` → `get_request_handler` (ImportError, line 111)
+  - `source="workflow"` → `context={"source": "workflow"}` on `create_bump()` (TypeError, line 195)
+  - Added `config.get("message")` fallback for notify node body (config key mismatch)
+- **Timeout infrastructure overhauled** — layered timeouts were too aggressive for R1 reasoning model:
+  - `hestia/workflows/executor.py`: DEFAULT_PROMPT_TIMEOUT 120→600s, delay nodes exempt from timeout
+  - `hestia/orchestration/state.py`: TaskState.PROCESSING 120→600s
+- **Cloud persona wired** — `hestia/orchestration/prompt.py`:
+  - Removed generic `CLOUD_SAFE_SYSTEM_PROMPT` constant
+  - Cloud path now uses Tia/Mira/Olly persona (same as local), PII filtering unchanged
+  - Principles and Knowledge Graph correctly excluded from cloud (they're Hestia-internal)
+- **`/codebase-audit` skill enhanced** — Phase 9.5 added: Notion + GitHub sync verification
+- **Hestia CLI installed on Mac Mini** — `pip install -e hestia-cli/`, alias added to `~/.zshrc`
+- **Shipped v1.5.3** (build 25) — commit `e8fed52`, tag `v1.5.3`, pushed to main
+- **CLAUDE.md test counts updated** — 2989 tests (2854 backend + 135 CLI), 93 test files
 
 ## In Progress
-- None — all work completed and shipped
+- **Evening Research workflow** — triggered on Mac Mini, R1 inference succeeded (93s), but the 4-hour delay node means the full run won't complete until ~4:30 AM UTC. Check `workflow_runs` table for `wf-3d895cc18f24` status.
+- **Parallel session** building Notion-Level UI Redesign (Investigation Canvas, entity references, component library). Their uncommitted files are in `docs/` and `HestiaApp/WorkflowCanvas/`.
 
 ## Decisions Made
-- **"Orders" not "Workflows"**: Andrew's intended terminology is "Orders" for user-facing UI. Backend stays `workflows` internally (API paths, type names, module names). Only display strings changed.
-- **Step = compiler abstraction**: The UI presents Andrew's "Step" model (Title/Trigger/Prompt/Resources). The `POST /nodes/from-step` endpoint compiles this to backend DAG nodes (e.g., prompt step -> run_prompt node, delayed step -> delay + run_prompt nodes). Non-prompt types (notify, condition, tool, delay) use direct node creation.
-- **DELAY node cap: 180 days**: Originally 1 hour, raised to 180 days per Andrew's request. Both backend executor and Swift UI enforce this.
-- **Tool categories from registry**: The `Tool` dataclass already had `category` field and `ToolRegistry` had `get_tools_by_category()`. Enhanced existing `GET /v1/tools/categories` (was dict-keyed, now array with labels/icons/schemas).
+- **Principles stay Hestia-internal** — NOT sent to cloud providers. The pipeline is: Investigation Canvas → Principles → Knowledge Graph → local inference. Cloud is just the "smart engine" whose conversations feed memory.
+- **Cloud persona YES, cloud Principles NO** — cloud Hestia gets personality for useful dev conversations, but behavioral rules stay local-only.
+- **Timeout 600s for R1** — DeepSeek-R1:14b on M1 needs 90-120s for complex prompts with tool calls. 600s gives headroom for multi-turn tool chains.
 
 ## Test Status
-- 2844 tests collected, 92 test files
-- 216 workflow-specific tests pass (15 new this session)
-- Full suite passes (hangs on exit due to ChromaDB background threads — known issue)
-- 1 pre-existing skip: `test_inference.py::test_simple_completion` (Ollama integration)
+- 2989 passing (2854 backend + 135 CLI), 0 failing, 0 skipped
+- All tests green as of pre-push validation
 
 ## Uncommitted Changes
-- Untracked discovery/plan docs from earlier sessions (not blocking):
-  - `docs/discoveries/workflow-step-builder-ux-2026-03-24.md`
-  - `docs/plans/workflow-step-builder-second-opinion-2026-03-24.md`
-  - `docs/superpowers/plans/2026-03-24-workflow-step-builder.md`
-  - Several other discovery/plan docs from parallel sessions
+- `HestiaApp/WorkflowCanvas/src/research/PerformancePrototype.tsx` — parallel session's work
+- `HestiaApp/macOS/Resources/WorkflowCanvas/index.html` — parallel session's work
+- Multiple untracked `docs/` files — parallel session's discovery/plan documents
+- `CLAUDE.md` — test count update (needs commit)
 
 ## Known Issues / Landmines
-- **Mac Mini server needs the v1.5.2 deploy to complete** before the enhanced tools/categories endpoint works. The old format (dict-keyed) causes a Swift decode error. CI/CD should handle this automatically.
-- **`handleEdgeCreated` in ViewModel** creates edges via direct `client.post("/workflows/...")` — not through a dedicated APIClient method. Works but inconsistent with other CRUD operations.
-- **Canvas node config serialization**: `injectWorkflow` serializes `node.config` (which is `[String: AnyCodableValue]`) via JSONEncoder + JSONSerialization double-pass. Works but fragile for deeply nested configs.
-- **Tool categories cached per-session**: `fetchToolCategories()` only fetches once. If tools are added/removed on the server, the app needs restart to see them.
-- **SSE URL was double-prefixed**: Fixed from `/v1/workflows/stream` to `/workflows/stream` — but SSE streaming for workflow execution hasn't been tested end-to-end this session.
+- **Mac Mini server was restarted 3x during debugging** — final PID is 11327 but CI/CD auto-deploy may have restarted it again after the push. Verify with `lsof -i :8443` on Mini.
+- **Evening Research cron is `0 2 * * *` UTC** — that's 7 PM PT. The workflow will fire daily. If R1 is slow or Ollama is swapped to a different model, the 600s timeout should catch it.
+- **Notify node uses `config.get("message")` fallback** — the workflow's notify config uses `"message"` key but the code expected `"body"`. Fixed with fallback, but new workflows should use `"body"` for consistency.
+- **pytest conftest collision** — running `pytest` from root collects `hestia-cli/tests/` which conflicts with `tests/conftest.py`. Use `python -m pytest tests/` (not bare `pytest`).
+- **Stale worktrees** — 9 agent worktrees in `.claude/worktrees/`. Not urgent but could be cleaned up.
 
 ## Process Learnings
-- **First-pass success**: 11/11 plan tasks completed on first subagent dispatch (100%). Bug fixes during live testing added 8 additional commits — these were UX issues only discoverable by using the app.
-- **Top blocker**: The `/v1` double-prefix bug (pre-existing from prior session) caused 3 separate failures. A URL prefix lint hook would catch this pattern.
-- **Subagent-driven development worked well**: Fresh context per task prevented confusion. Combined Tasks 5+6 (canvas) and 7-10 (Swift) for efficiency. Plan review caught 2 real blockers before execution.
-- **Live testing is essential**: 8 of 18 commits were fixes discovered during Andrew's hands-on testing. No amount of unit tests catches "the canvas doesn't show my new node" or "I can't drag to connect nodes."
 
-### Proposals
-1. **HOOK: URL prefix lint** — Grep for `"/v1/` in Swift ViewModels. Expected: 0 occurrences. Impact: prevents the #1 recurring bug.
-2. **CLAUDE.MD: Add "Orders = Workflows"** note — So future sessions don't re-introduce "Workflows" in user-facing strings.
-3. **SCRIPT: Canvas visual regression** — After canvas TypeScript changes, screenshot a test workflow to catch rendering regressions.
+### Config Gaps
+- **Lazy import regressions are invisible to tests** — `nodes.py` imported `get_handler` (renamed months ago) but tests mock the handler layer. A lightweight integration test that resolves real imports would catch this.
+  - **Proposal (SCRIPT)**: Add `test_import_smoke.py` that imports every lazy-imported function without mocking.
+- **Layered timeouts need coordinated updates** — changing one timeout (executor) without the other (state machine) caused a second failure. Both referenced "Mixtral" in comments (stale).
+  - **Proposal (CLAUDE.MD)**: Add "Timeout Coordination" note: grep all timeout layers when changing any inference timeout.
+
+### First-Pass Success
+- 4/5 tasks completed on first attempt (80%)
+- **Rework cause**: Two independent timeout layers — first fix revealed the second
+- **Top blocker**: Invisible layered timeouts with no single configuration point
+
+### Agent Orchestration
+- @hestia-explorer used effectively (2 deep traces: workflow architecture + cloud pipeline)
+- @hestia-tester used after every code change (3 runs, all green)
+- @hestia-deployer hung on pytest — worked around with direct rsync (known issue)
 
 ## Next Step
-- **Monitor the Evening Research workflow**: Andrew created a scheduled workflow (2 AM daily). After the Mac Mini deploy lands, activate it and verify the first execution completes:
-  ```bash
-  ssh andrewroman117@hestia-3.local 'sqlite3 ~/hestia/data/workflows.db "SELECT * FROM workflow_runs WHERE workflow_id = \"wf-3d895cc18f24\" ORDER BY started_at DESC LIMIT 3;"'
-  ```
-- **Commit the untracked docs**: The discovery/plan docs from this session should be committed.
-- **Next feature work**: Step Builder Phase 1 complete. Phase 2 (drag-from-sidebar, auto-layout, Cmd+K search) deferred. Check SPRINT.md for next priority.
+1. Verify Evening Research completed: `ssh andrewroman117@hestia-3.local "cd ~/hestia && sqlite3 data/workflows.db \"SELECT status, duration_ms, error_message FROM workflow_runs WHERE workflow_id='wf-3d895cc18f24' ORDER BY started_at DESC LIMIT 1;\""`
+2. Open macOS app, set cloud to Full, send a message — verify Tia's personality and memory storage
+3. Continue parallel session's UI Redesign work (Investigation Canvas, Phase 4a references)
