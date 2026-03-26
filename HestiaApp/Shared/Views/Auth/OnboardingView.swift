@@ -3,7 +3,7 @@ import SwiftUI
 import HestiaShared
 import AuthenticationServices
 
-/// Redesigned onboarding: dark atmospheric background, animated orb,
+/// Redesigned onboarding: dark atmospheric background, animated wavelength,
 /// Apple Sign In, smart server URL pre-fill, QR fallback.
 struct OnboardingView: View {
     @EnvironmentObject var authService: AuthService
@@ -69,8 +69,9 @@ struct OnboardingView: View {
                 .frame(height: geo.size.height * 0.15)
 
             // Orb — centered in upper portion
-            HestiaOrbView(state: viewModel.orbState, size: 150)
+            HestiaWavelengthView(mode: wavelengthMode(from: viewModel.orbState))
                 .frame(height: geo.size.height * 0.35)
+                .clipped()
 
             // Title area
             VStack(spacing: Spacing.sm) {
@@ -160,8 +161,9 @@ struct OnboardingView: View {
             Spacer()
                 .frame(height: geo.size.height * 0.15)
 
-            HestiaOrbView(state: .idle, size: 120)
+            HestiaWavelengthView(mode: .idle)
                 .frame(height: geo.size.height * 0.28)
+                .clipped()
 
             VStack(spacing: Spacing.sm) {
                 Text("Connect to Server")
@@ -235,8 +237,9 @@ struct OnboardingView: View {
             Spacer()
                 .frame(height: geo.size.height * 0.2)
 
-            HestiaOrbView(state: .thinking, size: 150)
+            HestiaWavelengthView(mode: .thinking)
                 .frame(height: geo.size.height * 0.35)
+                .clipped()
 
             SnarkyBylineView(isRegistration: true)
                 .padding(.bottom, Spacing.md)
@@ -258,8 +261,9 @@ struct OnboardingView: View {
             Spacer()
                 .frame(height: geo.size.height * 0.2)
 
-            HestiaOrbView(state: .success, size: 150)
+            HestiaWavelengthView(mode: .speaking)
                 .frame(height: geo.size.height * 0.35)
+                .clipped()
                 .offset(y: successOffset)
                 .opacity(successOpacity)
 
@@ -288,8 +292,9 @@ struct OnboardingView: View {
             Spacer()
                 .frame(height: geo.size.height * 0.15)
 
-            HestiaOrbView(state: .idle, size: 120)
+            HestiaWavelengthView(mode: .idle)
                 .frame(height: geo.size.height * 0.28)
+                .clipped()
 
             VStack(spacing: Spacing.sm) {
                 Text("Connection Failed")
@@ -321,6 +326,17 @@ struct OnboardingView: View {
             .padding(.bottom, geo.safeAreaInsets.bottom + 60)
         }
         .padding(.horizontal, Spacing.xl)
+    }
+
+    // MARK: - Orb State Mapping
+
+    private func wavelengthMode(from orbState: HestiaOrbState) -> WavelengthMode {
+        switch orbState {
+        case .idle: return .idle
+        case .thinking: return .thinking
+        case .success: return .speaking
+        case .listening: return .listening
+        }
     }
 
     // MARK: - Liquid Glass Button
