@@ -1,60 +1,52 @@
-# Session Handoff — 2026-03-25 (Notion Sync V2)
+# Session Handoff — 2026-03-26 (Wavelength UI)
 
 ## Mission
-Evolve `scripts/sync-notion.py` to consolidate 3 Notion databases into Archive, add per-endpoint API Reference database, automate sprint syncing, and wire `sync-all` into 5 Claude Code skills.
+Replace the iOS chat view with a particle wave "wavelength" UI — from Figma design to TestFlight deployment. The wavelength is Hestia's new visual identity, replacing the old sphere orb.
 
 ## Completed
-- **Database consolidation** — merged Planning Logs + ADR Registry + Archive into single Archive database (`2091a18`)
-- **API Reference database** — 129 endpoints parsed from `api-contract.md`, each as a row with Method, Path, Module, Auth Required, Status, Response Codes, Request Body (`e478dc5`)
-- **Dynamic whiteboard** — reads from Sprint board card instead of hardcoded page ID (`0d90653`, `efd0758`)
-- **Sprint sync** — `sync-sprints` command parses SPRINT.md to Notion board (`8598070`)
-- **sync-all** — full reconciliation command: Archive + ADRs + Sprints + API Reference (`7369cb1`)
-- **create-sprint-item** — creates Sprint card with optional linked Archive record (`8920a11`)
-- **migrate** — one-time migration from old databases, 285 records migrated (`384c3c5`, `570df8f`)
-- **Skill wiring** — sync-all wired into /pickup, /discovery, /ship-it, /handoff, /codebase-audit (`f48913c`)
-- **Notion setup** — programmatically added properties to Archive (12 props) and API Reference (9 props) databases
-- **Design spec** — `docs/superpowers/specs/2026-03-25-notion-sync-v2-design.md`
-- **Implementation plan** — `docs/superpowers/plans/2026-03-25-notion-sync-v2.md`
+- **Discovery report**: `docs/discoveries/ios-orb-chat-redesign-2026-03-26.md`
+- **HTML prototype**: `docs/superpowers/specs/wavelength-prototype.html` — Andrew-approved visual matching Figma ParticleWave.tsx
+- **Implementation plan + second opinion**: `docs/superpowers/plans/2026-03-26-ios-wavelength-chat-ui.md`
+- **Particle wave renderer**: `WavelengthState.swift`, `WavelengthRenderer.swift`, `HestiaWavelengthView.swift` — CGContext, 3500 particles, off-main-thread, 1x scale
+- **ChatView redesign**: idle (wavelength + greeting) / conversation (wave top, messages bottom)
+- **ChatInputBar**: liquid glass, lock icon removed, voice icon right, wider padding
+- **Hidden tab bar**: swipe-up from bottom 60px
+- **Conversation crash fix**: async audio session handoff
+- **Release pipeline split**: `ios-v*` iOS, `mac-v*` macOS, `v*` both (`4fc0b62`)
+- **Shipped ios-v1.10.4 (build 41)** to TestFlight
 
 ## In Progress
-- **Full doc content sync** — `sync-all --force` step [1/4] (Archive doc push) timed out on large files. API Reference (step 4) completed successfully. Steps 2-3 not yet run with 120s timeout fix.
-  - Fix: Run `push --force`, `push-adrs`, `sync-sprints --force` individually
-- **Old database cleanup** — Planning Logs and ADR Registry databases still in Notion sidebar. Andrew needs to manually archive them.
+- **Andrew reviewing v1.10.4 on device** — has feedback ready for next session
+- **Visual tuning** (Task 9) — not yet started
 
 ## Decisions Made
-- **Approach A: evolve existing script** — single-script evolution over modular refactor or MCP-based. Keeps standalone, runnable from hooks/CI.
-- **Properties-only migration** — migrated metadata without page content. Content populates from git via `push --force`.
-- **API Reference: one row per endpoint** — 129 rows vs 30 modules. Enables filtering by Method, Module, Auth, Status.
-- **Automated sync via skills** — `sync-all --incremental` runs in 5 skills, not as a hook.
+- Wavelength = horizontal particle wave, NOT sphere (Figma 369:647 + 369:710)
+- CGContext primary renderer (SwiftUI Canvas lacks setShadow, plusLighter, transparency layers)
+- Render at 1x scale off main thread (3x caused 99% CPU watchdog kill)
+- Tab bar hidden by default (intentional HIG violation per Andrew)
+- Tap mic = transcription, hold 2s = conversation (replaces 3-mode cycle)
+- Speaking state during streaming responses
+- Release tags: `ios-v*`, `mac-v*`, `v*`
 
 ## Test Status
-- Tests not affected — no backend Python code changed. Only `scripts/sync-notion.py` and `.claude/skills/*.md` modified.
-
-## Uncommitted Changes
-- `docs/superpowers/specs/hestia-orb-mockup.html` — stray mockup (unrelated)
-- `hestia-orb-mockup.html` — duplicate at repo root (unrelated)
+- Backend: ~2915 passing, no regressions (iOS-only changes)
+- iOS: BUILD SUCCEEDED
 
 ## Known Issues / Landmines
-- **Large doc push timeouts** — `sync-all --force` can stall on step [1/4] for large docs. Timeout increased to 120s but `replace_page_content` is slow (delete all blocks + re-append). Workaround: run individual commands.
-- **Duplicate ADR entries** — ADR Registry had duplicates (84 pages for 42 ADRs). All migrated to Archive. Andrew may want to deduplicate manually.
-- **Sprints DB property names** — Title property is `Sprint Name` (not `Title`), Status is `select` (not `status`). Fixed in code but not in spec. If schema changes, sync-sprints breaks silently.
-- **`--incremental` is default** — the flag is a no-op. `--force` bypasses content hash checks.
+1. **Wavelength rendering on device unconfirmed** — CPU crash fixed but visual output needs verification
+2. **No idle↔conversation animation** — matchedGeometryEffect removed (caused zero-frame). Needs explicit frame animation.
+3. **HestiaOrbView.swift still exists** — kept for macOS. Remove after confirming macOS doesn't use it.
+4. **forceLocal toggle removed from UI** — functionality exists but no visible control
+5. **Greeting says "Boss"** — Figma says "Hello Andrew". May need user profile name.
 
 ## Process Learnings
-- **First-pass success**: 7/9 tasks (78%). Migration needed 3 iterations (Notion API quirks).
-- **Top blocker**: Notion API property transfer — raw property objects contain DB-specific internal IDs.
-- **Proposal 1**: Add Notion DB schemas to a reference doc to prevent property name/type mismatches.
-- **Proposal 2**: Add per-step error recovery to `sync-all`.
-- **Subagent-driven development** worked well — spec reviewer caught dead code on Task 1.
+- **50% first-pass success** (6/12 tasks). Top blocker: building renderer without visual prototype sign-off → full rewrite
+- **Hallucinated 3 SwiftUI Canvas APIs** — caught by second opinion audit. Add Canvas API limitations to memory.
+- **Proposal**: Always build HTML prototype for visual features before native code
 
 ## Next Step
-1. Run individual sync commands to finish content population:
-   ```bash
-   source .venv/bin/activate
-   python scripts/sync-notion.py push --force
-   python scripts/sync-notion.py push-adrs
-   python scripts/sync-notion.py sync-sprints --force
-   ```
-2. In Notion: archive old "Planning Logs" and "ADR Registry" databases
-3. In Notion: deduplicate ADR entries in Archive (84 migrated, ~42 unique)
-4. Verify whiteboard: `python scripts/sync-notion.py read-whiteboard`
+1. Read this handoff, ask Andrew for his v1.10.4 device feedback
+2. Apply visual tuning (particle brightness, wave positioning, animation timing)
+3. Verify wavelength renders on device — if blank, debug CGContext output
+4. Add message fade-to-background near wavelength zone
+5. Re-add idle↔conversation animation without matchedGeometryEffect
