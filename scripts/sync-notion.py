@@ -782,8 +782,8 @@ def cmd_read_whiteboard(client: NotionClient) -> None:
     try:
         results = client.query_database(db_id, filter_obj={
             "and": [
-                {"property": "Status", "status": {"equals": "Planning"}},
-                {"property": "Title", "title": {"contains": "Whiteboard"}},
+                {"property": "Status", "select": {"equals": "Planning"}},
+                {"property": "Sprint Name", "title": {"contains": "Whiteboard"}},
             ]
         })
     except Exception:
@@ -1474,8 +1474,8 @@ def cmd_sync_sprints(client: NotionClient, state: SyncState, force: bool) -> Non
         now = datetime.now(timezone.utc).isoformat()
 
         props: dict[str, Any] = {
-            "Title": {"title": [{"text": {"content": sprint["name"]}}]},
-            "Status": {"status": {"name": sprint["status"]}},
+            "Sprint Name": {"title": [{"text": {"content": sprint["name"]}}]},
+            "Status": {"select": {"name": sprint["status"]}},
             "Last Synced": {"date": {"start": now}},
         }
         if sprint["hours_estimated"]:
@@ -1544,8 +1544,8 @@ def cmd_create_sprint_item(client: NotionClient, state: SyncState,
     now = datetime.now(timezone.utc).isoformat()
 
     sprint_props: dict[str, Any] = {
-        "Title": {"title": [{"text": {"content": title}}]},
-        "Status": {"status": {"name": "Next Up"}},
+        "Sprint Name": {"title": [{"text": {"content": title}}]},
+        "Status": {"select": {"name": "Next Up"}},
         "Last Synced": {"date": {"start": now}},
     }
 
