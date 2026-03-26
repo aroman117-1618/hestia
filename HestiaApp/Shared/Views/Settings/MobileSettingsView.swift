@@ -15,7 +15,7 @@ struct MobileSettingsView: View {
     private var agentProfiles: FetchedResults<AgentProfileEntity>
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 GradientBackground(mode: appState.currentMode)
                     .ignoresSafeArea()

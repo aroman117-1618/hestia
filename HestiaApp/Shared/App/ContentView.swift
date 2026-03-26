@@ -63,112 +63,26 @@ struct RootView: View {
     }
 }
 
-/// Main tab navigation with hidden tab bar.
-/// Tab bar appears on swipe-up from bottom edge, dismisses on tap outside or swipe down.
+/// Main tab navigation with swipe-to-switch between Chat, Command, and Settings.
+/// No visible tab bar — swipe left/right to navigate.
 struct MainTabView: View {
     @State private var selectedTab = 0
-    @State private var showTabBar = false
     @EnvironmentObject var networkMonitor: NetworkMonitor
     @EnvironmentObject var apiClientProvider: APIClientProvider
 
-    private let tabs: [(name: String, icon: String)] = [
-        ("Chat", "message.fill"),
-        ("Command", "square.grid.2x2.fill"),
-        ("Settings", "gearshape.fill")
-    ]
-
     var body: some View {
-        ZStack(alignment: .bottom) {
-            // Content
-            Group {
-                switch selectedTab {
-                case 0: ChatView()
-                case 1: MobileCommandView()
-                case 2: MobileSettingsView()
-                default: ChatView()
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        TabView(selection: $selectedTab) {
+            ChatView()
+                .tag(0)
 
-            // Swipe-up detection zone at bottom edge
-            if !showTabBar {
-                Color.clear
-                    .frame(height: 60)
-                    .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 20)
-                            .onEnded { value in
-                                // Swipe up (negative y translation)
-                                if value.translation.height < -20 {
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                        showTabBar = true
-                                    }
-                                }
-                            }
-                    )
-                    .frame(maxHeight: .infinity, alignment: .bottom)
-            }
+            MobileCommandView()
+                .tag(1)
 
-            // Custom tab bar overlay
-            if showTabBar {
-                // Dismiss backdrop
-                Color.black.opacity(0.3)
-                    .ignoresSafeArea()
-                    .onTapGesture {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            showTabBar = false
-                        }
-                    }
-                    .gesture(
-                        DragGesture(minimumDistance: 10)
-                            .onEnded { value in
-                                if value.translation.height > 20 {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                        showTabBar = false
-                                    }
-                                }
-                            }
-                    )
-
-                // Tab bar
-                customTabBar
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
+            MobileSettingsView()
+                .tag(2)
         }
-    }
-
-    private var customTabBar: some View {
-        HStack(spacing: 0) {
-            ForEach(0..<tabs.count, id: \.self) { index in
-                Button {
-                    selectedTab = index
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        showTabBar = false
-                    }
-                } label: {
-                    VStack(spacing: 4) {
-                        Image(systemName: tabs[index].icon)
-                            .font(.system(size: 22))
-                        Text(tabs[index].name)
-                            .font(.system(size: 11, weight: .medium))
-                    }
-                    .foregroundColor(selectedTab == index ? Color(hex: "FF9F0A") : .white.opacity(0.5))
-                    .frame(maxWidth: .infinity)
-                }
-            }
-        }
-        .padding(.top, 12)
-        .padding(.bottom, 28)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
-                )
-                .shadow(color: .black.opacity(0.3), radius: 20, y: -5)
-        )
-        .padding(.horizontal, 8)
+        .tabViewStyle(.page(indexDisplayMode: .never))
+        .ignoresSafeArea()
     }
 }
 

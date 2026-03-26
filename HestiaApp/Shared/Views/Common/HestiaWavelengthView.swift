@@ -95,7 +95,7 @@ final class WavelengthViewModel: ObservableObject {
         let renderSpeakingTime = speakingTime
         let renderParams = p
         let renderSize = size
-        let renderScale: CGFloat = 1.0  // Render at 1x, display scales up (saves 4x CPU vs 3x retina)
+        let renderScale: CGFloat = 2.0  // Render at 2x for sharp particles on retina (3x was too heavy)
         let renderWaveScale = waveScale
         var renderParticles = particles  // Value copy for thread safety
 
@@ -168,7 +168,8 @@ struct HestiaWavelengthView: View {
 
                 if let cgImage = viewModel.renderedFrame {
                     // Rendered at 1x for performance, .resizable() scales to fill frame
-                    Image(cgImage, scale: 1.0, label: Text("Hestia wavelength"))
+                    Image(cgImage, scale: 2.0, label: Text("Hestia wavelength"))
+                        .interpolation(.high)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
                         .frame(width: geo.size.width, height: geo.size.height)

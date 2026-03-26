@@ -9,39 +9,41 @@ struct MobileCommandView: View {
     @StateObject private var viewModel = MobileCommandViewModel()
 
     var body: some View {
-        NavigationView {
-            ZStack {
-                GradientBackground(mode: appState.currentMode)
-                    .ignoresSafeArea()
+        ZStack {
+            GradientBackground(mode: appState.currentMode)
+                .ignoresSafeArea()
 
-                ScrollView {
-                    VStack(spacing: Spacing.md) {
-                        // Status Card
-                        statusCard
+            ScrollView {
+                VStack(spacing: Spacing.md) {
+                    // Title
+                    Text("Command")
+                        .font(.system(size: 34, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, Spacing.lg)
 
-                        // Trading Card
-                        tradingCard
+                    // Status Card
+                    statusCard
 
-                        // Orders Card
-                        ordersCard
+                    // Trading Card
+                    tradingCard
 
-                        // Newsfeed Card
-                        newsfeedCard
+                    // Orders Card
+                    ordersCard
 
-                        // Quick Actions
-                        quickActionsCard
-                    }
-                    .padding(.horizontal, Spacing.md)
-                    .padding(.top, Spacing.sm)
-                    .padding(.bottom, Spacing.xl)
+                    // Newsfeed Card
+                    newsfeedCard
+
+                    // Quick Actions
+                    quickActionsCard
                 }
-                .refreshable {
-                    await viewModel.loadAll()
-                }
+                .padding(.horizontal, Spacing.md)
+                .padding(.top, Spacing.sm)
+                .padding(.bottom, Spacing.xl)
             }
-            .navigationTitle("Command")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbarColorScheme(.dark, for: .navigationBar)
+            .refreshable {
+                await viewModel.loadAll()
+            }
         }
         .onAppear {
             if apiClientProvider.isReady {
