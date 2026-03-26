@@ -69,7 +69,7 @@ class NotionClient:
                 "Notion-Version": NOTION_VERSION,
                 "Content-Type": "application/json",
             },
-            timeout=30.0,
+            timeout=120.0,
         )
         self._last_request_time: float = 0.0
 
