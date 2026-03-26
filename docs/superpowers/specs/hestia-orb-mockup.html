@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Hestia Orb — Liquid Glass v2</title>
+<style>
+  :root {
+    --bg:#080503;
+    --panel:rgba(255,200,120,0.05);
+    --panel-border:rgba(255,159,10,0.15);
+    --text:#FFF5E6;
+    --muted:#B89060;
+    --accent:#FF9F0A;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    font-family:"SF Pro Display",Inter,system-ui,-apple-system,sans-serif;
+    color:var(--text);
+    background:
+      radial-gradient(900px 700px at 50% 38%,rgba(139,85,0,0.14),transparent 55%),
+      radial-gradient(600px 420px at 55% 44%,rgba(255,159,10,0.08),transparent 50%),
+      linear-gradient(180deg,#0A0704,#050301);
+    overflow:hidden;
+  }
+  .wrap{min-height:100%;display:grid;grid-template-rows:1fr auto;gap:16px;padding:24px}
+  .stage{position:relative;display:grid;place-items:center;min-height:70vh}
+  canvas#orb{width:min(72vmin,760px);height:min(72vmin,760px);display:block}
+  .state-label{
+    position:absolute;top:18px;right:18px;
+    font-size:14px;font-weight:600;color:var(--accent);
+    text-transform:uppercase;letter-spacing:0.15em;opacity:0.7;
+    transition:opacity .3s;
+  }
+  .hud{display:flex;justify-content:center}
+  .panel{
+    width:min(740px,100%);
+    display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+    padding:16px 20px;
+    border:1px solid var(--panel-border);
+    background:var(--panel);
+    backdrop-filter:blur(18px);
+    border-radius:18px;
+    box-shadow:0 10px 40px rgba(0,0,0,0.4);
+  }
+  .buttons{display:flex;gap:8px}
+  button{
+    appearance:none;
+    border:1px solid rgba(255,159,10,0.15);
+    background:rgba(255,159,10,0.04);
+    color:var(--text);
+    padding:10px 16px;border-radius:12px;cursor:pointer;
+    font-weight:600;font-size:13px;letter-spacing:.15px;
+    transition:all .15s ease;
+  }
+  button:hover{background:rgba(255,159,10,0.08);transform:translateY(-1px)}
+  button.active{
+    background:rgba(255,159,10,0.18);
+    border-color:rgba(255,159,10,0.45);
+    box-shadow:inset 0 0 0 1px rgba(255,159,10,0.15),0 0 18px rgba(255,139,0,0.12);
+  }
+  .meter{display:flex;align-items:center;gap:12px;margin-left:auto}
+  label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em}
+  input[type="range"]{width:160px;accent-color:var(--accent)}
+  .val{width:38px;text-align:right;font-variant-numeric:tabular-nums;font-size:13px}
+  .toggle{display:flex;align-items:center;gap:8px}
+  @media(max-width:700px){.panel{flex-direction:column;align-items:stretch}.meter{margin-left:0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="stage">
+    <div class="state-label" id="stateLabel">LISTENING</div>
+    <canvas id="orb" width="900" height="900"></canvas>
+  </div>
+  <div class="hud">
+    <div class="panel">
+      <div class="buttons">
+        <button data-mode="listening" class="active">Listening</button>
+        <button data-mode="speaking">Speaking</button>
+      </div>
+      <div class="meter">
+        <label>Activity</label>
+        <input id="level" type="range" min="0" max="1" step="0.01" value="0.50"/>
+        <span class="val" id="lv">0.50</span>
+      </div>
+      <div class="toggle">
+        <input id="auto" type="checkbox" checked/>
+        <label for="auto" style="text-transform:none;letter-spacing:0;color:var(--text);font-size:13px">auto-cycle</label>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===========================================================================
+   HESTIA ORB v2 — Luminous Ribbon Streams
+   ---------------------------------------------------------------------------
+   Architecture:
+   - 3 great-circle bands on a 3D sphere (smooth, no noise)
+   - Offscreen canvas compositing: back bands → sphere → front bands
+   - Multi-pass additive glow: bloom → outer glow → inner glow → core → hot center
+   - Catmull-Rom → cubic bezier for buttery smooth paths
+   - Radial depth mask on front canvas for natural 3D falloff
+   - 2 states only: Listening (calm) and Speaking (energetic)
+   =========================================================================== */
+
+const C = document.getElementById("orb");
+const X = C.getContext("2d");
+const W = C.width, H = C.height;
+
+// ── Offscreen canvases for compositing ──
+const backC  = Object.assign(document.createElement("canvas"), { width: W, height: H });
+const frontC = Object.assign(document.createElement("canvas"), { width: W, height: H });
+const bX = backC.getContext("2d");
+const fX = frontC.getContext("2d");
+
+// ── Controls ──
+const slider  = document.getElementById("level");
+const lvEl    = document.getElementById("lv");
+const autoEl  = document.getElementById("auto");
+const labelEl = document.getElementById("stateLabel");
+const btns    = [...document.querySelectorAll("button[data-mode]")];
+
+let mode = "listening", manLv = 0.5, time = 0, last = performance.now(), cp = null;
+
+function setMode(m) { if (mode !== m) labelEl.textContent = m.toUpperCase(); mode = m; btns.forEach(b => b.classList.toggle("active", b.dataset.mode === m)); }
+btns.forEach(b => b.addEventListener("click", () => { autoEl.checked = false; setMode(b.dataset.mode); }));
+slider.addEventListener("input", () => { manLv = +slider.value; lvEl.textContent = manLv.toFixed(2); });
+
+const clamp   = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const mix     = (a, b, t)   => a + (b - a) * t;
+const mixObj  = (a, b, t)   => { const o = {}; for (const k in b) o[k] = mix(a?.[k] ?? b[k], b[k], t); return o; };
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BAND DEFINITIONS
+   3 great circles at unique tilts. Each has unique waviness frequencies
+   so they feel like independent fluid streams, not uniform rings.
+   ═══════════════════════════════════════════════════════════════════════════ */
+const BANDS = [
+  { tx:  0.52, ty:  0.28, off: 0.00, w: 1.00, b: 1.00, wv: [3.0, 5.2, 7.8] },  // Main river
+  { tx: -0.38, ty:  0.84, off: 2.09, w: 0.76, b: 0.82, wv: [2.4, 4.7, 8.3] },  // Cross stream
+  { tx:  0.72, ty: -0.52, off: 4.19, w: 0.48, b: 0.62, wv: [3.6, 6.1, 9.0] },  // Accent thread
+];
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   STATE PARAMETERS
+   ═══════════════════════════════════════════════════════════════════════════ */
+function targetP(m, lv, t) {
+  if (m === "listening") return {
+    spd:   0.45,                                       // ~14s per revolution — visible movement
+    bloom: 0.92 + lv * 0.18,
+    pulse: 0.005 + 0.004 * Math.sin(t * 0.9),
+    bw:    1.00 + lv * 0.08,
+    glow:  1.00 + lv * 0.12,
+    bg:    0.38 + lv * 0.10,
+    rim:   0.50 + lv * 0.10,
+    sph:   0.82,
+    wave:  0.055,                                      // Waviness amplitude (fraction of R)
+    wSpd:  1.0,                                        // Waviness animation speed
+  };
+  // speaking
+  return {
+    spd:   0.90 + lv * 0.25,                          // ~6-7s per revolution — energetic
+    bloom: 1.55 + lv * 0.50 + 0.28 * Math.sin(t * 3.2),
+    pulse: 0.016 + 0.012 * Math.sin(t * 2.5),
+    bw:    1.30 + lv * 0.18 + 0.06 * Math.sin(t * 2.8),
+    glow:  1.50 + lv * 0.35 + 0.18 * Math.sin(t * 3.5),
+    bg:    0.62 + lv * 0.28 + 0.12 * Math.sin(t * 2.2),
+    rim:   0.80 + lv * 0.20 + 0.08 * Math.sin(t * 3.0),
+    sph:   0.62 - lv * 0.10,
+    wave:  0.08 + lv * 0.03,                          // More turbulent when speaking
+    wSpd:  1.8 + lv * 0.6,                            // Faster fluid motion
+  };
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   3D GREAT CIRCLE PATH — WITH FLUID WAVINESS
+   Base path is a great circle. Then multi-frequency sinusoidal waves
+   are applied BEFORE tilt rotation, creating organic, flowing streams
+   that meander like water across cobblestone. Waves animate with time
+   so the fluid motion is continuous, not static wobble.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function greatCircle(band, R, rot, wobX, wobY, p) {
+  const N   = 160;
+  const pts = [];
+  // Very subtle global wobble (just barely alive, not fighting rotation)
+  const tX  = band.tx + wobX;
+  const tY  = band.ty + wobY;
+  const cX  = Math.cos(tX), sX = Math.sin(tX);
+  const cY  = Math.cos(tY), sY = Math.sin(tY);
+
+  const wAmp = p.wave * R;            // Waviness amplitude in pixels
+  const wSpd = p.wSpd;                // Waviness animation speed
+  const [f1, f2, f3] = band.wv;      // Per-band wave frequencies (unique per stream)
+  const t = time;                     // Current time for animation
+
+  for (let i = 0; i <= N; i++) {
+    const u  = i / N;                 // 0→1 around the loop
+    const a  = u * Math.PI * 2 + rot + band.off;
+
+    // Base great circle point
+    let x = Math.cos(a) * R;
+    let y = Math.sin(a) * R;
+    let z = 0;
+
+    // ── Fluid waviness: multi-frequency waves that flow with time ──
+    // Like water over irregular terrain — multiple overlapping ripples
+    // Each wave has a unique spatial frequency and temporal speed
+    z += Math.sin(u * Math.PI * 2 * f1 + t * wSpd * 1.3) * wAmp * 1.0;
+    z += Math.sin(u * Math.PI * 2 * f2 - t * wSpd * 0.9) * wAmp * 0.5;
+    z += Math.sin(u * Math.PI * 2 * f3 + t * wSpd * 1.8) * wAmp * 0.22;
+
+    // Also perturb y for lateral meander (cobblestone deflection)
+    y += Math.cos(u * Math.PI * 2 * (f1 + 0.5) + t * wSpd * 0.7) * wAmp * 0.6;
+    y += Math.cos(u * Math.PI * 2 * (f2 - 0.3) - t * wSpd * 1.1) * wAmp * 0.25;
+
+    // Tilt: rotate around X then Y
+    const y1 = y * cX - z * sX;
+    const z1 = y * sX + z * cX;
+    const x1 = x * cY + z1 * sY;
+    const z2 = -x * sY + z1 * cY;
+
+    // Normalize back onto the sphere surface (waviness pushes off-sphere)
+    const len = Math.sqrt(x1 * x1 + y1 * y1 + z2 * z2);
+    const nx = (x1 / len) * R;
+    const ny = (y1 / len) * R;
+    const nz = (z2 / len) * R;
+
+    pts.push({ x: nx, y: ny, z: nz, d: (nz / R + 1) * 0.5 });
+  }
+  return pts;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SPLIT PATH AT Z BOUNDARY
+   Returns contiguous arcs above/below the threshold.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function splitZ(pts, zT) {
+  const above = [], below = [];
+  let cur = [], isA = null;
+  for (const p of pts) {
+    const a = p.z >= zT;
+    if (a !== isA) {
+      if (cur.length > 1) (isA ? above : below).push(cur);
+      isA = a;
+      cur = [p];
+    } else cur.push(p);
+  }
+  if (cur.length > 1) (isA ? above : below).push(cur);
+  return { above, below };
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DRAW ARC — MULTI-PASS ADDITIVE GLOW
+   Traces the arc as a Catmull-Rom → Bezier smooth path, then strokes
+   5 concentric passes from widest/dimmest to narrowest/brightest.
+   ═══════════════════════════════════════════════════════════════════════════ */
+function drawArc(ctx, ox, oy, pts, baseW, bright, p) {
+  if (pts.length < 3) return;
+
+  const w = baseW * p.bw;
+  const b = clamp(bright * p.glow, 0, 6);
+
+  // Catmull-Rom → cubic bezier path tracer
+  function trace() {
+    ctx.beginPath();
+    ctx.moveTo(ox + pts[0].x, oy + pts[0].y);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[Math.max(0, i - 1)];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[Math.min(pts.length - 1, i + 2)];
+      ctx.bezierCurveTo(
+        ox + p1.x + (p2.x - p0.x) / 6,
+        oy + p1.y + (p2.y - p0.y) / 6,
+        ox + p2.x - (p3.x - p1.x) / 6,
+        oy + p2.y - (p3.y - p1.y) / 6,
+        ox + p2.x, oy + p2.y
+      );
+    }
+  }
+
+  ctx.lineCap  = "round";
+  ctx.lineJoin = "round";
+
+  // Pass 1 — Wide bloom (deep orange, huge shadowBlur)
+  trace();
+  ctx.strokeStyle = `rgba(155,50,0,${clamp(0.055 * b, 0, 1)})`;
+  ctx.lineWidth   = w * 7;
+  ctx.shadowColor = `rgba(255,90,0,${clamp(0.09 * b, 0, 1)})`;
+  ctx.shadowBlur  = w * 12;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Pass 2 — Outer glow (orange)
+  trace();
+  ctx.strokeStyle = `rgba(255,115,5,${clamp(0.13 * b, 0, 1)})`;
+  ctx.lineWidth   = w * 3.5;
+  ctx.shadowColor = `rgba(255,105,0,${clamp(0.10 * b, 0, 1)})`;
+  ctx.shadowBlur  = w * 6;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Pass 3 — Inner glow (amber)
+  trace();
+  ctx.strokeStyle = `rgba(255,168,38,${clamp(0.32 * b, 0, 1)})`;
+  ctx.lineWidth   = w * 1.7;
+  ctx.stroke();
+
+  // Pass 4 — Core (bright amber-white)
+  trace();
+  ctx.strokeStyle = `rgba(255,212,125,${clamp(0.52 * b, 0, 1)})`;
+  ctx.lineWidth   = w * 0.7;
+  ctx.stroke();
+
+  // Pass 5 — Hot center (near white)
+  trace();
+  ctx.strokeStyle = `rgba(255,248,228,${clamp(0.40 * b, 0, 1)})`;
+  ctx.lineWidth   = w * 0.22;
+  ctx.stroke();
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MAIN RENDER LOOP
+   ═══════════════════════════════════════════════════════════════════════════ */
+function draw(now) {
+  const dt = Math.min(0.033, (now - last) / 1000);
+  last = now;
+  time += dt;
+
+  // ── Auto-cycle ──
+  let lv = manLv;
+  if (autoEl.checked) {
+    const ph = time % 14;
+    if (ph < 7) {
+      setMode("listening");
+      lv = 0.30 + 0.20 * Math.sin(time * 0.7);
+    } else {
+      setMode("speaking");
+      lv = 0.50 + 0.45 * (0.5 + 0.5 * Math.sin(time * 3.2));
+    }
+    slider.value = clamp(lv, 0, 1).toFixed(2);
+    lvEl.textContent = (+slider.value).toFixed(2);
+  }
+
+  lv = clamp(autoEl.checked ? lv : manLv, 0, 1);
+  const tgt = targetP(mode, lv, time);
+  cp = cp ? mixObj(cp, tgt, clamp(dt * 4.0, 0, 1)) : { ...tgt };
+  const p = cp;
+
+  const ox = W / 2;
+  const oy = H / 2 - 20;
+  const R  = 240 * (1 + p.pulse);
+
+  // Global rotation (the main visible movement) + very subtle tilt wobble
+  const rot  = time * p.spd;
+  const wobX = 0.025 * Math.sin(time * 0.09);    // Barely-there wobble, not fighting rotation
+  const wobY = 0.018 * Math.cos(time * 0.07);
+
+  // ── Compute band paths (with fluid waviness) ──
+  const bandData = BANDS.map(band => {
+    const pts = greatCircle(band, R, rot, wobX, wobY, p);
+    const { above: front, below: back } = splitZ(pts, 0);
+    return { band, front, back };
+  });
+
+
+  /* ─── BACK CANVAS: dim bands behind the sphere ─── */
+  bX.clearRect(0, 0, W, H);
+  bX.globalCompositeOperation = "lighter";
+  for (const { band, back } of bandData) {
+    const bw = 14 * band.w;
+    for (const arc of back) {
+      drawArc(bX, ox, oy, arc, bw, band.b * 0.10, p);
+    }
+  }
+
+
+  /* ─── FRONT CANVAS: bright bands + radial depth mask ─── */
+  fX.clearRect(0, 0, W, H);
+  fX.globalCompositeOperation = "lighter";
+  for (const { band, front } of bandData) {
+    const bw = 14 * band.w;
+    for (const arc of front) {
+      drawArc(fX, ox, oy, arc, bw, band.b * 0.95, p);
+    }
+  }
+
+  // Radial depth mask: center (facing camera) = full bright,
+  // edges (curving away at equator) = dimmer.
+  // This simulates per-pixel z-depth without per-segment splitting.
+  fX.globalCompositeOperation = "destination-in";
+  const mask = fX.createRadialGradient(ox, oy, 0, ox, oy, R * 1.4);
+  mask.addColorStop(0.00, "rgba(255,255,255,1.00)");
+  mask.addColorStop(0.30, "rgba(255,255,255,0.97)");
+  mask.addColorStop(0.52, "rgba(255,255,255,0.88)");
+  mask.addColorStop(0.68, "rgba(255,255,255,0.68)");
+  mask.addColorStop(0.80, "rgba(255,255,255,0.42)");
+  mask.addColorStop(0.90, "rgba(255,255,255,0.20)");
+  mask.addColorStop(1.00, "rgba(255,255,255,0.06)");
+  fX.fillStyle = mask;
+  fX.fillRect(0, 0, W, H);
+  fX.globalCompositeOperation = "source-over";
+
+
+  /* ─── MAIN CANVAS COMPOSITING ─── */
+  X.clearRect(0, 0, W, H);
+
+  // Background ambient glow
+  const bg = X.createRadialGradient(ox, oy, 0, ox, oy, R * 2.5);
+  bg.addColorStop(0.00, `rgba(255,159,10,${0.07 * p.bg})`);
+  bg.addColorStop(0.15, `rgba(200,100,0,${0.10 * p.bg})`);
+  bg.addColorStop(0.45, `rgba(80,40,0,${0.04 * p.bg})`);
+  bg.addColorStop(1.00, "rgba(0,0,0,0)");
+  X.fillStyle = bg;
+  X.beginPath(); X.arc(ox, oy, R * 2.5, 0, Math.PI * 2); X.fill();
+
+  // Composite back bands
+  X.drawImage(backC, 0, 0);
+
+  // Dark sphere fill (semi-transparent so back bands faintly show through)
+  const sph = X.createRadialGradient(ox - R * 0.10, oy - R * 0.16, R * 0.02, ox, oy, R * 1.04);
+  sph.addColorStop(0.00, `rgba(28,16,5,${0.32 * p.sph})`);
+  sph.addColorStop(0.25, `rgba(12,7,2,${0.58 * p.sph})`);
+  sph.addColorStop(0.60, `rgba(5,3,1,${0.78 * p.sph})`);
+  sph.addColorStop(1.00, `rgba(2,1,0,${0.88 * p.sph})`);
+  X.fillStyle = sph;
+  X.beginPath(); X.arc(ox, oy, R, 0, Math.PI * 2); X.fill();
+
+  // Rim highlight — diagonal gradient for 3D curvature feel
+  const rim = X.createLinearGradient(ox - R, oy - R, ox + R, oy + R);
+  rim.addColorStop(0.00, `rgba(80,48,0,${0.05 * p.rim})`);
+  rim.addColorStop(0.28, `rgba(255,179,71,${0.52 * p.rim})`);
+  rim.addColorStop(0.55, `rgba(255,159,10,${0.30 * p.rim})`);
+  rim.addColorStop(0.80, `rgba(140,75,0,${0.10 * p.rim})`);
+  rim.addColorStop(1.00, "rgba(0,0,0,0.02)");
+  X.strokeStyle = rim;
+  X.lineWidth = 2.0 + p.glow * 0.3;
+  X.beginPath(); X.arc(ox, oy, R - 1, 0, Math.PI * 2); X.stroke();
+
+  // Composite front bands (depth-masked)
+  X.drawImage(frontC, 0, 0);
+
+  // Very subtle specular highlight (top-right)
+  const spec = X.createLinearGradient(ox - R * 0.2, oy - R * 0.82, ox + R * 0.6, oy - R * 0.1);
+  spec.addColorStop(0.00, "rgba(255,255,255,0)");
+  spec.addColorStop(0.30, `rgba(255,225,170,${0.03 + p.glow * 0.012})`);
+  spec.addColorStop(0.50, `rgba(255,245,235,${0.045 + p.glow * 0.020})`);
+  spec.addColorStop(0.75, "rgba(255,255,255,0)");
+  X.fillStyle = spec;
+  X.beginPath(); X.ellipse(ox + R * 0.08, oy - R * 0.46, R * 0.58, R * 0.20, -0.20, 0, Math.PI * 2); X.fill();
+
+  // Outer atmosphere halo
+  const atm = X.createRadialGradient(ox, oy, R * 0.88, ox, oy, R * 1.8);
+  atm.addColorStop(0.00, `rgba(255,130,0,${0.04 * p.bg})`);
+  atm.addColorStop(0.35, `rgba(180,70,0,${0.025 * p.bg})`);
+  atm.addColorStop(1.00, "rgba(0,0,0,0)");
+  X.fillStyle = atm;
+  X.beginPath(); X.arc(ox, oy, R * 1.8, 0, Math.PI * 2); X.fill();
+
+  requestAnimationFrame(draw);
+}
+
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
