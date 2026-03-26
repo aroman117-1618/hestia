@@ -57,8 +57,8 @@ struct ChatView: View {
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                // Dark base
-                Color(red: 2/255, green: 1/255, blue: 1/255)
+                // Gradient background — matches Command/Settings tabs
+                GradientBackground(mode: appState.currentMode)
                     .ignoresSafeArea()
 
                 if isIdleState {
@@ -209,8 +209,8 @@ struct ChatView: View {
 
     private func conversationLayout(geo: GeometryProxy) -> some View {
         ZStack(alignment: .top) {
-            // Dark base fills entire screen
-            Color(red: 2/255, green: 1/255, blue: 1/255)
+            // Gradient background — matches Command/Settings tabs
+            GradientBackground(mode: appState.currentMode)
                 .ignoresSafeArea()
 
             // Wavelength in top ~27% — header + wave contained together
