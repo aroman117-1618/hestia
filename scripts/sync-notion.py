@@ -1606,11 +1606,8 @@ def cmd_migrate(client: NotionClient, state: SyncState, dry_run: bool) -> None:
                 print(f"  [dry-run] Would migrate: {title}")
                 continue
 
-            try:
-                blocks = client.get_blocks(page["id"])
-                expanded = _expand_child_blocks(client, blocks)
-            except Exception:
-                expanded = []
+            # Migrate properties only — content stays in old DBs (still accessible)
+            # and in git. A subsequent `push --force` will populate content from git.
 
             if old_name == "adr_registry":
                 type_tag = "ADR"
@@ -1626,9 +1623,11 @@ def cmd_migrate(client: NotionClient, state: SyncState, dry_run: bool) -> None:
                 "Status": {"select": {"name": "Active"}},
             }
 
-            date_val = props.get("Date", {})
-            if date_val and date_val.get("date"):
-                new_props["Date"] = date_val
+            # Extract values and rebuild clean properties (can't reuse raw API objects
+            # because they contain internal IDs from the source database)
+            date_str = extract_property_value(props.get("Date", {}))
+            if date_str:
+                new_props["Date"] = {"date": {"start": date_str.split(" → ")[0]}}
 
             adr_num = props.get("ADR Number", {})
             if adr_num and adr_num.get("number") is not None:
@@ -1637,12 +1636,13 @@ def cmd_migrate(client: NotionClient, state: SyncState, dry_run: bool) -> None:
             for topic_key in ("Domain/Topic", "Topic", "Domain"):
                 topic_val = props.get(topic_key, {})
                 if topic_val and topic_val.get("multi_select"):
-                    new_props["Domain/Topic"] = topic_val
+                    names = [s["name"] for s in topic_val["multi_select"]]
+                    new_props["Domain/Topic"] = {"multi_select": [{"name": n} for n in names]}
                     break
 
-            git_path = props.get("Git Path", {})
-            if git_path and git_path.get("rich_text"):
-                new_props["Git Path"] = git_path
+            git_path_text = extract_property_value(props.get("Git Path", {}))
+            if git_path_text:
+                new_props["Git Path"] = {"rich_text": [{"text": {"content": git_path_text}}]}
 
             status_val = props.get("Status", {})
             if status_val:
@@ -1654,7 +1654,6 @@ def cmd_migrate(client: NotionClient, state: SyncState, dry_run: bool) -> None:
                 result = client.create_page(
                     parent={"database_id": archive_db_id},
                     properties=new_props,
-                    children=expanded if expanded else None,
                 )
                 new_page_id = result["id"]
 
