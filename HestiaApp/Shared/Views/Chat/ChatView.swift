@@ -208,51 +208,59 @@ struct ChatView: View {
     // MARK: - Conversation Layout (wavelength top, messages bottom)
 
     private func conversationLayout(geo: GeometryProxy) -> some View {
-        VStack(spacing: 0) {
-            // Wavelength in top ~45%
-            ZStack(alignment: .top) {
-                HestiaWavelengthView(mode: wavelengthMode, waveScale: 0.5)
-                    .frame(width: geo.size.width, height: geo.size.height * 0.45)
+        ZStack(alignment: .top) {
+            // Dark base fills entire screen
+            Color(red: 2/255, green: 1/255, blue: 1/255)
+                .ignoresSafeArea()
 
-                // Amber gradient header with constellation + underline
-                HestiaHeaderView()
-                    .padding(.top, 44)
-            }
-            .frame(height: geo.size.height * 0.45)
+            // Wavelength in top ~27% — header + wave contained together
+            HestiaWavelengthView(mode: wavelengthMode, waveScale: 0.5)
+                .frame(width: geo.size.width, height: geo.size.height * 0.39)
 
-            // Messages area in bottom half
-            ZStack(alignment: .top) {
-                VStack(spacing: 0) {
-                    // Messages
-                    messageList
+            // Amber gradient header with constellation + underline
+            HestiaHeaderView()
+                .padding(.top, 44)
 
-                    // Thinking indicator
-                    if let stage = viewModel.currentStage, !viewModel.isTyping {
-                        ThinkingIndicator(stage: stage)
-                            .transition(.opacity)
+            // Chat area starts at ~39% with tall fade into wavelength
+            VStack(spacing: 0) {
+                Spacer()
+                    .frame(height: geo.size.height * 0.39)
+
+                ZStack(alignment: .top) {
+                    VStack(spacing: 0) {
+                        // Messages
+                        messageList
+
+                        // Thinking indicator
+                        if let stage = viewModel.currentStage, !viewModel.isTyping {
+                            ThinkingIndicator(stage: stage)
+                                .transition(.opacity)
+                        }
+
+                        // Typewriter text
+                        if viewModel.isTyping, let typingText = viewModel.currentTypingText, !typingText.isEmpty {
+                            typewriterView(text: typingText)
+                                .transition(.move(edge: .bottom).combined(with: .opacity))
+                        }
+
+                        // Input bar
+                        inputBar
                     }
 
-                    // Typewriter text
-                    if viewModel.isTyping, let typingText = viewModel.currentTypingText, !typingText.isEmpty {
-                        typewriterView(text: typingText)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
-
-                    // Input bar
-                    inputBar
+                    // Tall, soft fade — messages dissolve behind the wavelength
+                    LinearGradient(
+                        stops: [
+                            .init(color: Color(red: 2/255, green: 1/255, blue: 1/255), location: 0),
+                            .init(color: Color(red: 2/255, green: 1/255, blue: 1/255).opacity(0.7), location: 0.35),
+                            .init(color: Color(red: 2/255, green: 1/255, blue: 1/255).opacity(0.3), location: 0.65),
+                            .init(color: Color(red: 2/255, green: 1/255, blue: 1/255).opacity(0), location: 1.0),
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 120)
+                    .allowsHitTesting(false)
                 }
-
-                // Fade-out gradient mask at top of message area
-                LinearGradient(
-                    colors: [
-                        Color(red: 2/255, green: 1/255, blue: 1/255),
-                        Color(red: 2/255, green: 1/255, blue: 1/255).opacity(0)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: 32)
-                .allowsHitTesting(false)
             }
         }
     }
