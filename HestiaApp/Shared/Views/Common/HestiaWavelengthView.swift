@@ -1,5 +1,8 @@
 // HestiaWavelengthView.swift
 // HestiaApp
+//
+// SwiftUI wrapper for the particle wave renderer.
+// Owns particles, textures, timing, and frame output.
 
 import SwiftUI
 
@@ -9,38 +12,77 @@ import SwiftUI
 final class WavelengthViewModel: ObservableObject {
     @Published var renderedFrame: CGImage?
 
+    private var particles: [Particle] = []
     private var currentParams: WavelengthParams?
     private var globalTime: Double = 0
+    private var speakingTime: Double = 0
     private var lastTimestamp: TimeInterval = 0
 
-    func update(date: Date, mode: WavelengthMode, audioLevel: CGFloat, size: CGSize) {
+    #if os(iOS)
+    private var textures: [WavelengthRenderer.TextureSet] = []
+    #endif
+
+    private var initialized = false
+
+    private func ensureInitialized(width: Double, height: Double) {
+        guard !initialized else { return }
+        initialized = true
+
+        let count = 3500
+        particles.reserveCapacity(count)
+        for _ in 0..<count {
+            particles.append(Particle.create(width: width, height: height))
+        }
+
+        #if os(iOS)
+        textures = WavelengthRenderer.createTextures()
+        #endif
+    }
+
+    func update(
+        date: Date,
+        mode: WavelengthMode,
+        audioLevel: CGFloat,
+        size: CGSize,
+        waveScale: CGFloat
+    ) {
+        ensureInitialized(width: Double(size.width), height: Double(size.height))
+
         let now = date.timeIntervalSinceReferenceDate
         let dt = lastTimestamp == 0 ? 0.016 : min(0.033, now - lastTimestamp)
         lastTimestamp = now
-        globalTime += dt
 
-        let level = Double(audioLevel)
-        let target = WavelengthParams.target(for: mode, level: level, time: globalTime)
-        let alpha = min(max(dt * 4.0, 0), 1)
+        // Target params
+        let target = WavelengthParams.target(for: mode)
 
+        // Lerp at 0.05 per frame (matches TSX)
         if let current = currentParams {
-            currentParams = current.lerped(toward: target, alpha: alpha)
+            currentParams = current.lerped(toward: target, alpha: 0.05)
         } else {
             currentParams = target
         }
 
         guard let p = currentParams else { return }
 
+        // Update time accumulators
+        globalTime += 0.005 * p.speedMult
+        // Speaking time runs faster: dt * (1 + audioVol * 4)
+        speakingTime += dt * (1 + p.audioVol * 4)
+
         #if os(iOS)
         let displayScale = UITraitCollection.current.displayScale
-        #else
-        let displayScale: CGFloat = NSScreen.main?.backingScaleFactor ?? 2.0
-        #endif
 
         renderedFrame = WavelengthRenderer.renderToImage(
-            size: size, scale: displayScale,
-            time: globalTime, params: p
+            size: size,
+            scale: displayScale,
+            time: globalTime,
+            speakingTime: speakingTime,
+            params: p,
+            particles: &particles,
+            textures: textures,
+            waveScale: waveScale
         )
+        #endif
     }
 }
 
@@ -48,18 +90,19 @@ final class WavelengthViewModel: ObservableObject {
 
 struct HestiaWavelengthView: View {
     let mode: WavelengthMode
-    var size: CGFloat = 320
     var audioLevel: CGFloat = 0.0
+    var waveScale: CGFloat = 1.0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var viewModel = WavelengthViewModel()
 
     private var frameInterval: Double {
-        mode == .idle ? 1.0 / 20.0 : 1.0 / 30.0
-    }
-
-    private var renderSize: CGSize {
-        CGSize(width: size * 1.6, height: size * 1.6)
+        switch mode {
+        case .idle, .listening:
+            return 1.0 / 20.0
+        case .speaking, .thinking:
+            return 1.0 / 30.0
+        }
     }
 
     var body: some View {
@@ -73,26 +116,31 @@ struct HestiaWavelengthView: View {
     // MARK: - Animated View
 
     private var animatedWavelength: some View {
-        TimelineView(.animation(minimumInterval: frameInterval)) { timeline in
-            let _ = viewModel.update(
-                date: timeline.date,
-                mode: mode,
-                audioLevel: audioLevel,
-                size: renderSize
-            )
+        GeometryReader { geo in
+            TimelineView(.animation(minimumInterval: frameInterval)) { timeline in
+                let _ = viewModel.update(
+                    date: timeline.date,
+                    mode: mode,
+                    audioLevel: audioLevel,
+                    size: geo.size,
+                    waveScale: waveScale
+                )
 
-            if let cgImage = viewModel.renderedFrame {
-                #if os(iOS)
-                let displayScale = UITraitCollection.current.displayScale
-                #else
-                let displayScale: CGFloat = NSScreen.main?.backingScaleFactor ?? 2.0
-                #endif
+                if let cgImage = viewModel.renderedFrame {
+                    #if os(iOS)
+                    let displayScale = UITraitCollection.current.displayScale
+                    #else
+                    let displayScale: CGFloat = NSScreen.main?.backingScaleFactor ?? 2.0
+                    #endif
 
-                Image(cgImage, scale: displayScale, label: Text("Hestia wavelength"))
-                    .frame(width: renderSize.width, height: renderSize.height)
-            } else {
-                Color.clear
-                    .frame(width: renderSize.width, height: renderSize.height)
+                    Image(cgImage, scale: displayScale, label: Text("Hestia wavelength"))
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: geo.size.width, height: geo.size.height)
+                } else {
+                    Color(red: 2/255, green: 1/255, blue: 1/255)
+                        .frame(width: geo.size.width, height: geo.size.height)
+                }
             }
         }
     }
@@ -100,33 +148,18 @@ struct HestiaWavelengthView: View {
     // MARK: - Static Fallback (Reduce Motion)
 
     private var staticFallback: some View {
-        Circle()
-            .fill(
-                RadialGradient(
-                    colors: [
-                        Color(red: 1, green: 159.0/255.0, blue: 10.0/255.0).opacity(0.3),
-                        Color(red: 80.0/255.0, green: 40.0/255.0, blue: 0).opacity(0.15),
-                        .clear
-                    ],
-                    center: .center,
-                    startRadius: 0,
-                    endRadius: size / 2
-                )
-            )
-            .frame(width: size, height: size)
+        Rectangle()
+            .fill(Color(red: 2/255, green: 1/255, blue: 1/255))
             .overlay(
-                Circle()
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 1, green: 179.0/255.0, blue: 71.0/255.0).opacity(0.4),
-                                Color(red: 1, green: 159.0/255.0, blue: 10.0/255.0).opacity(0.2)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 2
-                    )
+                LinearGradient(
+                    colors: [
+                        Color(red: 1, green: 159.0/255.0, blue: 10.0/255.0).opacity(0.15),
+                        .clear,
+                        Color(red: 1, green: 159.0/255.0, blue: 10.0/255.0).opacity(0.15)
+                    ],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
             )
     }
 }
@@ -135,32 +168,24 @@ struct HestiaWavelengthView: View {
 #Preview("Wavelength - Idle") {
     ZStack {
         Color.black
-        // Smaller size for preview performance (CGContext renders every frame)
-        HestiaWavelengthView(mode: .idle, size: 120)
+        HestiaWavelengthView(mode: .idle)
+            .frame(height: 200)
     }
 }
 
 #Preview("Wavelength - Speaking") {
     ZStack {
         Color.black
-        HestiaWavelengthView(mode: .speaking, size: 120, audioLevel: 0.6)
+        HestiaWavelengthView(mode: .speaking, audioLevel: 0.6)
+            .frame(height: 200)
     }
 }
 
-// Static single-frame preview (faster — no animation loop)
-#Preview("Wavelength - Static") {
+#Preview("Wavelength - Scaled Down") {
     ZStack {
         Color.black
-        Image(
-            WavelengthRenderer.renderToImage(
-                size: CGSize(width: 320, height: 320),
-                scale: 1.0,
-                time: 2.5,
-                params: WavelengthParams.target(for: .idle, level: 0.3, time: 2.5)
-            )!,
-            scale: 1.0,
-            label: Text("Wavelength static")
-        )
+        HestiaWavelengthView(mode: .listening, waveScale: 0.5)
+            .frame(height: 200)
     }
 }
 #endif
