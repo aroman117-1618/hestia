@@ -528,6 +528,88 @@ class ApiContractParser:
 
 
 # ---------------------------------------------------------------------------
+# SprintParser
+# ---------------------------------------------------------------------------
+
+class SprintParser:
+    """Parse SPRINT.md into sprint records for Notion sync."""
+
+    TABLE_ROW_PATTERN = re.compile(
+        r'^\|\s*S?(\d+\.?\d*)\s*\|\s*(.+?)\s*\|\s*(\d+)h?\s*\|\s*(.+?)\s*\|',
+        re.MULTILINE
+    )
+
+    SECTION_PATTERN = re.compile(
+        r'^#{1,3}\s+(?:Sprint\s+|Current Sprint:\s*S?)(\d+\.?\d*)(.+)?$',
+        re.MULTILINE
+    )
+
+    @staticmethod
+    def parse(filepath: Path) -> list[dict]:
+        """Parse SPRINT.md into a list of sprint dicts."""
+        content = filepath.read_text(encoding="utf-8")
+        sprints: list[dict] = []
+        seen: set[str] = set()
+
+        for match in SprintParser.TABLE_ROW_PATTERN.finditer(content):
+            sprint_num = match.group(1)
+            if sprint_num in seen:
+                continue
+            seen.add(sprint_num)
+
+            scope = match.group(2).strip()
+            hours_str = match.group(3).strip()
+            status_raw = match.group(4).strip()
+
+            sprints.append({
+                "name": f"S{sprint_num}: {scope}",
+                "sprint_number": sprint_num,
+                "scope": scope,
+                "hours_estimated": int(hours_str) if hours_str.isdigit() else None,
+                "status": SprintParser._normalize_status(status_raw),
+                "raw_status": status_raw,
+            })
+
+        for match in SprintParser.SECTION_PATTERN.finditer(content):
+            sprint_num = match.group(1)
+            if sprint_num in seen:
+                continue
+            seen.add(sprint_num)
+
+            rest = (match.group(2) or "").strip().lstrip(":").strip()
+            title = rest if rest else f"Sprint {sprint_num}"
+
+            sprints.append({
+                "name": f"S{sprint_num}: {title}",
+                "sprint_number": sprint_num,
+                "scope": title,
+                "hours_estimated": None,
+                "status": "Done",
+                "raw_status": "COMPLETE",
+            })
+
+        return sprints
+
+    @staticmethod
+    def _normalize_status(raw: str) -> str:
+        """Map raw status text to Notion status values."""
+        lower = raw.lower()
+        if "done" in lower or "complete" in lower or "live" in lower:
+            return "Done"
+        if "progress" in lower or "active" in lower:
+            return "In Progress"
+        if "block" in lower:
+            return "Blocked"
+        if "todo" in lower or "next" in lower:
+            return "Next Up"
+        if "defer" in lower or "future" in lower:
+            return "Deferred"
+        if "plan" in lower:
+            return "Planning"
+        return "Next Up"
+
+
+# ---------------------------------------------------------------------------
 # DocMapper
 # ---------------------------------------------------------------------------
 
@@ -1352,6 +1434,81 @@ def cmd_push_api(client: NotionClient, state: SyncState, force: bool) -> None:
     print(f"\nAPI sync: {created} created, {updated} updated, {errors} errors")
 
 
+def cmd_sync_sprints(client: NotionClient, state: SyncState, force: bool) -> None:
+    """Sync SPRINT.md to the Sprints database in Notion."""
+    sprint_file = PROJECT_ROOT / "SPRINT.md"
+    if not sprint_file.exists():
+        print("Error: SPRINT.md not found", file=sys.stderr)
+        return
+
+    content = sprint_file.read_text(encoding="utf-8")
+    if not force and not state.needs_sync("SPRINT.md", content):
+        print("SPRINT.md unchanged — skipping")
+        return
+
+    sprints = SprintParser.parse(sprint_file)
+    print(f"Parsed {len(sprints)} sprints from SPRINT.md")
+
+    db_id = DATABASES["sprints"]
+    created = 0
+    updated = 0
+    errors = 0
+
+    existing_cards = client.query_database(db_id)
+    existing_by_title: dict[str, str] = {}
+    for card in existing_cards:
+        props = card.get("properties", {})
+        for prop in props.values():
+            if prop.get("type") == "title":
+                title = "".join(r.get("plain_text", "") for r in prop.get("title", []))
+                existing_by_title[title.lower()] = card["id"]
+                break
+
+    for sprint in sprints:
+        sync_key = f"sprint:{sprint['sprint_number']}"
+        now = datetime.now(timezone.utc).isoformat()
+
+        props: dict[str, Any] = {
+            "Title": {"title": [{"text": {"content": sprint["name"]}}]},
+            "Status": {"status": {"name": sprint["status"]}},
+            "Last Synced": {"date": {"start": now}},
+        }
+        if sprint["hours_estimated"]:
+            props["Hours Estimated"] = {"number": sprint["hours_estimated"]}
+
+        try:
+            existing_page_id = state.get_page_id(sync_key)
+            if not existing_page_id:
+                for title, page_id in existing_by_title.items():
+                    if sprint["sprint_number"] in title or sprint["scope"].lower() in title:
+                        existing_page_id = page_id
+                        break
+
+            if existing_page_id:
+                client.update_page(existing_page_id, props)
+                page_id = existing_page_id
+                action = "updated"
+                updated += 1
+            else:
+                result = client.create_page(
+                    parent={"database_id": db_id},
+                    properties=props,
+                )
+                page_id = result["id"]
+                action = "created"
+                created += 1
+
+            state.record_sync(sync_key, sprint["raw_status"], page_id)
+            print(f"  [{action}] {sprint['name']} → {sprint['status']}")
+        except Exception as e:
+            errors += 1
+            print(f"  [error] {sprint['name']}: {e}", file=sys.stderr)
+
+    state.record_sync("SPRINT.md", content, "batch")
+    state.save()
+    print(f"\nSprint sync: {created} created, {updated} updated, {errors} errors")
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -1378,6 +1535,10 @@ def main() -> None:
     # push-api
     push_api_parser = subparsers.add_parser("push-api", help="Parse api-contract.md and push endpoints to Notion")
     push_api_parser.add_argument("--force", action="store_true", help="Force push even if unchanged")
+
+    # sync-sprints
+    sync_sprints_parser = subparsers.add_parser("sync-sprints", help="Sync SPRINT.md to Sprints database")
+    sync_sprints_parser.add_argument("--force", action="store_true", help="Force sync even if unchanged")
 
     # status
     subparsers.add_parser("status", help="Show sync status")
@@ -1426,6 +1587,8 @@ def main() -> None:
             cmd_push_adrs(client, state)
         elif args.command == "push-api":
             cmd_push_api(client, state, args.force)
+        elif args.command == "sync-sprints":
+            cmd_sync_sprints(client, state, args.force)
         elif args.command == "status":
             cmd_status(state)
         elif args.command == "search":
