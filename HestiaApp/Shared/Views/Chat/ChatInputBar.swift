@@ -26,9 +26,7 @@ struct ChatInputBar: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Private mode toggle
-            privateToggleButton
-
+            // Text field or recording indicator (no lock icon)
             if isRecording {
                 recordingIndicator
             } else {
@@ -41,18 +39,18 @@ struct ChatInputBar: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(
-            RoundedRectangle(cornerRadius: 24)
+            RoundedRectangle(cornerRadius: 28)
                 .fill(Color.white.opacity(0.08))
                 .background(
-                    RoundedRectangle(cornerRadius: 24)
+                    RoundedRectangle(cornerRadius: 28)
                         .fill(.ultraThinMaterial)
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 24)
+                    RoundedRectangle(cornerRadius: 28)
                         .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
                 )
         )
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 24)
         .padding(.bottom, 8)
     }
 

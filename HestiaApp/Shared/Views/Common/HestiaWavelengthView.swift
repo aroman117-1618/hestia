@@ -49,6 +49,9 @@ final class WavelengthViewModel: ObservableObject {
                 self.textures = newTextures
                 #endif
                 self.initialized = true
+                #if DEBUG
+                print("[Wavelength] Initialized: \(newParticles.count) particles, \(newTextures.count) textures")
+                #endif
             }
         }
     }
@@ -61,7 +64,7 @@ final class WavelengthViewModel: ObservableObject {
         waveScale: CGFloat
     ) {
         ensureInitialized(width: Double(size.width), height: Double(size.height))
-        guard initialized else { return } // Skip render until particles are ready
+        guard initialized, !particles.isEmpty else { return } // Skip render until particles are ready
 
         let now = date.timeIntervalSinceReferenceDate
         let dt = lastTimestamp == 0 ? 0.016 : min(0.033, now - lastTimestamp)
