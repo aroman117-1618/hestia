@@ -39,13 +39,13 @@ DOCS_ROOT = PROJECT_ROOT / "docs"
 
 # Notion database/page IDs
 DATABASES = {
-    "planning_logs": "32d5d244-5f31-813d-a693-db7821dbeb2e",
-    "adr_registry": "5b0e4074-eca7-4d9c-be40-0e7486a7f362",
-    "sprints": "20e6158d-9d21-4e4d-be40-11e08f6932c3",
     "archive": "feb292cc-621d-4982-942a-ea99dcf62e44",
+    "sprints": "20e6158d-9d21-4e4d-be40-11e08f6932c3",
+    "api_reference": "32e5d244-5f31-80e3-b67e-feff0575a3f2",
 }
+# Legacy — dynamic Sprints DB query replaces this in Task 3
 WHITEBOARD_PAGE_ID = "e739da68-2b62-49ae-a4d1-979019771961"
-API_REFERENCE_PAGE_ID = "3f49d829-d1aa-40be-89c0-f18cd5d3fd4e"
+API_REFERENCE_PAGE_ID = "3f49d829-d1aa-40be-89c0-f18cd5d3fd4e"  # Keep as fallback
 
 
 # ---------------------------------------------------------------------------
@@ -437,20 +437,20 @@ class DocMapper:
     """Map git file paths to Notion databases and extract properties."""
 
     # Path pattern → (database_key, type)
-    # All planning/research docs route to planning_logs with a Type tag
+    # All docs route to archive with a Type tag
     ROUTING: list[tuple[str, str, Optional[str]]] = [
-        ("docs/plans/", "planning_logs", "Plan"),
-        ("docs/discoveries/", "planning_logs", "Discovery"),
-        ("docs/audits/", "planning_logs", "Audit"),
-        ("docs/retrospectives/", "planning_logs", "Retrospective"),
-        ("docs/reference/", "planning_logs", "Reference"),
-        ("docs/architecture/", "planning_logs", "Architecture"),
-        ("docs/archive/", "archive", None),
-        ("docs/hestia-security-architecture.md", "planning_logs", "Security"),
-        ("docs/hestia-development-plan.md", "planning_logs", "Plan"),
-        ("docs/metrics/", "planning_logs", "Metrics"),
-        ("docs/superpowers/plans/", "planning_logs", "Plan"),
-        ("docs/superpowers/specs/", "planning_logs", "Spec"),
+        ("docs/plans/", "archive", "Plan"),
+        ("docs/discoveries/", "archive", "Discovery"),
+        ("docs/audits/", "archive", "Audit"),
+        ("docs/retrospectives/", "archive", "Retrospective"),
+        ("docs/reference/", "archive", "Reference"),
+        ("docs/architecture/", "archive", "Architecture"),
+        ("docs/archive/", "archive", "Archive"),
+        ("docs/hestia-security-architecture.md", "archive", "Security"),
+        ("docs/hestia-development-plan.md", "archive", "Plan"),
+        ("docs/metrics/", "archive", "Metrics"),
+        ("docs/superpowers/plans/", "archive", "Plan"),
+        ("docs/superpowers/specs/", "archive", "Spec"),
     ]
 
     @staticmethod
@@ -484,20 +484,6 @@ class DocMapper:
         return None
 
     @staticmethod
-    def extract_archive_category(content: str) -> Optional[str]:
-        """Extract category for archive docs."""
-        lower = content[:500].lower()
-        if "decision" in lower or "adr" in lower:
-            return "Decision Log"
-        if "security" in lower:
-            return "Security"
-        if "plan" in lower or "sprint" in lower:
-            return "Plan"
-        if "session" in lower:
-            return "Session Log"
-        return "Plan"
-
-    @staticmethod
     def extract_discovery_topics(content: str) -> list[str]:
         """Extract topic tags for discovery docs."""
         topics: list[str] = []
@@ -521,7 +507,7 @@ class DocMapper:
         rel_path = str(filepath.relative_to(PROJECT_ROOT))
         now = datetime.now(timezone.utc).isoformat()
 
-        if db_key == "planning_logs":
+        if db_key == "archive":
             props: dict[str, Any] = {
                 "Title": {"title": [{"text": {"content": title}}]},
                 "Git Path": {"rich_text": [{"text": {"content": rel_path}}]},
@@ -532,33 +518,10 @@ class DocMapper:
                 props["Type"] = {"select": {"name": category}}
             if date:
                 props["Date"] = {"date": {"start": date}}
-            # Auto-detect topics for all planning_logs entries
+            # Auto-detect topics
             topics = DocMapper.extract_discovery_topics(content)
             if topics:
-                props["Topic"] = {"multi_select": [{"name": t} for t in topics]}
-            return props
-
-        elif db_key == "archive":
-            props = {
-                "Title": {"title": [{"text": {"content": title}}]},
-                "Git Path": {"rich_text": [{"text": {"content": rel_path}}]},
-                "Last Synced": {"date": {"start": now}},
-            }
-            arch_cat = DocMapper.extract_archive_category(content)
-            if arch_cat:
-                props["Category"] = {"select": {"name": arch_cat}}
-            if date:
-                props["Original Date"] = {"date": {"start": date}}
-            return props
-
-        elif db_key == "adr_registry":
-            # Used for individual ADR entries
-            props = {
-                "Title": {"title": [{"text": {"content": title}}]},
-                "Last Synced": {"date": {"start": now}},
-            }
-            if date:
-                props["Date"] = {"date": {"start": date}}
+                props["Domain/Topic"] = {"multi_select": [{"name": t} for t in topics]}
             return props
 
         # Fallback
@@ -1124,7 +1087,7 @@ def cmd_push_adrs(client: NotionClient, state: SyncState) -> None:
         "API": ["api", "endpoint", "route", "rest"],
     }
 
-    db_id = DATABASES["adr_registry"]
+    db_id = DATABASES["archive"]
     created = 0
     updated = 0
     unchanged = 0
@@ -1169,11 +1132,12 @@ def cmd_push_adrs(client: NotionClient, state: SyncState) -> None:
             "ADR Number": {"number": adr_num},
             "Status": {"select": {"name": status}},
             "Last Synced": {"date": {"start": now}},
+            "Type": {"select": {"name": "ADR"}},
         }
         if date:
             props["Date"] = {"date": {"start": date}}
         if domains:
-            props["Domain"] = {"multi_select": [{"name": d} for d in domains]}
+            props["Domain/Topic"] = {"multi_select": [{"name": d} for d in domains]}
 
         blocks = MarkdownToBlocks.convert(adr_content)
 
@@ -1244,7 +1208,7 @@ def main() -> None:
 
     # query-db
     query_db_parser = subparsers.add_parser("query-db", help="Query a database")
-    query_db_parser.add_argument("database", help="Database name (sprints, planning_logs, adr_registry, archive) or ID")
+    query_db_parser.add_argument("database", help="Database name (sprints, archive, api_reference) or ID")
     query_db_parser.add_argument("--title", help="Filter by title contains")
     query_db_parser.add_argument("--status", help="Filter by status equals")
     query_db_parser.add_argument("-v", "--verbose", action="store_true", help="Show all properties")
