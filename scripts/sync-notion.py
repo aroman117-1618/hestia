@@ -429,6 +429,104 @@ class MarkdownToBlocks:
         return normalized
 
 
+def _redact_tokens(text: str) -> str:
+    """Strip JWT-shaped strings from text before pushing to Notion."""
+    return re.sub(r'eyJ[A-Za-z0-9_-]{20,}\.{0,2}[A-Za-z0-9_.-]*', '<REDACTED_TOKEN>', text)
+
+
+class ApiContractParser:
+    """Parse api-contract.md into individual endpoint records."""
+
+    MODULE_PATTERN = re.compile(r'^### (.+?) \((\d+) endpoints?\)', re.MULTILINE)
+    ENDPOINT_PATTERN = re.compile(r'^#{3,4} (GET|POST|PUT|PATCH|DELETE) (/\S+)', re.MULTILINE)
+    ERROR_CODE_PATTERN = re.compile(r'`(\d{3})`')
+    NO_AUTH_PHRASES = ["no auth", "no auth required"]
+
+    @staticmethod
+    def parse(filepath: Path) -> list[dict]:
+        """Parse api-contract.md into a list of endpoint dicts."""
+        content = filepath.read_text(encoding="utf-8")
+        content = _redact_tokens(content)
+        endpoints: list[dict] = []
+
+        # Find module sections
+        module_matches = list(ApiContractParser.MODULE_PATTERN.finditer(content))
+        # Find auth section endpoints (### level, before ## API Endpoints)
+        auth_section_endpoints = list(re.finditer(
+            r'^### (GET|POST|PUT|PATCH|DELETE) (/\S+)', content, re.MULTILINE
+        ))
+
+        api_section_start = content.find("## API Endpoints")
+
+        # Parse auth section endpoints
+        for match in auth_section_endpoints:
+            if match.start() < api_section_start:
+                method = match.group(1)
+                path = match.group(2)
+                next_heading = re.search(r'^###? ', content[match.end():], re.MULTILINE)
+                end = match.end() + next_heading.start() if next_heading else len(content)
+                body = content[match.end():end].strip()
+                endpoints.append(ApiContractParser._build_endpoint(method, path, "Auth", body))
+
+        # Parse module-grouped endpoints
+        for i, mod_match in enumerate(module_matches):
+            module_name = mod_match.group(1).split("(")[0].strip()
+            mod_start = mod_match.end()
+            mod_end = module_matches[i + 1].start() if i + 1 < len(module_matches) else len(content)
+            mod_content = content[mod_start:mod_end]
+
+            ep_matches = list(ApiContractParser.ENDPOINT_PATTERN.finditer(mod_content))
+            for j, ep_match in enumerate(ep_matches):
+                method = ep_match.group(1)
+                path = ep_match.group(2)
+                ep_start = ep_match.end()
+                ep_end = ep_matches[j + 1].start() if j + 1 < len(ep_matches) else len(mod_content)
+                body = mod_content[ep_start:ep_end].strip()
+                endpoints.append(ApiContractParser._build_endpoint(method, path, module_name, body))
+
+        return endpoints
+
+    @staticmethod
+    def _build_endpoint(method: str, path: str, module: str, body: str) -> dict:
+        """Build an endpoint dict from parsed components."""
+        lower_body = body.lower()
+
+        auth_required = not any(phrase in lower_body for phrase in ApiContractParser.NO_AUTH_PHRASES)
+
+        if "stub" in lower_body or "returns 501" in lower_body:
+            status = "Stub"
+        elif "deprecated" in lower_body:
+            status = "Deprecated"
+        else:
+            status = "Active"
+
+        errors_match = re.search(r'\*\*Errors.*?\*\*:?\s*(.+?)(?:\n|$)', body)
+        response_codes: list[str] = ["200"]
+        if errors_match:
+            codes = ApiContractParser.ERROR_CODE_PATTERN.findall(errors_match.group(1))
+            response_codes.extend(codes)
+        if status == "Stub":
+            response_codes.append("501")
+        response_codes = sorted(set(response_codes))
+
+        has_request_body = "**Request:**" in body and "```json" in body
+
+        first_line = body.split("\n")[0].strip() if body else ""
+        title = first_line if first_line and not first_line.startswith("**") and not first_line.startswith("```") else f"{method} {path}"
+
+        return {
+            "method": method,
+            "path": path,
+            "module": module,
+            "title": title,
+            "body": body,
+            "auth_required": auth_required,
+            "status": status,
+            "response_codes": response_codes,
+            "has_request_body": has_request_body,
+        }
+
+
 # ---------------------------------------------------------------------------
 # DocMapper
 # ---------------------------------------------------------------------------
@@ -1169,6 +1267,71 @@ def cmd_push_adrs(client: NotionClient, state: SyncState) -> None:
     print(f"\nADR sync: {created} created, {updated} updated, {unchanged} unchanged, {errors} errors")
 
 
+def cmd_push_api(client: NotionClient, state: SyncState, force: bool) -> None:
+    """Parse api-contract.md and push endpoints to API Reference database."""
+    api_contract = PROJECT_ROOT / "docs" / "api-contract.md"
+    if not api_contract.exists():
+        print("Error: docs/api-contract.md not found", file=sys.stderr)
+        return
+
+    full_content = api_contract.read_text(encoding="utf-8")
+    if not force and not state.needs_sync("api-contract:full", full_content):
+        print("API contract unchanged — skipping")
+        return
+
+    endpoints = ApiContractParser.parse(api_contract)
+    print(f"Parsed {len(endpoints)} endpoints from api-contract.md")
+
+    db_id = DATABASES["api_reference"]
+    created = 0
+    updated = 0
+    errors = 0
+
+    for ep in endpoints:
+        sync_key = f"api:{ep['method']}:{ep['path']}"
+        now = datetime.now(timezone.utc).isoformat()
+
+        props = {
+            "Title": {"title": [{"text": {"content": ep["title"][:100]}}]},
+            "Method": {"select": {"name": ep["method"]}},
+            "Path": {"rich_text": [{"text": {"content": ep["path"]}}]},
+            "Module": {"select": {"name": ep["module"]}},
+            "Auth Required": {"checkbox": ep["auth_required"]},
+            "Status": {"select": {"name": ep["status"]}},
+            "Response Codes": {"multi_select": [{"name": c} for c in ep["response_codes"]]},
+            "Request Body": {"checkbox": ep["has_request_body"]},
+            "Last Synced": {"date": {"start": now}},
+        }
+
+        blocks = MarkdownToBlocks.convert(ep["body"])
+
+        try:
+            existing_page_id = state.get_page_id(sync_key)
+            if existing_page_id:
+                client.update_page(existing_page_id, props)
+                client.replace_page_content(existing_page_id, blocks)
+                page_id = existing_page_id
+                updated += 1
+            else:
+                result = client.create_page(
+                    parent={"database_id": db_id},
+                    properties=props,
+                    children=blocks,
+                )
+                page_id = result["id"]
+                created += 1
+
+            state.record_sync(sync_key, ep["body"], page_id)
+            print(f"  [{'updated' if existing_page_id else 'created'}] {ep['method']} {ep['path']}")
+        except Exception as e:
+            errors += 1
+            print(f"  [error] {ep['method']} {ep['path']}: {e}", file=sys.stderr)
+
+    state.record_sync("api-contract:full", full_content, "batch")
+    state.save()
+    print(f"\nAPI sync: {created} created, {updated} updated, {errors} errors")
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -1191,6 +1354,10 @@ def main() -> None:
 
     # push-adrs
     subparsers.add_parser("push-adrs", help="Parse decision log and push ADRs to Notion")
+
+    # push-api
+    push_api_parser = subparsers.add_parser("push-api", help="Parse api-contract.md and push endpoints to Notion")
+    push_api_parser.add_argument("--force", action="store_true", help="Force push even if unchanged")
 
     # status
     subparsers.add_parser("status", help="Show sync status")
@@ -1237,6 +1404,8 @@ def main() -> None:
             cmd_push(client, state, args.path, args.force, args.incremental)
         elif args.command == "push-adrs":
             cmd_push_adrs(client, state)
+        elif args.command == "push-api":
+            cmd_push_api(client, state, args.force)
         elif args.command == "status":
             cmd_status(state)
         elif args.command == "search":
