@@ -1,8 +1,8 @@
 import SwiftUI
 import HestiaShared
 
-/// Extracted input bar with three-mode support: chat, voice conversation, voice journal.
-/// Mode toggle (left icon) cycles through modes; input field and action button adapt per mode.
+/// Liquid glass input bar: text field on left, voice/send on right.
+/// Single tap mic = transcription mode, hold 2s = conversation mode.
 struct ChatInputBar: View {
     @Binding var messageText: String
     @Binding var inputMode: ChatInputMode
@@ -15,10 +15,18 @@ struct ChatInputBar: View {
     let onSend: (String) -> Void
     let onToggleLocal: () -> Void
     let onStartVoice: () -> Void
+    let onStartConversation: () -> Void
+
+    @State private var holdProgress: CGFloat = 0
+    @State private var holdTask: Task<Void, Never>?
+    @State private var isHolding = false
+
+    private static let holdDuration: TimeInterval = 2.0
+    private static let holdTickInterval: TimeInterval = 0.05
 
     var body: some View {
-        HStack(spacing: Spacing.md) {
-            modeToggleButton
+        HStack(spacing: 12) {
+            // Private mode toggle
             privateToggleButton
 
             if isRecording {
@@ -27,41 +35,25 @@ struct ChatInputBar: View {
                 textField
             }
 
+            // Action button: send (when text present) or mic (when empty)
             actionButton
         }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.vertical, Spacing.md)
-        .background(Color.bgInput)
-    }
-
-    // MARK: - Mode Toggle
-
-    private var modeToggleButton: some View {
-        Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                inputMode = inputMode.next
-            }
-        } label: {
-            Image(systemName: inputMode.icon)
-                .font(.system(size: 18, weight: .medium))
-                .foregroundColor(.accent)
-                .frame(width: 32, height: 32)
-                .background(Color.accent.opacity(0.15))
-                .clipShape(Circle())
-        }
-        .accessibilityLabel("\(inputMode.rawValue.capitalized) mode")
-        .accessibilityHint("Tap to switch to \(inputMode.next.rawValue) mode. Long press for picker.")
-        .contextMenu {
-            ForEach(ChatInputMode.allCases) { mode in
-                Button {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        inputMode = mode
-                    }
-                } label: {
-                    Label(mode.rawValue.capitalized, systemImage: mode.icon)
-                }
-            }
-        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 24)
+                .fill(Color.white.opacity(0.08))
+                .background(
+                    RoundedRectangle(cornerRadius: 24)
+                        .fill(.ultraThinMaterial)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24)
+                        .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
+                )
+        )
+        .padding(.horizontal, 12)
+        .padding(.bottom, 8)
     }
 
     // MARK: - Private Toggle
@@ -70,26 +62,19 @@ struct ChatInputBar: View {
         Button(action: onToggleLocal) {
             Image(systemName: forceLocal ? "lock.fill" : "lock.open")
                 .font(.system(size: 14, weight: .medium))
-                .foregroundColor(forceLocal ? .warningYellow : .textSecondary)
+                .foregroundColor(forceLocal ? .warningYellow : .white.opacity(0.4))
         }
         .accessibilityLabel(forceLocal ? "Private mode on" : "Private mode off")
-        .accessibilityHint("Toggle private mode to keep this message local")
     }
 
     // MARK: - Text Field
 
     private var textField: some View {
         TextField(placeholderText, text: $messageText)
-            .font(.inputField)
-            .foregroundColor(.textPrimary)
-            .padding(.horizontal, Spacing.md)
-            .padding(.vertical, Spacing.sm)
-            .background(Color.bgOverlay)
-            .cornerRadius(CornerRadius.input)
-            .overlay(
-                RoundedRectangle(cornerRadius: CornerRadius.input)
-                    .stroke(inputMode == .chat ? Color.clear : Color.accent.opacity(0.3), lineWidth: 1)
-            )
+            .font(.system(size: 16))
+            .foregroundColor(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
             .focused(isInputFocused)
             .submitLabel(.send)
             .onSubmit {
@@ -97,72 +82,115 @@ struct ChatInputBar: View {
                 onSend(messageText)
             }
             .accessibilityLabel("Message input")
-            .accessibilityHint("Type your message to \(currentModeName)")
     }
 
-    // MARK: - Recording Indicator (replaces text field during recording)
+    // MARK: - Recording Indicator
 
     private var recordingIndicator: some View {
-        HStack(spacing: Spacing.sm) {
-            WaveformView(audioLevel: audioLevel, tintColor: .accent)
+        HStack(spacing: 8) {
+            WaveformView(audioLevel: audioLevel, tintColor: Color(hex: "FF9F0A"))
             Text("Listening...")
-                .font(.caption)
-                .foregroundColor(Color.accent.opacity(0.8))
+                .font(.system(size: 14))
+                .foregroundColor(Color(hex: "FF9F0A").opacity(0.8))
         }
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, Spacing.md)
-        .padding(.vertical, Spacing.sm)
-        .background(Color.accent.opacity(0.08))
-        .cornerRadius(CornerRadius.input)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
     }
 
-    // MARK: - Action Button (send / mic)
+    // MARK: - Action Button
 
     @ViewBuilder
     private var actionButton: some View {
-        if isRecording && inputMode == .voice {
-            // Voice conversation active — stop button sends transcript
-            Button { onSend(messageText) } label: {
-                Image(systemName: "stop.circle.fill")
-                    .font(.system(size: 32))
-                    .foregroundColor(.accent)
-            }
-            .accessibilityLabel("Stop recording and send")
-        } else if canSend {
+        if canSend {
+            // Send button (amber arrow)
             Button { onSend(messageText) } label: {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.system(size: 32))
-                    .foregroundColor(forceLocal ? .warningYellow : .accent)
+                    .foregroundColor(Color(hex: "FF9F0A"))
             }
             .accessibilityLabel("Send message")
-        } else if inputMode != .chat {
-            // Voice/Journal mode: prominent mic button
-            Button {
-                onStartVoice()
-            } label: {
-                Image(systemName: "mic.fill")
-                    .font(.system(size: 20))
-                    .foregroundColor(.accent)
-                    .frame(width: 36, height: 36)
-                    .background(Color.accent.opacity(0.15))
-                    .clipShape(Circle())
-            }
-            .disabled(isLoading)
-            .accessibilityLabel("Start \(inputMode.rawValue) recording")
-            .accessibilityHint("Tap to start \(inputMode.rawValue) recording")
         } else {
-            // Chat mode: subtle mic button (existing behavior)
-            Button {
-                onStartVoice()
-            } label: {
-                Image(systemName: "mic.fill")
-                    .font(.system(size: 20))
-                    .foregroundColor(.textPrimary.opacity(0.7))
-                    .frame(width: 32, height: 32)
+            // Mic button with tap/hold
+            micButton
+        }
+    }
+
+    private var micButton: some View {
+        ZStack {
+            // Progress ring (visible during hold)
+            if holdProgress > 0 {
+                Circle()
+                    .trim(from: 0, to: holdProgress)
+                    .stroke(Color(hex: "FF9F0A"), style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .frame(width: 38, height: 38)
             }
-            .disabled(isLoading)
-            .accessibilityLabel("Voice input")
-            .accessibilityHint("Tap to start voice recording")
+
+            Image(systemName: "waveform")
+                .font(.system(size: 18, weight: .medium))
+                .foregroundColor(.white.opacity(0.7))
+                .frame(width: 36, height: 36)
+        }
+        .contentShape(Circle())
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    if !isHolding {
+                        isHolding = true
+                        startHoldTimer()
+                    }
+                }
+                .onEnded { _ in
+                    let wasHolding = holdProgress >= 1.0
+                    cancelHoldTimer()
+
+                    if wasHolding {
+                        // Hold completed: conversation mode
+                        // Haptic already fired in timer
+                    } else {
+                        // Short tap: transcription mode
+                        onStartVoice()
+                    }
+                }
+        )
+        .disabled(isLoading)
+        .accessibilityLabel("Voice input")
+        .accessibilityHint("Tap for transcription, hold for conversation mode")
+    }
+
+    // MARK: - Hold Timer
+
+    private func startHoldTimer() {
+        holdProgress = 0
+        let totalTicks = Self.holdDuration / Self.holdTickInterval
+        let increment = 1.0 / CGFloat(totalTicks)
+        let tickNanos = UInt64(Self.holdTickInterval * 1_000_000_000)
+
+        holdTask = Task { @MainActor in
+            while !Task.isCancelled && holdProgress < 1.0 {
+                try? await Task.sleep(nanoseconds: tickNanos)
+                guard !Task.isCancelled else { return }
+                holdProgress += increment
+
+                if holdProgress >= 1.0 {
+                    let generator = UIImpactFeedbackGenerator(style: .heavy)
+                    generator.impactOccurred()
+                    onStartConversation()
+                    isHolding = false
+                    holdProgress = 0
+                    return
+                }
+            }
+        }
+    }
+
+    private func cancelHoldTimer() {
+        holdTask?.cancel()
+        holdTask = nil
+        isHolding = false
+        withAnimation(.easeOut(duration: 0.2)) {
+            holdProgress = 0
         }
     }
 
@@ -174,8 +202,8 @@ struct ChatInputBar: View {
 
     private var placeholderText: String {
         if forceLocal {
-            return "Private — stays local..."
+            return "Private -- stays local..."
         }
-        return "\(inputMode.placeholder) \(currentModeName)..."
+        return "Message \(currentModeName)..."
     }
 }
