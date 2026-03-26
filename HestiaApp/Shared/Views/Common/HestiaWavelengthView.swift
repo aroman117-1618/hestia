@@ -32,7 +32,7 @@ final class WavelengthViewModel: ObservableObject {
         guard let p = currentParams else { return }
 
         #if os(iOS)
-        let displayScale = UIScreen.main.scale
+        let displayScale = UITraitCollection.current.displayScale
         #else
         let displayScale: CGFloat = NSScreen.main?.backingScaleFactor ?? 2.0
         #endif
@@ -83,7 +83,7 @@ struct HestiaWavelengthView: View {
 
             if let cgImage = viewModel.renderedFrame {
                 #if os(iOS)
-                let displayScale = UIScreen.main.scale
+                let displayScale = UITraitCollection.current.displayScale
                 #else
                 let displayScale: CGFloat = NSScreen.main?.backingScaleFactor ?? 2.0
                 #endif
@@ -135,14 +135,32 @@ struct HestiaWavelengthView: View {
 #Preview("Wavelength - Idle") {
     ZStack {
         Color.black
-        HestiaWavelengthView(mode: .idle, size: 200)
+        // Smaller size for preview performance (CGContext renders every frame)
+        HestiaWavelengthView(mode: .idle, size: 120)
     }
 }
 
 #Preview("Wavelength - Speaking") {
     ZStack {
         Color.black
-        HestiaWavelengthView(mode: .speaking, size: 200, audioLevel: 0.6)
+        HestiaWavelengthView(mode: .speaking, size: 120, audioLevel: 0.6)
+    }
+}
+
+// Static single-frame preview (faster — no animation loop)
+#Preview("Wavelength - Static") {
+    ZStack {
+        Color.black
+        Image(
+            WavelengthRenderer.renderToImage(
+                size: CGSize(width: 320, height: 320),
+                scale: 1.0,
+                time: 2.5,
+                params: WavelengthParams.target(for: .idle, level: 0.3, time: 2.5)
+            )!,
+            scale: 1.0,
+            label: Text("Wavelength static")
+        )
     }
 }
 #endif
