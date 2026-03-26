@@ -12,9 +12,22 @@ struct RootView: View {
         !UserDefaults.standard.bool(forKey: "hestia_permissions_onboarding_complete")
     }
 
+    /// In DEBUG builds, skip auth for Xcode previews and simulator launches with -skipAuth
+    private var shouldBypassAuth: Bool {
+        #if DEBUG
+        return ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+            || CommandLine.arguments.contains("-skipAuth")
+        #else
+        return false
+        #endif
+    }
+
     var body: some View {
         ZStack {
-            if !authService.isDeviceRegistered {
+            if shouldBypassAuth {
+                // Debug-only: skip auth for previews / simulator testing
+                MainTabView()
+            } else if !authService.isDeviceRegistered {
                 // First time setup — QR code onboarding
                 OnboardingView()
             } else if authService.isAuthenticated && needsPermissionsOnboarding {
