@@ -12,11 +12,10 @@ struct RootView: View {
         !UserDefaults.standard.bool(forKey: "hestia_permissions_onboarding_complete")
     }
 
-    /// In DEBUG builds, skip auth for Xcode previews and simulator launches with -skipAuth
+    /// In DEBUG simulator builds, skip auth so we can test UI without a server
     private var shouldBypassAuth: Bool {
-        #if DEBUG
-        return ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
-            || CommandLine.arguments.contains("-skipAuth")
+        #if DEBUG && targetEnvironment(simulator)
+        return true
         #else
         return false
         #endif
