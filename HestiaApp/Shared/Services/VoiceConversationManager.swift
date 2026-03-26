@@ -38,6 +38,7 @@ final class VoiceConversationManager: ObservableObject {
     private var llmTask: Task<Void, Never>?
     private var watchdogTask: Task<Void, Never>?
     private var sentenceFlushTask: Task<Void, Never>?
+    private var isTransitioning = false
 
     // MARK: - Constants
 
@@ -110,6 +111,15 @@ final class VoiceConversationManager: ObservableObject {
     // MARK: - State Transitions
 
     private func transitionToListening() async {
+        guard !isTransitioning else { return }
+        isTransitioning = true
+        defer { isTransitioning = false }
+
+        // Stop TTS if still speaking and reconfigure audio for recording
+        ttsService.stop()
+        deactivateAudioSession()
+        configureAudioSession()
+
         state = .listening
         currentTranscript = ""
         sentenceBuffer = ""
@@ -142,11 +152,22 @@ final class VoiceConversationManager: ObservableObject {
     }
 
     private func transitionToProcessing(transcript: String) async {
+        guard !isTransitioning else { return }
+        isTransitioning = true
+        defer { isTransitioning = false }
+
         state = .processing
         vad.stopMonitoring()
         watchdogTask?.cancel()
         currentTranscript = transcript
         currentResponse = ""
+
+        // Ensure transcription is fully stopped before switching to playback
+        _ = await speechService?.stopTranscription()
+
+        // Deactivate and reactivate audio session for TTS playback
+        deactivateAudioSession()
+        configureAudioSession()
 
         // Dead-air fix: immediate audio acknowledgment while LLM processes
         ttsService.speak("Hmm...")
@@ -182,7 +203,7 @@ final class VoiceConversationManager: ObservableObject {
 
         vad.onSilenceDetected = { [weak self] in
             Task { @MainActor [weak self] in
-                guard let self, self.state == .listening else { return }
+                guard let self, self.state == .listening, !self.isTransitioning else { return }
                 let transcript = await self.speechService?.stopTranscription() ?? ""
                 let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !trimmed.isEmpty else {
