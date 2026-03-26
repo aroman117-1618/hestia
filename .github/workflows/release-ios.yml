@@ -3,7 +3,8 @@ name: iOS Release (TestFlight)
 on:
   push:
     tags:
-      - 'v*'
+      - 'ios-v*'   # iOS-only release
+      - 'v*'       # Joint release (both platforms)
   workflow_dispatch:
     inputs:
       version:

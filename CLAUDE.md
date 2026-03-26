@@ -336,6 +336,18 @@ hestia-preflight                       # On-demand validation (shell function)
 | On-demand | `hestia-preflight` in terminal | Same as main pre-push |
 | Full | `/preflight` in Claude Code | Server restart + tests + connectivity + permissions |
 
+## Release Tags (Platform-Specific)
+
+iOS and macOS are **independent release pipelines**. Use platform-specific tags:
+
+| Tag | Triggers | Example |
+|-----|----------|---------|
+| `ios-vX.Y.Z` | iOS only (TestFlight) | `git tag ios-v1.10.0` |
+| `mac-vX.Y.Z` | macOS only (Sparkle) | `git tag mac-v1.10.0` |
+| `vX.Y.Z` | Both platforms | `git tag v2.0.0` |
+
+**Use `/ship-it ios` or `/ship-it mac` for single-platform releases.** Only use `/ship-it` (no platform) for joint releases where both apps need the same version bump.
+
 ## Skills — Invocation Matrix
 
 Use this to pick the right skill. If unsure, start with `/discovery`.

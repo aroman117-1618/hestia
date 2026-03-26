@@ -3,7 +3,8 @@ name: macOS Release
 on:
   push:
     tags:
-      - 'v*'
+      - 'mac-v*'   # macOS-only release
+      - 'v*'       # Joint release (both platforms)
   workflow_dispatch:
     inputs:
       version:
