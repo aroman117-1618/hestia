@@ -1509,6 +1509,29 @@ def cmd_sync_sprints(client: NotionClient, state: SyncState, force: bool) -> Non
     print(f"\nSprint sync: {created} created, {updated} updated, {errors} errors")
 
 
+def cmd_sync_all(client: NotionClient, state: SyncState, force: bool) -> None:
+    """Full reconciliation: Archive + ADRs + Sprints + API Reference."""
+    print("=" * 60)
+    print("Notion Sync — Full Reconciliation")
+    print("=" * 60)
+
+    print("\n[1/4] Pushing docs to Archive...")
+    cmd_push(client, state, target_path=None, force=force, incremental=not force)
+
+    print("\n[2/4] Pushing ADRs to Archive...")
+    cmd_push_adrs(client, state)
+
+    print("\n[3/4] Syncing SPRINT.md to Sprints board...")
+    cmd_sync_sprints(client, state, force)
+
+    print("\n[4/4] Syncing API Reference...")
+    cmd_push_api(client, state, force)
+
+    print("\n" + "=" * 60)
+    print("Sync complete.")
+    print("=" * 60)
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -1539,6 +1562,11 @@ def main() -> None:
     # sync-sprints
     sync_sprints_parser = subparsers.add_parser("sync-sprints", help="Sync SPRINT.md to Sprints database")
     sync_sprints_parser.add_argument("--force", action="store_true", help="Force sync even if unchanged")
+
+    # sync-all
+    sync_all_parser = subparsers.add_parser("sync-all", help="Full reconciliation: Archive + Sprints + API Reference")
+    sync_all_parser.add_argument("--force", action="store_true", help="Force sync even if unchanged")
+    sync_all_parser.add_argument("--incremental", action="store_true", help="Only sync changed files (default)")
 
     # status
     subparsers.add_parser("status", help="Show sync status")
@@ -1589,6 +1617,8 @@ def main() -> None:
             cmd_push_api(client, state, args.force)
         elif args.command == "sync-sprints":
             cmd_sync_sprints(client, state, args.force)
+        elif args.command == "sync-all":
+            cmd_sync_all(client, state, args.force)
         elif args.command == "status":
             cmd_status(state)
         elif args.command == "search":
