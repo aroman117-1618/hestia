@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Hestia Wavelength — Matched to Figma</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;background:#1a1a1a;overflow:hidden;font-family:-apple-system,system-ui,sans-serif}
+
+  /* iPhone frame */
+  .phone-frame{
+    position:relative;
+    width:393px;height:852px;
+    margin:30px auto;
+    border-radius:50px;
+    background:#020101;
+    overflow:hidden;
+    box-shadow:0 0 0 3px #333,0 0 0 6px #111,0 20px 60px rgba(0,0,0,0.8);
+  }
+  .dynamic-island{
+    position:absolute;top:12px;left:50%;transform:translateX(-50%);
+    width:126px;height:37px;background:#000;border-radius:20px;z-index:100;
+  }
+  canvas{display:block;width:100%;height:100%;position:absolute;inset:0}
+
+  /* Content overlay */
+  .content-overlay{
+    position:absolute;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;pointer-events:none;z-index:10;
+  }
+  /* Text below the wave */
+  .text-block{
+    margin-top:40px;
+    display:flex;flex-direction:column;align-items:center;gap:10px;
+  }
+  .greeting{color:#B89060;font-size:16px;letter-spacing:0.02em}
+  .question{color:#FFF5E6;font-size:28px;font-weight:700;text-align:center;line-height:1.25}
+
+  /* Liquid glass input bar */
+  .input-bar{
+    position:absolute;bottom:100px;left:20px;right:20px;
+    height:56px;border-radius:28px;
+    background:rgba(255,255,255,0.08);
+    border:1px solid rgba(255,255,255,0.15);
+    backdrop-filter:blur(40px);
+    -webkit-backdrop-filter:blur(40px);
+    display:flex;align-items:center;
+    padding:0 6px 0 22px;
+    pointer-events:auto;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.12),
+      inset 0 -1px 0 rgba(0,0,0,0.1),
+      0 4px 24px rgba(0,0,0,0.3);
+  }
+  .input-bar span{
+    flex:1;color:rgba(255,255,255,0.4);font-size:16px;font-weight:400;
+  }
+  /* Voice icon button (right side) */
+  .voice-icon{
+    width:44px;height:44px;border-radius:22px;
+    background:rgba(255,255,255,0.06);
+    display:grid;place-items:center;flex-shrink:0;
+  }
+  .voice-icon svg{width:22px;height:22px;fill:rgba(255,255,255,0.7)}
+
+  .controls{
+    position:absolute;bottom:50px;left:50%;transform:translateX(-50%);
+    display:flex;gap:10px;z-index:20;pointer-events:auto;
+  }
+  button{
+    padding:8px 16px;border-radius:12px;border:1px solid rgba(255,159,10,0.3);
+    background:rgba(255,159,10,0.08);color:#FFF5E6;font-size:13px;font-weight:600;
+    cursor:pointer;font-family:system-ui;transition:all 0.2s;
+  }
+  button:hover{background:rgba(255,159,10,0.15)}
+  button.active{background:rgba(255,159,10,0.2);border-color:#FF9F0A;color:#FFF5E6;box-shadow:0 0 15px rgba(255,159,10,0.3)}
+
+  /* ── Conversation state ── */
+  .phone-frame.conversation .content-overlay{opacity:0;pointer-events:none;transition:opacity 0.4s}
+  .phone-frame.conversation .controls{display:none}
+
+  .messages-area{
+    position:absolute;top:48%;left:0;right:0;bottom:76px;
+    overflow-y:auto;padding:12px 16px;
+    opacity:0;transform:translateY(20px);
+    transition:all 0.4s ease 0.15s;
+    pointer-events:none;z-index:15;
+    scrollbar-width:none;
+    /* Subtle divider between wave zone and chat zone */
+    border-top:1px solid rgba(255,159,10,0.06);
+  }
+  .messages-area::-webkit-scrollbar{display:none}
+  .phone-frame.conversation .messages-area{opacity:1;transform:translateY(0);pointer-events:auto}
+
+  /* Mini wavelength header label */
+  .mini-header{
+    position:absolute;top:54px;left:50%;transform:translateX(-50%);
+    font-size:13px;font-weight:600;color:#B89060;letter-spacing:0.04em;
+    opacity:0;transition:opacity 0.4s ease 0.3s;z-index:16;
+  }
+  .phone-frame.conversation .mini-header{opacity:1}
+
+  .message{
+    max-width:80%;margin-bottom:10px;padding:11px 15px;
+    border-radius:18px;font-size:15px;line-height:1.4;
+    animation:msgIn 0.3s ease forwards;opacity:0;
+  }
+  @keyframes msgIn{to{opacity:1;transform:translateY(0)}}
+  .message.user{
+    margin-left:auto;
+    background:rgba(255,159,10,0.18);border:1px solid rgba(255,159,10,0.25);
+    color:#FFF5E6;border-bottom-right-radius:6px;transform:translateY(8px);
+  }
+  .message.assistant{
+    margin-right:auto;
+    background:rgba(255,245,230,0.06);border:1px solid rgba(255,245,230,0.08);
+    color:rgba(255,245,230,0.9);border-bottom-left-radius:6px;transform:translateY(8px);
+  }
+  .thinking-dots{display:flex;gap:5px;padding:4px 0}
+  .thinking-dots span{
+    width:6px;height:6px;border-radius:50%;background:#B89060;opacity:0.4;
+    animation:dotPulse 1.4s ease infinite;
+  }
+  .thinking-dots span:nth-child(2){animation-delay:0.2s}
+  .thinking-dots span:nth-child(3){animation-delay:0.4s}
+  @keyframes dotPulse{0%,80%,100%{opacity:0.3;transform:scale(1)}40%{opacity:1;transform:scale(1.2)}}
+</style>
+</head>
+<body>
+<div class="phone-frame">
+  <div class="dynamic-island"></div>
+  <canvas id="c"></canvas>
+  <div class="mini-header">Hestia</div>
+  <div class="content-overlay">
+    <!-- Text positioned absolutely — doesn't move with wave -->
+    <div class="text-block" style="position:absolute;bottom:180px;left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:10px">
+      <span class="greeting">Hello Andrew</span>
+      <span class="question">How can I help<br/>you today?</span>
+    </div>
+  </div>
+  <!-- Liquid glass input bar -->
+  <div class="input-bar" id="inputBar">
+    <input type="text" id="msgInput" placeholder="Ask anything..." autocomplete="off"
+      style="flex:1;background:none;border:none;outline:none;color:#FFF5E6;font-size:16px;font-family:inherit"/>
+    <div class="voice-icon" id="sendOrVoice">
+      <svg id="voiceIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <line x1="4" y1="8" x2="4" y2="16" style="stroke:rgba(255,255,255,0.7)"/>
+        <line x1="8" y1="5" x2="8" y2="19" style="stroke:rgba(255,255,255,0.7)"/>
+        <line x1="12" y1="3" x2="12" y2="21" style="stroke:rgba(255,255,255,0.7)"/>
+        <line x1="16" y1="6" x2="16" y2="18" style="stroke:rgba(255,255,255,0.7)"/>
+        <line x1="20" y1="9" x2="20" y2="15" style="stroke:rgba(255,255,255,0.7)"/>
+      </svg>
+      <svg id="sendIcon" viewBox="0 0 24 24" style="display:none">
+        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" fill="rgba(255,159,10,1)"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Conversation messages (hidden until first send) -->
+  <div class="messages-area" id="messagesArea"></div>
+
+  <!-- Mockup controls -->
+  <div class="controls">
+    <button data-mode="listening" class="active">Listening</button>
+    <button data-mode="speaking">Speaking</button>
+  </div>
+</div>
+
+<script>
+// Hestia Wavelength — Direct port of Figma Make ParticleWave.tsx
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d', { alpha: false });
+
+// Fixed to iPhone frame size (393x852), 2x for retina sharpness
+var W = 393;
+var H = 852;
+canvas.width = W * 2;
+canvas.height = H * 2;
+ctx.scale(2, 2);
+
+// Colors (exact from Figma)
+var COLORS = [
+  '#FFF0D0',
+  '#FFB347',
+  '#FF9F0A',
+  '#E08A00',
+  '#C06800',
+  '#8B4500',
+  '#FFD700',
+];
+
+function hexToRgb(hex) {
+  var r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return r ? { r: parseInt(r[1],16), g: parseInt(r[2],16), b: parseInt(r[3],16) } : { r:255, g:255, b:255 };
+}
+
+// Pre-rendered particle textures
+function createTexture(colorHex, isHero) {
+  var c = document.createElement('canvas');
+  var size = isHero ? 64 : 32;
+  c.width = size; c.height = size;
+  var x = c.getContext('2d');
+  if (!x) return c;
+  var center = size / 2;
+  var rgb = hexToRgb(colorHex);
+  var g = x.createRadialGradient(center, center, 0, center, center, center);
+  g.addColorStop(0, 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',1)');
+  g.addColorStop(isHero ? 0.15 : 0.08, 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.8)');
+  g.addColorStop(isHero ? 0.35 : 0.22, 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0.2)');
+  g.addColorStop(1, 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',0)');
+  x.fillStyle = g;
+  x.beginPath(); x.arc(center, center, center, 0, Math.PI * 2); x.fill();
+  return c;
+}
+
+var textures = COLORS.map(function(c) {
+  return { normal: createTexture(c, false), hero: createTexture(c, true) };
+});
+
+// Particles
+var MAX_PARTICLES = 3500;
+var particles = [];
+
+for (var i = 0; i < MAX_PARTICLES; i++) {
+  var z = Math.random() * 0.6 + 0.4;
+  var scattered = Math.random() < 0.15;
+  particles.push({
+    x: Math.random() * 393,
+    yOffset: scattered ? (Math.random() - 0.5) * 180 : (Math.random() - 0.5) * 40,
+    z: z,
+    ribbon: Math.floor(Math.random() * 3),
+    speedX: (Math.random() * 0.4 + 0.2) * z,
+    colorIdx: Math.floor(Math.random() * COLORS.length),
+    isHero: Math.random() < 0.03,
+    baseSize: Math.random() < 0.03 ? (Math.random() * 3 + 4) : (Math.random() * 2 + 1.5),
+    isScattered: scattered,
+    phaseOffset: Math.random() * Math.PI * 2,
+  });
+}
+
+// State
+var currentMode = 'listening';
+var time = 0;
+var speakingTime = 0; // Separate accumulator for speaking wave — prevents spike on state switch
+
+// glowMult bumped 0.7 → 0.98 (+40% brightness)
+var cur = { speedMult: 1, ampMult: 1.5, glowMult: 0.98, densityMult: 1, audioVol: 0 };
+var tgt = { speedMult: 1, ampMult: 1.5, glowMult: 0.98, densityMult: 1, audioVol: 0 };
+
+function setMode(m) {
+  currentMode = m;
+  if (m === 'listening') {
+    tgt = { speedMult: 1, ampMult: 1.5, glowMult: 0.98, densityMult: 1, audioVol: 0 };
+  } else {
+    tgt = { speedMult: 1.5, ampMult: 2.0, glowMult: 0.98, densityMult: 1.5, audioVol: 1 };
+  }
+}
+
+// Render
+function animate() {
+  requestAnimationFrame(animate);
+
+  cur.speedMult += (tgt.speedMult - cur.speedMult) * 0.05;
+  cur.ampMult += (tgt.ampMult - cur.ampMult) * 0.05;
+  cur.glowMult = tgt.glowMult;
+  cur.densityMult += (tgt.densityMult - cur.densityMult) * 0.05;
+  cur.audioVol += (tgt.audioVol - cur.audioVol) * 0.05;
+
+  var dt = 0.005 * cur.speedMult;
+  time += dt;
+  // Accumulate speaking time smoothly — no sudden jump when switching states
+  speakingTime += dt * (1.0 + cur.audioVol * 4.0);
+
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = '#020101';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.globalCompositeOperation = 'lighter';
+
+  var centerY = window._waveCenterY || H * 0.37;
+  var scale = window._waveScale || 1.0;
+  var active = cur.audioVol;
+  var t = speakingTime; // Smooth accumulation instead of time * multiplier
+
+  var visibleCount = Math.floor(MAX_PARTICLES * 0.66 * cur.densityMult);
+
+  for (var i = 0; i < visibleCount; i++) {
+    var p = particles[i];
+
+    p.x += p.speedX * cur.speedMult;
+    if (p.x > W) {
+      p.x = 0;
+      p.yOffset = p.isScattered
+        ? (Math.random() - 0.5) * 180
+        : (Math.random() - 0.5) * 40;
+    }
+
+    var nx = p.x / W;
+
+    // LISTENING: Calm symmetric waves
+    var calmY = 0;
+    if (p.ribbon === 0) {
+      calmY = Math.sin(nx * Math.PI * 3 + time * 2) * 45
+            + Math.sin(nx * Math.PI * 2 - time) * 20;
+    } else if (p.ribbon === 1) {
+      calmY = Math.sin(nx * Math.PI * 4 + time * 1.5 + p.phaseOffset) * 35;
+    } else {
+      calmY = Math.sin(nx * Math.PI * 2.5 + time * 2.5 + p.phaseOffset) * 40;
+    }
+    calmY *= cur.ampMult;
+
+    // SPEAKING: Asymmetric ribbons
+    var angle1, angle2, rawWave, baseAmp, asymmetry, troughDamp;
+
+    if (p.ribbon === 0) {
+      angle1 = nx * Math.PI * 2.5 - t * 1.2;
+      angle2 = nx * Math.PI * 1.5 + t * 0.8;
+      rawWave = (Math.sin(angle1) + Math.sin(angle2) * 0.5) / 1.5;
+      baseAmp = 35; asymmetry = 1.3; troughDamp = 0.5;
+    } else if (p.ribbon === 1) {
+      angle1 = nx * Math.PI * 4.0 - t * 1.8;
+      angle2 = nx * Math.PI * 2.0 - t * 1.5;
+      rawWave = (Math.sin(angle1) + Math.cos(angle2) * 0.6) / 1.6;
+      baseAmp = 40; asymmetry = 1.7; troughDamp = 0.3;
+    } else {
+      angle1 = nx * Math.PI * 3.0 + t * 2.4;
+      angle2 = nx * Math.PI * 4.5 - t * 2.0;
+      rawWave = (Math.sin(angle1) + Math.sin(angle2) * 0.4) / 1.4;
+      baseAmp = 45; asymmetry = 2.2; troughDamp = 0.15;
+    }
+
+    var speakingY;
+    if (rawWave > 0) {
+      speakingY = -Math.pow(rawWave, 1.5) * baseAmp * cur.ampMult * asymmetry;
+    } else {
+      speakingY = Math.abs(rawWave) * baseAmp * cur.ampMult * troughDamp;
+    }
+
+    var speakingThickness = rawWave > 0
+      ? (1.0 + Math.pow(rawWave, 2) * 1.5)
+      : (1.0 - Math.abs(rawWave) * 0.6);
+
+    // Blend states
+    var waveY = calmY * (1.0 - active) + speakingY * active;
+    var thickness = 1.0 * (1.0 - active) + speakingThickness * active;
+    var swirl = Math.sin(p.phaseOffset + t * 2.5) * (15 * active);
+    var yOff = (p.yOffset + swirl) * thickness;
+
+    // Taper at edges
+    var distFromCenter = Math.abs(nx - 0.5) * 2.2;
+    var taper = Math.max(0, 1 - distFromCenter * distFromCenter);
+
+    // Apply scale factor (shrinks wave in conversation mode)
+    var y = centerY + (waveY * taper + yOff * p.z * taper) * scale;
+
+    var alpha = taper * p.z;
+    if (alpha <= 0.01) continue;
+
+    var size = p.baseSize * p.z * (0.6 + scale * 0.4); // Slightly smaller particles when scaled
+    var drawSize = size * 6;
+    var tex = textures[p.colorIdx][p.isHero ? 'hero' : 'normal'];
+
+    ctx.globalAlpha = alpha * cur.glowMult;
+    ctx.drawImage(tex, p.x - drawSize / 2, y - drawSize / 2, drawSize, drawSize);
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+requestAnimationFrame(animate);
+
+// Controls (mockup only)
+document.querySelectorAll('button').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    setMode(btn.dataset.mode);
+    document.querySelectorAll('button').forEach(function(b) {
+      b.classList.toggle('active', b === btn);
+    });
+  });
+});
+
+// ── Conversation mode ──
+var phoneFrame = document.querySelector('.phone-frame');
+var msgInput = document.getElementById('msgInput');
+var sendOrVoice = document.getElementById('sendOrVoice');
+var voiceIcon = document.getElementById('voiceIcon');
+var sendIcon = document.getElementById('sendIcon');
+var messagesArea = document.getElementById('messagesArea');
+var inConversation = false;
+var targetCenterY = H * 0.37; // idle position
+
+// Show send icon when typing
+msgInput.addEventListener('input', function() {
+  var hasText = msgInput.value.trim().length > 0;
+  voiceIcon.style.display = hasText ? 'none' : 'block';
+  sendIcon.style.display = hasText ? 'block' : 'none';
+});
+
+var responses = [
+  "Good afternoon, Boss. Calendar's clear until your 4pm. SOL is up 3.2% — the mean reversion bot caught a nice entry overnight.",
+  "Done. I've pulled the latest P&L — all four bots are net positive over the last 48 hours. Want the breakdown?",
+  "Three reminders today: dry cleaning at 5, call Mom, and the AWS bill hits tomorrow. Want me to set alerts?",
+];
+var respIdx = 0;
+
+function addMsg(text, role) {
+  var div = document.createElement('div');
+  div.className = 'message ' + role;
+  div.textContent = text;
+  messagesArea.appendChild(div);
+  messagesArea.scrollTop = messagesArea.scrollHeight;
+}
+
+function addThinking() {
+  var div = document.createElement('div');
+  div.className = 'message assistant';
+  div.id = 'thinking';
+  var dots = document.createElement('div');
+  dots.className = 'thinking-dots';
+  for (var i = 0; i < 3; i++) dots.appendChild(document.createElement('span'));
+  div.appendChild(dots);
+  messagesArea.appendChild(div);
+  messagesArea.scrollTop = messagesArea.scrollHeight;
+  return div;
+}
+
+// Scale factor for wave in conversation mode (shrinks amplitudes)
+var waveScale = 1.0;
+var targetWaveScale = 1.0;
+
+function enterConversation() {
+  if (inConversation) return;
+  inConversation = true;
+  phoneFrame.classList.add('conversation');
+  // Wave moves to upper third, scales down
+  targetCenterY = H * 0.22;
+  targetWaveScale = 0.5;
+}
+
+function sendMessage() {
+  var text = msgInput.value.trim();
+  if (!text) return;
+  enterConversation();
+  addMsg(text, 'user');
+  msgInput.value = '';
+  voiceIcon.style.display = 'block';
+  sendIcon.style.display = 'none';
+
+  // Thinking state
+  setMode('speaking');
+  var thinking = addThinking();
+
+  setTimeout(function() {
+    thinking.remove();
+    addMsg(responses[respIdx % responses.length], 'assistant');
+    respIdx++;
+    setMode('listening');
+  }, 1200 + Math.random() * 800);
+}
+
+// Send on enter or click
+msgInput.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { e.preventDefault(); sendMessage(); }
+});
+sendOrVoice.addEventListener('click', function() {
+  if (msgInput.value.trim().length > 0) sendMessage();
+});
+
+// Animate wave center position smoothly
+var currentCenterY = targetCenterY;
+// Override centerY in the render loop
+var _origAnimate = animate;
+// Patch: smoothly move wave center
+setInterval(function() {
+  currentCenterY += (targetCenterY - currentCenterY) * 0.08;
+}, 16);
+
+// Replace the centerY reference in the render
+// We need to update the variable used in animate
+// Since centerY is a local var in animate, we use a global override
+window._waveCenterY = H * 0.37;
+window._waveScale = 1.0;
+setInterval(function() {
+  window._waveCenterY += (targetCenterY - window._waveCenterY) * 0.06;
+  window._waveScale += (targetWaveScale - window._waveScale) * 0.06;
+}, 16);
+</script>
+</body>
+</html>
