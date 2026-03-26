@@ -49,8 +49,10 @@ final class WavelengthViewModel: ObservableObject {
                 self.textures = newTextures
                 #endif
                 self.initialized = true
-                #if DEBUG
-                print("[Wavelength] Initialized: \(newParticles.count) particles, \(newTextures.count) textures")
+                #if os(iOS)
+                NSLog("[Wavelength] Initialized: %d particles, %d textures", newParticles.count, self.textures.count)
+                #else
+                NSLog("[Wavelength] Initialized: %d particles", newParticles.count)
                 #endif
             }
         }

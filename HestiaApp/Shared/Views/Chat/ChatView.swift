@@ -178,9 +178,9 @@ struct ChatView: View {
 
     private func idleLayout(geo: GeometryProxy) -> some View {
         ZStack {
-            // Full-screen wavelength
+            // Full-screen wavelength — explicit frame to prevent zero-size from GeometryReader
             HestiaWavelengthView(mode: wavelengthMode)
-                .matchedGeometryEffect(id: "wavelength", in: wavelengthNamespace)
+                .frame(width: geo.size.width, height: geo.size.height)
                 .ignoresSafeArea()
 
             // Greeting + input at bottom
@@ -212,8 +212,7 @@ struct ChatView: View {
             // Wavelength in top ~45%
             ZStack(alignment: .top) {
                 HestiaWavelengthView(mode: wavelengthMode, waveScale: 0.5)
-                    .matchedGeometryEffect(id: "wavelength", in: wavelengthNamespace)
-                    .frame(height: geo.size.height * 0.45)
+                    .frame(width: geo.size.width, height: geo.size.height * 0.45)
 
                 // "Hestia" label at top
                 Text("Hestia")
