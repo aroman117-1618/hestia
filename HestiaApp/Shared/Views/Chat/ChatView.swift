@@ -214,11 +214,9 @@ struct ChatView: View {
                 HestiaWavelengthView(mode: wavelengthMode, waveScale: 0.5)
                     .frame(width: geo.size.width, height: geo.size.height * 0.45)
 
-                // "Hestia" label at top
-                Text("Hestia")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.7))
-                    .padding(.top, 54)
+                // Amber gradient header with constellation + underline
+                HestiaHeaderView()
+                    .padding(.top, 44)
             }
             .frame(height: geo.size.height * 0.45)
 

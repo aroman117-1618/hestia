@@ -94,11 +94,11 @@ struct Particle {
         let ribbon = Int.random(in: 0...2)
         let speedX = Double.random(in: 0.2...0.6) * z
         let colorIdx = Int.random(in: 0..<WavelengthPalette.count)
-        let isHero = Double.random(in: 0...1) < 0.03
+        let isHero = Double.random(in: 0...1) < 0.04  // 4% heroes (up from 3%)
         let baseSize = isHero
-            ? Double.random(in: 4...7)
-            : Double.random(in: 1.5...3.5)
-        let isScattered = Double.random(in: 0...1) < 0.15
+            ? Double.random(in: 5...9)     // Larger heroes (was 4-7)
+            : Double.random(in: 2...4.5)   // Larger normals (was 1.5-3.5) — fewer particles, bigger each
+        let isScattered = Double.random(in: 0...1) < 0.20  // 20% scattered (was 15%) — more organic spread
         let yOffset = isScattered
             ? (Double.random(in: 0...1) - 0.5) * 180
             : (Double.random(in: 0...1) - 0.5) * 40

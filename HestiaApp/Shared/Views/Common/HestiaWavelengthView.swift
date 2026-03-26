@@ -17,6 +17,7 @@ final class WavelengthViewModel: ObservableObject {
     private var globalTime: Double = 0
     private var speakingTime: Double = 0
     private var lastTimestamp: TimeInterval = 0
+    private var waveTable = WaveTable()
 
     #if os(iOS)
     private var textures: [WavelengthRenderer.TextureSet] = []
@@ -31,7 +32,7 @@ final class WavelengthViewModel: ObservableObject {
 
         // Allocate particles + textures off main thread to prevent watchdog kill
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let count = 3500
+            let count = 2000  // down from 3500 — larger particles compensate
             var newParticles: [Particle] = []
             newParticles.reserveCapacity(count)
             for _ in 0..<count {
@@ -89,15 +90,19 @@ final class WavelengthViewModel: ObservableObject {
         speakingTime += dt * (1 + p.audioVol * 4)
 
         #if os(iOS)
+        // Pre-compute wave tables ONCE per frame (saves ~4000 sin() calls)
+        waveTable.compute(time: globalTime, speakingTime: speakingTime)
+
         // Render off main thread to prevent CPU saturation
         isRendering = true
         let renderTime = globalTime
         let renderSpeakingTime = speakingTime
         let renderParams = p
         let renderSize = size
-        let renderScale: CGFloat = 2.0  // Render at 2x for sharp particles on retina (3x was too heavy)
+        let renderScale: CGFloat = 2.0
         let renderWaveScale = waveScale
         var renderParticles = particles  // Value copy for thread safety
+        let renderWaveTable = waveTable  // Value copy
 
         DispatchQueue.global(qos: .userInteractive).async { [weak self] in
             guard let self else { return }
@@ -110,7 +115,8 @@ final class WavelengthViewModel: ObservableObject {
                 params: renderParams,
                 particles: &renderParticles,
                 textures: self.textures,
-                waveScale: renderWaveScale
+                waveScale: renderWaveScale,
+                waveTable: renderWaveTable
             )
 
             Task { @MainActor [weak self] in
@@ -141,7 +147,7 @@ struct HestiaWavelengthView: View {
         case .listening:
             return 1.0 / 20.0
         case .speaking, .thinking:
-            return 1.0 / 24.0    // 24fps is smooth enough, saves CPU vs 30
+            return 1.0 / 24.0    // 24fps smooth enough, saves CPU vs 30
         }
     }
 
@@ -167,7 +173,6 @@ struct HestiaWavelengthView: View {
                 )
 
                 if let cgImage = viewModel.renderedFrame {
-                    // Rendered at 1x for performance, .resizable() scales to fill frame
                     Image(cgImage, scale: 2.0, label: Text("Hestia wavelength"))
                         .interpolation(.high)
                         .resizable()
