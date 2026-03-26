@@ -230,20 +230,17 @@ Cross-cutting assessment:
 
 Verify that all project documentation is synced to external systems. Drift between local docs and external platforms is invisible until it causes confusion.
 
-### Notion Sync Verification
+### Notion Sync
 
-Run the Notion sync status check and compare against local state:
+Run the full reconciliation and verify it completes cleanly:
 
 ```bash
-source .venv/bin/activate && python scripts/sync-notion.py status 2>&1
+source .venv/bin/activate && python scripts/sync-notion.py sync-all --incremental 2>&1
 ```
 
-Verify:
-- **Sync state freshness**: Check `data/notion-sync-state.json` — when was the last successful push? If >24h stale, flag it.
-- **Content drift**: Compare local file hashes against last-synced hashes in the sync state file. Flag any docs that changed locally but weren't pushed.
-- **ADR sync**: Check that `docs/hestia-decision-log.md` ADR count matches what's in Notion (via `push-adrs` state).
-- **Whiteboard check**: Run `python scripts/sync-notion.py read-whiteboard 2>&1` — surface any notes Andrew left between sessions that haven't been acted on.
-- **Key docs to verify synced**: SPRINT.md, docs/api-contract.md, docs/hestia-decision-log.md, docs/hestia-security-architecture.md
+Then check for drift:
+- **Sync state freshness**: Check `data/notion-sync-state.json` — when was the last successful push?
+- **Whiteboard check**: Run `python scripts/sync-notion.py read-whiteboard 2>&1` — surface any unacted notes.
 
 ### GitHub Project Board Verification
 

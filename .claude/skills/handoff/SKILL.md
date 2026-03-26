@@ -158,16 +158,15 @@ Write `SESSION_HANDOFF.md` in the project root with this exact structure:
 [- "Then run full suite to verify no regressions"]
 ```
 
-## Phase 5.5: Sync Docs to Notion
+## Phase 5.5: Sync All Docs to Notion
 
-Push any docs changed during this session to the Notion knowledge base:
+Run the full Notion reconciliation (Archive, Sprints, API Reference):
 
 ```bash
-source .venv/bin/activate && python scripts/sync-notion.py push --incremental 2>&1
-source .venv/bin/activate && python scripts/sync-notion.py push-adrs 2>&1
+source .venv/bin/activate && python scripts/sync-notion.py sync-all --incremental 2>&1
 ```
 
-If either push fails (missing NOTION_TOKEN, API errors), note the failure in SESSION_HANDOFF.md under Known Issues — do NOT block the rest of the handoff.
+If the sync fails (missing NOTION_TOKEN, API errors), note the failure in SESSION_HANDOFF.md under Known Issues — do NOT block the rest of the handoff.
 
 ## Phase 6: Update SPRINT.md
 

@@ -44,6 +44,8 @@ Bumps the version in `HestiaApp/project.yml`, commits, tags, and pushes. A tag p
 
 9. **Push:** `git push && git push --tags`
 
+9.5. **Sync Notion:** `source .venv/bin/activate && python scripts/sync-notion.py sync-all --incremental 2>&1`
+
 10. **Report:** "Shipped v{X.Y.Z}. Both workflows triggered — macOS (Sparkle) + iOS (TestFlight). Monitor at: https://github.com/aroman117-1618/hestia/actions"
 
 ## Do NOT

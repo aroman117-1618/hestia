@@ -269,3 +269,11 @@ scripts/roadmap-sync.sh issue "<Sprint/WS title>" \
 Adapt labels based on the discovery content (add `macos`, `ios`, `trading`, etc. as appropriate). If the discovery spans multiple sprints, create one issue per sprint.
 
 After creating, verify with `scripts/roadmap-sync.sh list` and confirm the new item(s) appear on the board.
+
+## Phase 10: Notion Sync
+
+Push the new discovery to Notion:
+
+```bash
+source .venv/bin/activate && python scripts/sync-notion.py sync-all --incremental 2>&1
+```
