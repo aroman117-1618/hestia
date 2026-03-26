@@ -1,8 +1,10 @@
+> **SUPERSEDED** by `docs/superpowers/specs/2026-03-25-notion-sync-v2-design.md` (2026-03-25)
+
 # Notion Sync Script Design
 
 **Author:** Claude + Andrew
 **Date:** 2026-03-24
-**Status:** Approved
+**Status:** Superseded
 
 ## Overview
 

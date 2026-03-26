@@ -54,7 +54,7 @@ Replace lines 41-48:
 DATABASES = {
     "archive": "feb292cc-621d-4982-942a-ea99dcf62e44",
     "sprints": "20e6158d-9d21-4e4d-be40-11e08f6932c3",
-    "api_reference": "<API_REFERENCE_DB_ID>",  # Andrew fills after Notion setup
+    "api_reference": "32e5d244-5f31-80e3-b67e-feff0575a3f2",
 }
 # Remove WHITEBOARD_PAGE_ID — now queried dynamically from Sprints DB
 API_REFERENCE_PAGE_ID = "3f49d829-d1aa-40be-89c0-f18cd5d3fd4e"  # Keep as fallback
