@@ -43,6 +43,11 @@ DATABASES = {
     "sprints": "20e6158d-9d21-4e4d-be40-11e08f6932c3",
     "api_reference": "32e5d244-5f31-80e3-b67e-feff0575a3f2",
 }
+_LEGACY_DATABASES = {
+    "planning_logs": "32d5d244-5f31-813d-a693-db7821dbeb2e",
+    "adr_registry": "5b0e4074-eca7-4d9c-be40-0e7486a7f362",
+}
+
 # Legacy — dynamic Sprints DB query replaces this in Task 3
 WHITEBOARD_PAGE_ID = "e739da68-2b62-49ae-a4d1-979019771961"
 API_REFERENCE_PAGE_ID = "3f49d829-d1aa-40be-89c0-f18cd5d3fd4e"  # Keep as fallback
@@ -1574,6 +1579,100 @@ def cmd_create_sprint_item(client: NotionClient, state: SyncState,
         print(f"Linked sprint card → archive record")
 
 
+def cmd_migrate(client: NotionClient, state: SyncState, dry_run: bool) -> None:
+    """One-time migration: move pages from planning_logs + adr_registry to consolidated archive."""
+    archive_db_id = DATABASES["archive"]
+
+    for old_name, old_db_id in _LEGACY_DATABASES.items():
+        print(f"\n--- Migrating from {old_name} ({old_db_id}) ---")
+
+        try:
+            pages = client.query_database(old_db_id)
+        except Exception as e:
+            print(f"  [error] Could not query {old_name}: {e}", file=sys.stderr)
+            continue
+
+        print(f"  Found {len(pages)} pages")
+
+        for page in pages:
+            props = page.get("properties", {})
+            title = ""
+            for prop in props.values():
+                if prop.get("type") == "title":
+                    title = "".join(r.get("plain_text", "") for r in prop.get("title", []))
+                    break
+
+            if dry_run:
+                print(f"  [dry-run] Would migrate: {title}")
+                continue
+
+            try:
+                blocks = client.get_blocks(page["id"])
+                expanded = _expand_child_blocks(client, blocks)
+            except Exception:
+                expanded = []
+
+            if old_name == "adr_registry":
+                type_tag = "ADR"
+            else:
+                type_val = extract_property_value(props.get("Type", {}))
+                type_tag = type_val if type_val else "Plan"
+
+            now = datetime.now(timezone.utc).isoformat()
+            new_props: dict[str, Any] = {
+                "Title": {"title": [{"text": {"content": title}}]},
+                "Type": {"select": {"name": type_tag}},
+                "Last Synced": {"date": {"start": now}},
+                "Status": {"select": {"name": "Active"}},
+            }
+
+            date_val = props.get("Date", {})
+            if date_val and date_val.get("date"):
+                new_props["Date"] = date_val
+
+            adr_num = props.get("ADR Number", {})
+            if adr_num and adr_num.get("number") is not None:
+                new_props["ADR Number"] = {"number": adr_num["number"]}
+
+            for topic_key in ("Domain/Topic", "Topic", "Domain"):
+                topic_val = props.get(topic_key, {})
+                if topic_val and topic_val.get("multi_select"):
+                    new_props["Domain/Topic"] = topic_val
+                    break
+
+            git_path = props.get("Git Path", {})
+            if git_path and git_path.get("rich_text"):
+                new_props["Git Path"] = git_path
+
+            status_val = props.get("Status", {})
+            if status_val:
+                sv = extract_property_value(status_val)
+                if sv in ("Accepted", "Deprecated", "Superseded", "Proposed"):
+                    new_props["Status"] = {"select": {"name": sv}}
+
+            try:
+                result = client.create_page(
+                    parent={"database_id": archive_db_id},
+                    properties=new_props,
+                    children=expanded if expanded else None,
+                )
+                new_page_id = result["id"]
+
+                git_path_text = extract_property_value(props.get("Git Path", {}))
+                if git_path_text:
+                    state.record_sync(git_path_text, title, new_page_id)
+
+                print(f"  [migrated] {title} → {new_page_id}")
+            except Exception as e:
+                print(f"  [error] {title}: {e}", file=sys.stderr)
+
+    if not dry_run:
+        state.save()
+        print("\nMigration complete. Manually archive the old databases in Notion.")
+    else:
+        print("\nDry run complete. Run without --dry-run to execute.")
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -1642,6 +1741,10 @@ def main() -> None:
     create_sprint_parser.add_argument("title", help="Sprint card title")
     create_sprint_parser.add_argument("--plan", help="Path to plan doc to push to Archive and link")
 
+    # migrate
+    migrate_parser = subparsers.add_parser("migrate", help="One-time migration from old databases to Archive")
+    migrate_parser.add_argument("--dry-run", action="store_true", help="Preview migration without making changes")
+
     args = parser.parse_args()
 
     # Validate token
@@ -1678,6 +1781,8 @@ def main() -> None:
             cmd_update_page(client, args.page_id, args.content, args.page_status)
         elif args.command == "create-sprint-item":
             cmd_create_sprint_item(client, state, args.title, args.plan)
+        elif args.command == "migrate":
+            cmd_migrate(client, state, args.dry_run)
     finally:
         client.close()
 
