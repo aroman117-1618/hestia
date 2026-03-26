@@ -1,7 +1,9 @@
 import SwiftUI
 import HestiaShared
 
-/// Main chat interface view with bottom-anchored messages (like iMessage)
+/// Main chat interface view with wavelength particle background.
+/// Idle state: full-screen wavelength + greeting at bottom.
+/// Conversation state: wavelength in top 45%, messages in bottom half.
 struct ChatView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var apiClientProvider: APIClientProvider
@@ -9,87 +11,69 @@ struct ChatView: View {
     @StateObject private var viewModel = ChatViewModel()
     @StateObject private var voiceViewModel = VoiceInputViewModel()
     @StateObject private var conversationManager = VoiceConversationManager()
-    @State private var showConversationOverlay = false
     @State private var conversationConfigured = false
 
     @State private var messageText = ""
     @State private var inputMode: ChatInputMode = .chat
-    @State private var avatarPosition: CGPoint = .zero
     @State private var scrollViewContentSize: CGSize = .zero
     @State private var showVoiceReview = false
     @State private var showJournalSheet = false
     @State private var liveTranscriptId: String?
     @FocusState private var isInputFocused: Bool
 
-    var body: some View {
-        ZStack {
-            // Background gradient with mode transition
-            GradientBackground(mode: appState.currentMode)
-                .animation(.modeSwitch, value: appState.currentMode)
-                .ignoresSafeArea()
+    @Namespace private var wavelengthNamespace
 
-            // Ripple effect overlay - allowsHitTesting(false) ensures it doesn't block touches
-            if viewModel.modeSwitchTrigger {
-                Circle()
-                    .fill(Color.accent.opacity(0.3))
-                    .frame(width: 20, height: 20)
-                    .position(avatarPosition)
-                    .modifier(ExpandingRipple())
-                    .allowsHitTesting(false)
-            }
+    // MARK: - Computed State
 
-            VStack(spacing: 0) {
-                // Header
-                header
-                    .background(
-                        GeometryReader { headerGeo in
-                            Color.clear.onAppear {
-                                // Calculate avatar center position
-                                let frame = headerGeo.frame(in: .global)
-                                avatarPosition = CGPoint(
-                                    x: Spacing.lg + Size.Avatar.medium / 2,
-                                    y: frame.minY + frame.height / 2
-                                )
-                            }
-                        }
-                    )
+    private var isIdleState: Bool {
+        viewModel.messages.isEmpty && !viewModel.isLoading
+    }
 
-                // Messages - bottom anchored
-                messageList
-
-                // Thinking indicator (visible reasoning stages)
-                if let stage = viewModel.currentStage, !viewModel.isTyping {
-                    ThinkingIndicator(stage: stage)
-                        .transition(.opacity)
-                }
-
-                // Typewriter text (if typing, only when content has arrived)
-                if viewModel.isTyping, let typingText = viewModel.currentTypingText, !typingText.isEmpty {
-                    typewriterView(text: typingText)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-
-                // Input bar - always at bottom
-                inputBar
-            }
-
-            // Voice conversation overlay
-            if showConversationOverlay {
-                VoiceConversationOverlay(
-                    manager: conversationManager,
-                    onStop: {
-                        stopVoiceConversation()
-                    }
-                )
+    private var wavelengthMode: WavelengthMode {
+        if conversationManager.isActive {
+            switch conversationManager.state {
+            case .idle: return .idle
+            case .listening: return .listening
+            case .processing: return .thinking
+            case .speaking: return .speaking
             }
         }
+        if viewModel.isLoading || viewModel.isTyping { return .speaking }
+        return .idle
+    }
+
+    private var greetingText: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<12: return "Good morning, Boss"
+        case 12..<17: return "Good afternoon, Boss"
+        case 17..<22: return "Good evening, Boss"
+        default: return "Hello, Boss"
+        }
+    }
+
+    // MARK: - Body
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                // Dark base
+                Color(red: 2/255, green: 1/255, blue: 1/255)
+                    .ignoresSafeArea()
+
+                if isIdleState {
+                    idleLayout(geo: geo)
+                } else {
+                    conversationLayout(geo: geo)
+                }
+            }
+            .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isIdleState)
+        }
         .onAppear {
-            // Configure with real API client when available
             if apiClientProvider.isReady {
                 viewModel.configure(client: apiClientProvider.client)
                 voiceViewModel.configure(client: apiClientProvider.client)
             }
-            // Empty state — user generates the first message
             if !conversationConfigured {
                 conversationManager.configure(
                     speechService: voiceViewModel.speechService,
@@ -100,7 +84,6 @@ struct ChatView: View {
             }
         }
         .onChange(of: apiClientProvider.isReady) { isReady in
-            // Also configure when client becomes ready later
             if isReady {
                 viewModel.configure(client: apiClientProvider.client)
                 voiceViewModel.configure(client: apiClientProvider.client)
@@ -114,7 +97,6 @@ struct ChatView: View {
                     }
                 }
             }
-            // Handle unauthorized error - clear token and re-register
             if case .unauthorized = viewModel.errorState {
                 Button("Re-register Device") {
                     authService.unregisterDevice()
@@ -126,9 +108,9 @@ struct ChatView: View {
         } message: {
             Text(viewModel.errorState?.userMessage ?? "An error occurred")
         }
-        // Voice recording overlay — only for journal/chat modes (voice conversation is inline)
+        // Voice recording overlay
         .fullScreenCover(isPresented: .init(
-            get: { voiceViewModel.phase == .recording && inputMode != .voice },
+            get: { voiceViewModel.phase == .recording && inputMode == .chat },
             set: { _ in }
         )) {
             VoiceRecordingOverlay(
@@ -136,7 +118,6 @@ struct ChatView: View {
                 onStop: {
                     Task {
                         await voiceViewModel.stopRecording()
-                        // Brief delay lets fullScreenCover dismiss before sheet presents
                         try? await Task.sleep(nanoseconds: 300_000_000)
                         showVoiceReview = true
                     }
@@ -147,7 +128,7 @@ struct ChatView: View {
             )
             .background(ClearBackgroundView())
         }
-        // Transcript review sheet (journal/chat modes only)
+        // Transcript review sheet
         .sheet(isPresented: $showVoiceReview) {
             TranscriptReviewView(
                 viewModel: voiceViewModel,
@@ -161,9 +142,9 @@ struct ChatView: View {
                 }
             )
         }
-        // Voice conversation: update live transcript bubble as speech is recognized
+        // Voice conversation: update live transcript bubble
         .onChange(of: voiceViewModel.rawTranscript) { transcript in
-            guard inputMode == .voice, let id = liveTranscriptId else { return }
+            guard inputMode == .transcription, let id = liveTranscriptId else { return }
             if let index = viewModel.messages.firstIndex(where: { $0.id == id }) {
                 viewModel.messages[index].content = transcript
             }
@@ -193,93 +174,89 @@ struct ChatView: View {
         }
     }
 
-    // MARK: - Header
+    // MARK: - Idle Layout (full-screen wavelength + greeting)
 
-    private var header: some View {
-        HStack(alignment: .center, spacing: Spacing.md) {
-            // Avatar
-            avatarImage
-                .frame(width: Size.Avatar.medium, height: Size.Avatar.medium)
-                .clipShape(Circle())
+    private func idleLayout(geo: GeometryProxy) -> some View {
+        ZStack {
+            // Full-screen wavelength
+            HestiaWavelengthView(mode: wavelengthMode)
+                .matchedGeometryEffect(id: "wavelength", in: wavelengthNamespace)
+                .ignoresSafeArea()
 
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                Text(greetingText)
-                    .greetingStyle()
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+            // Greeting + input at bottom
+            VStack {
+                Spacer()
 
-                if voiceViewModel.phase == .recording && inputMode == .voice {
-                    // Voice conversation active — show listening indicator
-                    HStack(spacing: Spacing.xs) {
-                        Circle()
-                            .fill(Color.accent)
-                            .frame(width: 6, height: 6)
-                        Text("Listening...")
-                            .font(.caption)
-                            .foregroundColor(Color.accent)
-                        Text(formatDuration(voiceViewModel.recordingDuration))
-                            .font(.caption.monospacedDigit())
-                            .foregroundColor(.textSecondary)
-                    }
-                } else {
-                    ModeIndicator(mode: appState.currentMode) {
-                        // Mode tap action - show mode picker
-                    }
+                // Greeting text positioned ~180px from bottom
+                VStack(spacing: 8) {
+                    Text(greetingText)
+                        .font(.system(size: 28, weight: .semibold))
+                        .foregroundColor(.white)
+
+                    Text("How can I help you today?")
+                        .font(.system(size: 16))
+                        .foregroundColor(.white.opacity(0.5))
                 }
+                .padding(.bottom, 100)
+
+                // Input bar
+                inputBar
             }
-
-            Spacer()
-
-            // Menu button
-            Menu {
-                ForEach(HestiaMode.allCases) { mode in
-                    Button {
-                        Task {
-                            await viewModel.switchMode(to: mode, appState: appState)
-                        }
-                    } label: {
-                        Label(mode.displayName, systemImage: mode == appState.currentMode ? "checkmark" : "")
-                    }
-                }
-
-                Divider()
-
-                Button {
-                    Task {
-                        await viewModel.startNewConversation(appState: appState)
-                    }
-                } label: {
-                    Label("New Conversation", systemImage: "plus.message")
-                }
-            } label: {
-                Image(systemName: "ellipsis.circle.fill")
-                    .font(.system(size: 24))
-                    .foregroundColor(.textPrimary.opacity(0.7))
-            }
-            .accessibilityLabel("Options menu")
         }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.vertical, Spacing.md)
     }
 
-    // MARK: - Avatar
+    // MARK: - Conversation Layout (wavelength top, messages bottom)
 
-    @ViewBuilder
-    private var avatarImage: some View {
-        if let image = appState.currentMode.avatarImage {
-            // Use custom profile image
-            image
-                .resizable()
-                .scaledToFill()
-        } else {
-            // Fallback to letter placeholder
-            Circle()
-                .fill(Color.textPrimary.opacity(0.2))
-                .overlay(
-                    Text(appState.currentMode.displayName.prefix(1))
-                        .font(.system(size: 24, weight: .bold))
-                        .foregroundColor(.textPrimary)
+    private func conversationLayout(geo: GeometryProxy) -> some View {
+        VStack(spacing: 0) {
+            // Wavelength in top ~45%
+            ZStack(alignment: .top) {
+                HestiaWavelengthView(mode: wavelengthMode, waveScale: 0.5)
+                    .matchedGeometryEffect(id: "wavelength", in: wavelengthNamespace)
+                    .frame(height: geo.size.height * 0.45)
+
+                // "Hestia" label at top
+                Text("Hestia")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.7))
+                    .padding(.top, 54)
+            }
+            .frame(height: geo.size.height * 0.45)
+
+            // Messages area in bottom half
+            ZStack(alignment: .top) {
+                VStack(spacing: 0) {
+                    // Messages
+                    messageList
+
+                    // Thinking indicator
+                    if let stage = viewModel.currentStage, !viewModel.isTyping {
+                        ThinkingIndicator(stage: stage)
+                            .transition(.opacity)
+                    }
+
+                    // Typewriter text
+                    if viewModel.isTyping, let typingText = viewModel.currentTypingText, !typingText.isEmpty {
+                        typewriterView(text: typingText)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+
+                    // Input bar
+                    inputBar
+                }
+
+                // Fade-out gradient mask at top of message area
+                LinearGradient(
+                    colors: [
+                        Color(red: 2/255, green: 1/255, blue: 1/255),
+                        Color(red: 2/255, green: 1/255, blue: 1/255).opacity(0)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
                 )
+                .frame(height: 32)
+                .allowsHitTesting(false)
+            }
         }
     }
 
@@ -290,17 +267,14 @@ struct ChatView: View {
             ScrollViewReader { proxy in
                 ScrollView(.vertical, showsIndicators: true) {
                     VStack(spacing: 0) {
-                        // Spacer pushes content to bottom when there are few messages
                         Spacer(minLength: 0)
 
-                        // Messages container
                         LazyVStack(spacing: Spacing.md) {
                             ForEach(viewModel.messages) { message in
                                 MessageBubble(message: message)
                                     .id(message.id)
                             }
 
-                            // Loading indicator
                             if viewModel.isLoading && !viewModel.isTyping {
                                 loadingIndicator
                                     .id("loading")
@@ -329,7 +303,6 @@ struct ChatView: View {
                     scrollToBottom(proxy: proxy, animated: true)
                 }
                 .onAppear {
-                    // Scroll to bottom on initial load
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         scrollToBottom(proxy: proxy, animated: false)
                     }
@@ -384,48 +357,23 @@ struct ChatView: View {
             forceLocal: viewModel.forceLocal,
             currentModeName: appState.currentMode.displayName,
             onSend: { _ in
-                if inputMode == .voice && voiceViewModel.phase == .recording {
-                    // Stop recording and send transcript
-                    stopVoiceConversation()
-                } else {
-                    sendMessage()
-                }
+                sendMessage()
             },
             onToggleLocal: {
                 viewModel.forceLocal.toggle()
             },
             onStartVoice: {
-                if inputMode == .voice {
-                    startVoiceConversation()
-                } else if inputMode == .journal {
-                    startJournalRecording()
-                } else {
-                    Task {
-                        await voiceViewModel.startRecording()
-                    }
+                Task {
+                    await voiceViewModel.startRecording()
                 }
+            },
+            onStartConversation: {
+                startVoiceConversation()
             }
         )
     }
 
     // MARK: - Helpers
-
-    private func formatDuration(_ duration: TimeInterval) -> String {
-        let minutes = Int(duration) / 60
-        let seconds = Int(duration) % 60
-        return String(format: "%d:%02d", minutes, seconds)
-    }
-
-    private var greetingText: String {
-        let hour = Calendar.current.component(.hour, from: Date())
-        if hour < 12 {
-            return "Morning, Boss."
-        } else if hour < 17 {
-            return "Afternoon, Boss."
-        } else {
-            return "Evening, Boss."
-        }
-    }
 
     private var canSend: Bool {
         !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
@@ -453,18 +401,21 @@ struct ChatView: View {
 
     // MARK: - Voice Conversation Mode
 
-    /// Start bidirectional voice conversation with TTS responses.
     private func startVoiceConversation() {
-        showConversationOverlay = true
         conversationManager.loadSettings()
         Task {
             await conversationManager.start()
         }
     }
 
+    private func stopVoiceConversation() {
+        Task {
+            await conversationManager.stop()
+        }
+    }
+
     // MARK: - Voice Journal Mode
 
-    /// Open the journal sheet and start recording.
     private func startJournalRecording() {
         showJournalSheet = true
         Task {
@@ -472,11 +423,9 @@ struct ChatView: View {
         }
     }
 
-    /// Submit a completed journal entry as a chat message with Artemis routing metadata.
     private func submitJournalEntry(transcript: String, duration: TimeInterval) {
         guard !transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
 
-        // Add a condensed journal message to the chat
         let journalMessage = ConversationMessage(
             id: UUID().uuidString,
             role: .user,
@@ -487,19 +436,10 @@ struct ChatView: View {
         )
         viewModel.messages.append(journalMessage)
 
-        // Send with journal metadata for Artemis routing
         let metadata = JournalMetadata(duration: duration)
         Task {
             await viewModel.sendJournalEntry(transcript, metadata: metadata, appState: appState)
         }
-    }
-
-    /// Stop voice conversation.
-    private func stopVoiceConversation() {
-        Task {
-            await conversationManager.stop()
-        }
-        showConversationOverlay = false
     }
 
     private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
