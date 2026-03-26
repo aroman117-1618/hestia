@@ -292,6 +292,7 @@ class InvestigateManager:
         url: str,
         depth: str = "standard",
         user_id: str = "default",
+        skip_analysis: bool = False,
     ) -> Dict[str, Any]:
         """
         Investigate a URL: extract content, analyze with LLM, store result.
@@ -401,14 +402,20 @@ class InvestigateManager:
             investigation.extracted_text = extraction.text[:_MAX_STORED_TEXT_CHARS]
             investigation.extraction_metadata = extraction.metadata
 
-            # Step 2: Analyze with LLM
-            investigation.status = InvestigationStatus.ANALYZING
-            analysis_result = await self._analyze(extraction, analysis_depth)
+            # Step 2: Analyze with LLM (skip for workflow contexts where
+            # the cloud model will analyze the raw text itself)
+            if not skip_analysis:
+                investigation.status = InvestigationStatus.ANALYZING
+                analysis_result = await self._analyze(extraction, analysis_depth)
 
-            investigation.analysis = analysis_result.get("analysis", "")
-            investigation.key_points = analysis_result.get("key_points", [])
-            investigation.model_used = analysis_result.get("model")
-            investigation.tokens_used = analysis_result.get("tokens_used", 0)
+                investigation.analysis = analysis_result.get("analysis", "")
+                investigation.key_points = analysis_result.get("key_points", [])
+                investigation.model_used = analysis_result.get("model")
+                investigation.tokens_used = analysis_result.get("tokens_used", 0)
+            else:
+                # Return raw extraction as the analysis
+                investigation.analysis = extraction.text[:8000]
+                investigation.key_points = []
 
             # Step 3: Mark complete
             investigation.status = InvestigationStatus.COMPLETE

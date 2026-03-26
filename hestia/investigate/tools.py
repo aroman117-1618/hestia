@@ -28,7 +28,11 @@ async def investigate_url(
     from .manager import get_investigate_manager
 
     manager = await get_investigate_manager()
-    return await manager.investigate(url=url, depth=depth)
+    # Skip local LLM analysis — the calling model (cloud or local) will
+    # analyze the raw extracted text itself. The local LLM analysis step
+    # causes Ollama contention and 60s+ timeouts on M1 hardware, and is
+    # redundant when the caller is already an LLM with the text in context.
+    return await manager.investigate(url=url, depth=depth, skip_analysis=True)
 
 
 async def investigate_compare(
