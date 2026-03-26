@@ -2,9 +2,13 @@
 // HestiaApp
 //
 // Pure CGContext rendering engine for Wavelength orb visualization.
-// Produces a CGImage per frame using UIGraphicsImageRenderer.
+// Produces a CGImage per frame using UIGraphicsImageRenderer (iOS only).
 
+#if os(iOS)
 import UIKit
+#else
+import AppKit
+#endif
 
 // MARK: - Wavelength Renderer
 
@@ -236,6 +240,7 @@ struct WavelengthRenderer {
 
     // MARK: - 7-Layer Compositing
 
+    #if os(iOS)
     /// Render a complete Wavelength frame to CGImage.
     static func renderToImage(
         size: CGSize,
@@ -469,4 +474,15 @@ struct WavelengthRenderer {
 
         return image.cgImage
     }
+    #else
+    /// macOS stub — wavelength renderer is iOS-only for now.
+    static func renderToImage(
+        size: CGSize,
+        scale: CGFloat,
+        time: Double,
+        params: WavelengthParams
+    ) -> CGImage? {
+        return nil
+    }
+    #endif
 }
