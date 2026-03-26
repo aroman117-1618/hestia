@@ -58,6 +58,8 @@ final class WavelengthViewModel: ObservableObject {
         }
     }
 
+    private var isRendering = false
+
     func update(
         date: Date,
         mode: WavelengthMode,
@@ -66,16 +68,15 @@ final class WavelengthViewModel: ObservableObject {
         waveScale: CGFloat
     ) {
         ensureInitialized(width: Double(size.width), height: Double(size.height))
-        guard initialized, !particles.isEmpty else { return } // Skip render until particles are ready
+        guard initialized, !particles.isEmpty else { return }
+        // Skip if previous frame is still rendering
+        guard !isRendering else { return }
 
         let now = date.timeIntervalSinceReferenceDate
         let dt = lastTimestamp == 0 ? 0.016 : min(0.033, now - lastTimestamp)
         lastTimestamp = now
 
-        // Target params
         let target = WavelengthParams.target(for: mode)
-
-        // Lerp at 0.05 per frame (matches TSX)
         if let current = currentParams {
             currentParams = current.lerped(toward: target, alpha: 0.05)
         } else {
@@ -84,24 +85,41 @@ final class WavelengthViewModel: ObservableObject {
 
         guard let p = currentParams else { return }
 
-        // Update time accumulators
         globalTime += 0.005 * p.speedMult
-        // Speaking time runs faster: dt * (1 + audioVol * 4)
         speakingTime += dt * (1 + p.audioVol * 4)
 
         #if os(iOS)
-        let displayScale = UITraitCollection.current.displayScale
+        // Render off main thread to prevent CPU saturation
+        isRendering = true
+        let renderTime = globalTime
+        let renderSpeakingTime = speakingTime
+        let renderParams = p
+        let renderSize = size
+        let renderScale: CGFloat = 1.0  // Render at 1x, display scales up (saves 4x CPU vs 3x retina)
+        let renderWaveScale = waveScale
+        var renderParticles = particles  // Value copy for thread safety
 
-        renderedFrame = WavelengthRenderer.renderToImage(
-            size: size,
-            scale: displayScale,
-            time: globalTime,
-            speakingTime: speakingTime,
-            params: p,
-            particles: &particles,
-            textures: textures,
-            waveScale: waveScale
-        )
+        DispatchQueue.global(qos: .userInteractive).async { [weak self] in
+            guard let self else { return }
+
+            let frame = WavelengthRenderer.renderToImage(
+                size: renderSize,
+                scale: renderScale,
+                time: renderTime,
+                speakingTime: renderSpeakingTime,
+                params: renderParams,
+                particles: &renderParticles,
+                textures: self.textures,
+                waveScale: renderWaveScale
+            )
+
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.particles = renderParticles  // Sync particle positions back
+                self.renderedFrame = frame
+                self.isRendering = false
+            }
+        }
         #endif
     }
 }
@@ -118,10 +136,12 @@ struct HestiaWavelengthView: View {
 
     private var frameInterval: Double {
         switch mode {
-        case .idle, .listening:
+        case .idle:
+            return 1.0 / 15.0    // 15fps idle — saves battery
+        case .listening:
             return 1.0 / 20.0
         case .speaking, .thinking:
-            return 1.0 / 30.0
+            return 1.0 / 24.0    // 24fps is smooth enough, saves CPU vs 30
         }
     }
 
@@ -147,13 +167,8 @@ struct HestiaWavelengthView: View {
                 )
 
                 if let cgImage = viewModel.renderedFrame {
-                    #if os(iOS)
-                    let displayScale = UITraitCollection.current.displayScale
-                    #else
-                    let displayScale: CGFloat = NSScreen.main?.backingScaleFactor ?? 2.0
-                    #endif
-
-                    Image(cgImage, scale: displayScale, label: Text("Hestia wavelength"))
+                    // Rendered at 1x for performance, .resizable() scales to fill frame
+                    Image(cgImage, scale: 1.0, label: Text("Hestia wavelength"))
                         .resizable()
                         .aspectRatio(contentMode: .fill)
                         .frame(width: geo.size.width, height: geo.size.height)
