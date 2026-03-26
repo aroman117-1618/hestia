@@ -23,20 +23,34 @@ final class WavelengthViewModel: ObservableObject {
     #endif
 
     private var initialized = false
+    private var initializing = false
 
     private func ensureInitialized(width: Double, height: Double) {
-        guard !initialized else { return }
-        initialized = true
+        guard !initialized, !initializing else { return }
+        initializing = true
 
-        let count = 3500
-        particles.reserveCapacity(count)
-        for _ in 0..<count {
-            particles.append(Particle.create(width: width, height: height))
+        // Allocate particles + textures off main thread to prevent watchdog kill
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let count = 3500
+            var newParticles: [Particle] = []
+            newParticles.reserveCapacity(count)
+            for _ in 0..<count {
+                newParticles.append(Particle.create(width: width, height: height))
+            }
+
+            #if os(iOS)
+            let newTextures = WavelengthRenderer.createTextures()
+            #endif
+
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.particles = newParticles
+                #if os(iOS)
+                self.textures = newTextures
+                #endif
+                self.initialized = true
+            }
         }
-
-        #if os(iOS)
-        textures = WavelengthRenderer.createTextures()
-        #endif
     }
 
     func update(
@@ -47,6 +61,7 @@ final class WavelengthViewModel: ObservableObject {
         waveScale: CGFloat
     ) {
         ensureInitialized(width: Double(size.width), height: Double(size.height))
+        guard initialized else { return } // Skip render until particles are ready
 
         let now = date.timeIntervalSinceReferenceDate
         let dt = lastTimestamp == 0 ? 0.016 : min(0.033, now - lastTimestamp)
