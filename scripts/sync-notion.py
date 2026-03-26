@@ -1532,6 +1532,48 @@ def cmd_sync_all(client: NotionClient, state: SyncState, force: bool) -> None:
     print("=" * 60)
 
 
+def cmd_create_sprint_item(client: NotionClient, state: SyncState,
+                            title: str, plan_path: Optional[str]) -> None:
+    """Create a Sprint card and optionally link it to an Archive record."""
+    db_id = DATABASES["sprints"]
+    now = datetime.now(timezone.utc).isoformat()
+
+    sprint_props: dict[str, Any] = {
+        "Title": {"title": [{"text": {"content": title}}]},
+        "Status": {"status": {"name": "Next Up"}},
+        "Last Synced": {"date": {"start": now}},
+    }
+
+    result = client.create_page(parent={"database_id": db_id}, properties=sprint_props)
+    sprint_page_id = result["id"]
+    print(f"Created sprint card: {title} (id: {sprint_page_id})")
+
+    if plan_path:
+        plan_file = Path(plan_path)
+        if not plan_file.is_absolute():
+            plan_file = PROJECT_ROOT / plan_path
+        if not plan_file.exists():
+            print(f"Warning: Plan file not found: {plan_path}", file=sys.stderr)
+            return
+
+        content = plan_file.read_text(encoding="utf-8")
+        rel_path = str(plan_file.relative_to(PROJECT_ROOT))
+        properties = DocMapper.build_properties(plan_file, content, "archive", "Plan")
+        properties["Linked Sprint"] = {"relation": [{"id": sprint_page_id}]}
+        blocks = MarkdownToBlocks.convert(content)
+
+        archive_result = client.create_page(
+            parent={"database_id": DATABASES["archive"]},
+            properties=properties,
+            children=blocks,
+        )
+        archive_page_id = archive_result["id"]
+        state.record_sync(rel_path, content, archive_page_id)
+        state.save()
+        print(f"Created archive record: {rel_path} (id: {archive_page_id})")
+        print(f"Linked sprint card → archive record")
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -1595,6 +1637,11 @@ def main() -> None:
     update_page_parser.add_argument("--content", help="Markdown file to push as page content")
     update_page_parser.add_argument("--status", dest="page_status", help="Set status property value")
 
+    # create-sprint-item
+    create_sprint_parser = subparsers.add_parser("create-sprint-item", help="Create a Sprint card with optional plan link")
+    create_sprint_parser.add_argument("title", help="Sprint card title")
+    create_sprint_parser.add_argument("--plan", help="Path to plan doc to push to Archive and link")
+
     args = parser.parse_args()
 
     # Validate token
@@ -1629,6 +1676,8 @@ def main() -> None:
             cmd_query_db(client, args.database, args.title, args.status, args.verbose)
         elif args.command == "update-page":
             cmd_update_page(client, args.page_id, args.content, args.page_status)
+        elif args.command == "create-sprint-item":
+            cmd_create_sprint_item(client, state, args.title, args.plan)
     finally:
         client.close()
 
