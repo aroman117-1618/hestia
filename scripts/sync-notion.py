@@ -690,12 +690,32 @@ class SyncState:
 # ---------------------------------------------------------------------------
 
 def cmd_read_whiteboard(client: NotionClient) -> None:
-    """Read the Notion whiteboard and output as markdown."""
-    blocks = client.get_blocks(WHITEBOARD_PAGE_ID)
+    """Read the Whiteboard card from the Sprints database."""
+    db_id = DATABASES["sprints"]
+    try:
+        results = client.query_database(db_id, filter_obj={
+            "and": [
+                {"property": "Status", "status": {"equals": "Planning"}},
+                {"property": "Title", "title": {"contains": "Whiteboard"}},
+            ]
+        })
+    except Exception:
+        results = []
+
+    if results:
+        page_id = results[0]["id"]
+    else:
+        # Fallback to legacy page ID
+        print("(Whiteboard not found in Sprints DB — falling back to legacy page ID)", file=sys.stderr)
+        page_id = WHITEBOARD_PAGE_ID
+
+    blocks = client.get_blocks(page_id)
     if not blocks:
         print("(Whiteboard is empty)")
         return
-    output = blocks_to_markdown(blocks)
+
+    expanded = _expand_child_blocks(client, blocks)
+    output = blocks_to_markdown(expanded)
     print(output)
 
 
