@@ -2236,7 +2236,7 @@ class RequestHandler:
     # tool calls across turns (e.g., list_events → investigate_url → create_note).
     # This loop feeds tool results back and re-infers until the model is done.
 
-    MAX_TOOL_ITERATIONS = 10
+    MAX_TOOL_ITERATIONS = 20
 
     async def _execute_tool_loop(
         self,
