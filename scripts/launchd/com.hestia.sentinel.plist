@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Sentinel watches Hestia — runs as andrewroman117 (NOT _hestia). -->
+    <!-- Install to ~/Library/LaunchAgents/ (user-level agent, not system daemon). -->
+
+    <key>Label</key>
+    <string>com.hestia.sentinel</string>
+
+    <key>ServiceDescription</key>
+    <string>Hestia Sentinel — supply chain defense daemon (file integrity, credential watch, DNS monitor)</string>
+
+    <!-- Run with system Python so no venv activation is needed -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>-m</string>
+        <string>hestia.sentinel</string>
+        <string>/Users/andrewroman117/hestia</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/andrewroman117/hestia</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PYTHONPATH</key>
+        <string>/Users/andrewroman117/hestia</string>
+        <key>HOME</key>
+        <string>/Users/andrewroman117</string>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <!-- Start immediately at load / login -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Restart on crash, but not on clean exit -->
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <!-- Wait 10s between restart attempts -->
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <!-- Logging -->
+    <key>StandardOutPath</key>
+    <string>/Users/andrewroman117/hestia/logs/sentinel.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/andrewroman117/hestia/logs/sentinel.error.log</string>
+</dict>
+</plist>
