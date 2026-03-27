@@ -24,7 +24,7 @@ packages:
 settings:
   base:
     MARKETING_VERSION: "1.11.0"
-    CURRENT_PROJECT_VERSION: "57"
+    CURRENT_PROJECT_VERSION: "58"
     SWIFT_VERSION: "6.1"
     IPHONEOS_DEPLOYMENT_TARGET: "26.0"
     INFOPLIST_KEY_UILaunchScreen_Generation: YES

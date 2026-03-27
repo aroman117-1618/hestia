@@ -34,6 +34,7 @@ class SpeechService: ObservableObject {
     private var analyzer: SpeechAnalyzer?
     private var transcriber: SpeechTranscriber?
     private var inputContinuation: AsyncStream<AnalyzerInput>.Continuation?
+    private var currentTapHandler: AudioTapHandler?
     private var resultTask: Task<Void, Never>?
     private var durationTimer: Timer?
     private var onResultCallback: ((String, Bool) -> Void)?
@@ -170,36 +171,26 @@ class SpeechService: ObservableObject {
         let inputNode = engine.inputNode
         let inputFormat = inputNode.outputFormat(forBus: 0)
 
-        // Install tap to capture mic audio
-        // Audio tap runs on a realtime thread — must NOT capture self (even weakly).
-        // Swift 6 strict concurrency crashes on @MainActor isolation check for any self access.
-        let continuation = inputContinuation
-        let audioLevelSetter = { @Sendable (level: CGFloat) in
-            Task { @MainActor [weak self] in
-                self?.audioLevel = level
-                self?.onAudioLevel?(level)
+        // Create a non-isolated tap handler to avoid Swift 6 @MainActor crash.
+        // The tap handler owns the continuation and audio level callback with no
+        // reference to self — completely decoupled from @MainActor.
+        let tapHandler = AudioTapHandler(
+            continuation: inputContinuation,
+            audioLevelCallback: { [weak self] level in
+                Task { @MainActor in
+                    self?.audioLevel = level
+                    self?.onAudioLevel?(level)
+                }
             }
-        }
+        )
+        self.currentTapHandler = tapHandler
+
         inputNode.installTap(
             onBus: 0,
             bufferSize: 4096,
-            format: inputFormat
-        ) { buffer, _ in
-            // Feed buffer to speech analyzer (thread-safe via AsyncStream)
-            let input = AnalyzerInput(buffer: buffer)
-            continuation?.yield(input)
-
-            // Extract audio level for waveform visualization
-            guard let channelData = buffer.floatChannelData?[0] else { return }
-            let frameCount = Int(buffer.frameLength)
-            var sum: Float = 0
-            for i in 0..<frameCount {
-                sum += abs(channelData[i])
-            }
-            let avg = sum / Float(max(frameCount, 1))
-            let normalized = CGFloat(min(avg * 10, 1.0))
-            audioLevelSetter(normalized)
-        }
+            format: inputFormat,
+            block: tapHandler.handleBuffer
+        )
 
         engine.prepare()
         try engine.start()
@@ -210,10 +201,8 @@ class SpeechService: ObservableObject {
         audioEngine?.inputNode.removeTap(onBus: 0)
         audioEngine?.stop()
         audioEngine = nil
+        currentTapHandler = nil
     }
-
-    // processAudioBuffer logic moved inline into installTap closure
-    // to avoid @MainActor isolation crash on audio realtime thread
 
     // MARK: - Duration Timer
 
@@ -247,5 +236,41 @@ enum SpeechServiceError: LocalizedError {
         case .analyzerFailed:
             return "Speech analysis failed."
         }
+    }
+}
+
+// MARK: - Audio Tap Handler (Non-Isolated)
+
+/// Handles audio tap callbacks on the realtime audio thread.
+/// Completely decoupled from @MainActor — no isolation violations.
+/// This class is NOT @MainActor and NOT Sendable-checked at the call site.
+private final class AudioTapHandler: @unchecked Sendable {
+    private let continuation: AsyncStream<AnalyzerInput>.Continuation?
+    private let audioLevelCallback: @Sendable (CGFloat) -> Void
+
+    init(
+        continuation: AsyncStream<AnalyzerInput>.Continuation?,
+        audioLevelCallback: @escaping @Sendable (CGFloat) -> Void
+    ) {
+        self.continuation = continuation
+        self.audioLevelCallback = audioLevelCallback
+    }
+
+    /// Called from AVAudioEngine's realtime audio thread. No @MainActor access.
+    func handleBuffer(_ buffer: AVAudioPCMBuffer, _ when: AVAudioTime) {
+        // Feed to speech analyzer
+        let input = AnalyzerInput(buffer: buffer)
+        continuation?.yield(input)
+
+        // Extract audio level
+        guard let channelData = buffer.floatChannelData?[0] else { return }
+        let frameCount = Int(buffer.frameLength)
+        var sum: Float = 0
+        for i in 0..<frameCount {
+            sum += abs(channelData[i])
+        }
+        let avg = sum / Float(max(frameCount, 1))
+        let normalized = CGFloat(min(avg * 10, 1.0))
+        audioLevelCallback(normalized)
     }
 }
