@@ -2,18 +2,10 @@ import AVFoundation
 import HestiaShared
 import Speech
 
-/// Service wrapping Apple's SpeechAnalyzer (iOS 26+) for on-device speech-to-text.
+/// Service wrapping SFSpeechRecognizer for on-device speech-to-text.
+/// Uses the stable SFSpeechRecognizer API (not the iOS 26 SpeechAnalyzer which crashes).
 ///
-/// Pipeline: AVAudioEngine (mic) → buffer conversion → SpeechAnalyzer → transcript results
-///
-/// Usage:
-/// ```
-/// let service = SpeechService()
-/// try await service.startTranscription { text, isFinal in
-///     // Update UI with live transcript
-/// }
-/// let finalTranscript = await service.stopTranscription()
-/// ```
+/// Pipeline: AVAudioEngine (mic) → SFSpeechAudioBufferRecognitionRequest → transcript results
 @MainActor
 class SpeechService: ObservableObject {
     // MARK: - Published State
@@ -24,18 +16,15 @@ class SpeechService: ObservableObject {
     @Published var hasPermission: Bool = false
     @Published var audioLevel: CGFloat = 0
 
-    /// Called on each audio buffer with the normalized audio level (0.0-1.0).
-    /// Used by VoiceActivityDetector for silence detection.
     var onAudioLevel: ((CGFloat) -> Void)?
 
     // MARK: - Private State
 
     private var audioEngine: AVAudioEngine?
-    private var analyzer: SpeechAnalyzer?
-    private var transcriber: SpeechTranscriber?
-    private var inputContinuation: AsyncStream<AnalyzerInput>.Continuation?
+    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    private var recognitionTask: SFSpeechRecognitionTask?
+    private let speechRecognizer = SFSpeechRecognizer(locale: Locale.current)
     private var currentTapHandler: AudioTapHandler?
-    private var resultTask: Task<Void, Never>?
     private var durationTimer: Timer?
     private var onResultCallback: ((String, Bool) -> Void)?
 
@@ -49,7 +38,6 @@ class SpeechService: ObservableObject {
 
     // MARK: - Permissions
 
-    /// Check and request microphone + speech recognition permissions.
     func checkPermissions() async {
         let speechStatus = SFSpeechRecognizer.authorizationStatus()
         if speechStatus == .notDetermined {
@@ -72,95 +60,61 @@ class SpeechService: ObservableObject {
 
     // MARK: - Transcription Lifecycle
 
-    /// Start live transcription from the device microphone.
-    ///
-    /// - Parameter onResult: Callback invoked on each transcript update.
-    ///   `text` is the current transcript, `isFinal` indicates segment completion.
     func startTranscription(onResult: @escaping (String, Bool) -> Void) async throws {
         guard hasPermission else {
             throw SpeechServiceError.permissionDenied
         }
         guard !isRecording else { return }
+        guard let speechRecognizer, speechRecognizer.isAvailable else {
+            throw SpeechServiceError.analyzerFailed
+        }
 
         onResultCallback = onResult
         currentTranscript = ""
         recordingDuration = 0
 
-        // Create transcriber and analyzer
-        let transcriber = SpeechTranscriber(
-            locale: Locale.current,
-            transcriptionOptions: [],
-            reportingOptions: [.volatileResults],
-            attributeOptions: []
-        )
-        self.transcriber = transcriber
+        // Create recognition request
+        let request = SFSpeechAudioBufferRecognitionRequest()
+        request.shouldReportPartialResults = true
+        request.requiresOnDeviceRecognition = true
+        self.recognitionRequest = request
 
-        let analyzer = SpeechAnalyzer(modules: [transcriber])
-        self.analyzer = analyzer
+        // Start recognition task
+        recognitionTask = speechRecognizer.recognitionTask(with: request) { [weak self] result, error in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
 
-        // Create async stream for audio input
-        let (inputSequence, continuation) = AsyncStream<AnalyzerInput>.makeStream()
-        self.inputContinuation = continuation
-
-        // Start reading results in background
-        resultTask = Task { [weak self] in
-            do {
-                for try await result in transcriber.results {
-                    let text = String(result.text.characters)
-                    let isFinal = result.isFinal
-                    await MainActor.run {
-                        self?.currentTranscript = text
-                        self?.onResultCallback?(text, isFinal)
-                    }
+                if let result {
+                    let text = result.bestTranscription.formattedString
+                    self.currentTranscript = text
+                    self.onResultCallback?(text, result.isFinal)
                 }
-            } catch {
-                #if DEBUG
-                await MainActor.run {
-                    print("[SpeechService] Result stream error: \(error)")
+
+                if error != nil || result?.isFinal == true {
+                    // Recognition ended — don't stop engine here,
+                    // stopTranscription() handles cleanup
                 }
-                #endif
             }
         }
 
-        // Start the analyzer with the input stream
-        try await analyzer.start(inputSequence: inputSequence)
-
-        // Start audio engine
+        // Start audio engine with tap
         try startAudioEngine()
 
         isRecording = true
         startDurationTimer()
     }
 
-    /// Stop transcription and return the final transcript.
-    ///
-    /// - Returns: The final transcribed text.
     func stopTranscription() async -> String {
         guard isRecording else { return currentTranscript }
 
         stopDurationTimer()
         stopAudioEngine()
 
-        // Signal end of input
-        inputContinuation?.finish()
-        inputContinuation = nil
-
-        // Wait for analyzer to finalize
-        do {
-            try await analyzer?.finalizeAndFinishThroughEndOfInput()
-        } catch {
-            #if DEBUG
-            print("[SpeechService] Finalize error: \(error)")
-            #endif
-        }
-
-        // Cancel result task
-        resultTask?.cancel()
-        resultTask = nil
-
-        // Cleanup
-        analyzer = nil
-        transcriber = nil
+        // End recognition
+        recognitionRequest?.endAudio()
+        recognitionTask?.cancel()
+        recognitionRequest = nil
+        recognitionTask = nil
         isRecording = false
 
         return currentTranscript
@@ -173,11 +127,10 @@ class SpeechService: ObservableObject {
         let inputNode = engine.inputNode
         let inputFormat = inputNode.outputFormat(forBus: 0)
 
-        // Create a non-isolated tap handler to avoid Swift 6 @MainActor crash.
-        // The tap handler owns the continuation and audio level callback with no
-        // reference to self — completely decoupled from @MainActor.
+        // Non-isolated tap handler — feeds audio to SFSpeechRecognitionRequest
+        let request = recognitionRequest
         let tapHandler = AudioTapHandler(
-            continuation: inputContinuation,
+            recognitionRequest: request,
             audioLevelCallback: { [weak self] level in
                 Task { @MainActor in
                     self?.audioLevel = level
@@ -236,7 +189,7 @@ enum SpeechServiceError: LocalizedError {
         case .engineStartFailed:
             return "Failed to start audio engine."
         case .analyzerFailed:
-            return "Speech analysis failed."
+            return "Speech recognition is not available."
         }
     }
 }
@@ -244,25 +197,22 @@ enum SpeechServiceError: LocalizedError {
 // MARK: - Audio Tap Handler (Non-Isolated)
 
 /// Handles audio tap callbacks on the realtime audio thread.
-/// Completely decoupled from @MainActor — no isolation violations.
-/// This class is NOT @MainActor and NOT Sendable-checked at the call site.
+/// Completely decoupled from @MainActor — feeds buffers to SFSpeechRecognitionRequest.
 private final class AudioTapHandler: @unchecked Sendable {
-    private let continuation: AsyncStream<AnalyzerInput>.Continuation?
+    private let recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private let audioLevelCallback: @Sendable (CGFloat) -> Void
 
     init(
-        continuation: AsyncStream<AnalyzerInput>.Continuation?,
+        recognitionRequest: SFSpeechAudioBufferRecognitionRequest?,
         audioLevelCallback: @escaping @Sendable (CGFloat) -> Void
     ) {
-        self.continuation = continuation
+        self.recognitionRequest = recognitionRequest
         self.audioLevelCallback = audioLevelCallback
     }
 
-    /// Called from AVAudioEngine's realtime audio thread. No @MainActor access.
     func handleBuffer(_ buffer: AVAudioPCMBuffer, _ when: AVAudioTime) {
-        // Feed to speech analyzer
-        let input = AnalyzerInput(buffer: buffer)
-        continuation?.yield(input)
+        // Feed to speech recognizer
+        recognitionRequest?.append(buffer)
 
         // Extract audio level
         guard let channelData = buffer.floatChannelData?[0] else { return }
