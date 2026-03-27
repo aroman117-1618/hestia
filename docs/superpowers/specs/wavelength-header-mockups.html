@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hestia Header Mockups</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a0a;
+    color: white;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 60px;
+    padding: 40px 20px;
+  }
+  .label {
+    font-size: 12px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+  .mockup {
+    width: 390px;
+    height: 200px;
+    background: #020101;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid #1a1a1a;
+  }
+
+  /* === Option A: Warm Glow Title === */
+  .opt-a .title {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    background: linear-gradient(135deg, #FFD700, #FF9F0A, #E08A00);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: none;
+    position: relative;
+    z-index: 2;
+  }
+  .opt-a .title::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 120px;
+    height: 40px;
+    background: radial-gradient(ellipse, rgba(255,159,10,0.15) 0%, transparent 70%);
+    z-index: -1;
+  }
+  .opt-a .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #4CD964;
+    box-shadow: 0 0 6px #4CD964;
+    display: inline-block;
+    margin-left: 8px;
+    vertical-align: middle;
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+
+  /* === Option B: Ember Title with Tagline === */
+  .opt-b .title {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: #FF9F0A;
+    text-shadow: 0 0 20px rgba(255,159,10,0.4), 0 0 40px rgba(255,159,10,0.15);
+    position: relative;
+    z-index: 2;
+  }
+  .opt-b .tagline {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: rgba(255,159,10,0.35);
+    margin-top: 4px;
+  }
+  .opt-b .status-line {
+    width: 30px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #FF9F0A, transparent);
+    margin-top: 10px;
+    animation: breathe-line 3s ease-in-out infinite;
+  }
+
+  /* === Option C: Minimal Bold + Firefly Accent === */
+  .opt-c .title {
+    font-size: 32px;
+    font-weight: 900;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    background: linear-gradient(180deg, #FFF0D0, #FF9F0A);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    position: relative;
+  }
+  .opt-c .fireflies {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+  }
+  .opt-c .firefly {
+    position: absolute;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: #FFD700;
+    box-shadow: 0 0 4px #FFD700, 0 0 8px rgba(255,159,10,0.5);
+    animation: float-firefly 4s ease-in-out infinite;
+  }
+  .opt-c .firefly:nth-child(1) { top: 30%; left: 20%; animation-delay: 0s; }
+  .opt-c .firefly:nth-child(2) { top: 60%; left: 70%; animation-delay: 1.2s; }
+  .opt-c .firefly:nth-child(3) { top: 40%; left: 85%; animation-delay: 2.5s; }
+  .opt-c .firefly:nth-child(4) { top: 55%; left: 35%; animation-delay: 0.7s; }
+
+  /* === Option D: Signature Script Feel === */
+  .opt-d .title {
+    font-size: 30px;
+    font-weight: 300;
+    font-style: italic;
+    letter-spacing: 2px;
+    color: #FF9F0A;
+    text-shadow: 0 0 30px rgba(255,159,10,0.3);
+    position: relative;
+  }
+  .opt-d .underline {
+    width: 80px;
+    height: 1.5px;
+    background: linear-gradient(90deg, transparent, #FF9F0A 30%, #FFD700 70%, transparent);
+    margin-top: 6px;
+    animation: shimmer-underline 3s ease-in-out infinite;
+  }
+  .opt-d .mode-badge {
+    margin-top: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255,159,10,0.5);
+    padding: 3px 10px;
+    border: 1px solid rgba(255,159,10,0.2);
+    border-radius: 10px;
+  }
+
+  /* === Option E: Constellation (Geometric) === */
+  .opt-e .title {
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: 8px;
+    text-transform: uppercase;
+    color: #FF9F0A;
+    position: relative;
+  }
+  .opt-e .constellation {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+  }
+  .opt-e .star {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    border-radius: 50%;
+    background: #FFD700;
+    box-shadow: 0 0 3px rgba(255,215,0,0.6);
+    animation: twinkle 2s ease-in-out infinite alternate;
+  }
+  .opt-e .star:nth-child(1) { top: 25%; left: 15%; animation-delay: 0s; }
+  .opt-e .star:nth-child(2) { top: 35%; left: 80%; animation-delay: 0.5s; }
+  .opt-e .star:nth-child(3) { top: 70%; left: 25%; animation-delay: 1s; }
+  .opt-e .star:nth-child(4) { top: 20%; left: 60%; animation-delay: 1.5s; }
+  .opt-e .star:nth-child(5) { top: 65%; left: 75%; animation-delay: 0.3s; }
+  .opt-e .line-connector {
+    position: absolute;
+    background: rgba(255,159,10,0.08);
+    height: 1px;
+    transform-origin: left center;
+  }
+  .opt-e .divider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .opt-e .divider-line {
+    width: 20px;
+    height: 1px;
+    background: rgba(255,159,10,0.3);
+  }
+  .opt-e .divider-diamond {
+    width: 4px;
+    height: 4px;
+    background: #FF9F0A;
+    transform: rotate(45deg);
+    box-shadow: 0 0 4px rgba(255,159,10,0.5);
+  }
+
+  /* Animations */
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; box-shadow: 0 0 6px #4CD964; }
+    50% { opacity: 0.5; box-shadow: 0 0 3px #4CD964; }
+  }
+  @keyframes breathe-line {
+    0%, 100% { width: 30px; opacity: 0.6; }
+    50% { width: 50px; opacity: 1; }
+  }
+  @keyframes float-firefly {
+    0%, 100% { transform: translate(0, 0); opacity: 0.3; }
+    25% { transform: translate(8px, -12px); opacity: 0.9; }
+    50% { transform: translate(-5px, -20px); opacity: 0.5; }
+    75% { transform: translate(12px, -8px); opacity: 0.8; }
+  }
+  @keyframes shimmer-underline {
+    0%, 100% { opacity: 0.5; width: 60px; }
+    50% { opacity: 1; width: 100px; }
+  }
+  @keyframes twinkle {
+    0% { opacity: 0.3; transform: scale(0.8); }
+    100% { opacity: 1; transform: scale(1.2); }
+  }
+</style>
+</head>
+<body>
+
+<h1 style="font-size: 14px; color: #555; letter-spacing: 3px; text-transform: uppercase;">Hestia Header Mockups — Conversation State</h1>
+<p style="font-size: 12px; color: #444; max-width: 400px; text-align: center; line-height: 1.6;">
+  These sit at the top of the conversation view (above the wavelength). Amber to match chat accent color. Each has a different personality.
+</p>
+
+<!-- Option A: Warm Glow -->
+<div>
+  <div class="label">A — Warm Gradient + Status Dot</div>
+  <div class="mockup opt-a">
+    <div style="display:flex;align-items:center;">
+      <span class="title">Hestia</span>
+      <span class="status-dot"></span>
+    </div>
+  </div>
+</div>
+
+<!-- Option B: Ember with Tagline -->
+<div>
+  <div class="label">B — Ember Glow + Tagline</div>
+  <div class="mockup opt-b">
+    <span class="title">Hestia</span>
+    <span class="tagline">At your service</span>
+    <div class="status-line"></div>
+  </div>
+</div>
+
+<!-- Option C: Bold + Fireflies -->
+<div>
+  <div class="label">C — Bold Uppercase + Firefly Accents</div>
+  <div class="mockup opt-c">
+    <div class="fireflies">
+      <div class="firefly"></div>
+      <div class="firefly"></div>
+      <div class="firefly"></div>
+      <div class="firefly"></div>
+    </div>
+    <span class="title">HESTIA</span>
+  </div>
+</div>
+
+<!-- Option D: Signature Script -->
+<div>
+  <div class="label">D — Signature + Underline + Mode Badge</div>
+  <div class="mockup opt-d">
+    <span class="title">Hestia</span>
+    <div class="underline"></div>
+    <span class="mode-badge">Tia Mode</span>
+  </div>
+</div>
+
+<!-- Option E: Constellation / Geometric -->
+<div>
+  <div class="label">E — Constellation + Diamond Divider</div>
+  <div class="mockup opt-e">
+    <div class="constellation">
+      <div class="star"></div>
+      <div class="star"></div>
+      <div class="star"></div>
+      <div class="star"></div>
+      <div class="star"></div>
+    </div>
+    <span class="title">HESTIA</span>
+    <div class="divider">
+      <div class="divider-line"></div>
+      <div class="divider-diamond"></div>
+      <div class="divider-line"></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

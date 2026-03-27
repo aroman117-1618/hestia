@@ -1,16 +1,21 @@
 import SwiftUI
 import HestiaShared
 
-/// Card-based mobile command dashboard — view + critical actions.
+/// Card-based mobile command dashboard.
+/// Trading condensed to one card (bot rows only show when unhealthy).
+/// Orders removed. Feed shows scheduled orders, completed output, investigations.
+/// Quick Actions moved to Force Touch menu.
 struct MobileCommandView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var apiClientProvider: APIClientProvider
     @EnvironmentObject var authService: AuthService
     @StateObject private var viewModel = MobileCommandViewModel()
 
+    @State private var selectedPeriod = 0  // 0=7D, 1=30D, 2=3M
+
     var body: some View {
         ZStack {
-            GradientBackground(mode: appState.currentMode)
+            Color.black
                 .ignoresSafeArea()
 
             ScrollView {
@@ -22,20 +27,11 @@ struct MobileCommandView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.top, Spacing.lg)
 
-                    // Status Card
-                    statusCard
-
-                    // Trading Card
+                    // Condensed Trading Card
                     tradingCard
 
-                    // Orders Card
-                    ordersCard
-
-                    // Newsfeed Card
-                    newsfeedCard
-
-                    // Quick Actions
-                    quickActionsCard
+                    // Feed Card (replaces Orders + Newsfeed)
+                    feedCard
                 }
                 .padding(.horizontal, Spacing.md)
                 .padding(.top, Spacing.sm)
@@ -59,60 +55,66 @@ struct MobileCommandView: View {
         }
     }
 
-    // MARK: - Status Card
-
-    private var statusCard: some View {
-        HestiaCard(label: "STATUS") {
-            HStack(spacing: Spacing.lg) {
-                statusMetric(
-                    value: "\(viewModel.summary?.activeBots ?? 0)",
-                    label: "Bots"
-                )
-                statusMetric(
-                    value: formatPnl(viewModel.summary?.totalPnl ?? 0),
-                    label: "24h P&L"
-                )
-                statusMetric(
-                    value: "\(viewModel.summary?.totalTrades ?? 0)",
-                    label: "Fills"
-                )
-                Spacer()
-                if let summary = viewModel.summary {
-                    HestiaStatusBadge(
-                        text: summary.killSwitchActive ? "Kill Active" : "Healthy",
-                        status: summary.killSwitchActive ? .error : .healthy
-                    )
-                }
-            }
-        }
-    }
-
-    // MARK: - Trading Card
+    // MARK: - Trading Card (Condensed)
 
     private var tradingCard: some View {
         HestiaCard(label: "TRADING") {
             VStack(spacing: Spacing.sm) {
-                if viewModel.bots.isEmpty && !viewModel.failedSections.contains("bots") {
-                    Text("No active bots")
+                // Summary metrics + health badge
+                HStack(spacing: Spacing.lg) {
+                    statusMetric(
+                        value: "\(viewModel.summary?.activeBots ?? 0)",
+                        label: "Bots"
+                    )
+                    statusMetric(
+                        value: formatPnl(viewModel.summary?.totalPnl ?? 0),
+                        label: "P&L"
+                    )
+                    statusMetric(
+                        value: "\(viewModel.summary?.totalTrades ?? 0)",
+                        label: "Fills"
+                    )
+                    Spacer()
+                    if let summary = viewModel.summary {
+                        HestiaStatusBadge(
+                            text: summary.killSwitchActive ? "Kill Active" : "Healthy",
+                            status: summary.killSwitchActive ? .error : .healthy
+                        )
+                    }
+                }
+
+                // Period toggle (7D / 30D / 3M)
+                Picker("Period", selection: $selectedPeriod) {
+                    Text("7D").tag(0)
+                    Text("30D").tag(1)
+                    Text("3M").tag(2)
+                }
+                .pickerStyle(.segmented)
+                .colorMultiply(Color(red: 1, green: 159/255, blue: 10/255))
+
+                // Unhealthy bots only — if all healthy, show summary message
+                let unhealthyBots = viewModel.bots.filter { $0.status != "running" }
+                if unhealthyBots.isEmpty {
+                    Text("All \(viewModel.bots.count) bots running normally")
                         .font(.caption)
-                        .foregroundColor(.textTertiary)
+                        .foregroundColor(.textSecondary)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, Spacing.md)
+                        .padding(.vertical, Spacing.xs)
                 } else {
-                    ForEach(viewModel.bots) { bot in
+                    ForEach(unhealthyBots) { bot in
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(bot.name)
+                                Text(bot.pair)
                                     .font(.body.weight(.medium))
                                     .foregroundColor(.textPrimary)
-                                Text(bot.pair)
+                                Text(bot.name)
                                     .font(.caption)
                                     .foregroundColor(.textSecondary)
                             }
                             Spacer()
                             HestiaStatusBadge(
                                 text: bot.status.capitalized,
-                                status: bot.status == "running" ? .healthy : .neutral
+                                status: statusFor(bot.status)
                             )
                         }
                         .padding(.vertical, Spacing.xs)
@@ -153,100 +155,78 @@ struct MobileCommandView: View {
         }
     }
 
-    // MARK: - Orders Card
+    // MARK: - Feed Card (Scheduled Orders + Completed Output + Investigations)
 
-    private var ordersCard: some View {
-        HestiaCard(label: "ORDERS") {
-            if viewModel.workflows.isEmpty && !viewModel.failedSections.contains("workflows") {
-                Text("No active orders")
+    private var feedCard: some View {
+        HestiaCard(label: "FEED") {
+            if viewModel.newsfeedItems.isEmpty && viewModel.workflows.isEmpty
+                && !viewModel.failedSections.contains("newsfeed")
+                && !viewModel.failedSections.contains("workflows") {
+                Text("No recent activity")
                     .font(.caption)
                     .foregroundColor(.textTertiary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, Spacing.md)
             } else {
-                VStack(spacing: Spacing.sm) {
-                    ForEach(viewModel.workflows.prefix(3)) { workflow in
-                        HStack {
-                            Text(workflow.name)
-                                .font(.body)
-                                .foregroundColor(.textPrimary)
-                                .lineLimit(1)
-                            Spacer()
-                            HestiaStatusBadge(
-                                text: workflow.status.capitalized,
-                                status: statusFor(workflow.status)
-                            )
-                        }
+                VStack(spacing: 0) {
+                    // Upcoming scheduled orders
+                    ForEach(viewModel.workflows.filter { $0.status == "active" }.prefix(3)) { workflow in
+                        feedRow(
+                            icon: "clock.fill",
+                            iconColor: Color(red: 1, green: 159/255, blue: 10/255),
+                            title: workflow.name,
+                            subtitle: "Scheduled",
+                            showDivider: true
+                        )
                     }
-                    if viewModel.workflows.count > 3 {
-                        Text("+\(viewModel.workflows.count - 3) more")
+
+                    // Newsfeed items (completed output + investigations)
+                    ForEach(Array(viewModel.newsfeedItems.prefix(5).enumerated()), id: \.element.id) { index, item in
+                        feedRow(
+                            icon: feedIcon(for: item),
+                            iconColor: feedColor(for: item),
+                            title: item.title,
+                            subtitle: item.summary,
+                            showDivider: index < min(viewModel.newsfeedItems.count - 1, 4)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Feed Row
+
+    private func feedRow(icon: String, iconColor: Color, title: String, subtitle: String?, showDivider: Bool) -> some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .top, spacing: Spacing.sm) {
+                Image(systemName: icon)
+                    .font(.system(size: 13))
+                    .foregroundColor(iconColor)
+                    .frame(width: 28, height: 28)
+                    .background(iconColor.opacity(0.15))
+                    .cornerRadius(8)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.body.weight(.medium))
+                        .foregroundColor(.textPrimary)
+                        .lineLimit(1)
+                    if let subtitle, !subtitle.isEmpty {
+                        Text(subtitle)
                             .font(.caption)
-                            .foregroundColor(.textTertiary)
+                            .foregroundColor(.textSecondary)
+                            .lineLimit(2)
                     }
                 }
+
+                Spacer()
             }
-        }
-    }
+            .padding(.vertical, Spacing.sm)
 
-    // MARK: - Newsfeed Card
-
-    private var newsfeedCard: some View {
-        HestiaCard(label: "NEWSFEED") {
-            if viewModel.newsfeedItems.isEmpty && !viewModel.failedSections.contains("newsfeed") {
-                Text("No recent items")
-                    .font(.caption)
-                    .foregroundColor(.textTertiary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, Spacing.md)
-            } else {
-                VStack(spacing: Spacing.sm) {
-                    ForEach(viewModel.newsfeedItems.prefix(3)) { item in
-                        HStack(alignment: .top, spacing: Spacing.sm) {
-                            if item.isRead != true {
-                                Circle()
-                                    .fill(Color.systemBlue)
-                                    .frame(width: 6, height: 6)
-                                    .padding(.top, 6)
-                            }
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(item.title)
-                                    .font(.body)
-                                    .foregroundColor(.textPrimary)
-                                    .lineLimit(1)
-                                if let summary = item.summary {
-                                    Text(summary)
-                                        .font(.caption)
-                                        .foregroundColor(.textSecondary)
-                                        .lineLimit(2)
-                                }
-                            }
-                            Spacer()
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // MARK: - Quick Actions
-
-    private var quickActionsCard: some View {
-        HestiaCard(label: "QUICK ACTIONS") {
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: Spacing.sm) {
-                HestiaPillButton(title: "Cloud Mode", icon: "cloud.fill", tint: .accent) {
-                    Task {
-                        _ = try? await apiClientProvider.client.cycleCloudState()
-                    }
-                }
-                HestiaPillButton(title: "Investigate", icon: "magnifyingglass", tint: .accent) {
-                    // TODO: Navigate to investigate sheet
-                }
-                HestiaPillButton(title: "Journal", icon: "book.fill", tint: .accent) {
-                    // TODO: Switch to chat tab in journal mode
-                }
-                HestiaPillButton(title: "Lock", icon: "lock.fill", tint: .errorRed) {
-                    authService.lock()
-                }
+            if showDivider {
+                Divider()
+                    .background(Color.white.opacity(0.05))
             }
         }
     }
@@ -276,5 +256,17 @@ struct MobileCommandView: View {
         case "failed", "error": return .error
         default: return .neutral
         }
+    }
+
+    private func feedIcon(for item: MobileNewsfeedItem) -> String {
+        if item.title.lowercased().contains("investigat") { return "magnifyingglass" }
+        if item.title.lowercased().contains("complete") || item.title.lowercased().contains("finished") { return "checkmark.circle.fill" }
+        return "doc.text.fill"
+    }
+
+    private func feedColor(for item: MobileNewsfeedItem) -> Color {
+        if item.title.lowercased().contains("investigat") { return Color(red: 90/255, green: 200/255, blue: 250/255) }
+        if item.title.lowercased().contains("complete") || item.title.lowercased().contains("finished") { return .healthyGreen }
+        return Color(red: 1, green: 159/255, blue: 10/255)
     }
 }

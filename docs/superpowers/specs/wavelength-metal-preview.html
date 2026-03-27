@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Hestia — Metal-Quality Wavelength Preview</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #111;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .phone-frame {
+    width: 390px;
+    height: 844px;
+    background: #020101;
+    border-radius: 44px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 0 0 3px #333, 0 0 40px rgba(0,0,0,0.8);
+  }
+
+  .dynamic-island {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 126px;
+    height: 36px;
+    background: #000;
+    border-radius: 20px;
+    z-index: 50;
+  }
+
+  #wavelength {
+    position: absolute;
+    top: 0; left: 0;
+    width: 390px;
+    height: 844px;
+  }
+
+  /* Header */
+  .header {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 60px;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .header-content {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .constellation {
+    position: absolute;
+    top: -20px; left: -60px; right: -60px; bottom: -30px;
+    pointer-events: none;
+  }
+  .star {
+    position: absolute;
+    border-radius: 50%;
+    background: #FFD700;
+    animation: twinkle 2.5s ease-in-out infinite alternate;
+  }
+  .star.sm { width: 2px; height: 2px; box-shadow: 0 0 3px rgba(255,215,0,0.5); }
+  .star.md { width: 3px; height: 3px; box-shadow: 0 0 5px rgba(255,215,0,0.6); }
+  .star.lg { width: 4px; height: 4px; box-shadow: 0 0 6px rgba(255,159,10,0.7); }
+  .star:nth-child(1) { top: 0%; left: 5%; animation-delay: 0s; }
+  .star:nth-child(2) { top: 15%; left: 90%; animation-delay: 0.8s; }
+  .star:nth-child(3) { top: 85%; left: 15%; animation-delay: 1.5s; }
+  .star:nth-child(4) { top: 10%; left: 55%; animation-delay: 0.3s; }
+  .star:nth-child(5) { top: 75%; left: 80%; animation-delay: 2.0s; }
+  .star:nth-child(6) { top: 45%; left: 0%; animation-delay: 1.2s; }
+  .star:nth-child(7) { top: 60%; left: 95%; animation-delay: 0.6s; }
+
+  .title {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    background: linear-gradient(135deg, #FFD700, #FF9F0A, #E08A00);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    position: relative;
+    z-index: 2;
+  }
+
+  .underline {
+    height: 1.5px;
+    margin-top: 6px;
+    background: linear-gradient(90deg, transparent, #FF9F0A 30%, #FFD700 70%, transparent);
+    animation: shimmer-underline 3s ease-in-out infinite;
+    border-radius: 1px;
+  }
+
+  /* Chat area — starts at wavelength zone boundary, messages fade behind wave */
+  .chat-area {
+    position: absolute;
+    top: 330px;  /* below wavelength speaking spread (~39%) */
+    bottom: 0; left: 0; right: 0;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Tall, soft fade — messages dissolve gradually behind the wavelength */
+  .chat-fade {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 120px;
+    background: linear-gradient(to bottom,
+      rgba(2,1,1,1) 0%,
+      rgba(2,1,1,0.7) 35%,
+      rgba(2,1,1,0.3) 65%,
+      rgba(2,1,1,0) 100%
+    );
+    z-index: 5;
+    pointer-events: none;
+  }
+
+  .messages-scroll {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 60px 16px 8px;  /* top padding so content starts below fade */
+    gap: 6px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .messages-scroll::-webkit-scrollbar { display: none; }
+
+  .bubble {
+    max-width: 75%;
+    padding: 10px 14px;
+    border-radius: 18px;
+    font-size: 15px;
+    line-height: 1.4;
+    flex-shrink: 0;
+  }
+  .bubble.user {
+    align-self: flex-end;
+    background: rgba(255,255,255,0.1);
+    color: white;
+  }
+  .bubble.assistant {
+    align-self: flex-start;
+    background: rgba(255,159,10,0.12);
+    color: #f0e0c8;
+    border: 1px solid rgba(255,159,10,0.15);
+  }
+  .bubble .time {
+    font-size: 10px;
+    color: rgba(255,255,255,0.2);
+    margin-top: 3px;
+  }
+
+  /* Input bar */
+  .input-bar-wrap {
+    flex-shrink: 0;
+    padding: 6px 24px 20px;
+    pointer-events: auto;
+  }
+  .input-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(20px);
+    border-radius: 28px;
+    border: 0.5px solid rgba(255,255,255,0.12);
+  }
+  .input-bar input {
+    flex: 1;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 16px;
+    outline: none;
+    padding: 4px 0;
+  }
+  .input-bar input::placeholder { color: rgba(255,255,255,0.3); }
+
+  /* Mic button with hold progress */
+  .mic-btn {
+    width: 36px;
+    height: 36px;
+    position: relative;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .mic-btn svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: rgba(255,255,255,0.6);
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .mic-btn .progress-ring {
+    position: absolute;
+    top: -1px; left: -1px;
+    width: 38px;
+    height: 38px;
+  }
+  .mic-btn .progress-ring circle {
+    fill: none;
+    stroke: #FF9F0A;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-dasharray: 113;  /* 2 * pi * 18 */
+    stroke-dashoffset: 113;
+    transform: rotate(-90deg);
+    transform-origin: center;
+    transition: stroke-dashoffset 0.05s linear;
+  }
+  .mic-btn.holding svg {
+    stroke: #FF9F0A;
+  }
+  .mic-btn .hint {
+    position: absolute;
+    bottom: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px;
+    color: rgba(255,159,10,0.6);
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .mic-btn.holding .hint {
+    opacity: 1;
+  }
+
+  /* Mode toggle */
+  .mode-toggle {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    display: flex;
+    gap: 8px;
+  }
+  .mode-btn {
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: 1px solid rgba(255,159,10,0.3);
+    background: rgba(255,159,10,0.1);
+    color: #FF9F0A;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+  }
+  .mode-btn:hover { background: rgba(255,159,10,0.25); }
+  .mode-btn.active { background: rgba(255,159,10,0.35); border-color: #FF9F0A; }
+
+  .stats {
+    position: absolute;
+    top: 50px; left: 12px;
+    z-index: 60;
+    font-size: 10px;
+    color: rgba(255,255,255,0.25);
+    font-family: 'SF Mono', monospace;
+    line-height: 1.6;
+  }
+
+  .quality-label {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    color: #666;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  @keyframes twinkle {
+    0% { opacity: 0.2; transform: scale(0.7); }
+    100% { opacity: 1; transform: scale(1.3); }
+  }
+  @keyframes shimmer-underline {
+    0%, 100% { opacity: 0.5; width: 60px; }
+    50% { opacity: 1; width: 100px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="quality-label">Metal-Quality Preview — 3x Retina, 60fps Target</div>
+
+<div class="phone-frame">
+  <div class="dynamic-island"></div>
+  <canvas id="wavelength" width="1170" height="2532"></canvas>
+
+  <div class="header">
+    <div class="header-content">
+      <div class="constellation">
+        <div class="star sm"></div>
+        <div class="star md"></div>
+        <div class="star sm"></div>
+        <div class="star md"></div>
+        <div class="star lg"></div>
+        <div class="star sm"></div>
+        <div class="star md"></div>
+      </div>
+      <span class="title">Hestia</span>
+      <div class="underline"></div>
+    </div>
+  </div>
+
+  <!-- Chat area with fade-behind-wavelength -->
+  <div class="chat-area">
+    <div class="chat-fade"></div>
+    <div class="messages-scroll" id="messagesScroll">
+      <!-- Older messages that fade behind wavelength when scrolled up -->
+      <div class="bubble assistant">I've finished analyzing your portfolio. Here's what I found.</div>
+      <div class="bubble user">what about the ETH position?</div>
+      <div class="bubble assistant">ETH-USD is currently in a consolidation phase. RSI-3 at 42 suggests neutral momentum. The mean reversion bot has an open position at $3,241 with a target exit at $3,380.</div>
+      <div class="bubble user">ok thanks. how's the market overall?</div>
+      <div class="bubble assistant">BTC is holding above $67k support with moderate volume. Altcoin correlation has weakened slightly over the past 24h which is constructive for mean reversion strategies.</div>
+      <div class="bubble user">hey tia</div>
+      <div class="bubble assistant">Good evening, Boss. What can I do for you?</div>
+    </div>
+    <div class="input-bar-wrap">
+      <div class="input-bar">
+        <input type="text" placeholder="Message Tia..." id="chatInput">
+        <!-- Mic button: tap = transcribe, hold 2s = conversation -->
+        <div class="mic-btn" id="micBtn">
+          <svg class="progress-ring" viewBox="0 0 38 38">
+            <circle cx="19" cy="19" r="18" id="progressCircle"/>
+          </svg>
+          <!-- Waveform icon (SF Symbol: waveform) -->
+          <svg viewBox="0 0 24 24">
+            <line x1="4" y1="8" x2="4" y2="16"/>
+            <line x1="8" y1="5" x2="8" y2="19"/>
+            <line x1="12" y1="3" x2="12" y2="21"/>
+            <line x1="16" y1="6" x2="16" y2="18"/>
+            <line x1="20" y1="9" x2="20" y2="15"/>
+          </svg>
+          <span class="hint">Hold for conversation...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats" id="stats"></div>
+</div>
+
+<div class="mode-toggle">
+  <button class="mode-btn active" onclick="setMode('idle')">Idle</button>
+  <button class="mode-btn" onclick="setMode('listening')">Listen</button>
+  <button class="mode-btn" onclick="setMode('speaking')">Speak</button>
+</div>
+
+<script>
+// ============================================================
+// METAL-QUALITY Preview — Final Layout
+// - Wave center at 230pt (~27%)
+// - Chat starts at 280pt with 80px fade gradient
+// - Messages scroll behind wavelength with smooth dissolve
+// - Mic button: tap = transcribe, hold 2s = conversation mode
+// ============================================================
+
+const canvas = document.getElementById('wavelength');
+const ctx = canvas.getContext('2d', { alpha: false });
+
+const W = 390;
+const H = 844;
+const DPR = 3;
+
+canvas.width = W * DPR;
+canvas.height = H * DPR;
+canvas.style.width = W + 'px';
+canvas.style.height = H + 'px';
+ctx.scale(DPR, DPR);
+
+const PARTICLE_COUNT = 2000;
+const WAVE_TABLE_SIZE = 128;
+
+const COLORS = [
+  [255, 240, 208],
+  [255, 179,  71],
+  [255, 159,  10],
+  [224, 138,   0],
+  [192, 104,   0],
+  [139,  69,   0],
+  [255, 215,   0],
+];
+
+const texNormal = [];
+const texHero = [];
+
+function createTexCanvas(r, g, b, size, isHero) {
+  const c = document.createElement('canvas');
+  c.width = size * DPR;
+  c.height = size * DPR;
+  const tc = c.getContext('2d');
+  tc.scale(DPR, DPR);
+  const center = size / 2;
+  const grad = tc.createRadialGradient(center, center, 0, center, center, center);
+
+  if (isHero) {
+    grad.addColorStop(0, `rgba(${r},${g},${b},1)`);
+    grad.addColorStop(0.12, `rgba(${r},${g},${b},0.85)`);
+    grad.addColorStop(0.30, `rgba(${r},${g},${b},0.25)`);
+    grad.addColorStop(0.6, `rgba(${r},${g},${b},0.05)`);
+    grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+  } else {
+    grad.addColorStop(0, `rgba(${r},${g},${b},1)`);
+    grad.addColorStop(0.06, `rgba(${r},${g},${b},0.9)`);
+    grad.addColorStop(0.18, `rgba(${r},${g},${b},0.3)`);
+    grad.addColorStop(0.4, `rgba(${r},${g},${b},0.05)`);
+    grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+  }
+
+  tc.fillStyle = grad;
+  tc.beginPath();
+  tc.arc(center, center, center, 0, Math.PI * 2);
+  tc.fill();
+  return c;
+}
+
+for (const c of COLORS) {
+  texNormal.push(createTexCanvas(c[0], c[1], c[2], 32, false));
+  texHero.push(createTexCanvas(c[0], c[1], c[2], 64, true));
+}
+
+const MODES = {
+  idle:      { speedMult: 1.0, ampMult: 1.0, densityMult: 1.0, glowMult: 0.7, audioVol: 0 },
+  listening: { speedMult: 1.2, ampMult: 1.1, densityMult: 1.2, glowMult: 0.85, audioVol: 0.2 },
+  speaking:  { speedMult: 1.4, ampMult: 1.3, densityMult: 1.5, glowMult: 1.0, audioVol: 0.7 },
+};
+
+let currentMode = 'idle';
+let params = { ...MODES.idle };
+let targetParams = { ...MODES.idle };
+
+const waveTableCalm = new Float32Array(WAVE_TABLE_SIZE * 3);
+const waveTableSpeak = new Float32Array(WAVE_TABLE_SIZE * 3);
+
+const particles = [];
+
+function createParticle() {
+  const isHero = Math.random() < 0.04;
+  return {
+    x: Math.random() * W,
+    baseSize: isHero ? (5 + Math.random() * 4) : (2 + Math.random() * 3.5),
+    z: 0.4 + Math.random() * 0.6,
+    speedX: 0.15 + Math.random() * 0.45,
+    yOffset: Math.random() < 0.2
+      ? (Math.random() - 0.5) * 180
+      : (Math.random() - 0.5) * 40,
+    phaseOffset: Math.random() * Math.PI * 2,
+    colorIdx: Math.floor(Math.random() * COLORS.length),
+    ribbon: Math.floor(Math.random() * 3),
+    isHero,
+    isScattered: Math.random() < 0.2,
+  };
+}
+
+for (let i = 0; i < PARTICLE_COUNT; i++) {
+  particles.push(createParticle());
+}
+
+function computeWaveTables(time, speakingTime) {
+  for (let bucket = 0; bucket < WAVE_TABLE_SIZE; bucket++) {
+    const nx = bucket / WAVE_TABLE_SIZE;
+    waveTableCalm[bucket * 3 + 0] = Math.sin(nx * Math.PI * 3 + time * 2) * 45 + Math.sin(nx * Math.PI * 2 - time) * 20;
+    waveTableCalm[bucket * 3 + 1] = Math.sin(nx * Math.PI * 4 + time * 1.5) * 35;
+    waveTableCalm[bucket * 3 + 2] = Math.sin(nx * Math.PI * 2.5 + time * 2.5) * 40;
+    const t = speakingTime;
+    waveTableSpeak[bucket * 3 + 0] = (Math.sin(nx * Math.PI * 2.5 - t * 1.2) + Math.sin(nx * Math.PI * 1.5 + t * 0.8) * 0.5) / 1.5;
+    waveTableSpeak[bucket * 3 + 1] = (Math.sin(nx * Math.PI * 4.0 - t * 1.8) + Math.cos(nx * Math.PI * 2.0 - t * 1.5) * 0.6) / 1.6;
+    waveTableSpeak[bucket * 3 + 2] = (Math.sin(nx * Math.PI * 3.0 + t * 2.4) + Math.sin(nx * Math.PI * 4.5 - t * 2.0) * 0.4) / 1.4;
+  }
+}
+
+let globalTime = 0;
+let speakingTime = 0;
+let lastFrame = performance.now();
+let frameCount = 0;
+let fps = 0;
+let fpsTimer = 0;
+
+const WAVE_CENTER_Y = 230;
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+function frame(now) {
+  const dt = Math.min(0.033, (now - lastFrame) / 1000);
+  lastFrame = now;
+
+  frameCount++;
+  fpsTimer += dt;
+  if (fpsTimer >= 1) {
+    fps = frameCount;
+    frameCount = 0;
+    fpsTimer = 0;
+  }
+
+  for (const key of Object.keys(targetParams)) {
+    params[key] = lerp(params[key], targetParams[key], 0.05);
+  }
+
+  globalTime += 0.005 * params.speedMult;
+  speakingTime += dt * (1 + params.audioVol * 4);
+
+  computeWaveTables(globalTime, speakingTime);
+
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = '#020101';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.globalCompositeOperation = 'lighter';
+
+  const centerY = WAVE_CENTER_Y;
+  const active = params.audioVol;
+  const glow = params.glowMult;
+  const visibleCount = Math.min(Math.floor(PARTICLE_COUNT * 0.66 * params.densityMult), particles.length);
+
+  const baseAmps = [35, 40, 45];
+  const asymmetries = [1.3, 1.7, 2.2];
+  const troughDamps = [0.5, 0.3, 0.15];
+
+  for (let i = 0; i < visibleCount; i++) {
+    const p = particles[i];
+
+    p.x += p.speedX * params.speedMult;
+    if (p.x > W) {
+      p.x = 0;
+      p.yOffset = p.isScattered ? (Math.random() - 0.5) * 180 : (Math.random() - 0.5) * 40;
+    }
+
+    const nx = p.x / W;
+    const d = Math.abs(nx - 0.5) * 2.2;
+    const taper = Math.max(0, 1 - d * d);
+    const alpha = taper * p.z;
+    if (alpha <= 0.05) continue;
+
+    const bucket = Math.min(WAVE_TABLE_SIZE - 1, Math.floor(nx * WAVE_TABLE_SIZE));
+    const ribbon = p.ribbon;
+
+    let calmY = waveTableCalm[bucket * 3 + ribbon];
+    calmY += Math.sin(p.phaseOffset + globalTime) * 8;
+    calmY *= params.ampMult;
+
+    const rawWave = waveTableSpeak[bucket * 3 + ribbon];
+    let speakingY = 0;
+    if (rawWave > 0) {
+      speakingY = -Math.pow(rawWave, 1.5) * baseAmps[ribbon] * params.ampMult * asymmetries[ribbon];
+    } else {
+      speakingY = Math.abs(rawWave) * baseAmps[ribbon] * params.ampMult * troughDamps[ribbon];
+    }
+
+    const speakThick = rawWave > 0 ? (1 + rawWave * rawWave * 1.5) : (1 - Math.abs(rawWave) * 0.6);
+
+    let waveY = calmY * (1 - active) + speakingY * active;
+    const thickness = 1 * (1 - active) + speakThick * active;
+    const swirl = Math.sin(p.phaseOffset + speakingTime * 2.5) * (15 * active);
+    const yOff = (p.yOffset + swirl) * thickness;
+
+    waveY *= taper;
+    const y = centerY + waveY + yOff * p.z * taper;
+
+    const size = p.baseSize * p.z;
+    const drawSize = size * 6;
+    const finalAlpha = alpha * glow;
+
+    ctx.globalAlpha = finalAlpha;
+
+    const tex = p.isHero ? texHero[p.colorIdx] : texNormal[p.colorIdx];
+    ctx.drawImage(tex, p.x - drawSize / 2, y - drawSize / 2, drawSize, drawSize);
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+
+  document.getElementById('stats').textContent = `${fps} fps | ${visibleCount}p | 3x retina`;
+
+  requestAnimationFrame(frame);
+}
+
+function setMode(mode) {
+  currentMode = mode;
+  targetParams = { ...MODES[mode] };
+  document.querySelectorAll('.mode-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.toLowerCase().startsWith(mode.substring(0, 4)));
+  });
+}
+
+// ============================================================
+// MIC BUTTON: tap = transcribe, hold 2s = conversation mode
+// ============================================================
+
+const micBtn = document.getElementById('micBtn');
+const progressCircle = document.getElementById('progressCircle');
+const circumference = 2 * Math.PI * 18;  // r=18
+let holdTimer = null;
+let holdStart = 0;
+let isHolding = false;
+
+function updateProgress(progress) {
+  const offset = circumference - (progress * circumference);
+  progressCircle.style.strokeDashoffset = offset;
+}
+
+micBtn.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  isHolding = true;
+  holdStart = Date.now();
+  micBtn.classList.add('holding');
+  updateProgress(0);
+
+  holdTimer = setInterval(() => {
+    const elapsed = (Date.now() - holdStart) / 2000;  // 2s hold duration
+    if (elapsed >= 1) {
+      // Hold complete — conversation mode
+      clearInterval(holdTimer);
+      holdTimer = null;
+      updateProgress(1);
+
+      // Haptic feedback simulation (visual flash)
+      micBtn.style.transform = 'scale(1.2)';
+      setTimeout(() => { micBtn.style.transform = ''; }, 150);
+
+      // Switch to listening mode
+      setMode('listening');
+      micBtn.classList.remove('holding');
+      updateProgress(0);
+      isHolding = false;
+    } else {
+      updateProgress(elapsed);
+    }
+  }, 50);
+});
+
+micBtn.addEventListener('pointerup', () => {
+  if (!isHolding) return;
+  const elapsed = (Date.now() - holdStart) / 2000;
+
+  clearInterval(holdTimer);
+  holdTimer = null;
+  micBtn.classList.remove('holding');
+  isHolding = false;
+
+  if (elapsed < 1) {
+    // Short tap — transcription mode
+    updateProgress(0);
+    // Visual feedback: brief amber flash on icon
+    micBtn.querySelector('svg:last-of-type').style.stroke = '#FF9F0A';
+    setTimeout(() => {
+      micBtn.querySelector('svg:last-of-type').style.stroke = '';
+    }, 300);
+  }
+});
+
+micBtn.addEventListener('pointerleave', () => {
+  if (holdTimer) {
+    clearInterval(holdTimer);
+    holdTimer = null;
+  }
+  micBtn.classList.remove('holding');
+  updateProgress(0);
+  isHolding = false;
+});
+
+// Scroll to bottom on load
+const scroll = document.getElementById('messagesScroll');
+scroll.scrollTop = scroll.scrollHeight;
+
+requestAnimationFrame(frame);
+</script>
+
+</body>
+</html>

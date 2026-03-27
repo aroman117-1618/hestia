@@ -58,8 +58,8 @@ struct ChatView: View {
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                // Gradient background — matches Command/Settings tabs
-                GradientBackground(mode: appState.currentMode)
+                // Pure black background — wavelength renders seamlessly on black
+                Color.black
                     .ignoresSafeArea()
 
                 if isIdleState {

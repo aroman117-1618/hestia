@@ -17,7 +17,7 @@ struct MobileSettingsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                GradientBackground(mode: appState.currentMode)
+                Color.black
                     .ignoresSafeArea()
 
                 ScrollView {
