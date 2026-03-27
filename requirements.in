@@ -6,7 +6,7 @@
 # Workflow:
 #   1. Edit this file (add/remove/update packages)
 #   2. Recompile targeting Python 3.11 (works from any local Python):
-#      uv pip compile requirements.in --python-version 3.11 --output-file requirements.txt --no-emit-index-url
+#      uv pip compile requirements.in --python-version 3.11 --output-file requirements.txt --no-emit-index-url --generate-hashes
 #   3. Commit BOTH files
 
 # API Framework
