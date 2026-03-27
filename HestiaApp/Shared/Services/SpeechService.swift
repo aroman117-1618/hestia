@@ -171,12 +171,30 @@ class SpeechService: ObservableObject {
         let inputFormat = inputNode.outputFormat(forBus: 0)
 
         // Install tap to capture mic audio
+        // Audio tap runs on a realtime thread — must not access @MainActor state directly
+        let continuation = inputContinuation
         inputNode.installTap(
             onBus: 0,
             bufferSize: 4096,
             format: inputFormat
         ) { [weak self] buffer, _ in
-            self?.processAudioBuffer(buffer)
+            // Feed buffer to speech analyzer (thread-safe via AsyncStream)
+            let input = AnalyzerInput(buffer: buffer)
+            continuation?.yield(input)
+
+            // Extract audio level for waveform visualization
+            guard let channelData = buffer.floatChannelData?[0] else { return }
+            let frameCount = Int(buffer.frameLength)
+            var sum: Float = 0
+            for i in 0..<frameCount {
+                sum += abs(channelData[i])
+            }
+            let avg = sum / Float(max(frameCount, 1))
+            let normalized = CGFloat(min(avg * 10, 1.0))
+            Task { @MainActor [weak self] in
+                self?.audioLevel = normalized
+                self?.onAudioLevel?(normalized)
+            }
         }
 
         engine.prepare()
@@ -190,26 +208,8 @@ class SpeechService: ObservableObject {
         audioEngine = nil
     }
 
-    private func processAudioBuffer(_ buffer: AVAudioPCMBuffer) {
-        guard let continuation = inputContinuation else { return }
-        let input = AnalyzerInput(buffer: buffer)
-        continuation.yield(input)
-
-        // Extract audio level for waveform visualization
-        guard let channelData = buffer.floatChannelData?[0] else { return }
-        let frameCount = Int(buffer.frameLength)
-        var sum: Float = 0
-        for i in 0..<frameCount {
-            sum += abs(channelData[i])
-        }
-        let avg = sum / Float(max(frameCount, 1))
-        // Normalize to 0...1 range (typical speech is 0.01-0.1 RMS)
-        let normalized = CGFloat(min(avg * 10, 1.0))
-        Task { @MainActor [weak self] in
-            self?.audioLevel = normalized
-            self?.onAudioLevel?(normalized)
-        }
-    }
+    // processAudioBuffer logic moved inline into installTap closure
+    // to avoid @MainActor isolation crash on audio realtime thread
 
     // MARK: - Duration Timer
 
