@@ -55,7 +55,17 @@ fi
 
 # 3. Install/update dependencies (explicit venv path avoids PATH issues)
 echo "--- Installing dependencies ---"
-"$HESTIA_HOME/.venv/bin/pip" install -r requirements.txt -q
+"$HESTIA_HOME/.venv/bin/pip" install --require-hashes -r requirements.txt -q
+
+# 3a. Scan for malicious .pth files
+echo "--- Scanning for malicious .pth files ---"
+bash "${HESTIA_HOME}/scripts/scan-pth-files.sh" "${HESTIA_HOME}/.venv" || { echo "::error::.pth scan failed — aborting deploy"; exit 1; }
+echo "✓ .pth scan passed"
+
+# 3b. Refresh sentinel baseline
+if [[ -f "${HESTIA_HOME}/scripts/sentinel-baseline.sh" ]]; then
+  bash "${HESTIA_HOME}/scripts/sentinel-baseline.sh" "${HESTIA_HOME}/.venv"
+fi
 
 # 4. Run integration tests (non-blocking — Ollama may be offline)
 echo "--- Running integration tests ---"
