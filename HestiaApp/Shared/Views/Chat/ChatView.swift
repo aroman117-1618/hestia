@@ -22,6 +22,7 @@ struct ChatView: View {
     @FocusState private var isInputFocused: Bool
 
     @Namespace private var wavelengthNamespace
+    @State private var keyboardHeight: CGFloat = 0
 
     // MARK: - Computed State
 
@@ -68,6 +69,19 @@ struct ChatView: View {
                 }
             }
             .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isIdleState)
+        }
+        .ignoresSafeArea(.keyboard)  // We handle keyboard manually
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { notification in
+            if let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
+                withAnimation(.easeOut(duration: 0.25)) {
+                    keyboardHeight = frame.height
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            withAnimation(.easeOut(duration: 0.25)) {
+                keyboardHeight = 0
+            }
         }
         .onAppear {
             if apiClientProvider.isReady {
@@ -187,20 +201,23 @@ struct ChatView: View {
             VStack {
                 Spacer()
 
-                // Greeting text positioned ~180px from bottom
-                VStack(spacing: 8) {
-                    Text(greetingText)
-                        .font(.system(size: 28, weight: .semibold))
-                        .foregroundColor(.white)
+                // Greeting text positioned above input
+                if keyboardHeight == 0 {
+                    VStack(spacing: 8) {
+                        Text(greetingText)
+                            .font(.system(size: 28, weight: .semibold))
+                            .foregroundColor(.white)
 
-                    Text("How can I help you today?")
-                        .font(.system(size: 16))
-                        .foregroundColor(.white.opacity(0.5))
+                        Text("How can I help you today?")
+                            .font(.system(size: 16))
+                            .foregroundColor(.white.opacity(0.5))
+                    }
+                    .padding(.bottom, 100)
                 }
-                .padding(.bottom, 100)
 
-                // Input bar
+                // Input bar — rides above keyboard like Messages
                 inputBar
+                    .padding(.bottom, keyboardHeight > 0 ? keyboardHeight - 34 : 0) // 34 = safe area bottom
             }
         }
     }
@@ -243,8 +260,9 @@ struct ChatView: View {
                                 .transition(.move(edge: .bottom).combined(with: .opacity))
                         }
 
-                        // Input bar
+                        // Input bar — rides above keyboard like Messages
                         inputBar
+                            .padding(.bottom, keyboardHeight > 0 ? keyboardHeight - 34 : 0)
                     }
 
                     // Tall, soft fade — messages dissolve behind the wavelength
