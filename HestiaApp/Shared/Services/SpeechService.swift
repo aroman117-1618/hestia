@@ -106,16 +106,18 @@ class SpeechService: ObservableObject {
         resultTask = Task { [weak self] in
             do {
                 for try await result in transcriber.results {
-                    guard let self else { return }
                     let text = String(result.text.characters)
+                    let isFinal = result.isFinal
                     await MainActor.run {
-                        self.currentTranscript = text
-                        self.onResultCallback?(text, result.isFinal)
+                        self?.currentTranscript = text
+                        self?.onResultCallback?(text, isFinal)
                     }
                 }
             } catch {
                 #if DEBUG
-                print("[SpeechService] Result stream error: \(error)")
+                await MainActor.run {
+                    print("[SpeechService] Result stream error: \(error)")
+                }
                 #endif
             }
         }
