@@ -77,12 +77,21 @@ struct MainTabView: View {
 
             MobileCommandView()
                 .tag(1)
+                .onAppear { dismissKeyboard() }
 
             MobileSettingsView()
                 .tag(2)
+                .onAppear { dismissKeyboard() }
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
         .ignoresSafeArea()
+        .onChange(of: selectedTab) { _ in
+            dismissKeyboard()
+        }
+    }
+
+    private func dismissKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 }
 

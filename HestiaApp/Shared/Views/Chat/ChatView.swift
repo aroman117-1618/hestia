@@ -69,8 +69,16 @@ struct ChatView: View {
                 }
             }
             .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isIdleState)
+            .onTapGesture {
+                // Tap anywhere to dismiss keyboard
+                isInputFocused = false
+            }
         }
         .ignoresSafeArea(.keyboard)  // We handle keyboard manually
+        .onChange(of: isIdleState) { _ in
+            // Dismiss keyboard on state change
+            isInputFocused = false
+        }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { notification in
             if let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect {
                 withAnimation(.easeOut(duration: 0.25)) {
@@ -230,11 +238,12 @@ struct ChatView: View {
             // Transparent background lets gradient show through
             HestiaWavelengthView(mode: wavelengthMode, waveScale: 0.5)
                 .frame(width: geo.size.width, height: geo.size.height)
-                .ignoresSafeArea()
+                .allowsHitTesting(false)
 
-            // Amber gradient header with constellation + underline
+            // Amber gradient header with constellation + underline (above wavelength)
             HestiaHeaderView()
                 .padding(.top, 44)
+                .zIndex(1)
 
             // Chat area starts at ~39% with tall fade into wavelength
             VStack(spacing: 0) {
