@@ -1,0 +1,19 @@
+{
+    "domains": [
+        "api.coinbase.com",
+        "api.alpaca.markets",
+        "*.tailscale.com",
+        "api.anthropic.com",
+        "api.openai.com",
+        "generativelanguage.googleapis.com",
+        "github.com",
+        "*.githubusercontent.com",
+        "pypi.org",
+        "files.pythonhosted.org",
+        "localhost",
+        "*.apple.com",
+        "*.icloud.com",
+        "ntfy.sh",
+        "hc-ping.com"
+    ]
+}

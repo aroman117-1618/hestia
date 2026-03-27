@@ -1,0 +1,6 @@
+{
+    "credential_access": {
+        "coinbase-credentials": ["bot_service", "python3"],
+        "cloud_api_key": ["hestia.api.server", "python3"]
+    }
+}
