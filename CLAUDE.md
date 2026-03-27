@@ -149,7 +149,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 **iOS Refresh (2026-03-25).** 3-tab app (Chat, Command, Settings), TestFlight pipeline, 3-mode voice input (chat/voice/journal), card-based Mobile Command dashboard, Notion-style Settings rebuild. Spec: `docs/superpowers/specs/2026-03-24-ios-refresh-design.md`. Plan: `docs/superpowers/plans/2026-03-24-ios-refresh.md`.
 
-3115 tests (2980 backend + 135 CLI), 112 test files (105 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
+3111 tests (2976 backend + 135 CLI), 112 test files (105 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 

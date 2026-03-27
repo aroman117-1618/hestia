@@ -1,58 +1,62 @@
-# Session Handoff — 2026-03-27 (Hestia Sentinel)
+# Session Handoff — 2026-03-27 (Trading Bot Diagnosis & Fix)
 
 ## Mission
-Investigate the litellm PyPI supply chain attack (CVE-2026-33634), verify both machines were unaffected, then design and implement a layered supply chain defense system (Hestia Sentinel) to prevent similar attacks from compromising the Mac Mini production environment.
+Investigate why the 4 live trading bots on Mac Mini haven't executed a single trade since going live on March 22. Diagnose root cause, fix all issues, restore service.
 
 ## Completed
-- Investigated litellm supply chain attack — confirmed both MacBook and Mac Mini are clean
-- Designed Hestia Sentinel with full brainstorming, 10-phase second opinion (Claude + Gemini + @hestia-critic)
-  - Spec: `docs/superpowers/specs/2026-03-27-hestia-sentinel-design.md`
-  - Audit: `docs/plans/hestia-sentinel-second-opinion-2026-03-27.md`
-- Implemented all 20 tasks (19 commits merged to main):
-  - **Layer 0**: `scripts/setup-hestia-user.sh`, `scripts/setup-egress-firewall.sh`, launchd plist updates for `_hestia` user
-  - **Layer 1**: Hash-locked `requirements.txt`, `scripts/scan-pth-files.sh` + allowlist, hardened `deploy-to-mini.sh`, `deploy-local.sh`, `ci.yml`
-  - **Layer 2**: `hestia/sentinel/` — store, config, self-check, adapters (file integrity, credential watch, DNS monitor), alerter, service daemon + launchd plist
-  - **Layer 3**: `/v1/sentinel/status` + `/v1/sentinel/acknowledge` endpoints, auto-test mapping
-- 65 new sentinel tests (all passing), updated CLAUDE.md
+- **Root cause identified**: 3 distinct bugs blocking all trading activity
+- **Fix 1 — Credentials** (`~/.hestia/coinbase-credentials` on Mac Mini): File was overwritten on March 23 at 10:14 AM with invalid content, causing 401 Unauthorized on every API call. Re-saved from 1Password.
+- **Fix 2 — USDC-USD reconciliation** (`hestia/trading/position_tracker.py`): Reconciliation tried to price `USDC-USD` (invalid Coinbase product_id) for any non-dust USDC balance. Fixed: skip all stablecoins unconditionally in untracked-position check.
+- **Fix 3 — list_orders status** (`hestia/trading/exchange/coinbase.py`): `order_status=["OPEN", "PENDING"]` rejected by Coinbase API. Fixed: `["OPEN"]` only.
+- **Deployed to Mac Mini**, restarted bot service, verified 2 successful tick cycles
+- All 140 trading tests pass, 2976 total backend tests pass
+- Commit: `7d192f0`
 
 ## In Progress
-- None — all code merged to main
+- Nothing — all fixes deployed and verified
 
 ## Decisions Made
-- Sentinel in hestia (not Atlas) with Atlas-compatible interfaces for future migration
-- Layer 0 (dedicated user + egress firewall) before detection — per unanimous audit recommendation
-- eslogger over DTrace for future credential monitoring (DTrace broken with SIP)
-- JSON configs (not YAML) for true zero-dependency sentinel
-- Alert batching: CRITICAL/HIGH real-time, MEDIUM/LOW daily digest, 7-day learning period
-- Severity aligned with Atlas: LOW/MEDIUM/HIGH/CRITICAL
+- Stablecoins (USDC/USDT/DAI/BUSD) are unconditionally skipped in reconciliation — they're not positions we track and have no valid X-USD product_id on Coinbase
+- Strategy threshold tuning deferred — bots are correctly returning HOLD signals based on current RSI thresholds. SOL-USD had RSI 20.8 but was blocked by volume filter (0.24x < 1.0x). Thresholds may need widening to generate trades in calm markets, but that's a tuning decision for a separate session.
 
 ## Test Status
-- 3115 total (2980 backend + 135 CLI), all passing
-- 65 sentinel tests across 8 test files
+- 2976 passing, 0 failing, 0 skipped (backend)
+- 135 CLI tests (not run this session — no CLI changes)
 
 ## Uncommitted Changes
-- `hestia/data/` — runtime data directory (gitignored), no action needed
+- `CLAUDE.md` — test count update (2976 from 2980)
 
 ## Known Issues / Landmines
-- **Layer 0 not deployed yet**: `_hestia` user, LuLu firewall, and .env migration need manual execution on Mac Mini
-- **Sentinel not running yet**: Needs baseline generation + launchd plist load after Layer 0
-- **eslogger not yet integrated**: Credential watch uses lsof fallback. eslogger needs root + Full Disk Access testing
-- **CI may fail on first push**: Hash-locked requirements compiled locally; may need regeneration if platform differs
-- **iOS/macOS System Status cards deferred**: API endpoint ready, SwiftUI cards not built
-- **ntfy_topic absent from sentinel.json**: Service defaults to `"hestia-sentinel"`, update before deploying
+- **Mac Mini Python 3.9**: The venv on Mac Mini uses Python 3.9.6 (system CommandLineTools), not 3.12. This is S27.5 WS3 work. The bots function on 3.9 but it's a drift risk.
+- **Stdout log empty**: Bot service writes to `hestia.log` (structured JSON) but `trading-bots.log` (launchd stdout) is empty. Not critical but makes `tail` debugging harder.
+- **Coinbase outage**: Coinbase API was temporarily down during our restart. The bots recovered automatically on the next tick. If you see a gap in tick logs around 15:04-15:17 UTC on March 27, that's the outage.
+- **Strategy thresholds are tight**: BTC RSI threshold is 15/85, ETH is 20/80. In calm markets, these may never trigger. Current RSI values (28-46) are all in "neutral zone". Consider widening to 30/70 range if no trades after 1-2 more weeks.
+- **Position state not persisted** (`_last_entry`): Known issue #31 — if bot service restarts mid-position, it loses entry price tracking.
+- **Credential file mystery**: Who/what overwrote the credentials on March 23 at 10:14 AM? Unknown. Could have been a deploy script, macOS app, or manual action. Worth investigating to prevent recurrence.
 
 ## Process Learnings
-- Subagent bash permissions caused 3-4 manual fixups (85% first-pass success rate)
-- Parallel agents caused branch divergence requiring cherry-pick — use `isolation: "worktree"` next time
-- Python 3.9 compatibility missed by agents writing `dict | None` syntax — add version constraint to prompts
 
-## Next Steps
-1. **Deploy Layer 0 on Mac Mini** (~30 min manual):
-   - `ssh andrewroman117@hestia-3.local`
-   - `cd ~/hestia && git pull`
-   - `sudo bash scripts/setup-hestia-user.sh`
-   - Install LuLu, configure rules per `scripts/setup-egress-firewall.sh`
-   - Migrate .env to Keychain (instructions in setup script output)
-2. **Start sentinel**: `bash scripts/sentinel-baseline.sh .venv` then load launchd plist
-3. **Verify**: `curl -k https://localhost:8443/v1/sentinel/status`
-4. **iOS/macOS System Status cards**: Separate sprint
+### Config Gaps
+- **No alerting on persistent errors**: The bots produced 401 errors for 5 days with no notification. A hook or health check that alerts on >N consecutive errors in `trading-bots.error.log` would have caught this on day 1.
+- **Credential validation on deploy**: `deploy-to-mini.sh` should verify credential file exists and isn't empty after deploy. A simple `wc -l` check would suffice.
+
+### First-Pass Success
+- 3/3 fixes identified and resolved correctly on first analysis
+- Top blocker: needing to SSH into Mac Mini for every diagnostic — no remote monitoring dashboard
+- The Coinbase outage coinciding with our restart was bad luck, not a process failure
+
+### Agent Orchestration
+- Used @hestia-explorer (haiku) for initial architecture trace — effective, saved significant context
+- Used @hestia-tester for test validation — clean run, good delegation
+- Missed opportunity: could have run the Mac Mini SSH diagnostics in parallel rather than sequentially
+
+### Proposals (ranked by frequency x severity / effort)
+1. **SCRIPT**: Add `scripts/trading-health-check.sh` — SSH to Mini, check bot PID, last error, last tick time. Run as daily cron or manual check. (Impact: would have caught this in <24h)
+2. **HOOK**: Add a post-deploy hook that validates credential files exist on Mac Mini after `deploy-to-mini.sh` runs. (Impact: prevents silent credential wipes)
+3. **CLAUDE.MD**: Document the credential file format (`~/.hestia/coinbase-credentials`: line 1 = API key name, line 2 = EC private key) — currently undocumented. (Impact: faster recovery next time)
+
+## Next Step
+1. Commit the CLAUDE.md test count update
+2. Monitor bot logs over the next few days: `ssh andrewroman117@hestia-3.local "grep 'Signal:' /Users/andrewroman117/hestia/logs/hestia.log | tail -20"`
+3. If zero BUY/SELL signals after 1 week of healthy ticks, open a strategy tuning session to widen RSI thresholds
+4. S27.5 WS3 (Python 3.12 upgrade on Mac Mini) remains TODO — prerequisite for Sentinel Layer 0 deployment
