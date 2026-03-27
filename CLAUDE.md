@@ -133,7 +133,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 | Hardware | Mac Mini M1 (16GB) |
 | Model | Qwen 3.5 9B (Hestia) + DeepSeek-R1-14B (Artemis) + Qwen 3 8B (Apollo) + cloud (Anthropic/OpenAI/Google) |
 | SLM | qwen2.5:0.5b (council intent classification, ~100ms) |
-| Backend | Python 3.12, FastAPI, 250 endpoints across 30 route modules |
+| Backend | Python 3.12, FastAPI, 252 endpoints across 31 route modules |
 | Storage | ChromaDB (vectors) + SQLite (structured) + macOS Keychain (credentials) |
 | App | Native Swift/SwiftUI (iOS 26.0+, macOS 15.0+) |
 | API | REST on port 8443 with JWT auth, HTTPS with self-signed cert |
@@ -149,7 +149,7 @@ Locally-hosted personal AI assistant on Mac Mini M1. Jarvis-like: competent, ada
 
 **iOS Refresh (2026-03-25).** 3-tab app (Chat, Command, Settings), TestFlight pipeline, 3-mode voice input (chat/voice/journal), card-based Mobile Command dashboard, Notion-style Settings rebuild. Spec: `docs/superpowers/specs/2026-03-24-ios-refresh-design.md`. Plan: `docs/superpowers/plans/2026-03-24-ios-refresh.md`.
 
-3050 tests (2915 backend + 135 CLI), 104 test files (97 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
+3115 tests (2980 backend + 135 CLI), 112 test files (105 backend + 7 CLI). Full details: `python -m pytest tests/ -v --timeout=30`
 
 ---
 
@@ -250,6 +250,7 @@ hestia/
 │   ├── workflows/                   # Workflow orchestration engine (P0 complete, P1-P4 planned)
 │   ├── research/                    # Knowledge graph + PrincipleStore + Temporal Facts + Episodic Nodes
 │   ├── investigate/                 # URL content analysis (web articles, YouTube)
+│   ├── sentinel/                    # Supply chain defense daemon (stdlib-only, Atlas-compatible)
 │   ├── workflows/                   # DAG workflow engine (executor, nodes, scheduler, migration, interpolation)
 │   ├── api/                         # FastAPI — 240 endpoints, 30 route modules
 │   └── config/                      # inference.yaml, execution.yaml, memory.yaml, triggers.yaml, wiki.yaml, workflow.yaml
@@ -342,6 +343,8 @@ iOS and macOS are **independent release pipelines**. Use platform-specific tags:
 
 | Tag | Triggers | Example |
 |-----|----------|---------|
+**Sentinel (Supply Chain Defense):** Implemented 2026-03-27. 4-layer defense: Layer 0 (dedicated `_hestia` user, egress firewall), Layer 1 (hash-locked deps, .pth scanning, blocking pip-audit), Layer 2 (runtime daemon — file integrity, credential watch, DNS monitor), Layer 3 (API + alerting). Spec: `docs/superpowers/specs/2026-03-27-hestia-sentinel-design.md`. Needs Layer 0 deployment on Mac Mini (manual setup scripts).
+
 | `ios-vX.Y.Z` | iOS only (TestFlight) | `git tag ios-v1.10.0` |
 | `mac-vX.Y.Z` | macOS only (Sparkle) | `git tag mac-v1.10.0` |
 | `vX.Y.Z` | Both platforms | `git tag v2.0.0` |
