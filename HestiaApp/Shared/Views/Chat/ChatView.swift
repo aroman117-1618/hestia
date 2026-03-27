@@ -17,6 +17,7 @@ struct ChatView: View {
     @State private var inputMode: ChatInputMode = .chat
     @State private var scrollViewContentSize: CGSize = .zero
     @State private var showVoiceReview = false
+    @State private var showVoiceRecording = false
     @State private var showJournalSheet = false
     @State private var liveTranscriptId: String?
     @FocusState private var isInputFocused: Bool
@@ -130,14 +131,12 @@ struct ChatView: View {
         } message: {
             Text(viewModel.errorState?.userMessage ?? "An error occurred")
         }
-        // Voice recording overlay
-        .fullScreenCover(isPresented: .init(
-            get: { voiceViewModel.phase == .recording && inputMode == .chat },
-            set: { _ in }
-        )) {
+        // Voice recording overlay — uses dedicated @State to avoid computed binding crash
+        .fullScreenCover(isPresented: $showVoiceRecording) {
             VoiceRecordingOverlay(
                 viewModel: voiceViewModel,
                 onStop: {
+                    showVoiceRecording = false
                     Task {
                         await voiceViewModel.stopRecording()
                         try? await Task.sleep(nanoseconds: 300_000_000)
@@ -145,6 +144,7 @@ struct ChatView: View {
                     }
                 },
                 onCancel: {
+                    showVoiceRecording = false
                     voiceViewModel.cancel()
                 }
             )
@@ -394,8 +394,9 @@ struct ChatView: View {
             },
             onStartVoice: {
                 Task { @MainActor in
-                    do {
-                        await voiceViewModel.startRecording()
+                    await voiceViewModel.startRecording()
+                    if voiceViewModel.phase == .recording {
+                        showVoiceRecording = true
                     }
                 }
             },
