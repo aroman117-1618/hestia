@@ -169,8 +169,7 @@ struct LockScreenView: View {
                     starPhases[i] = true
                 }
             }
-            // Auto-trigger auth
-            Task { await authenticate() }
+            // Auth only on button tap — no auto-trigger
         }
         .onChange(of: authService.isAuthenticated) { newValue in
             if newValue { onUnlock() }
