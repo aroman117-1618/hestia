@@ -171,13 +171,20 @@ class SpeechService: ObservableObject {
         let inputFormat = inputNode.outputFormat(forBus: 0)
 
         // Install tap to capture mic audio
-        // Audio tap runs on a realtime thread — must not access @MainActor state directly
+        // Audio tap runs on a realtime thread — must NOT capture self (even weakly).
+        // Swift 6 strict concurrency crashes on @MainActor isolation check for any self access.
         let continuation = inputContinuation
+        let audioLevelSetter = { @Sendable (level: CGFloat) in
+            Task { @MainActor [weak self] in
+                self?.audioLevel = level
+                self?.onAudioLevel?(level)
+            }
+        }
         inputNode.installTap(
             onBus: 0,
             bufferSize: 4096,
             format: inputFormat
-        ) { [weak self] buffer, _ in
+        ) { buffer, _ in
             // Feed buffer to speech analyzer (thread-safe via AsyncStream)
             let input = AnalyzerInput(buffer: buffer)
             continuation?.yield(input)
@@ -191,10 +198,7 @@ class SpeechService: ObservableObject {
             }
             let avg = sum / Float(max(frameCount, 1))
             let normalized = CGFloat(min(avg * 10, 1.0))
-            Task { @MainActor [weak self] in
-                self?.audioLevel = normalized
-                self?.onAudioLevel?(normalized)
-            }
+            audioLevelSetter(normalized)
         }
 
         engine.prepare()
