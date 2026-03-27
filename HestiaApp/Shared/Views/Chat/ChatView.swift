@@ -234,10 +234,10 @@ struct ChatView: View {
 
     private func conversationLayout(geo: GeometryProxy) -> some View {
         ZStack(alignment: .top) {
-            // Full-screen wavelength — renders wave at 27% Y position internally
-            // Transparent background lets gradient show through
+            // Wavelength covers top 50% — particles taper to nothing before the edge
+            // Gradient background (from body) flows seamlessly below
             HestiaWavelengthView(mode: wavelengthMode, waveScale: 0.5)
-                .frame(width: geo.size.width, height: geo.size.height)
+                .frame(width: geo.size.width, height: geo.size.height * 0.5)
                 .allowsHitTesting(false)
 
             // Amber gradient header with constellation + underline (above wavelength)
@@ -245,7 +245,7 @@ struct ChatView: View {
                 .padding(.top, 44)
                 .zIndex(1)
 
-            // Chat area starts at ~39% with tall fade into wavelength
+            // Chat area starts at ~39% — overlaps wavelength bottom with fade
             VStack(spacing: 0) {
                 Spacer()
                     .frame(height: geo.size.height * 0.39)

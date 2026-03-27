@@ -285,7 +285,7 @@ final class MetalParticleRenderer: NSObject, MTKViewDelegate {
         // Viewport in points (not pixels)
         let width = viewSize.width / view.contentScaleFactor
         let height = viewSize.height / view.contentScaleFactor
-        let centerY = height * 0.27  // ~27% down — matches approved mockup
+        let centerY = height * 0.54  // Wave at ~27% of full screen = ~54% of the 50% frame
 
         let active = params.audioVol
         let glow = params.glowMult
