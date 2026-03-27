@@ -88,6 +88,7 @@ from hestia.api.routes.agents_v2 import router as agents_v2_router
 from hestia.api.routes.learning import router as learning_router
 from hestia.api.routes.trading import router as trading_router
 from hestia.api.routes.notifications import router as notifications_router
+from hestia.api.routes.sentinel import router as sentinel_router
 
 logger = get_logger()
 
@@ -844,6 +845,7 @@ app.include_router(learning_router)
 app.include_router(trading_router)
 app.include_router(notifications_router)
 app.include_router(workflows_router)
+app.include_router(sentinel_router)
 app.include_router(ws_chat_router)
 
 

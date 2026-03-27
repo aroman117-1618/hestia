@@ -1,0 +1,3 @@
+__editable__.hestia_cli-0.1.0.pth
+distutils-precedence.pth
+coloredlogs.pth

@@ -2,6 +2,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <!-- Sentinel Layer 0: Run as _hestia system user instead of logged-in user. -->
+    <!-- When using UserName, install this plist to /Library/LaunchDaemons/ (system-level), NOT ~/Library/LaunchAgents/ (user-level). -->
+    <key>UserName</key>
+    <string>_hestia</string>
+
     <key>Label</key>
     <string>com.hestia.trading-bots</string>
 

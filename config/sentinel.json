@@ -1,0 +1,12 @@
+{
+    "containment_enabled": false,
+    "learning_mode": true,
+    "file_integrity_interval_seconds": 300,
+    "credential_watch_interval_seconds": 30,
+    "dns_monitor_enabled": true,
+    "heartbeat_url": "",
+    "heartbeat_interval_seconds": 300,
+    "daily_digest_hour": 8,
+    "max_crashes_before_shutdown": 3,
+    "crash_window_seconds": 300
+}
