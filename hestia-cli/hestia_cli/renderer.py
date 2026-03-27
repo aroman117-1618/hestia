@@ -202,16 +202,17 @@ class HestiaRenderer:
         """Finalize streaming output — commit transient content permanently."""
         self._stop_live()  # Clears transient Live display
 
-        # Permanently render the full accumulated buffer
-        full_text = (self._committed_text + self._streaming_buffer).strip()
-        if full_text:
+        # Render only the remaining buffer — committed text was already
+        # printed by _flush_completed_blocks() during streaming.
+        remainder = self._streaming_buffer.strip()
+        if remainder:
             if self._use_markdown:
                 try:
-                    self.console.print(Markdown(full_text))
+                    self.console.print(Markdown(remainder))
                 except Exception:
-                    self.console.print(full_text)
+                    self.console.print(remainder)
             else:
-                self.console.print(full_text, end="", highlight=False)
+                self.console.print(remainder, end="", highlight=False)
 
         self._streaming_buffer = ""
         self._committed_text = ""
@@ -376,14 +377,21 @@ class HestiaRenderer:
             self.console.print(content, end="", highlight=False)
             return
 
-        # Markdown mode — buffer all content in transient Live display
+        # Markdown mode — buffer content, flush completed blocks periodically
         self._streaming_buffer += content
 
-        # Render full accumulated buffer as Markdown in the Live display
-        if self._live is None:
-            self._start_live_markdown(self._streaming_buffer)
-        else:
-            self._update_live_markdown(self._streaming_buffer)
+        # Flush completed blocks (paragraphs, code fences) so the buffer
+        # stays small.  Without this, _update_live_markdown re-parses the
+        # *entire* accumulated response on every token — O(n²) work that
+        # OOM-kills the process on long responses.
+        self._flush_completed_blocks()
+
+        # Render only the remaining (incomplete) block in the Live preview
+        if self._streaming_buffer:
+            if self._live is None:
+                self._start_live_markdown(self._streaming_buffer)
+            else:
+                self._update_live_markdown(self._streaming_buffer)
 
     def _flush_completed_blocks(self) -> None:
         """Render completed markdown blocks, keep incomplete remainder.
