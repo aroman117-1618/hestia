@@ -303,7 +303,7 @@ class CoinbaseAdapter(AbstractExchangeAdapter):
             kwargs = {"product_id": pair} if pair else {}
             response = await self._run_sync(
                 self._client.list_orders,
-                order_status=["OPEN", "PENDING"],
+                order_status=["OPEN"],
                 **kwargs,
             )
             self._health.record_latency((time.monotonic() - start) * 1000)

@@ -224,15 +224,11 @@ class PositionTracker:
                         has_critical_divergence = True
 
                 # Check for positions on exchange not tracked locally
-                # Skip stablecoins and dust balances (< $1 value) to avoid
-                # false kill-switch triggers from pre-existing account dust.
-                _STABLECOINS = {"USDC", "USDT", "DAI", "BUSD"}
-                _DUST_THRESHOLD_USD = 1.0
+                # Skip USD and stablecoins entirely — they have no tradeable
+                # X-USD product_id on Coinbase and are not positions we track.
+                _SKIP_CURRENCIES = {"USD", "USDC", "USDT", "DAI", "BUSD"}
                 for currency, balance in balances.items():
-                    if currency == "USD":
-                        continue
-                    # Skip stablecoin dust (value ≈ quantity for stablecoins)
-                    if currency in _STABLECOINS and balance.total < _DUST_THRESHOLD_USD:
+                    if currency in _SKIP_CURRENCIES:
                         continue
                     pair = f"{currency}-USD"
                     if pair not in self._positions and balance.total > self._max_discrepancy:
