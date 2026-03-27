@@ -226,13 +226,11 @@ struct ChatView: View {
 
     private func conversationLayout(geo: GeometryProxy) -> some View {
         ZStack(alignment: .top) {
-            // Gradient background — matches Command/Settings tabs
-            GradientBackground(mode: appState.currentMode)
-                .ignoresSafeArea()
-
-            // Wavelength in top ~27% — header + wave contained together
+            // Full-screen wavelength — renders wave at 27% Y position internally
+            // Transparent background lets gradient show through
             HestiaWavelengthView(mode: wavelengthMode, waveScale: 0.5)
-                .frame(width: geo.size.width, height: geo.size.height * 0.39)
+                .frame(width: geo.size.width, height: geo.size.height)
+                .ignoresSafeArea()
 
             // Amber gradient header with constellation + underline
             HestiaHeaderView()

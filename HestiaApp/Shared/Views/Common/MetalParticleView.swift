@@ -129,7 +129,7 @@ final class MetalParticleRenderer: NSObject, MTKViewDelegate {
         // Configure MTKView
         mtkView.device = device
         mtkView.delegate = self
-        mtkView.clearColor = MTLClearColor(red: 2/255, green: 1/255, blue: 1/255, alpha: 1)
+        mtkView.clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 0)  // Transparent — gradient shows through
         mtkView.colorPixelFormat = .bgra8Unorm
         mtkView.framebufferOnly = true
         mtkView.isPaused = false
