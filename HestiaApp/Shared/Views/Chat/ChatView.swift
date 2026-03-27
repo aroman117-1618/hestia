@@ -393,12 +393,16 @@ struct ChatView: View {
                 viewModel.forceLocal.toggle()
             },
             onStartVoice: {
-                Task {
-                    await voiceViewModel.startRecording()
+                Task { @MainActor in
+                    do {
+                        await voiceViewModel.startRecording()
+                    }
                 }
             },
             onStartConversation: {
-                startVoiceConversation()
+                Task { @MainActor in
+                    startVoiceConversation()
+                }
             }
         )
     }

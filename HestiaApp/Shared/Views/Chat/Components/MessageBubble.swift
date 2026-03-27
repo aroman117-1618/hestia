@@ -55,9 +55,11 @@ struct MessageBubble: View {
                     .background(bubbleBackground)
                     .cornerRadius(CornerRadius.standard)
                 } else {
-                    Text(message.content)
+                    // Render markdown (bold, italic, lists) like Claude/ChatGPT
+                    Text(markdownContent)
                         .font(.messageBody)
                         .foregroundColor(.textPrimary)
+                        .tint(Color(red: 1, green: 159/255, blue: 10/255)) // amber links
                         .padding(.horizontal, Spacing.md)
                         .padding(.vertical, Spacing.sm + 2)
                         .background(bubbleBackground)
@@ -98,6 +100,28 @@ struct MessageBubble: View {
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint("Double tap to copy")
         } // else (non-empty content)
+    }
+
+    // MARK: - Markdown Rendering
+
+    /// Parse markdown into AttributedString for rich text rendering
+    private var markdownContent: AttributedString {
+        let content = displayContent
+        do {
+            var attributed = try AttributedString(
+                markdown: content,
+                options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+            )
+            // Style bold text slightly brighter
+            for run in attributed.runs {
+                if run.inlinePresentationIntent?.contains(.stronglyEmphasized) == true {
+                    attributed[run.range].foregroundColor = .white
+                }
+            }
+            return attributed
+        } catch {
+            return AttributedString(content)
+        }
     }
 
     // MARK: - Styling
