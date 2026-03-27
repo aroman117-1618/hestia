@@ -85,6 +85,9 @@ jobs:
             -clonedSourcePackagesDirPath ../spm-cache || true
           rm -rf build/
 
+      - name: Ensure Metal Toolchain
+        run: xcodebuild -downloadComponent MetalToolchain || true
+
       - name: Build and archive
         run: |
           cd HestiaApp
