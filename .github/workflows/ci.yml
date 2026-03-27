@@ -34,7 +34,11 @@ jobs:
           fi
 
       - name: "Install dependencies"
-        run: pip install -r requirements.txt
+        run: pip install --require-hashes -r requirements.txt
+
+      - name: "Scan for malicious .pth files"
+        run: |
+          bash scripts/scan-pth-files.sh "$(python -c 'import site; import os; print(os.path.dirname(site.getsitepackages()[0]))')" || bash scripts/scan-pth-files.sh .venv
 
       - name: "Run unit tests"
         run: python -m pytest tests/ --tb=short --timeout=30 -m "not integration" -v 2>&1 | tail -100
@@ -45,4 +49,4 @@ jobs:
       - name: "Security audit (pip-audit)"
         run: |
           pip install pip-audit -q
-          pip-audit --strict --desc 2>&1 || true
+          pip-audit --strict --desc
