@@ -162,6 +162,12 @@ get_test_file() {
         *hestia/workflows/*)
             echo "tests/test_workflow_adapter.py tests/test_workflow_models.py tests/test_workflow_database.py tests/test_workflow_executor.py tests/test_workflow_manager.py tests/test_workflow_routes.py" ;;
 
+        # Sentinel (supply chain defense)
+        *hestia/sentinel/*)
+            echo "tests/test_sentinel/" ;;
+        *hestia/api/routes/sentinel*)
+            echo "tests/test_sentinel/" ;;
+
         # No mapping found
         *)
             echo "" ;;
