@@ -272,13 +272,13 @@ struct ChatView: View {
                             .padding(.bottom, keyboardHeight > 0 ? keyboardHeight - 34 : 0)
                     }
 
-                    // Tall, soft fade — messages dissolve behind the wavelength
+                    // Tall, soft fade — messages dissolve into background
                     LinearGradient(
                         stops: [
-                            .init(color: Color(red: 2/255, green: 1/255, blue: 1/255), location: 0),
-                            .init(color: Color(red: 2/255, green: 1/255, blue: 1/255).opacity(0.7), location: 0.35),
-                            .init(color: Color(red: 2/255, green: 1/255, blue: 1/255).opacity(0.3), location: 0.65),
-                            .init(color: Color(red: 2/255, green: 1/255, blue: 1/255).opacity(0), location: 1.0),
+                            .init(color: Color.black.opacity(0.85), location: 0),
+                            .init(color: Color.black.opacity(0.5), location: 0.4),
+                            .init(color: Color.black.opacity(0.15), location: 0.7),
+                            .init(color: Color.clear, location: 1.0),
                         ],
                         startPoint: .top,
                         endPoint: .bottom
