@@ -341,9 +341,8 @@ struct WavelengthRenderer {
         // Scale context to match logical size
         ctx.scaleBy(x: scale, y: scale)
 
-        // Clear to #020101
-        ctx.setFillColor(CGColor(red: 2/255, green: 1/255, blue: 1/255, alpha: 1))
-        ctx.fill(CGRect(origin: .zero, size: size))
+        // Clear to transparent (window background shows through)
+        ctx.clear(CGRect(origin: .zero, size: size))
 
         // Additive blending
         ctx.setBlendMode(.plusLighter)
