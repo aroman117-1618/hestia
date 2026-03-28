@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ReactFlow,
   Controls,
@@ -93,6 +93,8 @@ export default function WorkflowApp() {
   const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<CanvasEdge>([])
   const [addMenu, setAddMenu] = useState<AddMenuState | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rfInstance = useRef<any>(null)
 
   // Inject global CSS
   useEffect(() => {
@@ -123,6 +125,10 @@ export default function WorkflowApp() {
         sourceHandle: e.sourceHandle,
         label: e.label,
       })))
+      // Fit viewport to nodes after data loads (delay to let React render)
+      setTimeout(() => {
+        rfInstance.current?.fitView({ padding: 0.2 })
+      }, 100)
     })
     bridge.onUpdateNodeStatus((nodeId, status) => {
       setNodes((nds) =>
@@ -283,6 +289,7 @@ export default function WorkflowApp() {
         edgeTypes={edgeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
         fitView
+        onInit={(instance) => { rfInstance.current = instance }}
         proOptions={{ hideAttribution: true }}
         deleteKeyCode={['Backspace', 'Delete']}
         multiSelectionKeyCode="Meta"
