@@ -1,62 +1,60 @@
-# Session Handoff — 2026-03-27 (Trading Bot Diagnosis & Fix)
+# Session Handoff — 2026-03-28 (macOS App Refresh)
 
 ## Mission
-Investigate why the 4 live trading bots on Mac Mini haven't executed a single trade since going live on March 22. Diagnose root cause, fix all issues, restore service.
+Redesign the macOS app to match the refreshed iOS app — streamline navigation from 5 tabs to 3, redesign the Command tab with hero + sub-tabs, add chat panel detach-to-window, port the iOS wavelength particle animation to macOS.
 
 ## Completed
-- **Root cause identified**: 3 distinct bugs blocking all trading activity
-- **Fix 1 — Credentials** (`~/.hestia/coinbase-credentials` on Mac Mini): File was overwritten on March 23 at 10:14 AM with invalid content, causing 401 Unauthorized on every API call. Re-saved from 1Password.
-- **Fix 2 — USDC-USD reconciliation** (`hestia/trading/position_tracker.py`): Reconciliation tried to price `USDC-USD` (invalid Coinbase product_id) for any non-dust USDC balance. Fixed: skip all stablecoins unconditionally in untracked-position check.
-- **Fix 3 — list_orders status** (`hestia/trading/exchange/coinbase.py`): `order_status=["OPEN", "PENDING"]` rejected by Coinbase API. Fixed: `["OPEN"]` only.
-- **Deployed to Mac Mini**, restarted bot service, verified 2 successful tick cycles
-- All 140 trading tests pass, 2976 total backend tests pass
-- Commit: `7d192f0`
+- **Brainstormed and designed** macOS refresh with Andrew via visual companion (10 mockup iterations)
+  - Spec: `docs/superpowers/specs/2026-03-27-macos-refresh-design.md`
+- **Second opinion audit** — 10-phase internal + Gemini cross-validation, APPROVE WITH CONDITIONS
+  - Report: `docs/plans/macos-refresh-second-opinion-2026-03-27.md`
+- **Implementation plan** — 7 tasks, subagent-driven development
+  - Plan: `docs/superpowers/plans/2026-03-28-macos-refresh.md`
+- **Task 1: Strip WorkspaceView enum** — removed .explorer/.orders, deleted 16 Explorer files, updated 6 files (`d9060ed`)
+- **Task 2: Redesign Hero Section** — avatar + wavelength left, stats right (`f1ce740`)
+- **Task 3: Sub-tab ViewModels** — InternalTab (EventKit), NewsfeedTab (trading), SystemAlertsTab (`4575145`)
+- **Task 4: Sub-tab Views** — InternalTabView, NewsfeedTabView, SystemAlertsTabView, TradingStatusView, PLLookbackToggle (`c3f2437`)
+- **Task 5: Rewire CommandView** — sub-tab architecture with lazy rendering (`97ade0c`)
+- **Task 6: Chat panel detach** — double-click sidebar toggle, NSWindow, re-dock on close (`eb1b749`)
+- **Task 7: Cleanup** — removed 12 dead Command view files (`2656d6b`)
+- **QA fixes** — removed old chat toggle overlay, Memory icon, wavelength animation (`33edad0`)
+- **Ported iOS wavelength** — CGContext renderer to macOS at 30fps, transparent bg (`e3eb7f3`, `1406d0f`)
+- **Hero polish** — removed card styling, wavelength scaling, layout rearrange (`f6fe84e` → `a75b884`)
+- **Shipped mac-v1.12.0** (build 61) — pushed + tagged (`563c4b8`)
 
 ## In Progress
-- Nothing — all fixes deployed and verified
+- None — all code merged, tagged, and pushed
 
 ## Decisions Made
-- Stablecoins (USDC/USDT/DAI/BUSD) are unconditionally skipped in reconciliation — they're not positions we track and have no valid X-USD product_id on Coinbase
-- Strategy threshold tuning deferred — bots are correctly returning HOLD signals based on current RSI thresholds. SOL-USD had RSI 20.8 but was blocked by volume filter (0.24x < 1.0x). Thresholds may need widening to generate trades in calm markets, but that's a tuning decision for a separate session.
+- Sidebar: 3 tabs (Command, Memory, Settings) + chat toggle. Avatar replaces logo at top.
+- Explorer removed entirely (git history preserves). Orders absorbed into Command/Newsfeed.
+- Chat detach uses fresh ViewModel per window (pragmatic — messages come from API)
+- Wavelength on macOS uses CGContext renderer at 30fps (ported from iOS simulator fallback)
+- Hero has no card background — contents sit on pure black, matching iOS pattern
+- Memory tab untouched. Settings/Onboarding deferred.
 
 ## Test Status
-- 2976 passing, 0 failing, 0 skipped (backend)
-- 135 CLI tests (not run this session — no CLI changes)
+- 2976 backend passing, 0 failing
+- macOS build: clean. iOS build: clean.
 
 ## Uncommitted Changes
-- `CLAUDE.md` — test count update (2976 from 2980)
+- `hestia/data/` — runtime data directory (gitignored), no action needed
 
 ## Known Issues / Landmines
-- **Mac Mini Python 3.9**: The venv on Mac Mini uses Python 3.9.6 (system CommandLineTools), not 3.12. This is S27.5 WS3 work. The bots function on 3.9 but it's a drift risk.
-- **Stdout log empty**: Bot service writes to `hestia.log` (structured JSON) but `trading-bots.log` (launchd stdout) is empty. Not critical but makes `tail` debugging harder.
-- **Coinbase outage**: Coinbase API was temporarily down during our restart. The bots recovered automatically on the next tick. If you see a gap in tick logs around 15:04-15:17 UTC on March 27, that's the outage.
-- **Strategy thresholds are tight**: BTC RSI threshold is 15/85, ETH is 20/80. In calm markets, these may never trigger. Current RSI values (28-46) are all in "neutral zone". Consider widening to 30/70 range if no trades after 1-2 more weeks.
-- **Position state not persisted** (`_last_entry`): Known issue #31 — if bot service restarts mid-position, it loses entry price tracking.
-- **Credential file mystery**: Who/what overwrote the credentials on March 23 at 10:14 AM? Unknown. Could have been a deploy script, macOS app, or manual action. Worth investigating to prevent recurrence.
+- **Sentinel API**: SystemAlertsTabViewModel calls `/sentinel/status` — Layer 0 not deployed on Mac Mini yet. Wrapped in try/catch.
+- **P&L lookback toggle**: Client-side only — backend doesn't support period filtering yet.
+- **Chat detach double-click**: `onTapGesture(count: 2)` must come before `onTapGesture(count: 1)` in modifier chain.
+- **iOS wavelength background**: macOS renderer uses transparent bg, iOS uses opaque near-black. Don't unify without checking iOS chat view.
+- **Wavelength waveScale**: Currently 0.25 — may need tuning if window size changes significantly.
 
 ## Process Learnings
+- **First-pass success**: 7/7 tasks completed by subagents. QA added ~8 polish fixes.
+- **Top time sink**: Wavelength rendering (6 commits) — iOS particle system designed for full-screen, not 80pt hero.
+- **Subagent-driven dev worked well**: Fresh context per task, build validation as quality gate.
+- **Visual companion high-value**: 10 mockup iterations saved rework. Standard for all UI work.
 
-### Config Gaps
-- **No alerting on persistent errors**: The bots produced 401 errors for 5 days with no notification. A hook or health check that alerts on >N consecutive errors in `trading-bots.error.log` would have caught this on day 1.
-- **Credential validation on deploy**: `deploy-to-mini.sh` should verify credential file exists and isn't empty after deploy. A simple `wc -l` check would suffice.
-
-### First-Pass Success
-- 3/3 fixes identified and resolved correctly on first analysis
-- Top blocker: needing to SSH into Mac Mini for every diagnostic — no remote monitoring dashboard
-- The Coinbase outage coinciding with our restart was bad luck, not a process failure
-
-### Agent Orchestration
-- Used @hestia-explorer (haiku) for initial architecture trace — effective, saved significant context
-- Used @hestia-tester for test validation — clean run, good delegation
-- Missed opportunity: could have run the Mac Mini SSH diagnostics in parallel rather than sequentially
-
-### Proposals (ranked by frequency x severity / effort)
-1. **SCRIPT**: Add `scripts/trading-health-check.sh` — SSH to Mini, check bot PID, last error, last tick time. Run as daily cron or manual check. (Impact: would have caught this in <24h)
-2. **HOOK**: Add a post-deploy hook that validates credential files exist on Mac Mini after `deploy-to-mini.sh` runs. (Impact: prevents silent credential wipes)
-3. **CLAUDE.MD**: Document the credential file format (`~/.hestia/coinbase-credentials`: line 1 = API key name, line 2 = EC private key) — currently undocumented. (Impact: faster recovery next time)
-
-## Next Step
-1. Commit the CLAUDE.md test count update
-2. Monitor bot logs over the next few days: `ssh andrewroman117@hestia-3.local "grep 'Signal:' /Users/andrewroman117/hestia/logs/hestia.log | tail -20"`
-3. If zero BUY/SELL signals after 1 week of healthy ticks, open a strategy tuning session to widen RSI thresholds
-4. S27.5 WS3 (Python 3.12 upgrade on Mac Mini) remains TODO — prerequisite for Sentinel Layer 0 deployment
+## Next Steps
+1. **Monitor GitHub Actions** — verify mac-v1.12.0 builds, signs, notarizes via Sparkle
+2. **Deploy Sentinel Layer 0 on Mac Mini** (~30 min manual) — still pending from previous session
+3. **iOS refresh remaining** — WS0 (TestFlight) and WS1 (voice modes) per `docs/superpowers/plans/2026-03-24-ios-refresh.md`
+4. **Settings/Onboarding redesign** — deferred, on the Notion whiteboard
