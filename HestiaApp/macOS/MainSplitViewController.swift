@@ -16,6 +16,7 @@ class MainSplitViewController: NSSplitViewController, NSWindowDelegate {
     private var registrationObserver: NSObjectProtocol?
     private nonisolated(unsafe) var chatToggleObserver: NSObjectProtocol?
     private nonisolated(unsafe) var detachObserver: NSObjectProtocol?
+    private nonisolated(unsafe) var modeSwitchObserver: NSObjectProtocol?
     private var detachedChatWindow: NSWindow?
 
     override init(nibName nibNameOrNil: NSNib.Name?, bundle nibBundleOrNil: Bundle?) {
@@ -111,8 +112,8 @@ class MainSplitViewController: NSSplitViewController, NSWindowDelegate {
             addSplitViewItem(mainItem)
             addSplitViewItem(chatItem)
 
-            // Restore persisted panel state
-            if !workspaceState.isChatPanelVisible {
+            // Sidebar split view item starts collapsed — only uncollapse if mode is .sidebar
+            if workspaceState.chatMode != .sidebar {
                 chatItem.isCollapsed = true
             }
         }
@@ -134,6 +135,17 @@ class MainSplitViewController: NSSplitViewController, NSWindowDelegate {
         ) { [weak self] _ in
             self?.detachChatPanel()
         }
+
+        // Bridge: SwiftUI chat mode switch → AppKit panel management
+        modeSwitchObserver = NotificationCenter.default.addObserver(
+            forName: .hestiaChatModeSwitch,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let modeString = notification.userInfo?["mode"] as? String,
+                  let mode = WorkspaceState.ChatMode(rawValue: modeString) else { return }
+            self?.switchChatMode(to: mode)
+        }
     }
 
     deinit {
@@ -141,6 +153,9 @@ class MainSplitViewController: NSSplitViewController, NSWindowDelegate {
             NotificationCenter.default.removeObserver(observer)
         }
         if let observer = detachObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        if let observer = modeSwitchObserver {
             NotificationCenter.default.removeObserver(observer)
         }
         detachedChatWindow?.close()
@@ -166,18 +181,61 @@ class MainSplitViewController: NSSplitViewController, NSWindowDelegate {
     func toggleChatPanel() {
         guard chatItem != nil else { return }
 
-        // If chat is detached, bring the detached window to front instead of toggling
-        if workspaceState.isChatDetached, let window = detachedChatWindow {
+        // If detached, bring the detached window to front
+        if workspaceState.chatMode == .detached, let window = detachedChatWindow {
             window.makeKeyAndOrderFront(nil)
             return
         }
 
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.25
-            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            chatItem.animator().isCollapsed.toggle()
+        // Toggle: if any chat is visible, hide it. If hidden, open floating.
+        if workspaceState.isChatVisible {
+            switchChatMode(to: .hidden)
+        } else {
+            switchChatMode(to: .floating)
         }
-        workspaceState.chatMode = chatItem.isCollapsed ? .hidden : .sidebar
+    }
+
+    // MARK: - Chat Mode Switching
+
+    func switchChatMode(to mode: WorkspaceState.ChatMode) {
+        let currentMode = workspaceState.chatMode
+
+        // Tear down current mode
+        switch currentMode {
+        case .sidebar:
+            if chatItem != nil && !chatItem.isCollapsed {
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = 0.25
+                    context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                    chatItem.animator().isCollapsed = true
+                }
+            }
+        case .detached:
+            detachedChatWindow?.close()
+            detachedChatWindow = nil
+        case .floating, .hidden:
+            break // SwiftUI overlay handles its own visibility
+        }
+
+        // Set up new mode
+        switch mode {
+        case .floating, .hidden:
+            // SwiftUI overlay reads workspaceState.chatMode directly
+            break
+        case .sidebar:
+            if chatItem != nil {
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = 0.25
+                    context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                    chatItem.animator().isCollapsed = false
+                }
+            }
+        case .detached:
+            detachChatPanel()
+            return // detachChatPanel sets state internally
+        }
+
+        workspaceState.chatMode = mode
     }
 
     // MARK: - Chat Panel Detach/Re-dock
@@ -252,20 +310,9 @@ class MainSplitViewController: NSSplitViewController, NSWindowDelegate {
         guard let closingWindow = notification.object as? NSWindow,
               closingWindow === detachedChatWindow else { return }
 
-        // Re-dock: uncollapse the chat panel in the split view
         detachedChatWindow = nil
-
-        guard chatItem != nil else {
-            workspaceState.chatMode = .hidden
-            return
-        }
-
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.25
-            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            chatItem.animator().isCollapsed = false
-        }
-        workspaceState.chatMode = .sidebar
+        // Re-dock: open as floating (less disruptive than sidebar)
+        workspaceState.chatMode = .floating
     }
 
 }
