@@ -23,12 +23,12 @@ struct CommandView: View {
             // Sub-tab content (lazy — only active tab renders)
             Group {
                 switch workspace.commandSubTab {
-                case .internal:
-                    InternalTabView()
-                case .newsfeed:
-                    NewsfeedTabView()
-                case .systemAlerts:
-                    SystemAlertsTabView()
+                case .dashboard:
+                    DashboardTabView()
+                case .activity:
+                    ActivityTabView()
+                case .orders:
+                    OrdersTabView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

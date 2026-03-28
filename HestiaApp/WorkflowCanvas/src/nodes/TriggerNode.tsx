@@ -5,8 +5,10 @@ export function TriggerNode({ data, selected }: NodeProps) {
   const color = NODE_COLORS.trigger
   const nodeType = data.nodeType as string | undefined
   const isManual = nodeType === 'manual'
-  const icon = isManual ? '▶️' : '⏰'
   const badge = isManual ? 'MANUAL' : 'SCHEDULE'
+  const icon = isManual
+    ? <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5,3 19,12 5,21"/></svg>
+    : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
 
   return (
     <div style={{
@@ -19,7 +21,7 @@ export function TriggerNode({ data, selected }: NodeProps) {
       color: '#E4DFD7',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-        <span style={{ fontSize: 16 }}>{icon}</span>
+        {icon}
         <span style={{
           fontSize: 10,
           background: color,

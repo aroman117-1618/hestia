@@ -99,9 +99,9 @@ struct WorkspaceRootView: View {
             )
 
         case .workflow(let id, let stepId):
-            // Orders tab removed — redirect to Command and switch to Newsfeed sub-tab
+            // Navigate to Command Center Orders tab
             withAnimation(.hestiaNavSwitch) { workspace.currentView = .command }
-            workspace.commandSubTab = .newsfeed
+            workspace.commandSubTab = .orders
             var info: [String: String] = ["workflowId": id]
             if let step = stepId { info["stepId"] = step }
             NotificationCenter.default.post(

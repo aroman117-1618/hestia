@@ -10,6 +10,7 @@ extension Notification.Name {
     static let activityTabSwitch = Notification.Name("hestia.activityTab.switch")
     static let hestiaServerReconnected = Notification.Name("hestia.server.reconnected")
     static let hestiaDeepLink = Notification.Name("hestia.deepLink")
+    static let hestiaSendToChat = Notification.Name("hestia.sendToChat")
 }
 
 // MARK: - Header Chat Toggle (compact button in chat panel header)

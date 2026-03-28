@@ -35,12 +35,12 @@ class WorkspaceState {
     var isChatDetached: Bool = false
 
     /// Which sub-tab is active in the Command tab
-    var commandSubTab: CommandSubTab = .internal
+    var commandSubTab: CommandSubTab = .dashboard
 
     enum CommandSubTab: String, CaseIterable {
-        case `internal` = "Internal"
-        case newsfeed = "Newsfeed"
-        case systemAlerts = "System Alerts"
+        case dashboard = "Dashboard"
+        case activity = "Activity"
+        case orders = "Orders"
     }
 
     init() {

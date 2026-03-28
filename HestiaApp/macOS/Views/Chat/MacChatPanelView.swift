@@ -103,6 +103,11 @@ struct MacChatPanelView: View {
         .task {
             // Empty state — user generates the first message
         }
+        .onReceive(NotificationCenter.default.publisher(for: .hestiaSendToChat)) { notification in
+            if let context = notification.userInfo?["context"] as? String {
+                messageText = context
+            }
+        }
     }
 
     // MARK: - Thinking Bubble

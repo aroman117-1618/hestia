@@ -1,0 +1,2551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hestia Command Center v2 — Mockup</title>
+<style>
+  /* ── Hestia Design Tokens ──────────────────────────── */
+  :root {
+    --bg-window: #0D0802;
+    --bg-sidebar: #0A0603;
+    --bg-panel: #110B03;
+    --bg-input: #1E1308;
+    --bg-active-nav: #2F1C03;
+
+    --amber: #FF9F0A;
+    --amber-bright: #FFB900;
+    --amber-dark: #FF8904;
+
+    --text-primary: #E8E2D9;
+    --text-secondary: rgba(232, 226, 217, 0.55);
+    --text-placeholder: rgba(232, 226, 217, 0.35);
+    --text-faint: rgba(232, 226, 217, 0.30);
+    --text-inactive: rgba(232, 226, 217, 0.45);
+
+    --border-card: rgba(255, 159, 10, 0.08);
+    --border-card-strong: rgba(255, 159, 10, 0.15);
+    --border-sidebar: rgba(255, 159, 10, 0.10);
+    --border-subtle: rgba(255, 159, 10, 0.06);
+    --divider: rgba(232, 226, 217, 0.08);
+
+    --health-green: #00D492;
+    --health-red: #FF6467;
+    --health-gold: #FEE685;
+    --status-green: #72F69E;
+    --status-warning: #FF9800;
+    --status-critical: #D32F2F;
+    --status-info: #0A84FF;
+    --cyan: #00D7FF;
+    --sleep-purple: #8B5CF6;
+
+    --hover-bg: rgba(255, 159, 10, 0.08);
+    --pressed-bg: rgba(255, 159, 10, 0.20);
+    --active-tab-bg: rgba(238, 203, 160, 0.15);
+
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 12px;
+    --space-lg: 16px;
+    --space-xl: 20px;
+    --space-xxl: 24px;
+    --space-xxxl: 32px;
+
+    --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+    --font-mono: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg-window);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+
+  /* ── Layout ──────────────────────────────────────── */
+  .app-shell {
+    display: flex;
+    height: 100vh;
+  }
+
+  .sidebar {
+    width: 64px;
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border-sidebar);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 0;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .sidebar-logo {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--amber-bright), var(--amber-dark));
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+    color: #040301;
+  }
+
+  .sidebar-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-inactive);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-size: 16px;
+    position: relative;
+  }
+
+  .sidebar-icon:hover { background: var(--hover-bg); color: var(--text-primary); }
+  .sidebar-icon.active {
+    background: var(--bg-active-nav);
+    color: var(--amber);
+  }
+  .sidebar-icon.active::before {
+    content: '';
+    position: absolute;
+    left: -14px;
+    width: 3px;
+    height: 14px;
+    border-radius: 0 2px 2px 0;
+    background: linear-gradient(180deg, var(--amber-bright), var(--amber-dark));
+  }
+
+  .main-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Top Bar ─────────────────────────────────────── */
+  .top-bar {
+    height: 44px;
+    border-bottom: 1px solid var(--divider);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    gap: 12px;
+    flex-shrink: 0;
+    background: var(--bg-window);
+  }
+
+  .top-bar-title {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-right: auto;
+  }
+
+  /* ── Tab Bar ─────────────────────────────────────── */
+  .tab-bar {
+    display: flex;
+    gap: 4px;
+    padding: 8px 24px;
+    border-bottom: 1px solid var(--divider);
+    background: var(--bg-window);
+    flex-shrink: 0;
+  }
+
+  .tab {
+    padding: 6px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-inactive);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+  }
+
+  .tab:hover { color: var(--text-primary); background: var(--hover-bg); }
+  .tab.active {
+    color: var(--amber);
+    background: var(--active-tab-bg);
+  }
+
+  /* ── Content ─────────────────────────────────────── */
+  .tab-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: none;
+  }
+
+  .tab-content.active { display: block; }
+
+  /* ── Cards ───────────────────────────────────────── */
+  .card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    transition: border-color 0.15s ease;
+  }
+
+  .card:hover { border-color: var(--border-card-strong); }
+
+  .card-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--text-inactive);
+    margin-bottom: var(--space-md);
+  }
+
+  .card-title {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: var(--space-sm);
+  }
+
+  .card-value {
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.1;
+  }
+
+  .card-value-md {
+    font-size: 22px;
+    font-weight: 400;
+    color: var(--text-primary);
+  }
+
+  /* ── Grid Layouts ────────────────────────────────── */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-lg);
+  }
+
+  .grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: var(--space-lg);
+  }
+
+  .grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-lg);
+  }
+
+  .grid-2-1 {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: var(--space-lg);
+  }
+
+  .grid-1-2 {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: var(--space-lg);
+  }
+
+  .section-gap { margin-bottom: var(--space-xxl); }
+
+  /* ── Stat Cards (small metric) ───────────────────── */
+  .stat-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .stat-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  .stat-number {
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.1;
+  }
+
+  .stat-delta {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    width: fit-content;
+  }
+
+  .stat-delta.positive {
+    color: var(--health-green);
+    background: rgba(0, 212, 146, 0.12);
+  }
+
+  .stat-delta.negative {
+    color: var(--health-red);
+    background: rgba(255, 100, 103, 0.10);
+  }
+
+  .stat-delta.neutral {
+    color: var(--text-secondary);
+    background: rgba(232, 226, 217, 0.08);
+  }
+
+  .stat-sparkline {
+    height: 24px;
+    margin-top: 4px;
+  }
+
+  /* ── Mini Chart (SVG sparkline) ──────────────────── */
+  .sparkline {
+    stroke: var(--amber);
+    stroke-width: 1.5;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .sparkline-area {
+    fill: rgba(255, 159, 10, 0.08);
+    stroke: none;
+  }
+
+  .sparkline-green { stroke: var(--health-green); }
+  .sparkline-area-green { fill: rgba(0, 212, 146, 0.08); }
+
+  /* ── Calendar ────────────────────────────────────── */
+  .calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-md);
+  }
+
+  .calendar-nav {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+
+  .calendar-nav-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    border: 1px solid var(--border-card);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+  }
+
+  .calendar-nav-btn:hover { background: var(--hover-bg); color: var(--text-primary); }
+
+  .calendar-month {
+    font-size: 15px;
+    font-weight: 500;
+  }
+
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    text-align: center;
+  }
+
+  .calendar-day-header {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-faint);
+    padding: 4px 0;
+  }
+
+  .calendar-day {
+    padding: 6px 4px;
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    position: relative;
+  }
+
+  .calendar-day:hover { background: var(--hover-bg); }
+  .calendar-day.today {
+    background: var(--amber);
+    color: #040301;
+    font-weight: 600;
+  }
+
+  .calendar-day.has-event::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--status-info);
+  }
+
+  .calendar-day.other-month { color: var(--text-faint); }
+
+  .calendar-day.range {
+    background: rgba(255, 159, 10, 0.08);
+    border-radius: 0;
+  }
+
+  /* ── Task List ───────────────────────────────────── */
+  .task-list { display: flex; flex-direction: column; gap: 2px; }
+
+  .task-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .task-item:hover { background: var(--hover-bg); }
+
+  .task-checkbox {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    border: 1.5px solid var(--border-card-strong);
+    flex-shrink: 0;
+  }
+
+  .task-checkbox.checked {
+    background: var(--amber);
+    border-color: var(--amber);
+    position: relative;
+  }
+
+  .task-checkbox.checked::after {
+    content: '\2713';
+    position: absolute;
+    top: -1px;
+    left: 2px;
+    font-size: 11px;
+    color: #040301;
+    font-weight: 700;
+  }
+
+  .task-text {
+    font-size: 13px;
+    color: var(--text-primary);
+    flex: 1;
+  }
+
+  .task-text.completed {
+    text-decoration: line-through;
+    color: var(--text-faint);
+  }
+
+  .task-due {
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+
+  .task-due.overdue { color: var(--health-red); font-weight: 500; }
+
+  .task-priority {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .task-priority.high { background: var(--health-red); }
+  .task-priority.medium { background: var(--status-warning); }
+  .task-priority.low { background: var(--health-green); }
+
+  /* ── Trading Card ────────────────────────────────── */
+  .trading-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-lg);
+  }
+
+  .trading-status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .status-dot.live { background: var(--health-green); box-shadow: 0 0 6px rgba(0, 212, 146, 0.5); }
+  .status-dot.paused { background: var(--status-warning); }
+  .status-dot.stopped { background: var(--health-red); }
+
+  .status-label {
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .kill-switch {
+    padding: 4px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 100, 103, 0.3);
+    background: rgba(255, 100, 103, 0.08);
+    color: var(--health-red);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .kill-switch:hover {
+    background: rgba(255, 100, 103, 0.20);
+    border-color: var(--health-red);
+  }
+
+  .lookback-toggle {
+    display: flex;
+    gap: 2px;
+    background: var(--bg-input);
+    border-radius: 8px;
+    padding: 2px;
+    margin-bottom: var(--space-lg);
+  }
+
+  .lookback-btn {
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-inactive);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: none;
+    background: transparent;
+  }
+
+  .lookback-btn.active {
+    background: var(--active-tab-bg);
+    color: var(--amber);
+  }
+
+  .lookback-btn:hover:not(.active) { color: var(--text-primary); }
+
+  .bot-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-sm);
+  }
+
+  .bot-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+  }
+
+  .bot-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .bot-pnl {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .bot-pnl.positive { color: var(--health-green); }
+  .bot-pnl.negative { color: var(--health-red); }
+
+  /* ── Health Summary ──────────────────────────────── */
+  .health-row {
+    display: flex;
+    gap: var(--space-lg);
+    flex-wrap: wrap;
+  }
+
+  .health-metric {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .health-metric-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+
+  .health-metric-value {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .health-bar {
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(232, 226, 217, 0.08);
+    margin-top: 4px;
+    width: 80px;
+    overflow: hidden;
+  }
+
+  .health-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+  }
+
+  /* ── Activity Feed ───────────────────────────────── */
+  .filter-pills {
+    display: flex;
+    gap: 4px;
+    margin-bottom: var(--space-lg);
+    flex-wrap: wrap;
+  }
+
+  .pill {
+    padding: 4px 14px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-inactive);
+    border: 1px solid var(--border-card);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    background: transparent;
+  }
+
+  .pill.active {
+    color: var(--amber);
+    border-color: var(--amber);
+    background: rgba(255, 159, 10, 0.08);
+  }
+
+  .pill:hover:not(.active) { border-color: var(--border-card-strong); color: var(--text-primary); }
+
+  .feed-list { display: flex; flex-direction: column; gap: 2px; }
+
+  .feed-item {
+    display: flex;
+    gap: var(--space-md);
+    padding: 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.15s ease;
+    align-items: flex-start;
+  }
+
+  .feed-item:hover { background: var(--hover-bg); }
+
+  .feed-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .feed-icon.order { background: rgba(255, 159, 10, 0.12); color: var(--amber); }
+  .feed-icon.alert { background: rgba(255, 100, 103, 0.10); color: var(--health-red); }
+  .feed-icon.info { background: rgba(10, 132, 255, 0.12); color: var(--status-info); }
+  .feed-icon.idea { background: rgba(139, 92, 246, 0.12); color: var(--sleep-purple); }
+  .feed-icon.security { background: rgba(255, 152, 0, 0.12); color: var(--status-warning); }
+
+  .feed-body { flex: 1; min-width: 0; }
+
+  .feed-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+  }
+
+  .feed-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+  }
+
+  .feed-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-top: 4px;
+  }
+
+  .feed-time {
+    font-size: 11px;
+    color: var(--text-faint);
+  }
+
+  .feed-tag {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+
+  .feed-tag.order-tag { background: rgba(255, 159, 10, 0.12); color: var(--amber); }
+  .feed-tag.alert-tag { background: rgba(255, 100, 103, 0.10); color: var(--health-red); }
+  .feed-tag.system-tag { background: rgba(10, 132, 255, 0.12); color: var(--status-info); }
+  .feed-tag.idea-tag { background: rgba(139, 92, 246, 0.12); color: var(--sleep-purple); }
+
+  .feed-output {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: var(--bg-input);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    line-height: 1.5;
+    border-left: 2px solid var(--border-card-strong);
+  }
+
+  /* ── Orders / Canvas Tab ─────────────────────────── */
+  .orders-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 0;
+    height: calc(100vh - 110px);
+    margin: -24px;
+  }
+
+  .orders-sidebar {
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border-sidebar);
+    padding: var(--space-lg);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .orders-sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-md);
+  }
+
+  .orders-sidebar-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+
+  .add-order-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    border: 1px solid var(--border-card);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: all 0.15s ease;
+  }
+
+  .add-order-btn:hover { background: var(--hover-bg); color: var(--amber); border-color: var(--amber); }
+
+  .order-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .order-item:hover { background: var(--hover-bg); }
+  .order-item.active { background: var(--active-tab-bg); }
+
+  .order-item-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .order-item-dot.active-status { background: var(--health-green); }
+  .order-item-dot.draft-status { background: var(--text-faint); }
+  .order-item-dot.inactive-status { background: var(--status-warning); }
+
+  .order-item-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .order-item-count {
+    font-size: 11px;
+    color: var(--text-faint);
+  }
+
+  .canvas-area {
+    background: var(--bg-window);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .canvas-toolbar {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .canvas-toolbar > * { pointer-events: auto; }
+
+  .canvas-title {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-primary);
+    background: var(--bg-panel);
+    border: 1px solid var(--border-card);
+    padding: 6px 14px;
+    border-radius: var(--radius-sm);
+  }
+
+  .canvas-actions {
+    display: flex;
+    gap: 4px;
+  }
+
+  .canvas-action-btn {
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-card);
+    background: var(--bg-panel);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .canvas-action-btn:hover { border-color: var(--border-card-strong); color: var(--text-primary); }
+  .canvas-action-btn.primary {
+    background: var(--amber);
+    border-color: var(--amber);
+    color: #040301;
+  }
+  .canvas-action-btn.primary:hover { background: var(--amber-bright); }
+
+  /* ── Canvas Nodes (mock) ─────────────────────────── */
+  .canvas-mock {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .canvas-node {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-card-strong);
+    border-radius: var(--radius-md);
+    padding: 0;
+    position: absolute;
+    min-width: 180px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: box-shadow 0.15s ease;
+  }
+
+  .canvas-node:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  }
+
+  .canvas-node-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-card);
+  }
+
+  .canvas-node-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .canvas-node-icon.trigger { background: rgba(0, 212, 146, 0.15); color: var(--health-green); }
+  .canvas-node-icon.prompt { background: rgba(10, 132, 255, 0.15); color: var(--status-info); }
+  .canvas-node-icon.tool { background: rgba(255, 159, 10, 0.15); color: var(--amber); }
+  .canvas-node-icon.condition { background: rgba(139, 92, 246, 0.15); color: var(--sleep-purple); }
+  .canvas-node-icon.action { background: rgba(0, 215, 255, 0.15); color: var(--cyan); }
+  .canvas-node-icon.delay { background: rgba(232, 226, 217, 0.10); color: var(--text-secondary); }
+
+  .canvas-node-badge {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+  }
+
+  .canvas-node-name {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-primary);
+    padding: 8px 12px;
+  }
+
+  .canvas-node-meta {
+    font-size: 10px;
+    color: var(--text-faint);
+    padding: 0 12px 8px;
+  }
+
+  /* ── Connection lines ────────────────────────────── */
+  .canvas-connections {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .canvas-connections svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .connection-line {
+    stroke: var(--border-card-strong);
+    stroke-width: 1.5;
+    fill: none;
+  }
+
+  /* ── Section Header ──────────────────────────────── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-lg);
+  }
+
+  .section-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+
+  .section-action {
+    font-size: 12px;
+    color: var(--amber);
+    cursor: pointer;
+    font-weight: 500;
+  }
+
+  .section-action:hover { text-decoration: underline; }
+
+  /* ── Detail Panel (slide-over) ─────────────────── */
+  .activity-layout {
+    display: flex;
+    height: calc(100vh - 110px);
+    margin: -24px;
+  }
+
+  .activity-feed-pane {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    transition: flex 0.25s ease;
+  }
+
+  .activity-layout.panel-open .activity-feed-pane {
+    flex: 1;
+  }
+
+  .detail-panel {
+    width: 0;
+    overflow: hidden;
+    background: var(--bg-sidebar);
+    border-left: 1px solid var(--border-sidebar);
+    transition: width 0.25s ease;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .activity-layout.panel-open .detail-panel {
+    width: 420px;
+    min-width: 420px;
+  }
+
+  .detail-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--divider);
+    flex-shrink: 0;
+  }
+
+  .detail-panel-title {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-primary);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .detail-panel-close {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    border: 1px solid var(--border-card);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+    margin-left: 12px;
+  }
+
+  .detail-panel-close:hover { background: var(--hover-bg); color: var(--text-primary); }
+
+  .detail-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+  }
+
+  .detail-panel-content { display: none; }
+  .detail-panel-content.active { display: block; }
+
+  /* ── Detail: Meta row ────────────────────────────── */
+  .detail-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .detail-meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .detail-meta-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+
+  .detail-meta-value {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  /* ── Detail: Execution Timeline ──────────────────── */
+  .exec-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-bottom: 20px;
+  }
+
+  .exec-step {
+    display: flex;
+    gap: 12px;
+    position: relative;
+  }
+
+  .exec-step-rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 24px;
+    flex-shrink: 0;
+  }
+
+  .exec-step-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    z-index: 1;
+    margin-top: 4px;
+  }
+
+  .exec-step-dot.success { background: var(--health-green); box-shadow: 0 0 4px rgba(0, 212, 146, 0.3); }
+  .exec-step-dot.running { background: var(--amber); box-shadow: 0 0 4px rgba(255, 159, 10, 0.3); }
+  .exec-step-dot.failed { background: var(--health-red); box-shadow: 0 0 4px rgba(255, 100, 103, 0.3); }
+  .exec-step-dot.pending { background: var(--text-faint); }
+
+  .exec-step-line {
+    width: 1.5px;
+    flex: 1;
+    background: var(--border-card-strong);
+    min-height: 20px;
+  }
+
+  .exec-step:last-child .exec-step-line { display: none; }
+
+  .exec-step-body {
+    flex: 1;
+    padding-bottom: 16px;
+  }
+
+  .exec-step-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+
+  .exec-step-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .exec-step-type {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  .exec-step-type.trigger-type { background: rgba(0, 212, 146, 0.12); color: var(--health-green); }
+  .exec-step-type.tool-type { background: rgba(255, 159, 10, 0.12); color: var(--amber); }
+  .exec-step-type.prompt-type { background: rgba(10, 132, 255, 0.12); color: var(--status-info); }
+  .exec-step-type.notify-type { background: rgba(0, 215, 255, 0.12); color: var(--cyan); }
+
+  .exec-step-duration {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-faint);
+  }
+
+  .exec-step-output {
+    margin-top: 6px;
+    padding: 8px 12px;
+    background: var(--bg-input);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    line-height: 1.5;
+    border-left: 2px solid var(--border-card-strong);
+    white-space: pre-wrap;
+  }
+
+  /* ── Detail: Actions bar ─────────────────────────── */
+  .detail-actions {
+    display: flex;
+    gap: 8px;
+    padding: 16px 20px;
+    border-top: 1px solid var(--divider);
+    flex-shrink: 0;
+  }
+
+  .detail-btn {
+    padding: 6px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-card);
+    background: var(--bg-panel);
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    flex: 1;
+    text-align: center;
+  }
+
+  .detail-btn:hover { border-color: var(--border-card-strong); color: var(--text-primary); }
+
+  .detail-btn.primary {
+    background: var(--amber);
+    border-color: var(--amber);
+    color: #040301;
+  }
+
+  .detail-btn.primary:hover { background: var(--amber-bright); }
+
+  .detail-btn.danger {
+    border-color: rgba(255, 100, 103, 0.3);
+    color: var(--health-red);
+  }
+
+  .detail-btn.danger:hover {
+    background: rgba(255, 100, 103, 0.08);
+    border-color: var(--health-red);
+  }
+
+  /* ── Detail: Alert severity ──────────────────────── */
+  .severity-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+
+  .severity-badge.medium {
+    background: rgba(255, 152, 0, 0.12);
+    color: var(--status-warning);
+  }
+
+  .severity-badge.high {
+    background: rgba(255, 100, 103, 0.12);
+    color: var(--health-red);
+  }
+
+  .severity-badge.low {
+    background: rgba(10, 132, 255, 0.12);
+    color: var(--status-info);
+  }
+
+  /* ── Detail: Log entries ─────────────────────────── */
+  .log-block {
+    background: var(--bg-input);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    border: 1px solid var(--border-card);
+  }
+
+  .log-block .log-warn { color: var(--status-warning); }
+  .log-block .log-err { color: var(--health-red); }
+  .log-block .log-ok { color: var(--health-green); }
+  .log-block .log-dim { color: var(--text-faint); }
+
+  /* ── Detail: Section within panel ────────────────── */
+  .detail-section {
+    margin-bottom: 20px;
+  }
+
+  .detail-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 10px;
+  }
+
+  .detail-description {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
+
+  /* ── Feed item selected state ────────────────────── */
+  .feed-item.selected {
+    background: var(--active-tab-bg);
+    border-radius: var(--radius-sm);
+  }
+
+  /* ── Scrollbar ───────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(232, 226, 217, 0.12);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(232, 226, 217, 0.20); }
+
+  /* ── Chart placeholder ───────────────────────────── */
+  .chart-area {
+    height: 120px;
+    position: relative;
+    margin-top: var(--space-sm);
+  }
+
+  .chart-area svg { width: 100%; height: 100%; }
+
+  /* ── Event list (calendar) ───────────────────────── */
+  .event-list { display: flex; flex-direction: column; gap: 4px; margin-top: var(--space-md); }
+
+  .event-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: 6px 0;
+  }
+
+  .event-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .event-time {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-faint);
+    width: 48px;
+    flex-shrink: 0;
+  }
+
+  .event-name {
+    font-size: 13px;
+    color: var(--text-primary);
+  }
+
+  /* ── Responsive ──────────────────────────────────── */
+  @media (max-width: 900px) {
+    .grid-2-1, .grid-1-2 { grid-template-columns: 1fr; }
+    .grid-4 { grid-template-columns: 1fr 1fr; }
+    .orders-layout { grid-template-columns: 200px 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <!-- Sidebar (context: macOS app) -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">H</div>
+    <div class="sidebar-icon" title="Chat">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    </div>
+    <div class="sidebar-icon active" title="Command Center">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    </div>
+    <div class="sidebar-icon" title="Research">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    </div>
+    <div class="sidebar-icon" title="Settings">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <div class="main-area">
+    <!-- Top bar -->
+    <div class="top-bar">
+      <div class="top-bar-title">Command Center</div>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="tab-bar">
+      <div class="tab active" data-tab="dashboard">Dashboard</div>
+      <div class="tab" data-tab="activity">Activity</div>
+      <div class="tab" data-tab="orders">Orders</div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- TAB 1: DASHBOARD                               -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="tab-content active" id="tab-dashboard">
+
+      <!-- Row 1: Health Summary (4 stat cards) -->
+      <div class="section-gap">
+        <div class="section-header">
+          <div class="section-title">Health Summary</div>
+          <div class="section-action">View Details</div>
+        </div>
+        <div class="grid-4">
+          <div class="stat-card">
+            <div class="stat-label">Steps</div>
+            <div style="display:flex;align-items:baseline;gap:8px;">
+              <div class="stat-number">8,432</div>
+              <div class="stat-delta positive">+12%</div>
+            </div>
+            <div class="stat-sparkline">
+              <svg viewBox="0 0 120 24" preserveAspectRatio="none">
+                <path class="sparkline-area-green" d="M0,20 L10,16 L20,18 L30,14 L40,12 L50,15 L60,10 L70,8 L80,11 L90,6 L100,9 L110,4 L120,6 L120,24 L0,24 Z"/>
+                <path class="sparkline sparkline-green" d="M0,20 L10,16 L20,18 L30,14 L40,12 L50,15 L60,10 L70,8 L80,11 L90,6 L100,9 L110,4 L120,6"/>
+              </svg>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Sleep</div>
+            <div style="display:flex;align-items:baseline;gap:8px;">
+              <div class="stat-number">7h 22m</div>
+              <div class="stat-delta positive">+8%</div>
+            </div>
+            <div class="stat-sparkline">
+              <svg viewBox="0 0 120 24" preserveAspectRatio="none">
+                <path class="sparkline-area" d="M0,14 L15,10 L30,16 L45,8 L60,12 L75,6 L90,10 L105,8 L120,4 L120,24 L0,24 Z" style="fill:rgba(139,92,246,0.08)"/>
+                <path class="sparkline" d="M0,14 L15,10 L30,16 L45,8 L60,12 L75,6 L90,10 L105,8 L120,4" style="stroke:#8B5CF6"/>
+              </svg>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Heart Rate</div>
+            <div style="display:flex;align-items:baseline;gap:8px;">
+              <div class="stat-number">68</div>
+              <span style="font-size:14px;color:var(--text-secondary)">bpm</span>
+              <div class="stat-delta neutral">avg</div>
+            </div>
+            <div class="stat-sparkline">
+              <svg viewBox="0 0 120 24" preserveAspectRatio="none">
+                <path class="sparkline-area" d="M0,12 L8,10 L16,14 L24,8 L32,16 L40,10 L48,12 L56,6 L64,14 L72,10 L80,8 L88,12 L96,10 L104,14 L112,8 L120,12 L120,24 L0,24 Z" style="fill:rgba(255,100,103,0.06)"/>
+                <path class="sparkline" d="M0,12 L8,10 L16,14 L24,8 L32,16 L40,10 L48,12 L56,6 L64,14 L72,10 L80,8 L88,12 L96,10 L104,14 L112,8 L120,12" style="stroke:#FF6467"/>
+              </svg>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Calories</div>
+            <div style="display:flex;align-items:baseline;gap:8px;">
+              <div class="stat-number">1,847</div>
+              <span style="font-size:14px;color:var(--text-secondary)">kcal</span>
+              <div class="stat-delta negative">-5%</div>
+            </div>
+            <div class="stat-sparkline">
+              <svg viewBox="0 0 120 24" preserveAspectRatio="none">
+                <path class="sparkline-area" d="M0,8 L15,10 L30,6 L45,12 L60,10 L75,14 L90,12 L105,16 L120,14 L120,24 L0,24 Z"/>
+                <path class="sparkline" d="M0,8 L15,10 L30,6 L45,12 L60,10 L75,14 L90,12 L105,16 L120,14"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2: Calendar + Tasks -->
+      <div class="section-gap">
+        <div class="grid-2-1">
+          <!-- Calendar (2-week view) -->
+          <div class="card">
+            <div class="card-label">Calendar</div>
+            <div class="calendar-header">
+              <div class="calendar-nav">
+                <button class="calendar-nav-btn">&larr;</button>
+                <span class="calendar-month">Mar 24 &ndash; Apr 6, 2026</span>
+                <button class="calendar-nav-btn">&rarr;</button>
+              </div>
+            </div>
+            <div class="calendar-grid">
+              <div class="calendar-day-header">Mon</div>
+              <div class="calendar-day-header">Tue</div>
+              <div class="calendar-day-header">Wed</div>
+              <div class="calendar-day-header">Thu</div>
+              <div class="calendar-day-header">Fri</div>
+              <div class="calendar-day-header">Sat</div>
+              <div class="calendar-day-header">Sun</div>
+              <!-- Week 1 -->
+              <div class="calendar-day has-event">24</div>
+              <div class="calendar-day">25</div>
+              <div class="calendar-day has-event">26</div>
+              <div class="calendar-day">27</div>
+              <div class="calendar-day today">28</div>
+              <div class="calendar-day">29</div>
+              <div class="calendar-day">30</div>
+              <!-- Week 2 -->
+              <div class="calendar-day has-event">31</div>
+              <div class="calendar-day other-month">1</div>
+              <div class="calendar-day other-month has-event">2</div>
+              <div class="calendar-day other-month">3</div>
+              <div class="calendar-day other-month">4</div>
+              <div class="calendar-day other-month">5</div>
+              <div class="calendar-day other-month">6</div>
+            </div>
+            <div class="event-list">
+              <div class="event-item">
+                <div class="event-dot" style="background:var(--status-info)"></div>
+                <div class="event-time">9:00</div>
+                <div class="event-name">Morning standup</div>
+              </div>
+              <div class="event-item">
+                <div class="event-dot" style="background:var(--health-green)"></div>
+                <div class="event-time">12:30</div>
+                <div class="event-name">Lunch with Dave</div>
+              </div>
+              <div class="event-item">
+                <div class="event-dot" style="background:var(--sleep-purple)"></div>
+                <div class="event-time">15:00</div>
+                <div class="event-name">Sprint planning</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tasks -->
+          <div class="card">
+            <div class="card-label">Tasks</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+              <div style="font-size:13px;font-weight:500;color:var(--text-primary)">3 overdue, 5 current</div>
+            </div>
+            <div class="task-list">
+              <div class="task-item">
+                <div class="task-priority high"></div>
+                <div class="task-checkbox"></div>
+                <div class="task-text">Resolve Alpaca API key issue</div>
+                <div class="task-due overdue">Mar 25</div>
+              </div>
+              <div class="task-item">
+                <div class="task-priority high"></div>
+                <div class="task-checkbox"></div>
+                <div class="task-text">Deploy Sentinel Layer 0</div>
+                <div class="task-due overdue">Mar 26</div>
+              </div>
+              <div class="task-item">
+                <div class="task-priority medium"></div>
+                <div class="task-checkbox"></div>
+                <div class="task-text">Pull qwen2.5:0.5b on Mini</div>
+                <div class="task-due overdue">Mar 27</div>
+              </div>
+              <div class="task-item" style="border-top:1px solid var(--divider);padding-top:10px;margin-top:4px;">
+                <div class="task-priority medium"></div>
+                <div class="task-checkbox"></div>
+                <div class="task-text">Wire Orders in Command Center</div>
+                <div class="task-due">Mar 29</div>
+              </div>
+              <div class="task-item">
+                <div class="task-priority low"></div>
+                <div class="task-checkbox"></div>
+                <div class="task-text">Canvas emoji cleanup</div>
+                <div class="task-due">Mar 30</div>
+              </div>
+              <div class="task-item">
+                <div class="task-priority low"></div>
+                <div class="task-checkbox checked"></div>
+                <div class="task-text completed">Backtest validation</div>
+                <div class="task-due" style="color:var(--text-faint)">Mar 27</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 3: Trading -->
+      <div class="section-gap">
+        <div class="card">
+          <div class="trading-header">
+            <div>
+              <div class="card-label" style="margin-bottom:4px;">Trading</div>
+              <div class="trading-status">
+                <div class="status-dot live"></div>
+                <span class="status-label" style="color:var(--health-green)">4 Bots Live</span>
+                <span style="font-size:12px;color:var(--text-faint);margin-left:4px;">Coinbase</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div class="lookback-toggle">
+                <button class="lookback-btn active">1D</button>
+                <button class="lookback-btn">7D</button>
+                <button class="lookback-btn">30D</button>
+                <button class="lookback-btn">ALL</button>
+              </div>
+              <button class="kill-switch">Kill All</button>
+            </div>
+          </div>
+
+          <div class="grid-2" style="gap:24px;">
+            <!-- Performance chart -->
+            <div>
+              <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;">
+                <div style="font-size:22px;font-weight:500;">+$4.82</div>
+                <div class="stat-delta positive">+1.93%</div>
+              </div>
+              <div style="font-size:12px;color:var(--text-faint);margin-bottom:12px;">Portfolio P&L (1 Day)</div>
+              <div class="chart-area">
+                <svg viewBox="0 0 400 120" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="pnlGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="rgba(0,212,146,0.15)"/>
+                      <stop offset="100%" stop-color="rgba(0,212,146,0)"/>
+                    </linearGradient>
+                  </defs>
+                  <!-- Grid lines -->
+                  <line x1="0" y1="30" x2="400" y2="30" stroke="rgba(232,226,217,0.04)" stroke-width="1"/>
+                  <line x1="0" y1="60" x2="400" y2="60" stroke="rgba(232,226,217,0.04)" stroke-width="1"/>
+                  <line x1="0" y1="90" x2="400" y2="90" stroke="rgba(232,226,217,0.04)" stroke-width="1"/>
+                  <!-- Area -->
+                  <path d="M0,80 C30,75 60,70 100,65 C140,60 170,55 200,50 C230,45 260,48 300,40 C340,32 370,35 400,30 L400,120 L0,120 Z" fill="url(#pnlGrad)"/>
+                  <!-- Line -->
+                  <path d="M0,80 C30,75 60,70 100,65 C140,60 170,55 200,50 C230,45 260,48 300,40 C340,32 370,35 400,30" stroke="var(--health-green)" stroke-width="2" fill="none" stroke-linecap="round"/>
+                </svg>
+              </div>
+            </div>
+
+            <!-- Bot breakdown -->
+            <div>
+              <div style="font-size:12px;color:var(--text-faint);margin-bottom:12px;">Bot Performance</div>
+              <div class="bot-grid">
+                <div class="bot-row">
+                  <div>
+                    <div class="bot-name">BTC MR</div>
+                    <div style="font-size:10px;color:var(--text-faint)">Mean Reversion</div>
+                  </div>
+                  <div class="bot-pnl positive">+$2.14</div>
+                </div>
+                <div class="bot-row">
+                  <div>
+                    <div class="bot-name">ETH MR</div>
+                    <div style="font-size:10px;color:var(--text-faint)">Mean Reversion</div>
+                  </div>
+                  <div class="bot-pnl positive">+$1.53</div>
+                </div>
+                <div class="bot-row">
+                  <div>
+                    <div class="bot-name">SOL MR</div>
+                    <div style="font-size:10px;color:var(--text-faint)">Mean Reversion</div>
+                  </div>
+                  <div class="bot-pnl positive">+$0.91</div>
+                </div>
+                <div class="bot-row">
+                  <div>
+                    <div class="bot-name">DOGE MR</div>
+                    <div style="font-size:10px;color:var(--text-faint)">Mean Reversion</div>
+                  </div>
+                  <div class="bot-pnl negative">-$0.76</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- TAB 2: ACTIVITY                                -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="tab-content" id="tab-activity">
+      <div class="activity-layout" id="activity-layout">
+        <!-- Feed pane (left) -->
+        <div class="activity-feed-pane">
+          <div class="section-header">
+            <div class="section-title">Activity Feed</div>
+            <div class="section-action">Mark All Read</div>
+          </div>
+
+          <div class="filter-pills">
+            <div class="pill active">All</div>
+            <div class="pill">Orders</div>
+            <div class="pill">Alerts</div>
+            <div class="pill">System</div>
+          </div>
+
+          <div class="feed-list">
+            <!-- Completed Order -->
+            <div class="feed-item" data-detail="order-detail">
+              <div class="feed-icon order">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              </div>
+              <div class="feed-body">
+                <div class="feed-title">Morning Briefing completed</div>
+                <div class="feed-desc">Ran 4 steps: calendar check, weather, trading summary, priority tasks</div>
+                <div class="feed-output">Calendar: 3 events today. Weather: 72F, clear. Trading: +$4.82 (1D). Top task: Resolve Alpaca API key issue (overdue).</div>
+                <div class="feed-meta">
+                  <div class="feed-time">7:00 AM</div>
+                  <div class="feed-tag order-tag">Order</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Security Alert -->
+            <div class="feed-item" data-detail="alert-detail">
+              <div class="feed-icon security">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              </div>
+              <div class="feed-body">
+                <div class="feed-title">Sentinel: Unusual DNS query detected</div>
+                <div class="feed-desc">Layer 2 runtime daemon flagged 3 DNS queries to analytics.trackr.io from pip subprocess. Blocked and logged.</div>
+                <div class="feed-meta">
+                  <div class="feed-time">6:42 AM</div>
+                  <div class="feed-tag alert-tag">Security</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Development Idea -->
+            <div class="feed-item" data-detail="idea-detail">
+              <div class="feed-icon idea">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 0 0-3 13.33V17h6v-1.67A7 7 0 0 0 12 2z"/><line x1="9" y1="21" x2="15" y2="21"/></svg>
+              </div>
+              <div class="feed-body">
+                <div class="feed-title">Suggestion: Consolidate memory entries</div>
+                <div class="feed-desc">Pattern detected: 47 memories have embedding similarity &gt;0.90. Consolidation could free ~12% of ChromaDB storage and improve retrieval speed.</div>
+                <div class="feed-meta">
+                  <div class="feed-time">5:15 AM</div>
+                  <div class="feed-tag idea-tag">Self-Dev</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- System -->
+            <div class="feed-item" data-detail="system-detail">
+              <div class="feed-icon info">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              </div>
+              <div class="feed-body">
+                <div class="feed-title">Server recycled (request limit)</div>
+                <div class="feed-desc">Uvicorn worker hit 50,000 request limit. launchd restarted successfully. Uptime before recycle: 4d 12h.</div>
+                <div class="feed-meta">
+                  <div class="feed-time">3:30 AM</div>
+                  <div class="feed-tag system-tag">System</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Another Order -->
+            <div class="feed-item" data-detail="order2-detail">
+              <div class="feed-icon order">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              </div>
+              <div class="feed-body">
+                <div class="feed-title">Weekly Portfolio Report completed</div>
+                <div class="feed-desc">Ran 6 steps: fetch positions, calculate P&L, risk metrics, strategy performance, generate report, notify</div>
+                <div class="feed-output">7-day P&L: +$18.43 (+7.4%). Sharpe: 1.82. Max drawdown: -2.1%. BTC MR leading (+$9.21). DOGE MR underperforming (-$2.34). No risk threshold breaches.</div>
+                <div class="feed-meta">
+                  <div class="feed-time">Yesterday, 8:00 PM</div>
+                  <div class="feed-tag order-tag">Order</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Alert -->
+            <div class="feed-item" data-detail="trading-alert-detail">
+              <div class="feed-icon alert">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </div>
+              <div class="feed-body">
+                <div class="feed-title">Trading: DOGE MR approaching max drawdown</div>
+                <div class="feed-desc">DOGE Mean Reversion bot at -1.8% drawdown (threshold: -2.5%). Consider reviewing position sizing.</div>
+                <div class="feed-meta">
+                  <div class="feed-time">Yesterday, 2:15 PM</div>
+                  <div class="feed-tag alert-tag">Trading</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Info -->
+            <div class="feed-item" data-detail="inbox-detail">
+              <div class="feed-icon info">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              </div>
+              <div class="feed-body">
+                <div class="feed-title">Inbox: 2 new emails requiring attention</div>
+                <div class="feed-desc">From: Alpaca Support (RE: API Key Activation). From: Apple Developer (Certificate Renewal Notice).</div>
+                <div class="feed-meta">
+                  <div class="feed-time">Yesterday, 10:30 AM</div>
+                  <div class="feed-tag system-tag">Inbox</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Detail panel (right slide-over) -->
+        <div class="detail-panel" id="detail-panel">
+
+          <!-- ── Order Completion Detail ───────────────── -->
+          <div class="detail-panel-content" id="order-detail">
+            <div class="detail-panel-header">
+              <div class="detail-panel-title">Morning Briefing</div>
+              <button class="detail-panel-close" onclick="closeDetail()">&times;</button>
+            </div>
+            <div class="detail-panel-body">
+              <div class="detail-meta">
+                <div class="detail-meta-item">
+                  <div class="detail-meta-label">Status</div>
+                  <div class="detail-meta-value" style="color:var(--health-green)">Completed</div>
+                </div>
+                <div class="detail-meta-item">
+                  <div class="detail-meta-label">Started</div>
+                  <div class="detail-meta-value">7:00:00 AM</div>
+                </div>
+                <div class="detail-meta-item">
+                  <div class="detail-meta-label">Duration</div>
+                  <div class="detail-meta-value">12.4s</div>
+                </div>
+                <div class="detail-meta-item">
+                  <div class="detail-meta-label">Steps</div>
+                  <div class="detail-meta-value">4 / 4</div>
+                </div>
+              </div>
+
+              <div class="detail-section">
+                <div class="detail-section-title">Execution Timeline</div>
+                <div class="exec-timeline">
+                  <!-- Step 1: Trigger -->
+                  <div class="exec-step">
+                    <div class="exec-step-rail">
+                      <div class="exec-step-dot success"></div>
+                      <div class="exec-step-line"></div>
+                    </div>
+                    <div class="exec-step-body">
+                      <div class="exec-step-header">
+                        <div class="exec-step-name">
+                          Daily at 7:00 AM
+                          <span class="exec-step-type trigger-type">Schedule</span>
+                        </div>
+                        <div class="exec-step-duration">0ms</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Step 2: Calendar -->
+                  <div class="exec-step">
+                    <div class="exec-step-rail">
+                      <div class="exec-step-dot success"></div>
+                      <div class="exec-step-line"></div>
+                    </div>
+                    <div class="exec-step-body">
+                      <div class="exec-step-header">
+                        <div class="exec-step-name">
+                          Calendar Check
+                          <span class="exec-step-type tool-type">Tool</span>
+                        </div>
+                        <div class="exec-step-duration">1.2s</div>
+                      </div>
+                      <div class="exec-step-output">Found 3 events:
+09:00 Morning standup
+12:30 Lunch with Dave
+15:00 Sprint planning</div>
+                    </div>
+                  </div>
+
+                  <!-- Step 3: Weather -->
+                  <div class="exec-step">
+                    <div class="exec-step-rail">
+                      <div class="exec-step-dot success"></div>
+                      <div class="exec-step-line"></div>
+                    </div>
+                    <div class="exec-step-body">
+                      <div class="exec-step-header">
+                        <div class="exec-step-name">
+                          Weather Summary
+                          <span class="exec-step-type prompt-type">Prompt</span>
+                        </div>
+                        <div class="exec-step-duration">3.8s</div>
+                      </div>
+                      <div class="exec-step-output">72F and clear skies today, dropping to 58F tonight. No rain expected through the weekend. UV index moderate — sunscreen if you're out past noon.</div>
+                    </div>
+                  </div>
+
+                  <!-- Step 4: Trading -->
+                  <div class="exec-step">
+                    <div class="exec-step-rail">
+                      <div class="exec-step-dot success"></div>
+                      <div class="exec-step-line"></div>
+                    </div>
+                    <div class="exec-step-body">
+                      <div class="exec-step-header">
+                        <div class="exec-step-name">
+                          Trading Summary
+                          <span class="exec-step-type tool-type">Tool</span>
+                        </div>
+                        <div class="exec-step-duration">0.8s</div>
+                      </div>
+                      <div class="exec-step-output">Portfolio: +$4.82 (+1.93%) 24h
+BTC MR: +$2.14 | ETH MR: +$1.53
+SOL MR: +$0.91 | DOGE MR: -$0.76
+No risk alerts. All bots active.</div>
+                    </div>
+                  </div>
+
+                  <!-- Step 5: Notify -->
+                  <div class="exec-step">
+                    <div class="exec-step-rail">
+                      <div class="exec-step-dot success"></div>
+                    </div>
+                    <div class="exec-step-body">
+                      <div class="exec-step-header">
+                        <div class="exec-step-name">
+                          Send Briefing
+                          <span class="exec-step-type notify-type">Notify</span>
+                        </div>
+                        <div class="exec-step-duration">0.3s</div>
+                      </div>
+                      <div class="exec-step-output">Push notification sent to iPhone and Mac.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="detail-actions">
+              <button class="detail-btn">View Canvas</button>
+              <button class="detail-btn primary">Re-run</button>
+            </div>
+          </div>
+
+          <!-- ── Security Alert Detail ─────────────────── -->
+          <div class="detail-panel-content" id="alert-detail">
+            <div class="detail-panel-header">
+              <div class="detail-panel-title">Sentinel: DNS Query Alert</div>
+              <button class="detail-panel-close" onclick="closeDetail()">&times;</button>
+            </div>
+            <div class="detail-panel-body">
+              <div class="detail-meta">
+                <div class="detail-meta-item">
+                  <div class="detail-meta-label">Severity</div>
+                  <div class="severity-badge medium">Medium</div>
+                </div>
+                <div class="detail-meta-item">
+                  <div class="detail-meta-label">Source</div>
+                  <div class="detail-meta-value">Sentinel Layer 2</div>
+                </div>
+                <div class="detail-meta-item">
+                  <div class="detail-meta-label">Time</div>
+                  <div class="detail-meta-value">6:42:18 AM</div>
+                </div>
+                <div class="detail-meta-item">
+                  <div class="detail-meta-label">Status</div>
+                  <div class="detail-meta-value" style="color:var(--amber)">Blocked</div>
+                </div>
+              </div>
+
+              <div class="detail-section">
+                <div class="detail-section-title">Description</div>
+                <div class="detail-description">
+                  The Layer 2 runtime daemon detected 3 DNS resolution attempts to <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px;font-size:12px;">analytics.trackr.io</code> originating from a <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px;font-size:12px;">pip install</code> subprocess. This domain is not in the allowlist and appears to be a telemetry/analytics endpoint embedded in a package post-install script.
+                </div>
+              </div>
+
+              <div class="detail-section">
+                <div class="detail-section-title">DNS Queries Blocked</div>
+                <div class="log-block"><span class="log-dim">[06:42:14]</span> DNS  analytics.trackr.io  <span class="log-warn">BLOCKED</span>  src=pip/subprocess
+<span class="log-dim">[06:42:15]</span> DNS  analytics.trackr.io  <span class="log-warn">BLOCKED</span>  src=pip/subprocess (retry 1)
+<span class="log-dim">[06:42:18]</span> DNS  analytics.trackr.io  <span class="log-warn">BLOCKED</span>  src=pip/subprocess (retry 2)
+<span class="log-dim">[06:42:18]</span> <span class="log-ok">Subprocess exited normally after DNS failures</span></div>
+              </div>
+
+              <div class="detail-section">
+                <div class="detail-section-title">Affected Package</div>
+                <div style="padding:10px 12px;background:var(--bg-input);border-radius:var(--radius-sm);border:1px solid var(--border-card);">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                    <span style="font-size:13px;font-weight:500;">rich-logging-ext</span>
+                    <span style="font-size:12px;color:var(--text-faint);">v2.1.0</span>
+                  </div>
+                  <div style="font-size:12px;color:var(--text-secondary);">Installed as transitive dependency of <code style="background:rgba(255,159,10,0.08);padding:1px 4px;border-radius:3px;font-size:11px;">dev-tools-bundle</code></div>
+                </div>
+              </div>
+
+              <div class="detail-section">
+                <div class="detail-section-title">Recommendation</div>
+                <div class="detail-description">
+                  The telemetry endpoint was blocked automatically. Consider pinning or replacing <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px;font-size:12px;">rich-logging-ext</code> with a known-clean alternative. No data left the system.
+                </div>
+              </div>
+            </div>
+            <div class="detail-actions">
+              <button class="detail-btn">Snooze</button>
+              <button class="detail-btn">Investigate</button>
+              <button class="detail-btn primary">Dismiss</button>
+            </div>
+          </div>
+
+          <!-- ── Self-Dev Idea Detail ──────────────────── -->
+          <div class="detail-panel-content" id="idea-detail">
+            <div class="detail-panel-header">
+              <div class="detail-panel-title">Memory Consolidation Suggestion</div>
+              <button class="detail-panel-close" onclick="closeDetail()">&times;</button>
+            </div>
+            <div class="detail-panel-body">
+              <div class="detail-meta">
+                <div class="detail-meta-item">
+                  <div class="detail-meta-label">Category</div>
+                  <div class="detail-meta-value" style="color:var(--sleep-purple)">Self-Development</div>
+                </div>
+                <div class="detail-meta-item">
+                  <div class="detail-meta-label">Confidence</div>
+                  <div class="detail-meta-value">0.87</div>
+                </div>
+                <div class="detail-meta-item">
+                  <div class="detail-meta-label">Impact</div>
+                  <div class="severity-badge low">Low Risk</div>
+                </div>
+              </div>
+
+              <div class="detail-section">
+                <div class="detail-section-title">Analysis</div>
+                <div class="detail-description">
+                  Periodic memory health scan found 47 memory entries with embedding cosine similarity above 0.90, indicating near-duplicate content. These likely arose from repeated conversations on similar topics without consolidation.
+                </div>
+              </div>
+
+              <div class="detail-section">
+                <div class="detail-section-title">Projected Impact</div>
+                <div style="display:flex;gap:16px;">
+                  <div class="stat-card" style="flex:1;padding:12px;">
+                    <div class="stat-label">Storage Freed</div>
+                    <div style="font-size:18px;font-weight:500;">~12%</div>
+                  </div>
+                  <div class="stat-card" style="flex:1;padding:12px;">
+                    <div class="stat-label">Retrieval Speed</div>
+                    <div style="font-size:18px;font-weight:500;color:var(--health-green);">+8-15%</div>
+                  </div>
+                  <div class="stat-card" style="flex:1;padding:12px;">
+                    <div class="stat-label">Entries Merged</div>
+                    <div style="font-size:18px;font-weight:500;">47 &rarr; 19</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="detail-section">
+                <div class="detail-section-title">Sample Duplicates</div>
+                <div class="log-block"><span class="log-dim">Similarity: 0.94</span>
+mem_1a3f: "User prefers dark mode UI with amber accents"
+mem_8b2c: "Andrew likes dark theme with amber/orange accent colors"
+
+<span class="log-dim">Similarity: 0.92</span>
+mem_3d7e: "Always use get_logger() with no arguments"
+mem_9f1a: "Logger pattern: get_logger() — never pass component"</div>
+              </div>
+            </div>
+            <div class="detail-actions">
+              <button class="detail-btn danger">Dismiss</button>
+              <button class="detail-btn">Preview Merge</button>
+              <button class="detail-btn primary">Accept &amp; Run</button>
+            </div>
+          </div>
+
+          <!-- ── System Detail ─────────────────────────── -->
+          <div class="detail-panel-content" id="system-detail">
+            <div class="detail-panel-header">
+              <div class="detail-panel-title">Server Recycled</div>
+              <button class="detail-panel-close" onclick="closeDetail()">&times;</button>
+            </div>
+            <div class="detail-panel-body">
+              <div class="detail-meta">
+                <div class="detail-meta-item">
+                  <div class="detail-meta-label">Type</div>
+                  <div class="detail-meta-value">Lifecycle Event</div>
+                </div>
+                <div class="detail-meta-item">
+                  <div class="detail-meta-label">Time</div>
+                  <div class="detail-meta-value">3:30:12 AM</div>
+                </div>
+                <div class="detail-meta-item">
+                  <div class="detail-meta-label">Uptime</div>
+                  <div class="detail-meta-value">4d 12h 8m</div>
+                </div>
+              </div>
+
+              <div class="detail-section">
+                <div class="detail-section-title">Details</div>
+                <div class="detail-description">
+                  Uvicorn worker process reached the configured <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px;font-size:12px;">limit_max_requests: 50000</code> threshold and exited cleanly. launchd detected the exit (KeepAlive.SuccessfulExit: false) and restarted the server within 2 seconds.
+                </div>
+              </div>
+
+              <div class="detail-section">
+                <div class="detail-section-title">Restart Log</div>
+                <div class="log-block"><span class="log-dim">[03:30:12]</span> <span class="log-warn">Worker reached max_requests (50000), shutting down</span>
+<span class="log-dim">[03:30:12]</span> Waiting for connections to close...
+<span class="log-dim">[03:30:12]</span> <span class="log-ok">Graceful shutdown complete</span>
+<span class="log-dim">[03:30:14]</span> <span class="log-ok">launchd restarted hestia-server</span>
+<span class="log-dim">[03:30:15]</span> Server ready on https://0.0.0.0:8443
+<span class="log-dim">[03:30:15]</span> All managers initialized (14/14)</div>
+              </div>
+            </div>
+            <div class="detail-actions">
+              <button class="detail-btn primary">Dismiss</button>
+            </div>
+          </div>
+
+          <!-- ── Order 2 Detail ────────────────────────── -->
+          <div class="detail-panel-content" id="order2-detail">
+            <div class="detail-panel-header">
+              <div class="detail-panel-title">Weekly Portfolio Report</div>
+              <button class="detail-panel-close" onclick="closeDetail()">&times;</button>
+            </div>
+            <div class="detail-panel-body">
+              <div class="detail-meta">
+                <div class="detail-meta-item">
+                  <div class="detail-meta-label">Status</div>
+                  <div class="detail-meta-value" style="color:var(--health-green)">Completed</div>
+                </div>
+                <div class="detail-meta-item">
+                  <div class="detail-meta-label">Started</div>
+                  <div class="detail-meta-value">8:00:00 PM</div>
+                </div>
+                <div class="detail-meta-item">
+                  <div class="detail-meta-label">Duration</div>
+                  <div class="detail-meta-value">18.7s</div>
+                </div>
+                <div class="detail-meta-item">
+                  <div class="detail-meta-label">Steps</div>
+                  <div class="detail-meta-value">6 / 6</div>
+                </div>
+              </div>
+
+              <div class="detail-section">
+                <div class="detail-section-title">Execution Timeline</div>
+                <div class="exec-timeline">
+                  <div class="exec-step">
+                    <div class="exec-step-rail">
+                      <div class="exec-step-dot success"></div>
+                      <div class="exec-step-line"></div>
+                    </div>
+                    <div class="exec-step-body">
+                      <div class="exec-step-header">
+                        <div class="exec-step-name">Weekly on Sunday 8 PM <span class="exec-step-type trigger-type">Schedule</span></div>
+                        <div class="exec-step-duration">0ms</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="exec-step">
+                    <div class="exec-step-rail">
+                      <div class="exec-step-dot success"></div>
+                      <div class="exec-step-line"></div>
+                    </div>
+                    <div class="exec-step-body">
+                      <div class="exec-step-header">
+                        <div class="exec-step-name">Fetch Positions <span class="exec-step-type tool-type">Tool</span></div>
+                        <div class="exec-step-duration">1.1s</div>
+                      </div>
+                      <div class="exec-step-output">4 active bots, 12 open positions across BTC/ETH/SOL/DOGE</div>
+                    </div>
+                  </div>
+                  <div class="exec-step">
+                    <div class="exec-step-rail">
+                      <div class="exec-step-dot success"></div>
+                      <div class="exec-step-line"></div>
+                    </div>
+                    <div class="exec-step-body">
+                      <div class="exec-step-header">
+                        <div class="exec-step-name">Calculate P&L <span class="exec-step-type tool-type">Tool</span></div>
+                        <div class="exec-step-duration">0.6s</div>
+                      </div>
+                      <div class="exec-step-output">7-day realized: +$18.43 (+7.4%)
+Unrealized: +$3.12
+Total equity: $271.55</div>
+                    </div>
+                  </div>
+                  <div class="exec-step">
+                    <div class="exec-step-rail">
+                      <div class="exec-step-dot success"></div>
+                      <div class="exec-step-line"></div>
+                    </div>
+                    <div class="exec-step-body">
+                      <div class="exec-step-header">
+                        <div class="exec-step-name">Risk Metrics <span class="exec-step-type tool-type">Tool</span></div>
+                        <div class="exec-step-duration">0.4s</div>
+                      </div>
+                      <div class="exec-step-output">Sharpe: 1.82 | Max DD: -2.1% | Win rate: 64%
+No threshold breaches. All risk layers green.</div>
+                    </div>
+                  </div>
+                  <div class="exec-step">
+                    <div class="exec-step-rail">
+                      <div class="exec-step-dot success"></div>
+                      <div class="exec-step-line"></div>
+                    </div>
+                    <div class="exec-step-body">
+                      <div class="exec-step-header">
+                        <div class="exec-step-name">Generate Report <span class="exec-step-type prompt-type">Prompt</span></div>
+                        <div class="exec-step-duration">5.2s</div>
+                      </div>
+                      <div class="exec-step-output">Composed 340-word weekly summary with strategy-level breakdown, risk commentary, and next-week outlook.</div>
+                    </div>
+                  </div>
+                  <div class="exec-step">
+                    <div class="exec-step-rail">
+                      <div class="exec-step-dot success"></div>
+                    </div>
+                    <div class="exec-step-body">
+                      <div class="exec-step-header">
+                        <div class="exec-step-name">Notify <span class="exec-step-type notify-type">Notify</span></div>
+                        <div class="exec-step-duration">0.3s</div>
+                      </div>
+                      <div class="exec-step-output">Push notification sent. Report saved to /data/reports/weekly-2026-03-27.md</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="detail-actions">
+              <button class="detail-btn">View Canvas</button>
+              <button class="detail-btn primary">Re-run</button>
+            </div>
+          </div>
+
+          <!-- ── Trading Alert Detail ──────────────────── -->
+          <div class="detail-panel-content" id="trading-alert-detail">
+            <div class="detail-panel-header">
+              <div class="detail-panel-title">DOGE MR Drawdown Warning</div>
+              <button class="detail-panel-close" onclick="closeDetail()">&times;</button>
+            </div>
+            <div class="detail-panel-body">
+              <div class="detail-meta">
+                <div class="detail-meta-item">
+                  <div class="detail-meta-label">Severity</div>
+                  <div class="severity-badge medium">Medium</div>
+                </div>
+                <div class="detail-meta-item">
+                  <div class="detail-meta-label">Bot</div>
+                  <div class="detail-meta-value">DOGE MR</div>
+                </div>
+                <div class="detail-meta-item">
+                  <div class="detail-meta-label">Drawdown</div>
+                  <div class="detail-meta-value" style="color:var(--health-red)">-1.8%</div>
+                </div>
+                <div class="detail-meta-item">
+                  <div class="detail-meta-label">Threshold</div>
+                  <div class="detail-meta-value">-2.5%</div>
+                </div>
+              </div>
+
+              <div class="detail-section">
+                <div class="detail-section-title">Description</div>
+                <div class="detail-description">
+                  DOGE Mean Reversion bot has reached 72% of its maximum drawdown threshold (-1.8% of -2.5%). The bot is still active but approaching the auto-pause trigger. Recent DOGE volatility has been elevated due to social media activity.
+                </div>
+              </div>
+
+              <div class="detail-section">
+                <div class="detail-section-title">Recent Trades</div>
+                <div class="log-block"><span class="log-dim">[Yesterday 14:02]</span> BUY  0.42 DOGE @ $0.1823  <span class="log-ok">filled</span>
+<span class="log-dim">[Yesterday 13:45]</span> SELL 0.38 DOGE @ $0.1801  <span class="log-err">-$0.31</span>
+<span class="log-dim">[Yesterday 12:10]</span> BUY  0.38 DOGE @ $0.1834  <span class="log-ok">filled</span>
+<span class="log-dim">[Yesterday 10:55]</span> SELL 0.41 DOGE @ $0.1812  <span class="log-err">-$0.22</span></div>
+              </div>
+            </div>
+            <div class="detail-actions">
+              <button class="detail-btn danger">Kill Bot</button>
+              <button class="detail-btn">Reduce Size</button>
+              <button class="detail-btn primary">Acknowledge</button>
+            </div>
+          </div>
+
+          <!-- ── Inbox Detail ──────────────────────────── -->
+          <div class="detail-panel-content" id="inbox-detail">
+            <div class="detail-panel-header">
+              <div class="detail-panel-title">Inbox Summary</div>
+              <button class="detail-panel-close" onclick="closeDetail()">&times;</button>
+            </div>
+            <div class="detail-panel-body">
+              <div class="detail-meta">
+                <div class="detail-meta-item">
+                  <div class="detail-meta-label">Unread</div>
+                  <div class="detail-meta-value">2 emails</div>
+                </div>
+                <div class="detail-meta-item">
+                  <div class="detail-meta-label">Priority</div>
+                  <div class="severity-badge medium">Action Needed</div>
+                </div>
+              </div>
+
+              <div class="detail-section">
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                  <div style="padding:12px;background:var(--bg-input);border-radius:var(--radius-sm);border:1px solid var(--border-card);cursor:pointer;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                      <span style="font-size:13px;font-weight:500;">Alpaca Support</span>
+                      <span style="font-size:11px;color:var(--text-faint);">10:14 AM</span>
+                    </div>
+                    <div style="font-size:13px;color:var(--text-primary);margin-bottom:2px;">RE: API Key Activation</div>
+                    <div style="font-size:12px;color:var(--text-secondary);">Hi Andrew, we've reviewed your application. Your API key requires an additional verification step. Please reply with...</div>
+                  </div>
+                  <div style="padding:12px;background:var(--bg-input);border-radius:var(--radius-sm);border:1px solid var(--border-card);cursor:pointer;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                      <span style="font-size:13px;font-weight:500;">Apple Developer</span>
+                      <span style="font-size:11px;color:var(--text-faint);">9:30 AM</span>
+                    </div>
+                    <div style="font-size:13px;color:var(--text-primary);margin-bottom:2px;">Certificate Renewal Notice</div>
+                    <div style="font-size:12px;color:var(--text-secondary);">Your Apple Distribution certificate expires on April 15, 2026. Please renew it in the Certificates, Identifiers &amp; Profiles...</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="detail-actions">
+              <button class="detail-btn primary">Open Mail</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- TAB 3: ORDERS                                  -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="tab-content" id="tab-orders">
+      <div class="orders-layout">
+        <!-- Orders sidebar list -->
+        <div class="orders-sidebar">
+          <div class="orders-sidebar-header">
+            <div class="orders-sidebar-title">Orders</div>
+            <button class="add-order-btn">+</button>
+          </div>
+
+          <div class="order-item active">
+            <div class="order-item-dot active-status"></div>
+            <div class="order-item-name">Morning Briefing</div>
+            <div class="order-item-count">4</div>
+          </div>
+          <div class="order-item">
+            <div class="order-item-dot active-status"></div>
+            <div class="order-item-name">Weekly Portfolio Report</div>
+            <div class="order-item-count">6</div>
+          </div>
+          <div class="order-item">
+            <div class="order-item-dot active-status"></div>
+            <div class="order-item-name">Daily Journal Prompt</div>
+            <div class="order-item-count">3</div>
+          </div>
+          <div class="order-item">
+            <div class="order-item-dot inactive-status"></div>
+            <div class="order-item-name">News Digest</div>
+            <div class="order-item-count">5</div>
+          </div>
+          <div class="order-item">
+            <div class="order-item-dot draft-status"></div>
+            <div class="order-item-name">Research Pipeline</div>
+            <div class="order-item-count">8</div>
+          </div>
+          <div class="order-item">
+            <div class="order-item-dot draft-status"></div>
+            <div class="order-item-name">TurboQuant Tracker</div>
+            <div class="order-item-count">3</div>
+          </div>
+        </div>
+
+        <!-- Canvas -->
+        <div class="canvas-area">
+          <div class="canvas-toolbar">
+            <div class="canvas-title">Morning Briefing</div>
+            <div class="canvas-actions">
+              <button class="canvas-action-btn">Run History</button>
+              <button class="canvas-action-btn">Edit</button>
+              <button class="canvas-action-btn primary">Run Now</button>
+            </div>
+          </div>
+
+          <!-- Connection SVGs -->
+          <div class="canvas-connections">
+            <svg viewBox="0 0 800 600">
+              <!-- Schedule -> Calendar Check -->
+              <path d="M 190 95 C 250 95 250 155 310 155" class="connection-line"/>
+              <!-- Calendar Check -> Weather -->
+              <path d="M 490 155 C 540 155 540 95 580 95" class="connection-line"/>
+              <!-- Calendar Check -> Trading Summary -->
+              <path d="M 490 170 C 540 170 540 255 580 255" class="connection-line"/>
+              <!-- Weather -> Notify -->
+              <path d="M 730 95 C 760 95 760 175 760 175 C 760 260 730 320 680 320" class="connection-line"/>
+              <!-- Trading Summary -> Notify -->
+              <path d="M 730 255 C 760 255 760 320 680 320" class="connection-line"/>
+            </svg>
+          </div>
+
+          <!-- Nodes -->
+          <div class="canvas-node" style="left:60px;top:70px;">
+            <div class="canvas-node-header">
+              <div class="canvas-node-icon trigger">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+              </div>
+              <div class="canvas-node-badge" style="color:var(--health-green)">Schedule</div>
+            </div>
+            <div class="canvas-node-name">Daily at 7:00 AM</div>
+            <div class="canvas-node-meta">Trigger</div>
+          </div>
+
+          <div class="canvas-node" style="left:310px;top:130px;">
+            <div class="canvas-node-header">
+              <div class="canvas-node-icon tool">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+              </div>
+              <div class="canvas-node-badge" style="color:var(--amber)">Tool</div>
+            </div>
+            <div class="canvas-node-name">Calendar Check</div>
+            <div class="canvas-node-meta">read_calendar (today)</div>
+          </div>
+
+          <div class="canvas-node" style="left:580px;top:70px;">
+            <div class="canvas-node-header">
+              <div class="canvas-node-icon prompt">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              </div>
+              <div class="canvas-node-badge" style="color:var(--status-info)">Prompt</div>
+            </div>
+            <div class="canvas-node-name">Weather Summary</div>
+            <div class="canvas-node-meta">Summarize forecast</div>
+          </div>
+
+          <div class="canvas-node" style="left:580px;top:230px;">
+            <div class="canvas-node-header">
+              <div class="canvas-node-icon tool">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+              </div>
+              <div class="canvas-node-badge" style="color:var(--amber)">Tool</div>
+            </div>
+            <div class="canvas-node-name">Trading Summary</div>
+            <div class="canvas-node-meta">get_portfolio_status</div>
+          </div>
+
+          <div class="canvas-node" style="left:530px;top:370px;">
+            <div class="canvas-node-header">
+              <div class="canvas-node-icon action">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              </div>
+              <div class="canvas-node-badge" style="color:var(--cyan)">Notify</div>
+            </div>
+            <div class="canvas-node-name">Send Briefing</div>
+            <div class="canvas-node-meta">Push notification</div>
+          </div>
+
+          <!-- Zoom controls -->
+          <div style="position:absolute;bottom:16px;right:16px;display:flex;gap:4px;">
+            <button class="canvas-action-btn" style="padding:6px 10px;font-size:14px;">-</button>
+            <button class="canvas-action-btn" style="padding:6px 10px;font-size:11px;">100%</button>
+            <button class="canvas-action-btn" style="padding:6px 10px;font-size:14px;">+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Tab switching
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    });
+  });
+
+  // Filter pills
+  document.querySelectorAll('.filter-pills .pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      document.querySelectorAll('.filter-pills .pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+    });
+  });
+
+  // Lookback toggle
+  document.querySelectorAll('.lookback-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.lookback-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  // Order item selection
+  document.querySelectorAll('.order-item').forEach(item => {
+    item.addEventListener('click', () => {
+      document.querySelectorAll('.order-item').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+    });
+  });
+
+  // Activity feed item → detail panel
+  document.querySelectorAll('.feed-item[data-detail]').forEach(item => {
+    item.addEventListener('click', () => {
+      const detailId = item.dataset.detail;
+      const layout = document.getElementById('activity-layout');
+      const panel = document.getElementById('detail-panel');
+
+      // Deselect all items, select this one
+      document.querySelectorAll('.feed-item').forEach(i => i.classList.remove('selected'));
+      item.classList.add('selected');
+
+      // Hide all detail contents, show the target
+      document.querySelectorAll('.detail-panel-content').forEach(c => c.classList.remove('active'));
+      const target = document.getElementById(detailId);
+      if (target) target.classList.add('active');
+
+      // Open panel
+      layout.classList.add('panel-open');
+    });
+  });
+
+  // Close detail panel
+  function closeDetail() {
+    const layout = document.getElementById('activity-layout');
+    layout.classList.remove('panel-open');
+    document.querySelectorAll('.feed-item').forEach(i => i.classList.remove('selected'));
+    // Delay hiding content until animation finishes
+    setTimeout(() => {
+      document.querySelectorAll('.detail-panel-content').forEach(c => c.classList.remove('active'));
+    }, 250);
+  }
+</script>
+
+</body>
+</html>
