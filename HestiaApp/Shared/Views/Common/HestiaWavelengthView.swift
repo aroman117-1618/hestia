@@ -35,12 +35,16 @@ struct HestiaWavelengthView: View {
 
     // MARK: - CGContext Fallback (Simulator / macOS)
 
-    #if os(iOS)
     @StateObject private var fallbackVM = WavelengthFallbackViewModel()
 
     private var cgContextFallback: some View {
         GeometryReader { geo in
-            TimelineView(.animation(minimumInterval: 1.0 / 15.0)) { timeline in
+            #if os(macOS)
+            let interval = 1.0 / 30.0
+            #else
+            let interval = 1.0 / 15.0
+            #endif
+            TimelineView(.animation(minimumInterval: interval)) { timeline in
                 let _ = fallbackVM.update(
                     date: timeline.date,
                     mode: mode,
@@ -62,11 +66,6 @@ struct HestiaWavelengthView: View {
             }
         }
     }
-    #else
-    private var cgContextFallback: some View {
-        staticFallback
-    }
-    #endif
 
     // MARK: - Static Fallback (Reduce Motion)
 
@@ -87,9 +86,8 @@ struct HestiaWavelengthView: View {
     }
 }
 
-// MARK: - Fallback ViewModel (Simulator Only)
+// MARK: - Fallback ViewModel (Simulator / macOS)
 
-#if os(iOS)
 @MainActor
 final class WavelengthFallbackViewModel: ObservableObject {
     @Published var renderedFrame: CGImage?
@@ -180,7 +178,6 @@ final class WavelengthFallbackViewModel: ObservableObject {
         }
     }
 }
-#endif
 
 // MARK: - Previews
 

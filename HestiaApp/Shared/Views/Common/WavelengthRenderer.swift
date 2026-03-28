@@ -255,7 +255,61 @@ struct WavelengthRenderer {
         return image.cgImage
     }
     #else
-    /// macOS stub — particle wave renderer is iOS-only.
+    /// Create cached particle textures for all palette colors (macOS — pure CoreGraphics).
+    static func createTextures() -> [TextureSet] {
+        WavelengthPalette.colors.map { color in
+            TextureSet(
+                normal: createParticleTexture(r: color.r, g: color.g, b: color.b, size: 32, isHero: false),
+                hero: createParticleTexture(r: color.r, g: color.g, b: color.b, size: 64, isHero: true)
+            )
+        }
+    }
+
+    private static func createParticleTexture(
+        r: CGFloat, g: CGFloat, b: CGFloat,
+        size: Int, isHero: Bool
+    ) -> CGImage {
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let ctx = CGContext(
+            data: nil,
+            width: size, height: size,
+            bitsPerComponent: 8, bytesPerRow: size * 4,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )!
+
+        let center = CGFloat(size) / 2
+        let stop1 = isHero ? 0.15 : 0.08
+        let stop2 = isHero ? 0.35 : 0.22
+
+        let components: [CGFloat] = [
+            r, g, b, 1.0,
+            r, g, b, 0.8,
+            r, g, b, 0.2,
+            r, g, b, 0.0,
+        ]
+        let locations: [CGFloat] = [0.0, CGFloat(stop1), CGFloat(stop2), 1.0]
+
+        if let gradient = CGGradient(
+            colorSpace: colorSpace,
+            colorComponents: components,
+            locations: locations,
+            count: 4
+        ) {
+            ctx.drawRadialGradient(
+                gradient,
+                startCenter: CGPoint(x: center, y: center),
+                startRadius: 0,
+                endCenter: CGPoint(x: center, y: center),
+                endRadius: center,
+                options: []
+            )
+        }
+
+        return ctx.makeImage()!
+    }
+
+    /// Render one complete particle wave frame to a CGImage (macOS — pure CoreGraphics).
     static func renderToImage(
         size: CGSize,
         scale: CGFloat,
@@ -263,13 +317,126 @@ struct WavelengthRenderer {
         speakingTime: Double,
         params: WavelengthParams,
         particles: inout [Particle],
-        textures: Any,
+        textures: [TextureSet],
         waveScale: CGFloat,
-        waveTable: Any
+        waveTable: WaveTable
     ) -> CGImage? {
-        return nil
-    }
+        let width = size.width
+        let height = size.height
+        let centerY = height / 2
 
-    static func createTextures() -> [Any] { [] }
+        let pixelWidth = Int(width * scale)
+        let pixelHeight = Int(height * scale)
+        guard pixelWidth > 0, pixelHeight > 0 else { return nil }
+
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        guard let ctx = CGContext(
+            data: nil,
+            width: pixelWidth, height: pixelHeight,
+            bitsPerComponent: 8, bytesPerRow: pixelWidth * 4,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil }
+
+        // Scale context to match logical size
+        ctx.scaleBy(x: scale, y: scale)
+
+        // Clear to #020101
+        ctx.setFillColor(CGColor(red: 2/255, green: 1/255, blue: 1/255, alpha: 1))
+        ctx.fill(CGRect(origin: .zero, size: size))
+
+        // Additive blending
+        ctx.setBlendMode(.plusLighter)
+
+        let maxParticles = 2000
+        let visibleCount = min(
+            Int(Double(maxParticles) * 0.66 * params.densityMult),
+            particles.count
+        )
+
+        let active = params.audioVol
+        let currentGlow = params.glowMult
+        let wScale = Double(waveScale)
+
+        let baseAmps: [Double] = [35, 40, 45]
+        let asymmetries: [Double] = [1.3, 1.7, 2.2]
+        let troughDamps: [Double] = [0.5, 0.3, 0.15]
+        let bucketCount = Double(WaveTable.bucketCount)
+
+        for i in 0..<visibleCount {
+            // Move particle
+            particles[i].x += particles[i].speedX * params.speedMult
+            if particles[i].x > Double(width) {
+                particles[i].x = 0
+                particles[i].yOffset = particles[i].isScattered
+                    ? (Double.random(in: 0...1) - 0.5) * 180
+                    : (Double.random(in: 0...1) - 0.5) * 40
+            }
+
+            let p = particles[i]
+            let normalizedX = p.x / Double(width)
+
+            // === TAPER ===
+            let distFromCenter = abs(normalizedX - 0.5) * 2.2
+            let taper = max(0, 1 - distFromCenter * distFromCenter)
+
+            let alpha = taper * p.z
+            if alpha <= 0.05 { continue }
+
+            // === WAVE TABLE LOOKUP ===
+            let bucket = min(Int(normalizedX * bucketCount), WaveTable.bucketCount - 1)
+            let ribbon = p.ribbon
+            let tableIdx = bucket * 3 + ribbon
+
+            var calmY = waveTable.calm[tableIdx]
+            calmY += sin(p.phaseOffset + time) * 8
+            calmY *= params.ampMult
+
+            let rawWave = waveTable.speak[tableIdx]
+            var speakingY: Double = 0
+            if rawWave > 0 {
+                speakingY = -pow(rawWave, 1.5) * baseAmps[ribbon] * params.ampMult * asymmetries[ribbon]
+            } else {
+                speakingY = abs(rawWave) * baseAmps[ribbon] * params.ampMult * troughDamps[ribbon]
+            }
+
+            let speakingThicknessMap = rawWave > 0
+                ? (1.0 + rawWave * rawWave * 1.5)
+                : (1.0 - abs(rawWave) * 0.6)
+
+            // === BLEND ===
+            var waveY = calmY * (1.0 - active) + speakingY * active
+            let finalThickness = 1.0 * (1.0 - active) + speakingThicknessMap * active
+            let swirl = sin(p.phaseOffset + speakingTime * 2.5) * (15 * active)
+
+            let currentYOffset = (p.yOffset + swirl) * finalThickness
+
+            waveY *= taper
+
+            // CGContext has flipped Y (origin at bottom-left), so flip the Y coordinate
+            let logicalY = Double(centerY) + (waveY * wScale) + (currentYOffset * p.z * taper * wScale)
+            let y = Double(height) - logicalY
+
+            // === DRAW ===
+            let particleSize = p.baseSize * p.z
+            let drawSize = particleSize * 6
+
+            let tex = textures[p.colorIdx]
+            let texImage = p.isHero ? tex.hero : tex.normal
+
+            ctx.setAlpha(CGFloat(alpha * currentGlow))
+            ctx.draw(
+                texImage,
+                in: CGRect(
+                    x: p.x - drawSize / 2,
+                    y: y - drawSize / 2,
+                    width: drawSize,
+                    height: drawSize
+                )
+            )
+        }
+
+        return ctx.makeImage()
+    }
     #endif
 }

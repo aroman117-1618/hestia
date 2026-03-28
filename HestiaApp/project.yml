@@ -117,6 +117,12 @@ targets:
           - "NewsfeedModels.swift"
           - "InvestigationModels.swift"
           - "DeepLinkModels.swift"
+      - path: Shared/Views/Common
+        type: group
+        includes:
+          - "HestiaWavelengthView.swift"
+          - "WavelengthState.swift"
+          - "WavelengthRenderer.swift"
       - path: macOS/Fonts
         type: folder
         buildPhase: resources

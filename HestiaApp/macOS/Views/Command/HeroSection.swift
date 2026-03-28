@@ -32,7 +32,8 @@ struct HeroSection: View {
             avatar
 
             VStack(alignment: .leading, spacing: MacSpacing.sm) {
-                WavelengthBand()
+                HestiaWavelengthView(mode: .idle)
+                    .frame(width: 260, height: 22)
 
                 Text(greetingText)
                     .font(.system(size: 20, weight: .semibold))
