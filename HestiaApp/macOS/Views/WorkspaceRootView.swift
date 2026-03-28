@@ -42,6 +42,14 @@ struct WorkspaceRootView: View {
                     }
                     .environment(\.layoutMode, layoutMode)
                     .animation(.hestiaNavSwitch, value: workspace.currentView)
+                    .overlay(alignment: .bottomTrailing) {
+                        if workspace.isChatFloating {
+                            FloatingChatOverlay()
+                                .environment(workspace)
+                                .environmentObject(appState)
+                        }
+                    }
+                    .animation(MacAnimation.fastSpring, value: workspace.chatMode)
                 }
                 .background(MacColors.windowBackground)
                 .tint(MacColors.amberAccent)
@@ -121,9 +129,7 @@ struct WorkspaceRootView: View {
             )
 
         case .chat:
-            // Placeholder — chat panel is a floating overlay, not a tab.
-            // Future: open the chat panel and scroll to the target message.
-            break
+            workspace.chatMode = .floating
         }
     }
 }
