@@ -124,7 +124,7 @@ struct DashboardTabView: View {
                 .frame(height: 24)
         }
         .padding(MacSpacing.lg)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, minHeight: 100, alignment: .leading)
         .background(MacColors.panelBackground)
         .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
         .overlay(
@@ -220,14 +220,20 @@ struct DashboardTabView: View {
                 }
             }
 
-            // Today's events list
+            // Today's events list (capped at 5 to prevent unbounded growth)
             if !viewModel.todayEvents.isEmpty {
                 Divider()
                     .background(MacColors.divider)
 
                 VStack(alignment: .leading, spacing: MacSpacing.xs) {
-                    ForEach(viewModel.todayEvents, id: \.eventIdentifier) { event in
+                    ForEach(viewModel.todayEvents.prefix(5), id: \.eventIdentifier) { event in
                         eventRow(event)
+                    }
+                    if viewModel.todayEvents.count > 5 {
+                        Text("+\(viewModel.todayEvents.count - 5) more")
+                            .font(MacTypography.label)
+                            .foregroundStyle(MacColors.textFaint)
+                            .padding(.leading, MacSpacing.sm)
                     }
                 }
             }
@@ -368,15 +374,23 @@ struct DashboardTabView: View {
                 }
             }
 
-            if viewModel.reminders.isEmpty {
-                Text("No tasks")
-                    .font(MacTypography.body)
-                    .foregroundStyle(MacColors.textFaint)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, MacSpacing.xxl)
+            if viewModel.overdueReminders.isEmpty && viewModel.currentReminders.isEmpty {
+                VStack(spacing: MacSpacing.sm) {
+                    Image(systemName: "checkmark.circle")
+                        .font(.system(size: 28))
+                        .foregroundStyle(MacColors.textFaint)
+                    Text(viewModel.reminders.isEmpty ? "No tasks" : "No dated tasks")
+                        .font(MacTypography.body)
+                        .foregroundStyle(MacColors.textFaint)
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.vertical, MacSpacing.xxl)
             }
+
+            Spacer(minLength: 0)
         }
         .padding(MacSpacing.lg)
+        .frame(minHeight: 200)
         .background(MacColors.panelBackground)
         .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
         .overlay(
