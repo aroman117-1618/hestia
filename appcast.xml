@@ -3,14 +3,14 @@
   <channel>
     <title>Hestia Updates</title>
     <item>
-      <title>Version mac-v1.14.0</title>
-      <sparkle:version>mac-v1.14.0</sparkle:version>
-      <sparkle:shortVersionString>mac-v1.14.0</sparkle:shortVersionString>
-      <pubDate>Sat, 28 Mar 2026 19:40:20 -0400</pubDate>
+      <title>Version 1.15.0</title>
+      <sparkle:version>1.15.0</sparkle:version>
+      <sparkle:shortVersionString>1.15.0</sparkle:shortVersionString>
+      <pubDate>Sat, 28 Mar 2026 19:53:19 -0400</pubDate>
       <enclosure
-        url="https://github.com/aroman117-1618/hestia/releases/download/vmac-v1.14.0/Hestia-mac-v1.14.0.zip"
-        sparkle:edSignature="AJpkrD8W9u83+en1pmXiueymElp/M1FwoVjdbAotYDIvNBoubvEAA0HINi/utKzdtdoRPLZyxFpEJbp/+hZcCg=="
-        length="12231612"
+        url="https://github.com/aroman117-1618/hestia/releases/download/v1.15.0/Hestia-1.15.0.zip"
+        sparkle:edSignature="/USX1cAEjj3CosnnskELah8XlJ8c8Aqrxoo+FqeuWAYNV0yLXP9AYwZvrYtUVIOilr9ShMNyVh2xUL1WbvN5Dw=="
+        length="12260049"
         type="application/octet-stream" />
     </item>
   </channel>
