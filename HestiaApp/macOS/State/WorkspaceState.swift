@@ -3,11 +3,9 @@ import HestiaShared
 
 // MARK: - Workspace Navigation State
 
-enum WorkspaceView: String, CaseIterable {
+enum WorkspaceView: String {
     case command
-    case orders
     case memory
-    case explorer
     case settings
 }
 
@@ -16,6 +14,7 @@ enum WorkspaceView: String, CaseIterable {
 private enum WorkspaceDefaults {
     static let currentView = "hestia.workspace.currentView"
     static let chatPanelVisible = "hestia.workspace.chatPanelVisible"
+    static let isChatDetached = "hestia.workspace.chatDetached"
 }
 
 @MainActor
@@ -33,26 +32,22 @@ class WorkspaceState {
         }
     }
 
+    var isChatDetached: Bool = false
+
+    /// Which sub-tab is active in the Command tab
+    var commandSubTab: CommandSubTab = .internal
+
+    enum CommandSubTab: String, CaseIterable {
+        case `internal` = "Internal"
+        case newsfeed = "Newsfeed"
+        case systemAlerts = "System Alerts"
+    }
+
     init() {
         // Restore persisted state with migration for removed views
-        if let savedView = UserDefaults.standard.string(forKey: WorkspaceDefaults.currentView),
-           let view = WorkspaceView(rawValue: savedView) {
-            self.currentView = view
-        } else {
-            // Migrate legacy values
-            let savedRaw = UserDefaults.standard.string(forKey: WorkspaceDefaults.currentView)
-            if savedRaw == "wiki" || savedRaw == "resources" || savedRaw == "profile" {
-                self.currentView = .settings
-            } else if savedRaw == "health" {
-                self.currentView = .command
-            } else if savedRaw == "research" {
-                self.currentView = .memory
-            } else if savedRaw == "workflow" {
-                self.currentView = .orders
-            } else {
-                self.currentView = .command
-            }
-        }
+        let savedRaw = UserDefaults.standard.string(forKey: WorkspaceDefaults.currentView) ?? "command"
+        // Migration: old values (.orders, .explorer, .workflow, .research, etc.) fall back to .command
+        self.currentView = WorkspaceView(rawValue: savedRaw) ?? .command
 
         // Default to chat visible if never set (first launch)
         if UserDefaults.standard.object(forKey: WorkspaceDefaults.chatPanelVisible) != nil {

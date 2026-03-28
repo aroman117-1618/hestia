@@ -23,12 +23,8 @@ struct WorkspaceRootView: View {
                             switch workspace.currentView {
                             case .command:
                                 CommandView()
-                            case .orders:
-                                MacWorkflowView()
                             case .memory:
                                 ResearchView()
-                            case .explorer:
-                                ExplorerView()
                             case .settings:
                                 MacSettingsView()
                             }
@@ -106,7 +102,9 @@ struct WorkspaceRootView: View {
             )
 
         case .workflow(let id, let stepId):
-            withAnimation(.hestiaNavSwitch) { workspace.currentView = .orders }
+            // Orders tab removed — redirect to Command and switch to Newsfeed sub-tab
+            withAnimation(.hestiaNavSwitch) { workspace.currentView = .command }
+            workspace.commandSubTab = .newsfeed
             var info: [String: String] = ["workflowId": id]
             if let step = stepId { info["stepId"] = step }
             NotificationCenter.default.post(

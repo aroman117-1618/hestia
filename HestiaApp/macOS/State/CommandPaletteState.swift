@@ -60,26 +60,14 @@ struct PaletteCommand: Identifiable {
             action: { switchView(.command) }
         ),
         PaletteCommand(
-            id: "nav.orders", title: "Go to Orders",
-            icon: "bolt.fill", shortcut: "⌘2",
-            keywords: ["orders", "workflows", "automation"],
-            action: { switchView(.orders) }
-        ),
-        PaletteCommand(
             id: "nav.memory", title: "Go to Memory",
-            icon: "brain.head.profile", shortcut: "⌘3",
+            icon: "brain.head.profile", shortcut: "⌘2",
             keywords: ["memory", "research", "knowledge"],
             action: { switchView(.memory) }
         ),
         PaletteCommand(
-            id: "nav.explorer", title: "Go to Explorer",
-            icon: "magnifyingglass", shortcut: "⌘4",
-            keywords: ["explorer", "files", "search"],
-            action: { switchView(.explorer) }
-        ),
-        PaletteCommand(
             id: "nav.settings", title: "Go to Settings",
-            icon: "gearshape", shortcut: "⌘5",
+            icon: "gearshape", shortcut: "⌘3",
             keywords: ["settings", "profile", "agents", "resources", "field guide", "wiki"],
             action: { switchView(.settings) }
         ),

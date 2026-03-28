@@ -4,28 +4,27 @@ import HestiaShared
 struct IconSidebar: View {
     @Environment(WorkspaceState.self) private var workspace
     @State private var hoveredView: WorkspaceView?
+    @State private var hoveredChat = false
     @Namespace private var indicatorNamespace
 
     var body: some View {
         VStack(spacing: 0) {
-            // Logo (top, sticky — navigates to Command Center)
-            logoButton
+            // Avatar (top, sticky — navigates to Settings)
+            avatarButton
                 .padding(.top, MacSpacing.xl)
 
             // Nav icons (middle section, fixed order per design spec)
             VStack(spacing: 6) {
                 navIcon(.command, systemName: "house", shortcut: 1)
                     .padding(.top, MacSpacing.lg)
-                navIcon(.orders, systemName: "bolt.fill", shortcut: 2)
-                navIcon(.memory, systemName: "brain.head.profile", shortcut: 3)
-                navIcon(.explorer, systemName: "magnifyingglass", shortcut: 4)
+                navIcon(.memory, systemName: "brain.head.profile", shortcut: 2)
             }
             .padding(.top, MacSpacing.xxl)
 
             Spacer()
 
-            // Settings (bottom, sticky — profile avatar)
-            settingsButton
+            // Chat toggle (bottom, sticky — Cursor-style sidebar panel icon)
+            chatToggleButton
                 .padding(.bottom, MacSpacing.xxl)
         }
         .frame(width: MacSize.iconSidebarWidth)
@@ -35,14 +34,53 @@ struct IconSidebar: View {
         }
     }
 
-    // MARK: - Logo
+    // MARK: - Avatar (Settings entry)
 
-    private var logoButton: some View {
-        Image("HestiaLogo")
-            .resizable()
-            .scaledToFit()
-            .frame(width: MacSize.logoSize, height: MacSize.logoSize)
-            .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.navIcon))
+    private var avatarButton: some View {
+        let isActive = workspace.currentView == .settings
+        let isHovered = hoveredView == .settings
+
+        return Button {
+            withAnimation(MacAnimation.normalSpring) {
+                workspace.currentView = .settings
+            }
+        } label: {
+            ZStack {
+                // Avatar circle with gradient
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 70/255, green: 25/255, blue: 1/255).opacity(0.8),
+                                Color(red: 254/255, green: 154/255, blue: 0).opacity(0.3)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                Circle()
+                    .strokeBorder(
+                        isActive ? MacColors.amberAccent : MacColors.avatarBorder,
+                        lineWidth: isActive ? 1.5 : 1
+                    )
+
+                Text("HS")
+                    .font(MacTypography.caption)
+                    .tracking(0.065)
+                    .foregroundStyle(MacColors.textPrimary)
+            }
+            .frame(width: MacSize.navIconButton, height: MacSize.navIconButton)
+            .opacity(isHovered && !isActive ? 0.85 : 1.0)
+        }
+        .buttonStyle(.hestiaNav)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: MacAnimation.fast)) {
+                hoveredView = hovering ? .settings : nil
+            }
+        }
+        .accessibilityLabel("Settings")
+        .accessibilityHint("Keyboard shortcut: Command 3")
+        .hoverCursor()
     }
 
     // MARK: - Nav Icon
@@ -101,59 +139,42 @@ struct IconSidebar: View {
     private func accessibilityLabel(for view: WorkspaceView) -> String {
         switch view {
         case .command: "Command Center"
-        case .orders: "Orders"
         case .memory: "Memory"
-        case .explorer: "Explorer"
         case .settings: "Settings"
         }
     }
 
-    // MARK: - Settings Button (bottom avatar)
+    // MARK: - Chat Toggle Button (bottom, Cursor-style)
 
-    private var settingsButton: some View {
-        let isActive = workspace.currentView == .settings
-        let isHovered = hoveredView == .settings
+    private var chatToggleButton: some View {
+        let iconName = workspace.isChatDetached
+            ? "rectangle.portrait.on.rectangle.portrait"
+            : "sidebar.trailing"
 
         return Button {
-            withAnimation(MacAnimation.normalSpring) {
-                workspace.currentView = .settings
-            }
+            NotificationCenter.default.post(name: .hestiaChatPanelToggle, object: nil)
         } label: {
-            ZStack {
-                // Avatar circle with gradient
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 70/255, green: 25/255, blue: 1/255).opacity(0.8),
-                                Color(red: 254/255, green: 154/255, blue: 0).opacity(0.3)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                Circle()
-                    .strokeBorder(
-                        isActive ? MacColors.amberAccent : MacColors.avatarBorder,
-                        lineWidth: isActive ? 1.5 : 1
-                    )
-
-                Text("HS")
-                    .font(MacTypography.caption)
-                    .tracking(0.065)
-                    .foregroundStyle(MacColors.textPrimary)
-            }
-            .frame(width: MacSize.navIconButton, height: MacSize.navIconButton)
-            .opacity(isHovered && !isActive ? 0.85 : 1.0)
+            Image(systemName: iconName)
+                .font(.system(size: MacSize.navIcon))
+                .foregroundStyle(
+                    workspace.isChatPanelVisible
+                        ? MacColors.amberAccent
+                        : (hoveredChat ? MacColors.textPrimary : MacColors.textSecondary)
+                )
+                .frame(width: MacSize.navIconButton, height: MacSize.navIconButton)
+                .background(
+                    RoundedRectangle(cornerRadius: MacCornerRadius.navIcon)
+                        .fill(hoveredChat ? MacColors.activeNavBackground.opacity(0.5) : Color.clear)
+                )
         }
         .buttonStyle(.hestiaNav)
         .onHover { hovering in
             withAnimation(.easeInOut(duration: MacAnimation.fast)) {
-                hoveredView = hovering ? .settings : nil
+                hoveredChat = hovering
             }
         }
-        .accessibilityLabel("Settings")
-        .accessibilityHint("Keyboard shortcut: Command 5")
+        .accessibilityLabel(workspace.isChatPanelVisible ? "Hide Chat Panel" : "Show Chat Panel")
+        .accessibilityHint("Keyboard shortcut: Command Backslash")
         .hoverCursor()
     }
 }

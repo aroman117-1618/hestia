@@ -79,8 +79,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         editMenuItem.submenu = editMenu
         mainMenu.addItem(editMenuItem)
 
-        // View menu — matches sidebar order (⌘1-3 + ⌘5 settings)
-        // Health tab archived — data surfaces via Internal activity feed (Sprint 25.5)
+        // View menu — matches sidebar order (⌘1-2 nav + ⌘3 settings)
         let viewMenuItem = NSMenuItem(title: "View", action: nil, keyEquivalent: "")
         let viewMenu = NSMenu(title: "View")
 
@@ -88,21 +87,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         cmdItem.target = self
         viewMenu.addItem(cmdItem)
 
-        let ordersItem = NSMenuItem(title: "Orders", action: #selector(showOrdersView), keyEquivalent: "2")
-        ordersItem.target = self
-        viewMenu.addItem(ordersItem)
-
-        let memoryItem = NSMenuItem(title: "Memory", action: #selector(showMemoryView), keyEquivalent: "3")
+        let memoryItem = NSMenuItem(title: "Memory", action: #selector(showMemoryView), keyEquivalent: "2")
         memoryItem.target = self
         viewMenu.addItem(memoryItem)
 
-        let expItem = NSMenuItem(title: "Explorer", action: #selector(showExplorerView), keyEquivalent: "4")
-        expItem.target = self
-        viewMenu.addItem(expItem)
-
         viewMenu.addItem(.separator())
 
-        let settingsItem = NSMenuItem(title: "Settings", action: #selector(showSettingsView), keyEquivalent: "5")
+        let settingsItem = NSMenuItem(title: "Settings", action: #selector(showSettingsView), keyEquivalent: "3")
         settingsItem.target = self
         viewMenu.addItem(settingsItem)
 
@@ -133,15 +124,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.switchView(to: .command)
                 return nil
             case "2":
-                self?.switchView(to: .orders)
-                return nil
-            case "3":
                 self?.switchView(to: .memory)
                 return nil
-            case "4":
-                self?.switchView(to: .explorer)
-                return nil
-            case "5":
+            case "3":
                 self?.switchView(to: .settings)
                 return nil
             case "\\":
@@ -171,9 +156,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func showCommandView() { switchView(to: .command) }
-    @objc private func showOrdersView() { switchView(to: .orders) }
     @objc private func showMemoryView() { switchView(to: .memory) }
-    @objc private func showExplorerView() { switchView(to: .explorer) }
     @objc private func showSettingsView() { switchView(to: .settings) }
     @objc private func toggleChatPanel() { mainWindowController?.toggleChatPanel(nil) }
 }
