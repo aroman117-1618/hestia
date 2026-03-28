@@ -30,7 +30,6 @@ def _make_session(**kwargs) -> DevSession:
         title="Test session",
         description="A test dev session",
         source=DevSessionSource.CLI,
-        complexity=DevComplexity.MEDIUM,
         priority=DevPriority.NORMAL,
     )
     defaults.update(kwargs)
@@ -54,12 +53,80 @@ async def test_save_and_get_session(db: DevDatabase) -> None:
     assert fetched.state == DevSessionState.QUEUED
     assert fetched.source == DevSessionSource.CLI
     assert fetched.priority == DevPriority.NORMAL
-    assert fetched.complexity == DevComplexity.MEDIUM
+    assert fetched.complexity is None
     assert fetched.tokens_used == 0
     assert fetched.token_budget == 500_000
     assert fetched.retry_count == 0
     assert fetched.replan_count == 0
     assert fetched.metadata == {}
+
+
+@pytest.mark.asyncio
+async def test_save_and_get_session_new_fields(db: DevDatabase) -> None:
+    """All new fields must round-trip correctly through the database."""
+    session = _make_session(
+        title="Full fields session",
+        source_ref="issue-99",
+        complexity=DevComplexity.COMPLEX,
+        branch_name="feature/new-module",
+        architect_model="claude-opus-custom",
+        engineer_model="claude-sonnet-custom",
+        researcher_model="gemini-custom",
+        validator_model="claude-haiku-custom",
+    )
+    session.plan = {"steps": ["step1", "step2"], "files": ["foo.py"]}
+    session.subtasks = [{"id": "t1", "name": "Do X"}, {"id": "t2", "name": "Do Y"}]
+    session.current_subtask = 1
+    session.total_tokens = 12345
+    session.total_cost_usd = 0.42
+    session.error_log = "some error"
+    session.started_at = "2026-01-01T10:00:00+00:00"
+    session.approved_at = "2026-01-01T11:00:00+00:00"
+    session.approved_by = "andrew"
+
+    await db.save_session(session)
+    fetched = await db.get_session(session.id)
+
+    assert fetched is not None
+    assert fetched.source_ref == "issue-99"
+    assert fetched.complexity == DevComplexity.COMPLEX
+    assert fetched.branch_name == "feature/new-module"
+    assert fetched.architect_model == "claude-opus-custom"
+    assert fetched.engineer_model == "claude-sonnet-custom"
+    assert fetched.researcher_model == "gemini-custom"
+    assert fetched.validator_model == "claude-haiku-custom"
+    assert fetched.plan == {"steps": ["step1", "step2"], "files": ["foo.py"]}
+    assert fetched.subtasks == [{"id": "t1", "name": "Do X"}, {"id": "t2", "name": "Do Y"}]
+    assert fetched.current_subtask == 1
+    assert fetched.total_tokens == 12345
+    assert fetched.total_cost_usd == pytest.approx(0.42)
+    assert fetched.error_log == "some error"
+    assert fetched.started_at == "2026-01-01T10:00:00+00:00"
+    assert fetched.approved_at == "2026-01-01T11:00:00+00:00"
+    assert fetched.approved_by == "andrew"
+
+
+@pytest.mark.asyncio
+async def test_plan_and_subtasks_null_by_default(db: DevDatabase) -> None:
+    """plan and subtasks are None by default and survive a round-trip as None."""
+    session = _make_session()
+    await db.save_session(session)
+    fetched = await db.get_session(session.id)
+    assert fetched is not None
+    assert fetched.plan is None
+    assert fetched.subtasks is None
+
+
+@pytest.mark.asyncio
+async def test_timestamps_are_strings(db: DevDatabase) -> None:
+    """Timestamps stored and retrieved as ISO strings, not datetime objects."""
+    session = _make_session()
+    await db.save_session(session)
+    fetched = await db.get_session(session.id)
+    assert fetched is not None
+    assert isinstance(fetched.created_at, str)
+    assert isinstance(fetched.updated_at, str)
+    assert "T" in fetched.created_at
 
 
 @pytest.mark.asyncio
@@ -88,6 +155,23 @@ async def test_update_session_metadata(db: DevDatabase) -> None:
     fetched = await db.get_session(session.id)
     assert fetched is not None
     assert fetched.metadata == {"branch": "feature/foo", "pr_number": 42}
+
+
+@pytest.mark.asyncio
+async def test_update_session_plan_and_subtasks(db: DevDatabase) -> None:
+    session = _make_session()
+    await db.save_session(session)
+
+    session.plan = {"approach": "incremental"}
+    session.subtasks = [{"id": "st1", "done": False}]
+    session.current_subtask = 0
+    await db.update_session(session)
+
+    fetched = await db.get_session(session.id)
+    assert fetched is not None
+    assert fetched.plan == {"approach": "incremental"}
+    assert fetched.subtasks == [{"id": "st1", "done": False}]
+    assert fetched.current_subtask == 0
 
 
 @pytest.mark.asyncio
@@ -194,6 +278,16 @@ async def test_save_and_list_events(db: DevDatabase) -> None:
     assert e.event_type == DevEventType.STATE_CHANGE
     assert e.agent_tier == AgentTier.ARCHITECT
     assert e.data == {"from": "queued", "to": "planning"}
+
+
+@pytest.mark.asyncio
+async def test_event_timestamp_is_string(db: DevDatabase) -> None:
+    session = _make_session()
+    await db.save_session(session)
+    event = DevEvent.create(session_id=session.id, event_type=DevEventType.COMMIT)
+    await db.save_event(event)
+    events = await db.list_events(session.id)
+    assert isinstance(events[0].timestamp, str)
 
 
 @pytest.mark.asyncio

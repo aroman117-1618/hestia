@@ -87,13 +87,19 @@ class TestDevSession:
         session = self._make_session()
         assert session.state == DevSessionState.QUEUED
         assert session.source == DevSessionSource.CLI
-        assert session.complexity == DevComplexity.MEDIUM
+        assert session.complexity is None           # default is None now
         assert session.priority == DevPriority.NORMAL
         assert session.retry_count == 0
         assert session.replan_count == 0
         assert session.tokens_used == 0
         assert session.token_budget == 500_000
-        assert session.id  # non-empty UUID
+        assert session.id  # non-empty id
+
+    def test_id_format(self) -> None:
+        """Session IDs should use the dev-{hex12} format."""
+        session = self._make_session()
+        assert session.id.startswith("dev-")
+        assert len(session.id) == 16  # "dev-" + 12 hex chars
 
     def test_create_custom_fields(self) -> None:
         session = self._make_session(
@@ -108,6 +114,47 @@ class TestDevSession:
         assert session.priority == DevPriority.HIGH
         assert session.token_budget == 100_000
         assert session.metadata == {"issue": 42}
+
+    def test_create_new_fields(self) -> None:
+        """All newly required fields must be populated on create."""
+        session = self._make_session(
+            source_ref="issue-123",
+            branch_name="feature/my-branch",
+        )
+        assert session.source_ref == "issue-123"
+        assert session.branch_name == "feature/my-branch"
+        assert session.plan is None
+        assert session.subtasks is None
+        assert session.current_subtask == 0
+        assert session.started_at is None
+        assert session.completed_at is None
+        assert session.approved_at is None
+        assert session.approved_by is None
+        assert session.total_tokens == 0
+        assert session.total_cost_usd == 0.0
+        assert session.error_log is None
+
+    def test_default_model_assignments(self) -> None:
+        session = self._make_session()
+        assert session.architect_model == "claude-opus-4-20250514"
+        assert session.engineer_model == "claude-sonnet-4-20250514"
+        assert session.researcher_model == "gemini-2.0-pro"
+        assert session.validator_model == "claude-haiku-4-5-20251001"
+
+    def test_custom_model_assignments(self) -> None:
+        session = self._make_session(
+            architect_model="claude-opus-custom",
+            engineer_model="claude-sonnet-custom",
+        )
+        assert session.architect_model == "claude-opus-custom"
+        assert session.engineer_model == "claude-sonnet-custom"
+
+    def test_timestamps_are_strings(self) -> None:
+        """Timestamps must be ISO-format strings, not datetime objects."""
+        session = self._make_session()
+        assert isinstance(session.created_at, str)
+        assert isinstance(session.updated_at, str)
+        assert "T" in session.created_at  # ISO format marker
 
     def test_unique_ids(self) -> None:
         s1 = self._make_session()
@@ -140,6 +187,7 @@ class TestDevSession:
         session = self._make_session()
         original = session.updated_at
         session.transition(DevSessionState.PLANNING)
+        # updated_at should be a string that sorts >= original
         assert session.updated_at >= original
 
     def test_can_retry_when_failed_and_under_limit(self) -> None:
@@ -172,6 +220,17 @@ class TestDevSession:
         session.tokens_used = 1000
         assert not session.within_token_budget()
 
+    def test_within_token_budget_with_override(self) -> None:
+        """within_token_budget() accepts an optional budget override."""
+        session = self._make_session(token_budget=1_000_000)
+        session.tokens_used = 500
+        # With default budget (1M), should be within budget
+        assert session.within_token_budget()
+        # With override of 400, should be over budget
+        assert not session.within_token_budget(budget=400)
+        # With override of 600, should be within budget
+        assert session.within_token_budget(budget=600)
+
 
 # ---------------------------------------------------------------------------
 # TestDevEvent
@@ -195,6 +254,11 @@ class TestDevEvent:
         event = DevEvent.create(session_id="sess-xyz", event_type=DevEventType.ERROR)
         assert event.agent_tier is None
         assert event.data == {}
+
+    def test_timestamp_is_string(self) -> None:
+        event = DevEvent.create(session_id="s", event_type=DevEventType.COMMIT)
+        assert isinstance(event.timestamp, str)
+        assert "T" in event.timestamp
 
     def test_unique_ids(self) -> None:
         e1 = DevEvent.create(session_id="s", event_type=DevEventType.COMMIT)
@@ -250,6 +314,12 @@ class TestProposal:
         assert proposal.estimated_tokens == 5000
         assert proposal.approved is None  # pending
         assert proposal.approval_notes == ""
+
+    def test_proposal_created_at_is_string(self) -> None:
+        session = DevSession.create(title="t", description="d")
+        proposal = Proposal.from_session(session, "summary", [], [])
+        assert isinstance(proposal.created_at, str)
+        assert "T" in proposal.created_at
 
     def test_approval_type_values(self) -> None:
         expected = {"plan_approval", "protected_path", "git_push", "pr_create", "pr_merge"}

@@ -5,7 +5,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 
 # ---------------------------------------------------------------------------
@@ -173,24 +173,64 @@ VALID_TRANSITIONS: dict[DevSessionState, list[DevSessionState]] = {
 class DevSession:
     """Represents a single agentic development session."""
 
+    # Class constants (not instance fields)
     MAX_RETRIES: int = field(default=3, init=False, repr=False, compare=False)
     MAX_REPLANS: int = field(default=2, init=False, repr=False, compare=False)
     DEFAULT_TOKEN_BUDGET: int = field(default=500_000, init=False, repr=False, compare=False)
 
+    # Required fields
     id: str
     title: str
     description: str
-    state: DevSessionState
     source: DevSessionSource
-    complexity: DevComplexity
-    priority: DevPriority
-    created_at: datetime
-    updated_at: datetime
+
+    # Optional origin tracking
+    source_ref: Optional[str] = None  # issue #, CLI session ID, etc.
+
+    # State and scheduling
+    state: DevSessionState = DevSessionState.QUEUED
+    priority: DevPriority = DevPriority.NORMAL
+    complexity: Optional[DevComplexity] = None
+
+    # Git
+    branch_name: Optional[str] = None  # git branch for this session
+
+    # Architect output
+    plan: Optional[Dict[str, Any]] = None        # Architect's plan, stored as JSON
+    subtasks: Optional[List[Dict[str, Any]]] = None  # Decomposed subtasks
+    current_subtask: int = 0                     # Progress tracker index
+
+    # Agent model assignments
+    architect_model: str = "claude-opus-4-20250514"
+    engineer_model: str = "claude-sonnet-4-20250514"
+    researcher_model: str = "gemini-2.0-pro"
+    validator_model: str = "claude-haiku-4-5-20251001"
+
+    # Timestamps — ISO format strings for clean SQLite round-tripping
+    created_at: str = ""
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    approved_at: Optional[str] = None
+    approved_by: Optional[str] = None
+
+    # Token tracking
+    token_budget: int = 500_000
+    tokens_used: int = 0
+    total_tokens: int = 0    # Cumulative across replans/retries
+
+    # Cost tracking
+    total_cost_usd: float = 0.0
+
+    # Error / retry state
+    error_log: Optional[str] = None
     retry_count: int = 0
     replan_count: int = 0
-    tokens_used: int = 0
-    token_budget: int = 500_000
-    metadata: dict[str, Any] = field(default_factory=dict)
+
+    # Freeform metadata
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    # updated_at is maintained internally — not exposed as a constructor arg
+    updated_at: str = ""
 
     @classmethod
     def create(
@@ -198,27 +238,50 @@ class DevSession:
         title: str,
         description: str,
         source: DevSessionSource = DevSessionSource.CLI,
-        complexity: DevComplexity = DevComplexity.MEDIUM,
+        source_ref: Optional[str] = None,
+        complexity: Optional[DevComplexity] = None,
         priority: DevPriority = DevPriority.NORMAL,
+        branch_name: Optional[str] = None,
         token_budget: int = 500_000,
-        metadata: dict[str, Any] | None = None,
+        architect_model: str = "claude-opus-4-20250514",
+        engineer_model: str = "claude-sonnet-4-20250514",
+        researcher_model: str = "gemini-2.0-pro",
+        validator_model: str = "claude-haiku-4-5-20251001",
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> DevSession:
         """Factory — creates a new session in the QUEUED state."""
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=timezone.utc).isoformat()
+        session_id = f"dev-{uuid.uuid4().hex[:12]}"
         return cls(
-            id=str(uuid.uuid4()),
+            id=session_id,
             title=title,
             description=description,
-            state=DevSessionState.QUEUED,
             source=source,
-            complexity=complexity,
+            source_ref=source_ref,
+            state=DevSessionState.QUEUED,
             priority=priority,
+            complexity=complexity,
+            branch_name=branch_name,
+            plan=None,
+            subtasks=None,
+            current_subtask=0,
+            architect_model=architect_model,
+            engineer_model=engineer_model,
+            researcher_model=researcher_model,
+            validator_model=validator_model,
             created_at=now,
             updated_at=now,
+            started_at=None,
+            completed_at=None,
+            approved_at=None,
+            approved_by=None,
+            token_budget=token_budget,
+            tokens_used=0,
+            total_tokens=0,
+            total_cost_usd=0.0,
+            error_log=None,
             retry_count=0,
             replan_count=0,
-            tokens_used=0,
-            token_budget=token_budget,
             metadata=metadata or {},
         )
 
@@ -233,7 +296,7 @@ class DevSession:
                 f"Invalid transition: {self.state.value} -> {target.value}"
             )
         self.state = target
-        self.updated_at = datetime.now(tz=timezone.utc)
+        self.updated_at = datetime.now(tz=timezone.utc).isoformat()
 
     def can_retry(self) -> bool:
         """Return True if this session is eligible for a retry attempt."""
@@ -243,9 +306,14 @@ class DevSession:
         """Return True if this session can generate a revised plan."""
         return self.replan_count < self.MAX_REPLANS
 
-    def within_token_budget(self) -> bool:
-        """Return True if tokens consumed are still within the budget."""
-        return self.tokens_used < self.token_budget
+    def within_token_budget(self, budget: Optional[int] = None) -> bool:
+        """Return True if tokens consumed are within the budget.
+
+        Args:
+            budget: Optional override. If None, uses self.token_budget.
+        """
+        effective_budget = budget if budget is not None else self.token_budget
+        return self.tokens_used < effective_budget
 
 
 @dataclass
@@ -256,7 +324,7 @@ class DevEvent:
     session_id: str
     event_type: DevEventType
     agent_tier: AgentTier | None
-    timestamp: datetime
+    timestamp: str  # ISO format string
     data: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -273,7 +341,7 @@ class DevEvent:
             session_id=session_id,
             event_type=event_type,
             agent_tier=agent_tier,
-            timestamp=datetime.now(tz=timezone.utc),
+            timestamp=datetime.now(tz=timezone.utc).isoformat(),
             data=data or {},
         )
 
@@ -288,7 +356,7 @@ class Proposal:
     steps: list[str]
     affected_files: list[str]
     estimated_tokens: int
-    created_at: datetime
+    created_at: str  # ISO format string
     approved: bool | None = None  # None = pending
     approval_notes: str = ""
 
@@ -309,7 +377,7 @@ class Proposal:
             steps=steps,
             affected_files=affected_files,
             estimated_tokens=estimated_tokens,
-            created_at=datetime.now(tz=timezone.utc),
+            created_at=datetime.now(tz=timezone.utc).isoformat(),
             approved=None,
             approval_notes="",
         )
