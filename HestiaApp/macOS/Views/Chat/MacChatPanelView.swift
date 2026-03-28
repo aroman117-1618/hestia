@@ -12,6 +12,36 @@ struct MacChatPanelView: View {
             // Chat window
             ScrollViewReader { proxy in
                 ScrollView {
+                    // Empty state — greeting opener
+                    if viewModel.messages.isEmpty && !viewModel.isLoading {
+                        VStack(spacing: MacSpacing.lg) {
+                            Spacer()
+
+                            if let image = appState.currentMode.avatarImage {
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 48, height: 48)
+                                    .clipShape(Circle())
+                                    .overlay {
+                                        Circle().strokeBorder(MacColors.amberAccent.opacity(0.5), lineWidth: 1)
+                                    }
+                            }
+
+                            Text(chatGreeting)
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(MacColors.textPrimaryAlt)
+
+                            Text("What can I help you with?")
+                                .font(.system(size: 13))
+                                .foregroundStyle(MacColors.textSecondary)
+
+                            Spacer()
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .padding(.horizontal, MacSpacing.xxl)
+                    }
+
                     LazyVStack(spacing: 0) {
                         ForEach(viewModel.messages) { message in
                             MacMessageBubble(
@@ -217,6 +247,15 @@ struct MacChatPanelView: View {
         .padding(.horizontal, MacSpacing.md)
         .padding(.vertical, MacSpacing.sm)
         .background(MacColors.healthRedBg)
+    }
+
+    // MARK: - Greeting
+
+    private var chatGreeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        if hour < 12 { return "Good morning, Andrew" }
+        else if hour < 17 { return "Good afternoon, Andrew" }
+        else { return "Good evening, Andrew" }
     }
 
     // MARK: - Chat Background
