@@ -195,10 +195,13 @@ class DevOrchestrator:
         session = await self._manager.transition(session_id, DevSessionState.REVIEWING)
         yield {"type": "state_change", "state": "reviewing"}
 
-        # Architect reviews
-        diff = self._get_diff(session.branch_name)
-        test_output = "Tests passed" if validation_passed else "Tests failed"
-        review = await self._architect.review_diff(session, diff=diff, test_results=test_output)
+        # Architect reviews (skip if no code changes)
+        if diff.strip():
+            test_output = "Tests passed" if validation_passed else "Tests failed"
+            review = await self._architect.review_diff(session, diff=diff, test_results=test_output)
+        else:
+            review = {"approved": True, "feedback": "No code changes — read-only session auto-approved.", "issues": []}
+            logger.info("Architect review skipped — no code changes in diff", component=LogComponent.DEV)
 
         await self._manager.record_event(
             session_id=session_id,
