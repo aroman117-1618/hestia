@@ -65,6 +65,7 @@ class LogComponent(Enum):
     TRADING = "trading"
     NOTIFICATION = "notification"
     WORKFLOW = "workflow"
+    DEV = "dev"
 
 
 class EventType(Enum):

@@ -14,7 +14,6 @@ from .file_tools import (
 from .shell_tools import run_command_tool, get_shell_tools
 from .code_tools import edit_file_tool, glob_files_tool, grep_files_tool, get_code_tools
 from .git_tools import git_status_tool, git_diff_tool, git_add_tool, git_commit_tool, git_log_tool, get_git_tools
-
 __all__ = [
     "read_file_tool",
     "write_file_tool",
@@ -57,6 +56,14 @@ def register_builtin_tools(registry) -> None:
     # Git tools (status, diff, add, commit, log)
     for tool in get_git_tools():
         registry.register(tool)
+
+    # Development tools (run_tests, git_push, git_branch, xcode_build, server_restart)
+    try:
+        from hestia.dev.tools import get_dev_tools
+        for tool in get_dev_tools():
+            registry.register(tool)
+    except ImportError:
+        pass
 
     # Apple ecosystem tools (Calendar, Reminders, Notes, Mail)
     try:

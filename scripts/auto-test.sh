@@ -168,6 +168,28 @@ get_test_file() {
         *hestia/api/routes/sentinel*)
             echo "tests/test_sentinel/" ;;
 
+        # Dev module (agentic development system)
+        *hestia/dev/models*)
+            echo "tests/test_dev_models.py" ;;
+        *hestia/dev/database*)
+            echo "tests/test_dev_database.py" ;;
+        *hestia/dev/manager*)
+            echo "tests/test_dev_manager.py" ;;
+        *hestia/dev/architect*)
+            echo "tests/test_dev_architect.py" ;;
+        *hestia/dev/engineer*)
+            echo "tests/test_dev_engineer.py" ;;
+        *hestia/dev/safety*)
+            echo "tests/test_dev_safety.py" ;;
+        *hestia/dev/context*)
+            echo "tests/test_dev_context.py" ;;
+        *hestia/dev/memory*)
+            echo "tests/test_dev_memory.py" ;;
+        *hestia/api/routes/dev*)
+            echo "tests/test_dev_routes.py" ;;
+        *hestia/dev/*)
+            echo "tests/test_dev_models.py tests/test_dev_database.py tests/test_dev_manager.py" ;;
+
         # No mapping found
         *)
             echo "" ;;
