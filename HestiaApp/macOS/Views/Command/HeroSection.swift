@@ -6,14 +6,18 @@ struct HeroSection: View {
     @EnvironmentObject var appState: AppState
 
     var body: some View {
-        HStack(alignment: .center) {
-            // MARK: - Left: Avatar + Wavelength + Greeting
-            leftSide
+        ZStack(alignment: .topLeading) {
+            // Wavelength — full-bleed background layer, no clipping
+            HestiaWavelengthView(mode: .idle)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .allowsHitTesting(false)
 
-            Spacer()
-
-            // MARK: - Right: Stats
-            rightStats
+            // Foreground content
+            HStack(alignment: .center) {
+                leftSide
+                Spacer()
+                rightStats
+            }
         }
         .padding(.horizontal, MacSpacing.xxl)
         .padding(.vertical, MacSpacing.xl)
@@ -26,11 +30,6 @@ struct HeroSection: View {
             avatar
 
             VStack(alignment: .leading, spacing: MacSpacing.sm) {
-                HestiaWavelengthView(mode: .idle)
-                    .frame(height: 50)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .clipped()
-
                 Text(greetingText)
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(MacColors.textPrimaryAlt)
