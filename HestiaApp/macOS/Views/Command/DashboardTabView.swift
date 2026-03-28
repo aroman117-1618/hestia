@@ -15,11 +15,9 @@ struct DashboardTabView: View {
                 // Row 2: Calendar + Tasks
                 HStack(alignment: .top, spacing: MacSpacing.lg) {
                     calendarCard
-                        .frame(maxWidth: .infinity)
-                        .layoutPriority(2)
+                        .frame(minWidth: 0, maxWidth: .infinity)
                     tasksCard
-                        .frame(maxWidth: .infinity)
-                        .layoutPriority(1)
+                        .frame(minWidth: 0, maxWidth: .infinity)
                 }
 
                 // Row 3: Trading
