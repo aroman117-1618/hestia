@@ -9,8 +9,8 @@ struct CommandView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Top section: hero greeting + progress rings
-            HeroSection(viewModel: viewModel, currentMode: appState.currentMode)
+            // Top section: hero greeting + stats
+            HeroSection(viewModel: viewModel)
                 .padding(.horizontal, MacSpacing.xxl)
                 .padding(.top, MacSpacing.xxl)
                 .padding(.bottom, MacSpacing.lg)

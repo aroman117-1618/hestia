@@ -51,6 +51,17 @@ class MacCommandCenterViewModel: ObservableObject {
     var memoryChunkCount: Int { memoryHealth?.chunkCount ?? 0 }
     var memoryRedundancyPct: Double { memoryHealth?.redundancyEstimatePct ?? 0.0 }
 
+    // Trading hero stats (derived from tradingSummary)
+    var tradingPnL: Double { tradingSummary?.totalPnl ?? 0 }
+    var tradingPnLDisplay: String {
+        guard let summary = tradingSummary else { return "--" }
+        let sign = summary.totalPnl >= 0 ? "+" : ""
+        return "\(sign)\(String(format: "%.2f", summary.totalPnl))"
+    }
+    var activeBotCount: Int { tradingSummary?.activeBots ?? 0 }
+    var totalFills: Int { tradingSummary?.totalTrades ?? 0 }
+    var alertCount: Int { unacknowledgedAlertCount }
+
     // MARK: - Private
 
     private let eventStore = EKEventStore()
