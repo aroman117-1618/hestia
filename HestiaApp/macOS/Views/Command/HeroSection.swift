@@ -21,24 +21,18 @@ struct HeroSection: View {
         HStack(spacing: MacSpacing.lg) {
             avatar
 
-            // Text + wavelength behind it
-            ZStack(alignment: .leading) {
-                // Wavelength fills this box, scaled down to fit
+            VStack(alignment: .leading, spacing: 0) {
+                // Wavelength on top
                 HestiaWavelengthView(mode: .idle, waveScale: 0.25)
+                    .frame(height: 40)
+                    .frame(maxWidth: 500)
                     .allowsHitTesting(false)
 
-                // Text on top
-                VStack(alignment: .leading, spacing: MacSpacing.sm) {
-                    Text(greetingText)
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(MacColors.textPrimaryAlt)
-
-                    Text(dateByline)
-                        .font(.system(size: 11))
-                        .foregroundStyle(MacColors.textSecondary)
-                }
+                // Greeting below wavelength
+                Text(greetingText)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(MacColors.textPrimaryAlt)
             }
-            .frame(height: 80)
         }
     }
 
@@ -77,6 +71,7 @@ struct HeroSection: View {
     // MARK: - Right Stats
 
     private var rightStats: some View {
+        VStack(alignment: .trailing, spacing: MacSpacing.sm) {
         HStack(spacing: MacSpacing.lg) {
             statColumn(
                 value: viewModel.tradingPnLDisplay,
@@ -107,6 +102,11 @@ struct HeroSection: View {
                 label: "Alerts",
                 valueColor: viewModel.alertCount > 0 ? MacColors.amberAccent : MacColors.textPrimaryAlt
             )
+        }
+
+            Text(dateByline)
+                .font(.system(size: 11))
+                .foregroundStyle(MacColors.textSecondary)
         }
     }
 
