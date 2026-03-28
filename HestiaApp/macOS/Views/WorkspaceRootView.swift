@@ -40,9 +40,6 @@ struct WorkspaceRootView: View {
                         // Global error banner overlay (transient, auto-dismisses)
                         GlobalErrorBanner()
                     }
-                    .overlay(alignment: .topTrailing) {
-                        ChatPanelToggleOverlay()
-                    }
                     .environment(\.layoutMode, layoutMode)
                     .animation(.hestiaNavSwitch, value: workspace.currentView)
                 }

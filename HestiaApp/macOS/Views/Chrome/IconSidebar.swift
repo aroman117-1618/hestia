@@ -17,7 +17,7 @@ struct IconSidebar: View {
             VStack(spacing: 6) {
                 navIcon(.command, systemName: "house", shortcut: 1)
                     .padding(.top, MacSpacing.lg)
-                navIcon(.memory, systemName: "brain.head.profile", shortcut: 2)
+                navIcon(.memory, systemName: "point.3.connected.trianglepath.dotted", shortcut: 2)
             }
             .padding(.top, MacSpacing.xxl)
 
