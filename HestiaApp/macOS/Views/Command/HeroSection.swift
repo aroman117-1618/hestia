@@ -27,8 +27,9 @@ struct HeroSection: View {
 
             VStack(alignment: .leading, spacing: MacSpacing.sm) {
                 HestiaWavelengthView(mode: .idle)
-                    .frame(height: 22)
+                    .frame(height: 50)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .clipped()
 
                 Text(greetingText)
                     .font(.system(size: 20, weight: .semibold))
