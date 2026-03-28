@@ -6,18 +6,10 @@ struct HeroSection: View {
     @EnvironmentObject var appState: AppState
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            // Wavelength — full-bleed background layer, no clipping
-            HestiaWavelengthView(mode: .idle)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .allowsHitTesting(false)
-
-            // Foreground content
-            HStack(alignment: .center) {
-                leftSide
-                Spacer()
-                rightStats
-            }
+        HStack(alignment: .center) {
+            leftSide
+            Spacer()
+            rightStats
         }
         .padding(.horizontal, MacSpacing.xxl)
         .padding(.vertical, MacSpacing.xl)
@@ -29,15 +21,24 @@ struct HeroSection: View {
         HStack(spacing: MacSpacing.lg) {
             avatar
 
-            VStack(alignment: .leading, spacing: MacSpacing.sm) {
-                Text(greetingText)
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(MacColors.textPrimaryAlt)
+            // Text + wavelength behind it
+            ZStack(alignment: .leading) {
+                // Wavelength fills this box, scaled down to fit
+                HestiaWavelengthView(mode: .idle, waveScale: 0.25)
+                    .allowsHitTesting(false)
 
-                Text(dateByline)
-                    .font(.system(size: 11))
-                    .foregroundStyle(MacColors.textSecondary)
+                // Text on top
+                VStack(alignment: .leading, spacing: MacSpacing.sm) {
+                    Text(greetingText)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(MacColors.textPrimaryAlt)
+
+                    Text(dateByline)
+                        .font(.system(size: 11))
+                        .foregroundStyle(MacColors.textSecondary)
+                }
             }
+            .frame(height: 80)
         }
     }
 
