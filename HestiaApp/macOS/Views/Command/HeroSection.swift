@@ -3,6 +3,7 @@ import HestiaShared
 
 struct HeroSection: View {
     @ObservedObject var viewModel: MacCommandCenterViewModel
+    @EnvironmentObject var appState: AppState
 
     var body: some View {
         HStack(alignment: .center) {
@@ -50,15 +51,23 @@ struct HeroSection: View {
                 .fill(MacColors.aiAvatarBackground)
                 .frame(width: 64, height: 64)
 
-            Text("H")
-                .font(.system(size: 26, weight: .bold))
-                .foregroundStyle(MacColors.amberAccent)
+            if let image = appState.currentMode.avatarImage {
+                image
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 58, height: 58)
+                    .clipShape(Circle())
+            } else {
+                Text(appState.currentMode.displayName.prefix(1))
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundStyle(MacColors.amberAccent)
+            }
         }
         .overlay {
             Circle()
                 .strokeBorder(
                     LinearGradient(
-                        colors: [MacColors.amberAccent, Color(hex: "A855F7")],
+                        colors: [MacColors.amberAccent, Color(red: 191/255, green: 90/255, blue: 242/255)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
