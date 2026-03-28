@@ -17,12 +17,6 @@ struct HeroSection: View {
         }
         .padding(.horizontal, MacSpacing.xxl)
         .padding(.vertical, MacSpacing.xl)
-        .background(MacColors.cardGradient)
-        .overlay {
-            RoundedRectangle(cornerRadius: MacCornerRadius.panel)
-                .strokeBorder(MacColors.cardBorder, lineWidth: 1)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.panel))
     }
 
     // MARK: - Left Side
@@ -33,7 +27,8 @@ struct HeroSection: View {
 
             VStack(alignment: .leading, spacing: MacSpacing.sm) {
                 HestiaWavelengthView(mode: .idle)
-                    .frame(width: 260, height: 22)
+                    .frame(height: 22)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                 Text(greetingText)
                     .font(.system(size: 20, weight: .semibold))
