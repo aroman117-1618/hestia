@@ -1,9 +1,9 @@
+from __future__ import annotations
 """ArchitectAgent — planning and review tier for the Hestia Agentic Dev System.
 
 Calls Claude Opus via the cloud client to produce structured JSON plans and
 diff reviews. All cloud I/O is async.
 """
-from __future__ import annotations
 
 import json
 import re

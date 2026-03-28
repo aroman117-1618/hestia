@@ -1,9 +1,9 @@
+from __future__ import annotations
 """ValidatorAgent — quality-assurance tier for the Hestia Agentic Dev System.
 
 Calls Claude Haiku via the cloud client for AI-assisted diff analysis.
 Also runs pytest and xcodebuild directly for objective test/build verification.
 """
-from __future__ import annotations
 
 import re
 import subprocess

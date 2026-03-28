@@ -1,10 +1,10 @@
+from __future__ import annotations
 """EngineerAgent — implementation tier for the Hestia Agentic Dev System.
 
 Calls Claude Sonnet via the cloud client to execute a single well-scoped
 subtask. Runs a tool loop (max 25 iterations) and returns a structured
 result dict.
 """
-from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 

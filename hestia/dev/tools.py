@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Development tools for the agentic dev system.
 

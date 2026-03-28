@@ -523,10 +523,12 @@ async def execute_session(
         except ValueError as e:
             yield f"event: error\ndata: {json.dumps({'type': 'error', 'code': 'invalid_state', 'message': 'Session is not in an executable state.'})}\n\n"
         except Exception as e:
+            import traceback
+            tb = traceback.format_exc()
             logger.error(
                 f"Dev session execution stream error: {sanitize_for_log(e)}",
                 component=LogComponent.DEV,
-                data={"session_id": session_id},
+                data={"session_id": session_id, "traceback": tb},
             )
             yield f"event: error\ndata: {json.dumps({'type': 'error', 'code': 'execution_error', 'message': 'Dev session execution failed.'})}\n\n"
 

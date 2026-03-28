@@ -1,9 +1,9 @@
+from __future__ import annotations
 """Background work discovery for the Hestia Agentic Dev System.
 
 Periodically checks for: failing tests, new GitHub issues, code quality signals,
 dependency vulnerabilities. Creates dev sessions in QUEUED state for the Architect to assess.
 """
-from __future__ import annotations
 
 import asyncio
 import subprocess

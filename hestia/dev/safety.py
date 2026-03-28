@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Safety primitives for the Hestia Agentic Development System.
 
 Provides:
@@ -5,7 +6,6 @@ Provides:
 - TokenBudgetTracker: cumulative token budget enforcement
 - NotificationRateLimiter: per-priority hourly send limits
 """
-from __future__ import annotations
 
 from collections import defaultdict
 from datetime import datetime, timezone

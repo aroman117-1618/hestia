@@ -1,9 +1,9 @@
+from __future__ import annotations
 """ResearcherAgent — knowledge-gathering tier for the Hestia Agentic Dev System.
 
 Calls Gemini 2.0 Pro via the cloud client for deep codebase analysis.
 Supports targeted Q&A driven by Architect questions and cross-model code review.
 """
-from __future__ import annotations
 
 import json
 import re

@@ -1,10 +1,10 @@
+from __future__ import annotations
 """Memory bridge for the Hestia Agentic Development System.
 
 Provides dev-specific memory storage and retrieval by wrapping the existing
 MemoryManager with structured dev memory types (session summaries, technical
 learnings, failure patterns, codebase invariants).
 """
-from __future__ import annotations
 
 import hashlib
 from enum import Enum

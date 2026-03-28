@@ -1,10 +1,10 @@
+from __future__ import annotations
 """Per-tier context builder for the Hestia Agentic Development System.
 
 Each builder method returns a dict with:
   - system_prompt: str
   - messages: list[{"role": str, "content": str}]
 """
-from __future__ import annotations
 
 import subprocess
 from pathlib import Path
