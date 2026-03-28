@@ -136,10 +136,14 @@ class DevOrchestrator:
             )
 
             # Engineer executes
-            result = await self._engineer.execute_subtask(session, subtask)
+            try:
+                result = await self._engineer.execute_subtask(session, subtask)
+            except Exception as exc:
+                logger.error(f"Engineer subtask {i} failed: {type(exc).__name__}", component=LogComponent.DEV)
+                result = {"content": f"Subtask failed: {type(exc).__name__}", "tokens_used": 0, "iterations": 0, "files_affected": []}
             total_tokens += result.get("tokens_used", 0)
 
-            yield {"type": "subtask_result", "index": i, "content": result.get("content", "")[:500], "files": result.get("files_affected", [])}
+            yield {"type": "subtask_result", "index": i, "content": (result.get("content") or "")[:500], "files": result.get("files_affected", [])}
 
             await self._manager.record_event(
                 session_id=session_id,
