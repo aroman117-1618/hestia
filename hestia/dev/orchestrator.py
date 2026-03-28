@@ -158,21 +158,25 @@ class DevOrchestrator:
         session = await self._manager.transition(session_id, DevSessionState.VALIDATING)
         yield {"type": "state_change", "state": "validating"}
 
-        # Run validation
+        # Run validation (skip if no code changes detected)
         validation_passed = True
-        if self._validator:
-            diff = self._get_diff(session.branch_name)
+        diff = self._get_diff(session.branch_name)
+        if self._validator and diff.strip():
             val_result = await self._validator.validate_session(session, diff=diff)
             validation_passed = val_result.get("passed", False)
+        else:
+            val_result = {"passed": True, "test_result": {"skipped": True, "reason": "No code changes detected"}, "lint_result": {}, "ai_analysis": None}
+            if not diff.strip():
+                logger.info("Validation skipped — no code changes in diff", component=LogComponent.DEV)
 
-            await self._manager.record_event(
-                session_id=session_id,
-                agent=AgentTier.VALIDATOR,
-                event_type=DevEventType.TEST_RUN,
-                detail=val_result.get("test_result", {}),
-            )
+        await self._manager.record_event(
+            session_id=session_id,
+            agent=AgentTier.VALIDATOR,
+            event_type=DevEventType.TEST_RUN,
+            detail=val_result.get("test_result", {}),
+        )
 
-            yield {"type": "validation", "passed": validation_passed, "detail": val_result}
+        yield {"type": "validation", "passed": validation_passed, "detail": val_result}
 
         if not validation_passed:
             session = await self._manager.transition(session_id, DevSessionState.FAILED)

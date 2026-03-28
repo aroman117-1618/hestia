@@ -27,7 +27,12 @@ async def run_tests_handler(
     verbose: bool = False,
 ) -> Dict[str, Any]:
     """Run pytest with optional path, marker, and verbose flags."""
-    cmd = ["python", "-m", "pytest"]
+    # Use venv python if available, fall back to sys.executable
+    import sys
+    python = str(PROJECT_ROOT / ".venv" / "bin" / "python")
+    if not Path(python).exists():
+        python = sys.executable
+    cmd = [python, "-m", "pytest"]
 
     if path:
         cmd.append(path)

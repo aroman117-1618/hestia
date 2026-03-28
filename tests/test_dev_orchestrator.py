@@ -124,7 +124,7 @@ class TestExecutionPhase:
         orch = DevOrchestrator(manager=mgr, architect=mock_architect, engineer=mock_engineer, validator=validator)
         events = []
         with patch.object(orch, "_checkout_branch"):
-            with patch.object(orch, "_get_diff", return_value=""):
+            with patch.object(orch, "_get_diff", return_value="+changed code"):
                 async for event in orch.run_execution_phase(session.id):
                     events.append(event)
 
