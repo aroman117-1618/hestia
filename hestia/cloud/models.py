@@ -245,6 +245,13 @@ PROVIDER_DEFAULTS: Dict[CloudProvider, Dict[str, Any]] = {
         "default_model": "claude-sonnet-4-20250514",
         "models": [
             CloudModel(
+                "claude-opus-4-20250514",
+                CloudProvider.ANTHROPIC,
+                "Claude Opus 4",
+                200000, 32768,
+                0.015, 0.075,
+            ),
+            CloudModel(
                 "claude-sonnet-4-20250514",
                 CloudProvider.ANTHROPIC,
                 "Claude Sonnet 4",
@@ -252,9 +259,9 @@ PROVIDER_DEFAULTS: Dict[CloudProvider, Dict[str, Any]] = {
                 0.003, 0.015,
             ),
             CloudModel(
-                "claude-haiku-3-5-20241022",
+                "claude-haiku-4-5-20251001",
                 CloudProvider.ANTHROPIC,
-                "Claude 3.5 Haiku",
+                "Claude Haiku 4.5",
                 200000, 8192,
                 0.001, 0.005,
             ),
