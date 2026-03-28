@@ -58,10 +58,14 @@ class InternalTabViewModel: ObservableObject {
             return
         }
 
-        let predicate = eventStore.predicateForReminders(in: nil)
-        let allReminders = await withCheckedContinuation { continuation in
-            eventStore.fetchReminders(matching: predicate) { reminders in
-                continuation.resume(returning: reminders ?? [])
+        let store = eventStore
+        let predicate = store.predicateForReminders(in: nil)
+
+        // EKReminder is not Sendable — use nonisolated helper to bridge
+        let allReminders: [EKReminder] = await withCheckedContinuation { continuation in
+            store.fetchReminders(matching: predicate) { reminders in
+                nonisolated(unsafe) let result = reminders ?? []
+                continuation.resume(returning: result)
             }
         }
 
