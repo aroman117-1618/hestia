@@ -61,23 +61,23 @@ struct DashboardTabView: View {
                     label: "Steps",
                     value: formatHealthValue(viewModel.healthSummary?.double(from: viewModel.healthSummary?.activity ?? [:], key: "steps"), unit: nil, isInt: true),
                     unit: nil,
-                    delta: "+12%",
-                    isPositive: true,
+                    delta: nil,
+                    isPositive: nil,
                     sparklineColor: MacColors.healthGreen
                 )
                 healthStatCard(
                     label: "Sleep",
                     value: formatSleepValue(viewModel.healthSummary?.double(from: viewModel.healthSummary?.sleep ?? [:], key: "duration")),
                     unit: nil,
-                    delta: "+8%",
-                    isPositive: true,
+                    delta: nil,
+                    isPositive: nil,
                     sparklineColor: MacColors.sleepPurple
                 )
                 healthStatCard(
                     label: "Heart Rate",
                     value: formatHealthValue(viewModel.healthSummary?.double(from: viewModel.healthSummary?.heart ?? [:], key: "resting_heart_rate"), unit: nil, isInt: true),
                     unit: "bpm",
-                    delta: "avg",
+                    delta: nil,
                     isPositive: nil,
                     sparklineColor: MacColors.heartRed
                 )
@@ -85,8 +85,8 @@ struct DashboardTabView: View {
                     label: "Calories",
                     value: formatHealthValue(viewModel.healthSummary?.double(from: viewModel.healthSummary?.activity ?? [:], key: "calories"), unit: nil, isInt: true),
                     unit: "kcal",
-                    delta: "-5%",
-                    isPositive: false,
+                    delta: nil,
+                    isPositive: nil,
                     sparklineColor: MacColors.amberAccent
                 )
             }
@@ -97,7 +97,7 @@ struct DashboardTabView: View {
         label: String,
         value: String,
         unit: String?,
-        delta: String,
+        delta: String?,
         isPositive: Bool?,
         sparklineColor: Color
     ) -> some View {
@@ -117,7 +117,9 @@ struct DashboardTabView: View {
                         .foregroundStyle(MacColors.textSecondary)
                 }
 
-                deltaBadge(delta, isPositive: isPositive)
+                if let delta {
+                    deltaBadge(delta, isPositive: isPositive)
+                }
             }
 
             SparklineView(color: sparklineColor)
@@ -517,10 +519,9 @@ struct DashboardTabView: View {
                             .foregroundStyle(MacColors.textPrimary)
 
                         if let summary = viewModel.tradingSummary {
-                            deltaBadge(
-                                String(format: "%+.2f%%", summary.winRate),
-                                isPositive: summary.totalPnl >= 0
-                            )
+                            Text("\(summary.totalTrades) trades")
+                                .font(MacTypography.caption)
+                                .foregroundStyle(MacColors.textFaint)
                         }
                     }
 
@@ -630,10 +631,14 @@ struct DashboardTabView: View {
 
             Spacer()
 
-            Text(bot.status == "running" ? "Active" : bot.status.capitalized)
+            // P&L placeholder — TradingBotResponse doesn't have per-bot P&L yet
+            Text("—")
                 .font(MacTypography.senderLabel)
-                .fontWeight(.semibold)
-                .foregroundStyle(bot.status == "running" ? MacColors.healthGreen : MacColors.textSecondary)
+                .foregroundStyle(MacColors.textFaint)
+
+            Circle()
+                .fill(bot.status == "running" ? MacColors.healthGreen : MacColors.textSecondary)
+                .frame(width: 6, height: 6)
         }
         .padding(.horizontal, MacSpacing.md)
         .padding(.vertical, MacSpacing.sm)

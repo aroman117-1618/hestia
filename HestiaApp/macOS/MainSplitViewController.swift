@@ -177,7 +177,7 @@ class MainSplitViewController: NSSplitViewController, NSWindowDelegate {
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
             chatItem.animator().isCollapsed.toggle()
         }
-        workspaceState.isChatPanelVisible = !chatItem.isCollapsed
+        workspaceState.chatMode = chatItem.isCollapsed ? .hidden : .sidebar
     }
 
     // MARK: - Chat Panel Detach/Re-dock
@@ -232,8 +232,7 @@ class MainSplitViewController: NSSplitViewController, NSWindowDelegate {
         detachedWindow.delegate = self
 
         // Update state
-        workspaceState.isChatDetached = true
-        workspaceState.isChatPanelVisible = false
+        workspaceState.chatMode = .detached
         detachedChatWindow = detachedWindow
 
         // Position near the right edge of the main window if no saved frame
@@ -254,17 +253,19 @@ class MainSplitViewController: NSSplitViewController, NSWindowDelegate {
               closingWindow === detachedChatWindow else { return }
 
         // Re-dock: uncollapse the chat panel in the split view
-        workspaceState.isChatDetached = false
         detachedChatWindow = nil
 
-        guard chatItem != nil else { return }
+        guard chatItem != nil else {
+            workspaceState.chatMode = .hidden
+            return
+        }
 
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.25
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
             chatItem.animator().isCollapsed = false
         }
-        workspaceState.isChatPanelVisible = true
+        workspaceState.chatMode = .sidebar
     }
 
 }

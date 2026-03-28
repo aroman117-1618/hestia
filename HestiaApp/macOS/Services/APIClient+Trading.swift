@@ -6,8 +6,12 @@ extension APIClient {
 
     // MARK: - Dashboard Summary
 
-    func getTradingSummary() async throws -> TradingSummary {
-        return try await get("/trading/summary")
+    func getTradingSummary(period: String? = nil) async throws -> TradingSummary {
+        var path = "/trading/summary"
+        if let period {
+            path += "?period=\(period)"
+        }
+        return try await get(path)
     }
 
     // MARK: - Portfolio & Positions

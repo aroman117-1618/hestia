@@ -1,14 +1,17 @@
 """
 Newsfeed manager — aggregation engine for the Command Center timeline.
 
-Materializes items from source managers (orders, memory, tasks, health)
-into a SQLite cache with configurable TTL. Read/dismiss state is per-user
-for multi-device continuity.
+Materializes items from source managers (orders, memory, tasks, health,
+trading, sentinel) into a SQLite cache with configurable TTL. Read/dismiss
+state is per-user for multi-device continuity.
 """
+
+from __future__ import annotations
 
 import asyncio
 import time
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Dict, List, Optional
 
 from hestia.logging import get_logger, LogComponent
@@ -146,12 +149,14 @@ class NewsfeedManager:
             self._aggregate_memory_reviews(),
             self._aggregate_task_updates(),
             self._aggregate_health_insights(),
+            self._aggregate_trading_alerts(),
+            self._aggregate_sentinel_alerts(),
             return_exceptions=True,
         )
 
         all_items: List[NewsfeedItem] = []
         for i, result in enumerate(results):
-            source_name = ["orders", "memory", "tasks", "health"][i]
+            source_name = ["orders", "memory", "tasks", "health", "trading", "sentinel"][i]
             if isinstance(result, Exception):
                 logger.warning(
                     f"Newsfeed aggregation failed for {source_name}: {type(result).__name__}",
@@ -305,6 +310,166 @@ class NewsfeedManager:
             return items
         except Exception:
             raise
+
+
+    async def _aggregate_trading_alerts(self) -> List[NewsfeedItem]:
+        """Aggregate recent trading fills and risk alerts into newsfeed items."""
+        items: List[NewsfeedItem] = []
+        try:
+            from hestia.trading.manager import get_trading_manager
+
+            manager = await get_trading_manager()
+
+            # Get recent trades (last 48h worth, capped at 20)
+            trades = await manager.get_trades(user_id="user-default", limit=20)
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
+
+            for trade in trades:
+                trade_ts = trade.get("timestamp")
+                if trade_ts:
+                    try:
+                        ts = datetime.fromisoformat(trade_ts)
+                    except (ValueError, TypeError):
+                        ts = None
+                else:
+                    ts = None
+
+                # Skip trades older than 48h
+                if ts and ts.tzinfo and ts < cutoff:
+                    continue
+
+                side = trade.get("side", "trade").upper()
+                pair = trade.get("pair", "")
+                price = trade.get("price", 0)
+                quantity = trade.get("quantity", 0)
+
+                items.append(NewsfeedItem(
+                    id=f"trading:{trade.get('id', '')}",
+                    item_type=NewsfeedItemType.TRADING_ALERT,
+                    source=NewsfeedItemSource.TRADING,
+                    title=f"{side} {pair}",
+                    body=f"{side} {quantity} {pair} @ ${price:.4f}",
+                    timestamp=ts,
+                    priority=NewsfeedItemPriority.NORMAL,
+                    icon="arrow.left.arrow.right",
+                    color="#FF9F0A",
+                    action_type="trade",
+                    action_id=trade.get("id"),
+                    metadata={
+                        "bot_id": trade.get("bot_id", ""),
+                        "fee": str(trade.get("fee", 0)),
+                        "order_type": trade.get("order_type", ""),
+                    },
+                ))
+
+            # Check for active kill switch
+            try:
+                risk_status = manager.get_risk_status()
+                if risk_status and risk_status.get("kill_switch", {}).get("active"):
+                    items.append(NewsfeedItem(
+                        id=f"trading:kill_switch_{datetime.now(timezone.utc).strftime('%Y%m%d')}",
+                        item_type=NewsfeedItemType.TRADING_ALERT,
+                        source=NewsfeedItemSource.TRADING,
+                        title="Kill Switch Active",
+                        body=f"Trading kill switch activated. Reason: {risk_status.get('kill_switch', {}).get('reason', 'Manual')}",
+                        timestamp=datetime.now(timezone.utc),
+                        priority=NewsfeedItemPriority.HIGH,
+                        icon="exclamationmark.triangle.fill",
+                        color="#FF6467",
+                        action_type="risk",
+                        action_id="kill_switch",
+                        metadata={"severity": "high"},
+                    ))
+            except Exception:
+                pass  # Risk status may not be available
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to aggregate trading alerts: {type(e).__name__}",
+                component=LogComponent.NEWSFEED,
+            )
+        return items
+
+    async def _aggregate_sentinel_alerts(self) -> List[NewsfeedItem]:
+        """Aggregate recent sentinel security events into newsfeed items."""
+        items: List[NewsfeedItem] = []
+        try:
+            from hestia.sentinel.store import SentinelStore
+
+            # Sentinel DB is at <repo_root>/data/sentinel_events.db
+            db_path = Path(__file__).parent.parent.parent / "data" / "sentinel_events.db"
+            if not db_path.exists():
+                return items
+
+            store = SentinelStore(str(db_path))
+
+            # SentinelStore uses synchronous sqlite3 — run in executor
+            loop = asyncio.get_running_loop()
+            events = await loop.run_in_executor(None, store.get_recent_events, 20)
+
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
+
+            severity_colors = {
+                "CRITICAL": "#FF3B30",
+                "HIGH": "#FF6467",
+                "MEDIUM": "#FF9500",
+                "LOW": "#8E8E93",
+            }
+            severity_icons = {
+                "CRITICAL": "exclamationmark.shield.fill",
+                "HIGH": "shield.lefthalf.filled",
+                "MEDIUM": "shield",
+                "LOW": "shield",
+            }
+            severity_priority = {
+                "CRITICAL": NewsfeedItemPriority.URGENT,
+                "HIGH": NewsfeedItemPriority.HIGH,
+                "MEDIUM": NewsfeedItemPriority.NORMAL,
+                "LOW": NewsfeedItemPriority.LOW,
+            }
+
+            for event in events:
+                event_ts_str = event.get("timestamp")
+                if event_ts_str:
+                    try:
+                        ts = datetime.fromisoformat(event_ts_str)
+                    except (ValueError, TypeError):
+                        ts = None
+                else:
+                    ts = None
+
+                # Skip events older than 48h
+                if ts and ts.tzinfo and ts < cutoff:
+                    continue
+
+                severity = event.get("severity", "LOW")
+
+                items.append(NewsfeedItem(
+                    id=f"sentinel:{event.get('event_id', '')}",
+                    item_type=NewsfeedItemType.SECURITY_ALERT,
+                    source=NewsfeedItemSource.SENTINEL,
+                    title=f"Sentinel {severity}: {event.get('event_type', 'event')}",
+                    body=event.get("summary"),
+                    timestamp=ts,
+                    priority=severity_priority.get(severity, NewsfeedItemPriority.NORMAL),
+                    icon=severity_icons.get(severity, "shield"),
+                    color=severity_colors.get(severity, "#8E8E93"),
+                    action_type="sentinel",
+                    action_id=event.get("event_id"),
+                    metadata={
+                        "source": event.get("source", ""),
+                        "severity": severity,
+                        "action_taken": event.get("action_taken") or "",
+                        "acknowledged": str(event.get("acknowledged", 0)),
+                    },
+                ))
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to aggregate sentinel alerts: {type(e).__name__}",
+                component=LogComponent.NEWSFEED,
+            )
+        return items
 
 
 async def get_newsfeed_manager() -> NewsfeedManager:

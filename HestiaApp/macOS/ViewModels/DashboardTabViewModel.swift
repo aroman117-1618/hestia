@@ -28,7 +28,12 @@ class DashboardTabViewModel: ObservableObject {
     @Published var reminders: [EKReminder] = []
     @Published var tradingSummary: TradingSummary?
     @Published var bots: [TradingBotResponse] = []
-    @Published var lookbackPeriod: LookbackPeriod = .twentyFourHour
+    @Published var lookbackPeriod: LookbackPeriod = .twentyFourHour {
+        didSet {
+            guard lookbackPeriod != oldValue else { return }
+            Task { await loadTrading() }
+        }
+    }
     @Published var isLoading = false
 
     // MARK: - Computed Properties
@@ -51,6 +56,11 @@ class DashboardTabViewModel: ObservableObject {
             guard let dueDate = reminder.dueDateComponents?.date else { return false }
             return dueDate >= now
         }
+    }
+
+    /// Reminders completed today (for strikethrough display).
+    var completedReminders: [EKReminder] {
+        reminders.filter { $0.isCompleted }
     }
 
     /// Events occurring today.
@@ -148,6 +158,10 @@ class DashboardTabViewModel: ObservableObject {
 
     private func loadReminders() async {
         let status = EKEventStore.authorizationStatus(for: .reminder)
+        if status == .notDetermined {
+            await requestReminderAccess()
+            return
+        }
         guard status == .fullAccess || status == .authorized else {
             #if DEBUG
             print("[DashboardTab] Reminders access not authorized: \(status.rawValue)")
@@ -166,8 +180,29 @@ class DashboardTabViewModel: ObservableObject {
             }
         }
 
-        // Keep only incomplete reminders (overdue + current filtering done via computed properties)
-        reminders = allReminders.filter { !$0.isCompleted }
+        // Keep incomplete reminders + those completed today (for strikethrough display)
+        let today = Calendar.current.startOfDay(for: Date())
+        reminders = allReminders.filter { reminder in
+            if !reminder.isCompleted { return true }
+            guard let completed = reminder.completionDate else { return false }
+            return completed >= today
+        }
+    }
+
+    private func requestReminderAccess() async {
+        do {
+            if #available(macOS 14.0, *) {
+                let granted = try await eventStore.requestFullAccessToReminders()
+                if granted { await loadReminders() }
+            } else {
+                let granted = try await eventStore.requestAccess(to: .reminder)
+                if granted { await loadReminders() }
+            }
+        } catch {
+            #if DEBUG
+            print("[DashboardTab] Reminder access denied: \(error)")
+            #endif
+        }
     }
 
     private func loadTrading() async {
@@ -175,7 +210,7 @@ class DashboardTabViewModel: ObservableObject {
             key: CacheKey.tradingSummary,
             ttl: CacheTTL.realtime
         ) {
-            try await APIClient.shared.getTradingSummary()
+            try await APIClient.shared.getTradingSummary(period: self.lookbackPeriod.rawValue)
         }
         tradingSummary = summary
 

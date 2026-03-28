@@ -3,8 +3,10 @@ Newsfeed data models.
 
 Defines the unified newsfeed item type for the Command Center timeline.
 Items are materialized from multiple sources (orders, memory, tasks, health,
-calendar, system) into a single queryable cache.
+calendar, system, trading, sentinel) into a single queryable cache.
 """
+
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -20,6 +22,8 @@ class NewsfeedItemType(str, Enum):
     HEALTH_INSIGHT = "health_insight"
     CALENDAR_EVENT = "calendar_event"
     SYSTEM_ALERT = "system_alert"
+    TRADING_ALERT = "trading_alert"
+    SECURITY_ALERT = "security_alert"
 
 
 class NewsfeedItemSource(str, Enum):
@@ -30,6 +34,8 @@ class NewsfeedItemSource(str, Enum):
     HEALTH = "health"
     CALENDAR = "calendar"
     SYSTEM = "system"
+    TRADING = "trading"
+    SENTINEL = "sentinel"
 
 
 class NewsfeedItemPriority(str, Enum):
