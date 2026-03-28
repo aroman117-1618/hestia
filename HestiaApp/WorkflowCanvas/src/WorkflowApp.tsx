@@ -104,33 +104,41 @@ export default function WorkflowApp() {
     return () => { document.head.removeChild(style) }
   }, [])
 
-  // Register bridge handlers and signal ready
+  // Wire up Swift→React bridge directly (bypasses handler chain to avoid race)
   useEffect(() => {
-    bridge.onLoadWorkflow((data) => {
-      setNodes(data.nodes.map(n => ({
-        id: n.id,
-        type: n.type,
-        position: n.position,
-        data: {
-          label: n.data.label,
-          nodeType: n.data.nodeType ?? n.type,
-          config: n.data.config ?? {},
-          executionStatus: 'pending',
-        } as NodeData,
-      })))
-      setEdges(data.edges.map(e => ({
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        sourceHandle: e.sourceHandle,
-        label: e.label,
-      })))
-      // Fit viewport to nodes after data loads (delay to let React render)
-      setTimeout(() => {
-        rfInstance.current?.fitView({ padding: 0.2 })
-      }, 100)
-    })
-    bridge.onUpdateNodeStatus((nodeId, status) => {
+    // Set window.loadWorkflow directly so Swift's evaluateJavaScript calls it
+    // with the current setNodes/setEdges closures — no intermediate handler registration
+    window.loadWorkflow = (json: string) => {
+      try {
+        const data = JSON.parse(json) as import('./shared/bridge').WorkflowData
+        setNodes(data.nodes.map(n => ({
+          id: n.id,
+          type: n.type,
+          position: n.position,
+          data: {
+            label: n.data.label,
+            nodeType: n.data.nodeType ?? n.type,
+            config: n.data.config ?? {},
+            executionStatus: 'pending',
+          } as NodeData,
+        })))
+        setEdges(data.edges.map(e => ({
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          sourceHandle: e.sourceHandle,
+          label: e.label,
+        })))
+        // Fit viewport to nodes after React renders them
+        setTimeout(() => {
+          rfInstance.current?.fitView({ padding: 0.2 })
+        }, 200)
+      } catch (e) {
+        console.error('[WorkflowApp] Failed to parse workflow data:', e)
+      }
+    }
+
+    window.updateNodeStatus = (nodeId: string, status: string) => {
       setNodes((nds) =>
         nds.map((n) =>
           n.id === nodeId
@@ -138,7 +146,9 @@ export default function WorkflowApp() {
             : n
         )
       )
-    })
+    }
+
+    // Signal to Swift that the canvas is ready to receive data
     bridge.signalReady()
   }, [setNodes, setEdges])
 
