@@ -36,6 +36,7 @@ async def handle_slash_command(
         "/tools": _cmd_tools,
         "/cloud": _cmd_cloud,
         "/code": _cmd_code,
+        "/dev": _cmd_dev,
         "/config": _cmd_config,
         "/session": _cmd_session,
         "/clear": _cmd_clear,
@@ -69,6 +70,14 @@ async def _cmd_help(args: str, client: HestiaWSClient, console: Console) -> None
   /cloud state [provider] [disabled|smart|full]
                             Set cloud routing state for a provider
   /code [task]              Start agentic coding session (iterative tool loop)
+  /dev                      Show agentic dev session help
+  /dev <task>               Create a new dev session
+  /dev queue                List all dev sessions
+  /dev proposals            List sessions awaiting approval
+  /dev approve <id>         Approve a proposed session
+  /dev cancel <id>          Cancel a session
+  /dev status <id>          Show session detail
+  /dev log <id>             Show session event log
   /config                   Open config in $EDITOR
   /session new              Start a fresh session
   /clear                    Clear the screen
@@ -458,6 +467,198 @@ def _render_agentic_event(event: Dict, console: Console) -> None:
     elif event_type == "error":
         msg = event.get("message", "Unknown error")
         console.print(f"\n[red]  Error: {msg}[/red]")
+
+
+async def _cmd_dev(args: str, client: HestiaWSClient, console: Console) -> None:
+    """Manage agentic dev sessions."""
+    token = get_stored_token()
+    if not token:
+        console.print("[red]Not authenticated. Run 'hestia setup' first.[/red]")
+        return
+
+    # Derive base_url from the ws:// client URL
+    raw_url = str(client._base_url) if hasattr(client, "_base_url") else client.server_url
+    base_url = raw_url.replace("ws://", "https://").replace("wss://", "https://").rstrip("/")
+    headers = {"X-Hestia-Device-Token": token}
+
+    parts = args.strip().split(None, 1)
+    sub = parts[0].lower() if parts else ""
+    rest = parts[1].strip() if len(parts) > 1 else ""
+
+    # /dev — show help
+    if not sub:
+        console.print("""
+[bold]Dev Session Commands[/bold]
+  /dev <task>           Create a new agentic dev session
+  /dev queue            List all sessions
+  /dev proposals        List sessions awaiting approval
+  /dev approve <id>     Approve a proposed session
+  /dev cancel <id>      Cancel a session
+  /dev status <id>      Show session detail
+  /dev log <id>         Show session event log
+""")
+        return
+
+    try:
+        async with httpx.AsyncClient(verify=False, timeout=15.0) as http:
+
+            # /dev queue — list all sessions
+            if sub == "queue":
+                resp = await http.get(f"{base_url}/v1/dev/sessions", headers=headers)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    sessions = data.get("sessions", [])
+                    if not sessions:
+                        console.print("[dim]  No dev sessions.[/dim]")
+                        return
+                    console.print(f"\n[bold]Dev Sessions[/bold] ({len(sessions)} total)\n")
+                    for s in sessions:
+                        sid = s.get("id", "?")[:12]
+                        state = s.get("state", "?")
+                        title = s.get("title", "?")[:50]
+                        console.print(f"  {sid}  [{_state_color(state)}]{state:<12}[/{_state_color(state)}]  {title}")
+                    console.print()
+                else:
+                    console.print(f"[red]Failed to list sessions: {resp.status_code}[/red]")
+                return
+
+            # /dev proposals — list pending proposals
+            if sub == "proposals":
+                resp = await http.get(f"{base_url}/v1/dev/proposals", headers=headers)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    proposals = data.get("proposals", [])
+                    if not proposals:
+                        console.print("[dim]  No pending proposals.[/dim]")
+                        return
+                    console.print(f"\n[bold]Pending Proposals[/bold] ({len(proposals)} total)\n")
+                    for s in proposals:
+                        sid = s.get("id", "?")[:12]
+                        title = s.get("title", "?")[:50]
+                        plan = s.get("plan_summary", "")[:80]
+                        console.print(f"  {sid}  {title}")
+                        if plan:
+                            console.print(f"           [dim]{plan}[/dim]")
+                    console.print()
+                else:
+                    console.print(f"[red]Failed to list proposals: {resp.status_code}[/red]")
+                return
+
+            # /dev approve <id>
+            if sub == "approve":
+                if not rest:
+                    console.print("[yellow]Usage: /dev approve <session-id>[/yellow]")
+                    return
+                resp = await http.post(f"{base_url}/v1/dev/sessions/{rest}/approve", headers=headers)
+                if resp.status_code == 200:
+                    console.print(f"[green]Session {rest[:12]} approved — executing.[/green]")
+                else:
+                    console.print(f"[red]Approve failed: {resp.status_code}[/red]")
+                return
+
+            # /dev cancel <id>
+            if sub == "cancel":
+                if not rest:
+                    console.print("[yellow]Usage: /dev cancel <session-id>[/yellow]")
+                    return
+                resp = await http.post(f"{base_url}/v1/dev/sessions/{rest}/cancel", headers=headers)
+                if resp.status_code == 200:
+                    console.print(f"[yellow]Session {rest[:12]} cancelled.[/yellow]")
+                else:
+                    console.print(f"[red]Cancel failed: {resp.status_code}[/red]")
+                return
+
+            # /dev status <id>
+            if sub == "status":
+                if not rest:
+                    console.print("[yellow]Usage: /dev status <session-id>[/yellow]")
+                    return
+                resp = await http.get(f"{base_url}/v1/dev/sessions/{rest}", headers=headers)
+                if resp.status_code == 200:
+                    s = resp.json()
+                    state = s.get("state", "?")
+                    console.print(f"\n[bold]{s.get('title', '?')}[/bold]")
+                    console.print(f"  ID:          {s.get('id', '?')}")
+                    console.print(f"  State:       [{_state_color(state)}]{state}[/{_state_color(state)}]")
+                    console.print(f"  Source:      {s.get('source', '?')}")
+                    console.print(f"  Created:     {s.get('created_at', '?')}")
+                    if s.get("approved_by"):
+                        console.print(f"  Approved by: {s['approved_by']}")
+                    if s.get("completed_at"):
+                        console.print(f"  Completed:   {s['completed_at']}")
+                    if s.get("description"):
+                        console.print(f"  Description: {s['description'][:120]}")
+                    console.print()
+                elif resp.status_code == 404:
+                    console.print(f"[red]Session not found: {rest}[/red]")
+                else:
+                    console.print(f"[red]Status fetch failed: {resp.status_code}[/red]")
+                return
+
+            # /dev log <id>
+            if sub == "log":
+                if not rest:
+                    console.print("[yellow]Usage: /dev log <session-id>[/yellow]")
+                    return
+                resp = await http.get(f"{base_url}/v1/dev/sessions/{rest}/events", headers=headers)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    events = data.get("events", [])
+                    if not events:
+                        console.print("[dim]  No events recorded.[/dim]")
+                        return
+                    console.print(f"\n[bold]Event Log[/bold] ({len(events)} events)\n")
+                    for ev in events:
+                        ts = ev.get("created_at", "?")[:19]
+                        tier = ev.get("agent_tier", "?")
+                        etype = ev.get("event_type", "?")
+                        files = ev.get("files_affected", [])
+                        files_str = f"  [dim]files: {', '.join(files[:3])}[/dim]" if files else ""
+                        console.print(f"  {ts}  [dim]{tier:12s}[/dim]  {etype}{files_str}")
+                    console.print()
+                elif resp.status_code == 404:
+                    console.print(f"[red]Session not found: {rest}[/red]")
+                else:
+                    console.print(f"[red]Log fetch failed: {resp.status_code}[/red]")
+                return
+
+            # /dev <task> — create a new session (sub is the first word of the task)
+            task_text = (sub + (" " + rest if rest else "")).strip()
+            resp = await http.post(
+                f"{base_url}/v1/dev/sessions",
+                headers=headers,
+                json={"title": task_text, "description": task_text, "source": "cli"},
+            )
+            if resp.status_code in (200, 201):
+                s = resp.json()
+                sid = s.get("id", "?")
+                console.print(f"[green]Dev session created:[/green] {sid[:12]}  [dim]{task_text[:60]}[/dim]")
+                console.print(f"[dim]  Use '/dev status {sid[:12]}' to check progress.[/dim]")
+            else:
+                console.print(f"[red]Failed to create session: {resp.status_code}[/red]")
+
+    except httpx.ConnectError:
+        console.print("[red]Cannot connect to server. Is it running?[/red]")
+    except Exception as e:
+        console.print(f"[red]Dev command failed: {type(e).__name__}[/red]")
+
+
+def _state_color(state: str) -> str:
+    """Return a Rich color name for a dev session state."""
+    mapping = {
+        "queued": "dim",
+        "planning": "cyan",
+        "researching": "cyan",
+        "proposed": "yellow",
+        "executing": "bright_cyan",
+        "validating": "blue",
+        "reviewing": "magenta",
+        "blocked": "red",
+        "failed": "red",
+        "complete": "green",
+        "cancelled": "dim",
+    }
+    return mapping.get(state.lower(), "white")
 
 
 async def _cmd_config(args: str, client: HestiaWSClient, console: Console) -> None:
