@@ -5,6 +5,7 @@ import HestiaShared
 extension Notification.Name {
     static let workspaceViewSwitch = Notification.Name("workspaceViewSwitch")
     static let hestiaChatPanelToggle = Notification.Name("hestia.chatPanel.toggle")
+    static let hestiaChatPanelDetach = Notification.Name("hestia.chatPanel.detach")
     static let hestiaCommandPaletteToggle = Notification.Name("hestia.commandPalette.toggle")
     static let activityTabSwitch = Notification.Name("hestia.activityTab.switch")
     static let hestiaServerReconnected = Notification.Name("hestia.server.reconnected")

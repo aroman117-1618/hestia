@@ -151,31 +151,38 @@ struct IconSidebar: View {
             ? "rectangle.portrait.on.rectangle.portrait"
             : "sidebar.trailing"
 
-        return Button {
-            NotificationCenter.default.post(name: .hestiaChatPanelToggle, object: nil)
-        } label: {
-            Image(systemName: iconName)
-                .font(.system(size: MacSize.navIcon))
-                .foregroundStyle(
-                    workspace.isChatPanelVisible
-                        ? MacColors.amberAccent
-                        : (hoveredChat ? MacColors.textPrimary : MacColors.textSecondary)
-                )
-                .frame(width: MacSize.navIconButton, height: MacSize.navIconButton)
-                .background(
-                    RoundedRectangle(cornerRadius: MacCornerRadius.navIcon)
-                        .fill(hoveredChat ? MacColors.activeNavBackground.opacity(0.5) : Color.clear)
-                )
-        }
-        .buttonStyle(.hestiaNav)
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: MacAnimation.fast)) {
-                hoveredChat = hovering
+        return Image(systemName: iconName)
+            .font(.system(size: MacSize.navIcon))
+            .foregroundStyle(
+                workspace.isChatPanelVisible || workspace.isChatDetached
+                    ? MacColors.amberAccent
+                    : (hoveredChat ? MacColors.textPrimary : MacColors.textSecondary)
+            )
+            .frame(width: MacSize.navIconButton, height: MacSize.navIconButton)
+            .background(
+                RoundedRectangle(cornerRadius: MacCornerRadius.navIcon)
+                    .fill(hoveredChat ? MacColors.activeNavBackground.opacity(0.5) : Color.clear)
+            )
+            .contentShape(Rectangle())
+            // Double-click MUST come before single-click in modifier chain
+            .onTapGesture(count: 2) {
+                NotificationCenter.default.post(name: .hestiaChatPanelDetach, object: nil)
             }
-        }
-        .accessibilityLabel(workspace.isChatPanelVisible ? "Hide Chat Panel" : "Show Chat Panel")
-        .accessibilityHint("Keyboard shortcut: Command Backslash")
-        .hoverCursor()
+            .onTapGesture(count: 1) {
+                NotificationCenter.default.post(name: .hestiaChatPanelToggle, object: nil)
+            }
+            .onHover { hovering in
+                withAnimation(.easeInOut(duration: MacAnimation.fast)) {
+                    hoveredChat = hovering
+                }
+            }
+            .accessibilityLabel(
+                workspace.isChatDetached
+                    ? "Chat Detached"
+                    : (workspace.isChatPanelVisible ? "Hide Chat Panel" : "Show Chat Panel")
+            )
+            .accessibilityHint("Single click: toggle panel. Double click: detach to window.")
+            .hoverCursor()
     }
 }
 

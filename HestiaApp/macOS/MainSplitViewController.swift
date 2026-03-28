@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import HestiaShared
 
-class MainSplitViewController: NSSplitViewController {
+class MainSplitViewController: NSSplitViewController, NSWindowDelegate {
     private var mainItem: NSSplitViewItem!
     private var chatItem: NSSplitViewItem!
     private var onboardingItem: NSSplitViewItem?
@@ -15,6 +15,8 @@ class MainSplitViewController: NSSplitViewController {
     private let authService = AuthService()
     private var registrationObserver: NSObjectProtocol?
     private nonisolated(unsafe) var chatToggleObserver: NSObjectProtocol?
+    private nonisolated(unsafe) var detachObserver: NSObjectProtocol?
+    private var detachedChatWindow: NSWindow?
 
     override init(nibName nibNameOrNil: NSNib.Name?, bundle nibBundleOrNil: Bundle?) {
         super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
@@ -123,12 +125,26 @@ class MainSplitViewController: NSSplitViewController {
         ) { [weak self] _ in
             self?.toggleChatPanel()
         }
+
+        // Bridge: SwiftUI double-click → detach chat to standalone window
+        detachObserver = NotificationCenter.default.addObserver(
+            forName: .hestiaChatPanelDetach,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.detachChatPanel()
+        }
     }
 
     deinit {
         if let observer = chatToggleObserver {
             NotificationCenter.default.removeObserver(observer)
         }
+        if let observer = detachObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        detachedChatWindow?.close()
+        detachedChatWindow = nil
     }
 
     // MARK: - Divider Hit Area
@@ -149,12 +165,106 @@ class MainSplitViewController: NSSplitViewController {
 
     func toggleChatPanel() {
         guard chatItem != nil else { return }
+
+        // If chat is detached, bring the detached window to front instead of toggling
+        if workspaceState.isChatDetached, let window = detachedChatWindow {
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.25
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
             chatItem.animator().isCollapsed.toggle()
         }
         workspaceState.isChatPanelVisible = !chatItem.isCollapsed
+    }
+
+    // MARK: - Chat Panel Detach/Re-dock
+
+    private func detachChatPanel() {
+        // If already detached, just bring to front
+        if let existingWindow = detachedChatWindow {
+            existingWindow.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        guard chatItem != nil else { return }
+
+        // Collapse the chat panel in the split view (hide from main window)
+        if !chatItem.isCollapsed {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.25
+                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                chatItem.animator().isCollapsed = true
+            }
+        }
+
+        // Create a new NSWindow for the detached chat
+        let detachedWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 700),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        detachedWindow.minSize = NSSize(width: 400, height: 500)
+        detachedWindow.title = "Hestia Chat"
+        detachedWindow.titleVisibility = .hidden
+        detachedWindow.titlebarAppearsTransparent = true
+        detachedWindow.backgroundColor = NSColor(red: 13/255, green: 8/255, blue: 2/255, alpha: 1)
+        detachedWindow.setFrameAutosaveName("HestiaChatDetached")
+        detachedWindow.isReleasedWhenClosed = false
+
+        // Create a new hosting controller with same environment objects (Option 3: fresh VM is fine)
+        let chatView = MacChatPanelView()
+            .environment(workspaceState)
+            .environmentObject(appState)
+            .environmentObject(networkMonitor)
+        let chatHost = NSHostingController(rootView: chatView)
+        detachedWindow.contentViewController = chatHost
+
+        // Make it a child of the main window so closing main cascades
+        if let mainWindow = view.window {
+            mainWindow.addChildWindow(detachedWindow, ordered: .above)
+        }
+
+        // Register as delegate to detect close
+        detachedWindow.delegate = self
+
+        // Update state
+        workspaceState.isChatDetached = true
+        workspaceState.isChatPanelVisible = false
+        detachedChatWindow = detachedWindow
+
+        // Position near the right edge of the main window if no saved frame
+        if !detachedWindow.setFrameUsingName("HestiaChatDetached"),
+           let mainFrame = view.window?.frame {
+            let x = mainFrame.maxX + 8
+            let y = mainFrame.origin.y
+            detachedWindow.setFrameOrigin(NSPoint(x: x, y: y))
+        }
+
+        detachedWindow.makeKeyAndOrderFront(nil)
+    }
+
+    // MARK: - NSWindowDelegate (detached chat window lifecycle)
+
+    func windowWillClose(_ notification: Notification) {
+        guard let closingWindow = notification.object as? NSWindow,
+              closingWindow === detachedChatWindow else { return }
+
+        // Re-dock: uncollapse the chat panel in the split view
+        workspaceState.isChatDetached = false
+        detachedChatWindow = nil
+
+        guard chatItem != nil else { return }
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.25
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            chatItem.animator().isCollapsed = false
+        }
+        workspaceState.isChatPanelVisible = true
     }
 
 }
