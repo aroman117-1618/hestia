@@ -5,9 +5,11 @@ Agentic Dev System — REST endpoints for creating and managing autonomous
 development sessions, approvals, cancellations, and event streams.
 """
 
+import json
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from hestia.api.middleware.auth import get_device_token
@@ -417,3 +419,155 @@ async def get_events(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"error": "internal_error", "message": "Failed to get session events."},
         )
+
+
+# ---------------------------------------------------------------------------
+# POST /v1/dev/sessions/{session_id}/plan
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/sessions/{session_id}/plan",
+    response_model=SessionResponse,
+    responses={
+        404: {"description": "Session not found"},
+        400: {"description": "Session cannot be planned in current state"},
+    },
+    summary="Run planning phase",
+    description="Run the planning phase for a session (QUEUED → PROPOSED).",
+)
+async def plan_session(
+    session_id: str,
+    device_id: str = Depends(get_device_token),
+) -> SessionResponse:
+    """Run the planning phase for a dev session."""
+    try:
+        from hestia.dev import get_dev_session_manager
+
+        manager = await get_dev_session_manager()
+
+        # Verify session exists
+        session = await manager.get_session(session_id)
+        if session is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": "session_not_found", "message": f"Session '{session_id}' not found."},
+            )
+
+        orchestrator = await _create_orchestrator(manager)
+        session = await orchestrator.run_planning_phase(session_id)
+
+        logger.info(
+            f"Dev session planning complete: {session_id!r}",
+            component=LogComponent.DEV,
+            data={"device_id": device_id, "session_id": session_id},
+        )
+
+        return _session_to_response(session)
+
+    except HTTPException:
+        raise
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "invalid_transition", "message": "Session cannot be planned in its current state."},
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Failed to plan dev session: {sanitize_for_log(e)}",
+            component=LogComponent.DEV,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": "internal_error", "message": "Failed to plan dev session."},
+        )
+
+
+# ---------------------------------------------------------------------------
+# POST /v1/dev/sessions/{session_id}/execute  (SSE)
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/sessions/{session_id}/execute",
+    responses={
+        404: {"description": "Session not found"},
+        400: {"description": "Session not in EXECUTING state"},
+    },
+    summary="Stream execution progress",
+    description="Stream execution progress of an approved dev session via SSE.",
+)
+async def execute_session(
+    session_id: str,
+    device_id: str = Depends(get_device_token),
+) -> StreamingResponse:
+    """Stream execution progress of an approved dev session via SSE."""
+    from hestia.dev import get_dev_session_manager
+
+    manager = await get_dev_session_manager()
+
+    # Verify session exists before streaming
+    session = await manager.get_session(session_id)
+    if session is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "session_not_found", "message": f"Session '{session_id}' not found."},
+        )
+
+    async def event_generator():
+        try:
+            orchestrator = await _create_orchestrator(manager)
+            async for event in orchestrator.run_execution_phase(session_id):
+                event_type = event.get("type", "status")
+                yield f"event: {event_type}\ndata: {json.dumps(event)}\n\n"
+        except ValueError as e:
+            yield f"event: error\ndata: {json.dumps({'type': 'error', 'code': 'invalid_state', 'message': 'Session is not in an executable state.'})}\n\n"
+        except Exception as e:
+            logger.error(
+                f"Dev session execution stream error: {sanitize_for_log(e)}",
+                component=LogComponent.DEV,
+                data={"session_id": session_id},
+            )
+            yield f"event: error\ndata: {json.dumps({'type': 'error', 'code': 'execution_error', 'message': 'Dev session execution failed.'})}\n\n"
+
+    logger.info(
+        f"Dev session execution started: {session_id!r}",
+        component=LogComponent.DEV,
+        data={"device_id": device_id, "session_id": session_id},
+    )
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Helpers — orchestrator factory
+# ---------------------------------------------------------------------------
+
+async def _create_orchestrator(manager):
+    """Create a DevOrchestrator with all agent tiers."""
+    from hestia.cloud.client import CloudInferenceClient
+    from hestia.dev.architect import ArchitectAgent
+    from hestia.dev.engineer import EngineerAgent
+    from hestia.dev.validator import ValidatorAgent
+    from hestia.dev.researcher import ResearcherAgent
+    from hestia.dev.proposal import ProposalDelivery
+    from hestia.dev.orchestrator import DevOrchestrator
+
+    cloud_client = CloudInferenceClient()
+
+    return DevOrchestrator(
+        manager=manager,
+        architect=ArchitectAgent(cloud_client=cloud_client),
+        engineer=EngineerAgent(cloud_client=cloud_client),
+        validator=ValidatorAgent(cloud_client=cloud_client),
+        researcher=ResearcherAgent(cloud_client=cloud_client),
+        proposal_delivery=ProposalDelivery(),
+    )

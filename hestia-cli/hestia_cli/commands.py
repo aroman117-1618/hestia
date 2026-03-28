@@ -4,6 +4,7 @@ Slash command handlers for the REPL.
 Minimal command set — natural language first, commands for control flow.
 """
 
+import json
 import os
 import subprocess
 from typing import Dict, Optional, Tuple
@@ -622,20 +623,104 @@ async def _cmd_dev(args: str, client: HestiaWSClient, console: Console) -> None:
                     console.print(f"[red]Log fetch failed: {resp.status_code}[/red]")
                 return
 
-            # /dev <task> — create a new session (sub is the first word of the task)
+            # /dev <task> — create, plan, approve, and stream execution
             task_text = (sub + (" " + rest if rest else "")).strip()
+
+            # Step 1: Create the session
             resp = await http.post(
                 f"{base_url}/v1/dev/sessions",
                 headers=headers,
                 json={"title": task_text, "description": task_text, "source": "cli"},
             )
-            if resp.status_code in (200, 201):
-                s = resp.json()
-                sid = s.get("id", "?")
-                console.print(f"[green]Dev session created:[/green] {sid[:12]}  [dim]{task_text[:60]}[/dim]")
-                console.print(f"[dim]  Use '/dev status {sid[:12]}' to check progress.[/dim]")
-            else:
+            if resp.status_code not in (200, 201):
                 console.print(f"[red]Failed to create session: {resp.status_code}[/red]")
+                return
+
+            s = resp.json()
+            sid = s.get("id", "?")
+            console.print(f"[green]Dev session created:[/green] {sid[:12]}  [dim]{task_text[:60]}[/dim]")
+
+            # Step 2: Run planning phase (QUEUED → PROPOSED)
+            console.print(f"[dim]  Planning...[/dim]")
+            resp = await http.post(
+                f"{base_url}/v1/dev/sessions/{sid}/plan",
+                headers=headers,
+                timeout=120.0,
+            )
+            if resp.status_code != 200:
+                console.print(f"[red]Planning failed: {resp.status_code}[/red]")
+                console.print(f"[dim]  Use '/dev status {sid[:12]}' to inspect.[/dim]")
+                return
+
+            proposed = resp.json()
+            console.print(f"[yellow]  Plan ready — state: {proposed.get('state', '?')}[/yellow]")
+
+            # Step 3: Ask for approval (auto-approve from CLI)
+            console.print(f"  Auto-approving for CLI execution...")
+            resp = await http.post(f"{base_url}/v1/dev/sessions/{sid}/approve", headers=headers)
+            if resp.status_code != 200:
+                console.print(f"[red]Approval failed: {resp.status_code}[/red]")
+                console.print(f"[dim]  Use '/dev approve {sid[:12]}' to approve manually.[/dim]")
+                return
+
+            # Step 4: Stream execution
+            console.print(f"[bold]  Executing...[/bold]\n")
+            async with http.stream(
+                "POST",
+                f"{base_url}/v1/dev/sessions/{sid}/execute",
+                headers={**headers, "Accept": "text/event-stream"},
+                timeout=600.0,
+            ) as stream_resp:
+                event_type = None
+                async for line in stream_resp.aiter_lines():
+                    line = line.strip()
+                    if line.startswith("event:"):
+                        event_type = line[len("event:"):].strip()
+                    elif line.startswith("data:"):
+                        raw = line[len("data:"):].strip()
+                        try:
+                            event = json.loads(raw)
+                        except Exception:
+                            continue
+                        etype = event_type or event.get("type", "")
+                        if etype == "subtask_start":
+                            idx = event.get("index", 0) + 1
+                            total = event.get("total", "?")
+                            title = event.get("title", "")
+                            console.print(f"[dim]  [{idx}/{total}] {title}[/dim]")
+                        elif etype == "subtask_result":
+                            content = event.get("content", "")
+                            files = event.get("files", [])
+                            if content:
+                                console.print(f"[dim]    {content[:120]}[/dim]")
+                            if files:
+                                console.print(f"[dim]    files: {', '.join(files[:3])}[/dim]")
+                        elif etype == "state_change":
+                            state = event.get("state", "")
+                            if state == "complete":
+                                tokens = event.get("total_tokens", 0)
+                                console.print(f"\n[green]  Complete[/green]  [dim]({tokens} tokens)[/dim]")
+                            elif state == "failed":
+                                console.print(f"\n[red]  Failed[/red]")
+                            else:
+                                console.print(f"[bold]  → {state}[/bold]")
+                        elif etype == "validation":
+                            passed = event.get("passed", False)
+                            if passed:
+                                console.print(f"[green]  Tests passed[/green]")
+                            else:
+                                console.print(f"[red]  Tests failed[/red]")
+                        elif etype == "review":
+                            approved = event.get("approved", False)
+                            feedback = event.get("feedback", "")
+                            if approved:
+                                console.print(f"[green]  Architect approved[/green]")
+                            else:
+                                console.print(f"[yellow]  Architect feedback:[/yellow] {feedback[:120]}")
+                        elif etype == "error":
+                            msg = event.get("message", "Unknown error")
+                            console.print(f"[red]  Error: {msg}[/red]")
+                        event_type = None
 
     except httpx.ConnectError:
         console.print("[red]Cannot connect to server. Is it running?[/red]")
