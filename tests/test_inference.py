@@ -109,6 +109,39 @@ class TestInferenceClient:
         with pytest.raises(TokenLimitExceeded):
             client._check_token_limit(50000)
 
+    def test_token_limit_uses_cloud_limit_when_force_cloud(self):
+        """force_cloud=True should use 200K cloud limit, not 32K local limit."""
+        client = InferenceClient()
+
+        # 40K tokens exceeds local limit (32K) but not cloud limit (200K)
+        client._check_token_limit(40000, limit=client.router.cloud_model.context_limit)
+
+        # Same count against local limit should raise
+        with pytest.raises(TokenLimitExceeded):
+            client._check_token_limit(40000)
+
+    @pytest.mark.asyncio
+    async def test_chat_force_cloud_skips_local_token_limit(self):
+        """chat(force_cloud=True) should not raise TokenLimitExceeded for 32K < tokens < 200K."""
+        client = InferenceClient()
+
+        # Mock _count_request_tokens to return 40K (above local 32K, below cloud 200K)
+        with patch.object(client, "_count_request_tokens", return_value=40000), \
+             patch.object(client, "_call_with_routing", new_callable=AsyncMock) as mock_route:
+            mock_route.return_value = InferenceResponse(
+                content="test", model="cloud", tokens_in=40000, tokens_out=10,
+                duration_ms=100.0,
+            )
+            # force_cloud=True should NOT raise
+            response = await client.chat(messages=[Message(role="user", content="test")], force_cloud=True)
+            assert response.content == "test"
+            mock_route.assert_called_once()
+
+        # force_cloud=False with same token count should raise
+        with patch.object(client, "_count_request_tokens", return_value=40000):
+            with pytest.raises(TokenLimitExceeded):
+                await client.chat(messages=[Message(role="user", content="test")], force_cloud=False)
+
     def test_count_request_tokens(self):
         client = InferenceClient()
         tokens = client._count_request_tokens(

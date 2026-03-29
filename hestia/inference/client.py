@@ -1057,9 +1057,12 @@ class InferenceClient:
         """
         request_id = self.logger.new_request_id()
 
-        # Count tokens
+        # Count tokens — use cloud context limit when force_cloud is set,
+        # otherwise the local model's 32K limit rejects requests that the
+        # 200K cloud model would handle fine.
         token_count = self._count_request_tokens("", system, messages)
-        self._check_token_limit(token_count)
+        token_limit = self.router.cloud_model.context_limit if force_cloud else None
+        self._check_token_limit(token_count, limit=token_limit)
 
         # Log request
         self.logger.info(
@@ -1069,6 +1072,7 @@ class InferenceClient:
             data={
                 "message_count": len(messages),
                 "tokens_in": token_count,
+                "force_cloud": force_cloud,
             }
         )
 
