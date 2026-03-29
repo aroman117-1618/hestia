@@ -221,6 +221,16 @@ struct NodeExecutionResponse: Codable, Identifiable, Sendable {
     let completedAt: String?
     let durationMs: Double?
     let errorMessage: String?
+    let outputData: [String: AnyCodableValue]?
+
+    /// The LLM response text from a run_prompt node, if present.
+    var responseText: String? {
+        guard let output = outputData,
+              case .string(let text) = output["response"],
+              !text.isEmpty
+        else { return nil }
+        return text
+    }
 
     var statusColor: String {
         switch status {

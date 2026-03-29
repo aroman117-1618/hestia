@@ -182,6 +182,17 @@ struct ActivityDetailPanelView: View {
                 if let error = execution.errorMessage, !error.isEmpty {
                     logBlock(error)
                 }
+
+                if let response = execution.responseText {
+                    Text(response)
+                        .font(MacTypography.body)
+                        .foregroundStyle(MacColors.textSecondary)
+                        .textSelection(.enabled)
+                        .padding(MacSpacing.md)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(MacColors.chatInputBackground)
+                        .clipShape(RoundedRectangle(cornerRadius: MacCornerRadius.search))
+                }
             }
             .padding(.bottom, isLast ? 0 : MacSpacing.md)
         }
