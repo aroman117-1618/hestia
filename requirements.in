@@ -62,6 +62,9 @@ aiohttp>=3.9.0
 # Trading Module (backtesting only — requires Python 3.10+)
 # vectorbt>=0.26.0  # Deferred: Mac Mini runs 3.9, not needed for paper soak
 
+# Transitive dependency pins (resolve CI conflicts)
+typer<0.23  # typer 0.23+ requires click>=8.2.1 which doesn't exist yet
+
 # Testing
 pytest>=7.0.0
 pytest-asyncio>=0.21.0

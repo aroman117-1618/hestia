@@ -117,6 +117,7 @@ targets:
           - "NewsfeedModels.swift"
           - "InvestigationModels.swift"
           - "DeepLinkModels.swift"
+          - "PromptVariation.swift"
       - path: Shared/Views/Common
         type: group
         includes:
