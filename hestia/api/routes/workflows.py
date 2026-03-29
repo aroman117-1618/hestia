@@ -1,7 +1,7 @@
 """
-Workflow API routes — CRUD, lifecycle, execution, SSE streaming.
+Workflow API routes — CRUD, lifecycle, execution, refinement, SSE streaming.
 
-16 endpoints under /v1/workflows.
+19 endpoints under /v1/workflows.
 """
 
 import asyncio
