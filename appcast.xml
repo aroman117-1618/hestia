@@ -6,11 +6,11 @@
       <title>Version 1.15.0</title>
       <sparkle:version>1.15.0</sparkle:version>
       <sparkle:shortVersionString>1.15.0</sparkle:shortVersionString>
-      <pubDate>Sat, 28 Mar 2026 19:53:19 -0400</pubDate>
+      <pubDate>Sat, 28 Mar 2026 20:32:49 -0400</pubDate>
       <enclosure
         url="https://github.com/aroman117-1618/hestia/releases/download/v1.15.0/Hestia-1.15.0.zip"
-        sparkle:edSignature="/USX1cAEjj3CosnnskELah8XlJ8c8Aqrxoo+FqeuWAYNV0yLXP9AYwZvrYtUVIOilr9ShMNyVh2xUL1WbvN5Dw=="
-        length="12260049"
+        sparkle:edSignature="otOe9L/VDEpyvNH+RDSbT5zC2w43SE0krOVyn3XVFE/qPIwQj0R8tRGFCp2FZcW/qOzAuhjJTDySF62pQXbnCA=="
+        length="12262705"
         type="application/octet-stream" />
     </item>
   </channel>
