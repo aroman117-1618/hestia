@@ -19,6 +19,7 @@ from hestia.orders import get_order_manager
 from hestia.memory import get_memory_manager
 from hestia.tasks import get_task_manager
 from hestia.health import get_health_manager
+from hestia.workflows.manager import get_workflow_manager
 
 from .database import NewsfeedDatabase, get_newsfeed_database
 from .models import (
@@ -151,12 +152,13 @@ class NewsfeedManager:
             self._aggregate_health_insights(),
             self._aggregate_trading_alerts(),
             self._aggregate_sentinel_alerts(),
+            self._aggregate_workflow_runs(),
             return_exceptions=True,
         )
 
         all_items: List[NewsfeedItem] = []
         for i, result in enumerate(results):
-            source_name = ["orders", "memory", "tasks", "health", "trading", "sentinel"][i]
+            source_name = ["orders", "memory", "tasks", "health", "trading", "sentinel", "workflows"][i]
             if isinstance(result, Exception):
                 logger.warning(
                     f"Newsfeed aggregation failed for {source_name}: {type(result).__name__}",
@@ -205,6 +207,48 @@ class NewsfeedManager:
                     metadata={
                         "status": exec_data.get("status", ""),
                         "duration_ms": str(exec_data.get("duration_ms", "")),
+                    },
+                ))
+            return items
+        except Exception:
+            raise
+
+    async def _aggregate_workflow_runs(self) -> List[NewsfeedItem]:
+        """Aggregate recent workflow runs (new DAG engine, not legacy orders)."""
+        try:
+            manager = await get_workflow_manager()
+            since = datetime.now(timezone.utc) - timedelta(hours=48)
+            runs = await manager.list_recent_runs(since=since.isoformat(), limit=50)
+
+            items = []
+            for run in runs:
+                status = run.get("status", "unknown")
+                is_success = status == "completed"
+                is_failed = status == "failed"
+                status_icon = "checkmark.circle" if is_success else ("xmark.circle" if is_failed else "clock")
+                priority = NewsfeedItemPriority.HIGH if is_failed else NewsfeedItemPriority.NORMAL
+                color = "#34C759" if is_success else ("#FF3B30" if is_failed else "#FF9F0A")
+
+                workflow_name = run.get("workflow_name", "Unknown")
+                body = run.get("error_message") or f"Completed in {run.get('duration_ms', 0):.0f}ms"
+
+                items.append(NewsfeedItem(
+                    id=f"wf_run:{run['id']}",
+                    item_type=NewsfeedItemType.ORDER_EXECUTION,
+                    source=NewsfeedItemSource.ORDERS,
+                    title=f"Order: {workflow_name}",
+                    body=body,
+                    timestamp=datetime.fromisoformat(run["started_at"]) if run.get("started_at") else None,
+                    priority=priority,
+                    icon=status_icon,
+                    color=color,
+                    action_type="order",
+                    action_id=run.get("workflow_id"),
+                    metadata={
+                        "status": status,
+                        "duration_ms": str(run.get("duration_ms", "")),
+                        "run_id": run.get("id", ""),
+                        "workflow_id": run.get("workflow_id", ""),
                     },
                 ))
             return items

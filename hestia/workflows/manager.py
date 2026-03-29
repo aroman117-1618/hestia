@@ -422,6 +422,10 @@ class WorkflowManager:
         """List run history for a workflow."""
         return await self.database.list_runs(workflow_id, limit, offset)
 
+    async def list_recent_runs(self, since: str, limit: int = 50) -> List[Dict[str, Any]]:
+        """List recent runs across all workflows (for newsfeed)."""
+        return await self.database.list_recent_runs(since, limit)
+
     async def get_run_detail(self, run_id: str) -> Optional[Dict[str, Any]]:
         """Get a run with its node executions."""
         run = await self.database.get_run(run_id)

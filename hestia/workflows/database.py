@@ -386,6 +386,32 @@ class WorkflowDatabase(BaseDatabase):
         rows = await cursor.fetchall()
         return [WorkflowRun.from_sqlite_row(dict(r)) for r in rows], total
 
+    async def list_recent_runs(
+        self,
+        since: str,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """List recent runs across all workflows (for newsfeed aggregation).
+
+        Args:
+            since: ISO datetime string — only runs started after this time.
+            limit: Max results.
+
+        Returns:
+            List of dicts with run data + workflow name.
+        """
+        cursor = await self.connection.execute(
+            """SELECT r.*, w.name as workflow_name
+               FROM workflow_runs r
+               JOIN workflows w ON r.workflow_id = w.id
+               WHERE r.started_at >= ?
+               ORDER BY r.started_at DESC
+               LIMIT ?""",
+            (since, limit),
+        )
+        rows = await cursor.fetchall()
+        return [dict(r) for r in rows]
+
     async def increment_run_counts(
         self, workflow_id: str, success: bool
     ) -> None:

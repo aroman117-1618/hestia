@@ -234,7 +234,8 @@ class CloudInferenceClient:
 
         # Anthropic format: system is top-level, messages are user/assistant.
         # Tool-calling messages need structured content blocks.
-        anthropic_messages = []
+        # Multiple tool_results must be merged into a single user message.
+        anthropic_messages: List[Dict[str, Any]] = []
         for msg in messages:
             if msg.role not in ("user", "assistant"):
                 continue
@@ -252,15 +253,25 @@ class CloudInferenceClient:
                     })
                 anthropic_messages.append({"role": "assistant", "content": content_blocks})
             elif msg.tool_call_id:
-                # Tool result message
-                anthropic_messages.append({
-                    "role": "user",
-                    "content": [{
-                        "type": "tool_result",
-                        "tool_use_id": msg.tool_call_id,
-                        "content": msg.content,
-                    }],
-                })
+                # Tool result — merge into previous user message if it has tool_results
+                tool_result_block = {
+                    "type": "tool_result",
+                    "tool_use_id": msg.tool_call_id,
+                    "content": msg.content,
+                }
+                if (
+                    anthropic_messages
+                    and anthropic_messages[-1].get("role") == "user"
+                    and isinstance(anthropic_messages[-1].get("content"), list)
+                    and any(b.get("type") == "tool_result" for b in anthropic_messages[-1]["content"])
+                ):
+                    # Merge into existing tool_result user message
+                    anthropic_messages[-1]["content"].append(tool_result_block)
+                else:
+                    anthropic_messages.append({
+                        "role": "user",
+                        "content": [tool_result_block],
+                    })
             else:
                 anthropic_messages.append({"role": msg.role, "content": msg.content})
 

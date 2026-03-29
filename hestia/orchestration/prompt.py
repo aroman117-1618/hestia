@@ -325,6 +325,7 @@ class PromptBuilder:
         cloud_safe: bool = False,
         user_profile_context: str = "",
         principles: str = "",
+        budget_override: Optional[int] = None,
     ) -> tuple[List[Message], PromptComponents]:
         """
         Build complete prompt for inference.
@@ -431,25 +432,27 @@ class PromptBuilder:
 
         return messages, components
 
-    def check_budget(self, components: PromptComponents) -> Dict[str, Any]:
+    def check_budget(self, components: PromptComponents, budget_override: Optional[int] = None) -> Dict[str, Any]:
         """
         Check token budget usage.
 
         Args:
             components: Prompt components with token counts.
+            budget_override: Optional budget ceiling (e.g. 200K for cloud routes).
 
         Returns:
             Budget status dictionary.
         """
+        budget = budget_override or self.TOTAL_BUDGET
         total = components.total_tokens
-        percentage = total / self.TOTAL_BUDGET
+        percentage = total / budget
 
         return {
             "total_tokens": total,
-            "budget": self.TOTAL_BUDGET,
+            "budget": budget,
             "percentage": percentage,
             "warning": percentage >= self.WARNING_THRESHOLD,
-            "exceeded": total > self.TOTAL_BUDGET,
+            "exceeded": total > budget,
             "breakdown": {
                 "system": components.system_tokens,
                 "memory": components.memory_tokens,
@@ -458,21 +461,24 @@ class PromptBuilder:
             }
         }
 
-    def estimate_response_budget(self, components: PromptComponents) -> int:
+    def estimate_response_budget(self, components: PromptComponents, budget_override: Optional[int] = None) -> int:
         """
         Estimate available tokens for response.
 
         Args:
             components: Prompt components with token counts.
+            budget_override: Optional budget ceiling (e.g. 200K for cloud routes).
 
         Returns:
             Available tokens for response.
         """
+        budget = budget_override or self.TOTAL_BUDGET
         used = components.total_tokens
-        available = self.TOTAL_BUDGET - used
+        available = budget - used
 
-        # Cap at reasonable response length
-        return min(available, 4096)
+        # Cap at reasonable response length (higher for cloud)
+        max_response = 8192 if budget_override and budget_override > self.TOTAL_BUDGET else 4096
+        return min(available, max_response)
 
 
 # Module-level singleton
