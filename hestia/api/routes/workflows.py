@@ -82,6 +82,23 @@ class StepCreateRequest(BaseModel):
     after_node_id: Optional[str] = None
 
 
+class RefinePromptRequest(BaseModel):
+    prompt: str = Field(...)
+    inference_route: str = Field("", pattern="^(|local|smart_cloud|full_cloud)$")
+
+
+class PromptVariationSchema(BaseModel):
+    label: str
+    prompt: str
+    explanation: str
+    model_suitability: str
+
+
+class RefinePromptResponse(BaseModel):
+    variations: List[PromptVariationSchema]
+    context_used: List[str]
+
+
 # ── Helpers ──────────────────────────────────────────────────────────
 
 
@@ -500,6 +517,25 @@ async def get_run_detail(
     if not detail:
         return JSONResponse({"error": "Run not found"}, status_code=404)
     return {"run": detail}
+
+
+# ── Prompt Refinement ────────────────────────────────────────────────
+
+
+@router.post("/refine-prompt")
+async def refine_prompt(
+    request: RefinePromptRequest,
+    _token: str = Depends(get_device_token),
+) -> JSONResponse:
+    """Refine a workflow prompt using local inference with personal context."""
+    if not request.prompt.strip():
+        return JSONResponse(status_code=400, content={"error": "Prompt cannot be empty"})
+
+    # Stub — will be implemented in Task 2
+    return JSONResponse(
+        status_code=501,
+        content={"error": "Not yet implemented"},
+    )
 
 
 # ── SSE Stream ───────────────────────────────────────────────────────
