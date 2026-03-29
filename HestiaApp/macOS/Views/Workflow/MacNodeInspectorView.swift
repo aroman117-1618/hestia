@@ -185,7 +185,7 @@ struct MacNodeInspectorView: View {
 
                 Text("Local")
                     .font(.system(size: 10))
-                    .foregroundStyle(MacColors.textTertiary)
+                    .foregroundStyle(MacColors.textFaint)
             }
             refinePanel
             fieldGroup("Inference") {
@@ -448,55 +448,7 @@ struct MacNodeInspectorView: View {
                 }
 
                 ForEach(refineVariations) { variation in
-                    VStack(alignment: .leading, spacing: MacSpacing.xs) {
-                        HStack {
-                            Text(variation.label)
-                                .font(MacTypography.caption.bold())
-                                .foregroundStyle(MacColors.textPrimary)
-                            Spacer()
-                            Text(variation.suitabilityBadge)
-                                .font(.system(size: 9))
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(suitabilityColor(variation.modelSuitability).opacity(0.15))
-                                .foregroundStyle(suitabilityColor(variation.modelSuitability))
-                                .clipShape(RoundedRectangle(cornerRadius: 3))
-                        }
-
-                        Text(variation.prompt)
-                            .font(MacTypography.smallBody)
-                            .foregroundStyle(MacColors.textPrimary)
-                            .lineLimit(4)
-
-                        Text(variation.explanation)
-                            .font(.system(size: 10))
-                            .foregroundStyle(MacColors.textTertiary)
-                            .italic()
-
-                        HStack {
-                            Spacer()
-                            Button("Apply") {
-                                prompt = variation.prompt
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    showRefinePanel = false
-                                }
-                            }
-                            .font(MacTypography.caption)
-                            .padding(.horizontal, MacSpacing.sm)
-                            .padding(.vertical, 3)
-                            .background(MacColors.amberAccent)
-                            .foregroundStyle(MacColors.panelBackground)
-                            .clipShape(RoundedRectangle(cornerRadius: 4))
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(MacSpacing.sm)
-                    .background(MacColors.searchInputBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(MacColors.cardBorder, lineWidth: 1)
-                    )
+                    variationCard(variation)
                 }
 
                 if let error = refineError {
@@ -514,6 +466,60 @@ struct MacNodeInspectorView: View {
             )
             .transition(.opacity.combined(with: .move(edge: .trailing)))
         }
+    }
+
+    @ViewBuilder
+    private func variationCard(_ variation: PromptVariation) -> some View {
+        VStack(alignment: .leading, spacing: MacSpacing.xs) {
+            HStack {
+                Text(variation.label)
+                    .font(MacTypography.caption.bold())
+                    .foregroundStyle(MacColors.textPrimary)
+                Spacer()
+                let badgeColor = suitabilityColor(variation.modelSuitability)
+                Text(variation.suitabilityBadge)
+                    .font(.system(size: 9))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(badgeColor.opacity(0.15))
+                    .foregroundStyle(badgeColor)
+                    .clipShape(RoundedRectangle(cornerRadius: 3))
+            }
+
+            Text(variation.prompt)
+                .font(MacTypography.smallBody)
+                .foregroundStyle(MacColors.textPrimary)
+                .lineLimit(4)
+
+            Text(variation.explanation)
+                .font(.system(size: 10))
+                .foregroundStyle(MacColors.textFaint)
+                .italic()
+
+            HStack {
+                Spacer()
+                Button("Apply") {
+                    prompt = variation.prompt
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showRefinePanel = false
+                    }
+                }
+                .font(MacTypography.caption)
+                .padding(.horizontal, MacSpacing.sm)
+                .padding(.vertical, 3)
+                .background(MacColors.amberAccent)
+                .foregroundStyle(MacColors.panelBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(MacSpacing.sm)
+        .background(MacColors.searchInputBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(MacColors.cardBorder, lineWidth: 1)
+        )
     }
 
     private func suitabilityColor(_ suitability: String) -> Color {
