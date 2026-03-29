@@ -1,60 +1,76 @@
-# Session Handoff — 2026-03-28 (macOS App Refresh)
+# Session Handoff — 2026-03-28 (Command Center Restructure)
 
 ## Mission
-Redesign the macOS app to match the refreshed iOS app — streamline navigation from 5 tabs to 3, redesign the Command tab with hero + sub-tabs, add chat panel detach-to-window, port the iOS wavelength particle animation to macOS.
+Restructure the macOS Command Center from 3 legacy tabs (Internal, Newsfeed, System Alerts) to 3 purpose-driven tabs (Dashboard, Activity, Orders) with a new card-based dashboard design, unified activity feed with detail panels, and workflow canvas as the default Orders view.
 
 ## Completed
-- **Brainstormed and designed** macOS refresh with Andrew via visual companion (10 mockup iterations)
-  - Spec: `docs/superpowers/specs/2026-03-27-macos-refresh-design.md`
-- **Second opinion audit** — 10-phase internal + Gemini cross-validation, APPROVE WITH CONDITIONS
-  - Report: `docs/plans/macos-refresh-second-opinion-2026-03-27.md`
-- **Implementation plan** — 7 tasks, subagent-driven development
-  - Plan: `docs/superpowers/plans/2026-03-28-macos-refresh.md`
-- **Task 1: Strip WorkspaceView enum** — removed .explorer/.orders, deleted 16 Explorer files, updated 6 files (`d9060ed`)
-- **Task 2: Redesign Hero Section** — avatar + wavelength left, stats right (`f1ce740`)
-- **Task 3: Sub-tab ViewModels** — InternalTab (EventKit), NewsfeedTab (trading), SystemAlertsTab (`4575145`)
-- **Task 4: Sub-tab Views** — InternalTabView, NewsfeedTabView, SystemAlertsTabView, TradingStatusView, PLLookbackToggle (`c3f2437`)
-- **Task 5: Rewire CommandView** — sub-tab architecture with lazy rendering (`97ade0c`)
-- **Task 6: Chat panel detach** — double-click sidebar toggle, NSWindow, re-dock on close (`eb1b749`)
-- **Task 7: Cleanup** — removed 12 dead Command view files (`2656d6b`)
-- **QA fixes** — removed old chat toggle overlay, Memory icon, wavelength animation (`33edad0`)
-- **Ported iOS wavelength** — CGContext renderer to macOS at 30fps, transparent bg (`e3eb7f3`, `1406d0f`)
-- **Hero polish** — removed card styling, wavelength scaling, layout rearrange (`f6fe84e` → `a75b884`)
-- **Shipped mac-v1.12.0** (build 61) — pushed + tagged (`563c4b8`)
+
+### Command Center Tab Restructure (v1.13.0 → v1.15.0)
+- **Tab enum + routing**: Renamed `CommandSubTab` from `.internal/.newsfeed/.systemAlerts` to `.dashboard/.activity/.orders` (`WorkspaceState.swift`, `CommandView.swift`)
+- **DashboardTabView** (`macOS/Views/Command/DashboardTabView.swift`): 4 health stat cards, 2-week calendar (EventKit), tasks/reminders (EventKit), trading card with lookback toggle + kill switch
+- **DashboardTabViewModel** (`macOS/ViewModels/DashboardTabViewModel.swift`): Aggregates health API, EventKit calendar/reminders, trading API. Includes `requestReminderAccess()` fix
+- **ActivityTabView** (`macOS/Views/Command/ActivityTabView.swift`): Feed list with filter pills (All/Orders/Alerts/System), selected state highlighting
+- **ActivityTabViewModel** (`macOS/ViewModels/ActivityTabViewModel.swift`): CacheFetcher-based feed loading, filter logic, detail panel state, send-to-chat via NotificationCenter
+- **ActivityDetailPanelView** (`macOS/Views/Command/ActivityDetailPanelView.swift`): Slide-over panel (420px) with per-type content: order execution timeline, alert detail, self-dev suggestion, system event. All types include "Send to Chat" button
+- **OrdersTabView** (`macOS/Views/Command/OrdersTabView.swift`): Wraps existing workflow views with `showCanvas = true` default
+- **Canvas bridge fix** (`WorkflowCanvas/src/WorkflowApp.tsx`): Fixed handler-chain race — `window.loadWorkflow` set directly in `useEffect`
+- **Canvas emoji cleanup**: All 6 React node types replaced emoji icons with inline SVGs
+- **Deleted 7 old files**: InternalTabView/ViewModel, NewsfeedTabView/ViewModel, SystemAlertsTabView/ViewModel, PLLookbackToggle
+- **Send to Chat**: `hestiaSendToChat` notification + `MacChatPanelView` receiver
+- **Newsfeed backend**: Added `TRADING` + `SENTINEL` sources/aggregators to `hestia/newsfeed/manager.py`
+- **Dashboard fixes**: Reminders permission, removed fake health deltas, trading P&L delta fixed, lookback wired to API, layout fixes
+- **Browser mockup**: `docs/mockups/command-center-v2.html` — interactive reference
+
+### Key Commits
+- `5f15939` feat(macOS): restructure Command Center tabs (v1.13.0)
+- `954a2fa` fix(canvas): bypass handler chain race (v1.13.2)
+- `9ecd1f2` fix(dashboard+activity): wire missing data sources (v1.14.0)
+- `fb2690f` fix(dashboard): layout fixes
 
 ## In Progress
-- None — all code merged, tagged, and pushed
+- **Health stat cards**: Code compiles but may need clean build (Shift+Cmd+K → Cmd+B) to appear
+- **Newsfeed aggregators**: Added to code but Mac Mini server needs restart to pick up changes
 
 ## Decisions Made
-- Sidebar: 3 tabs (Command, Memory, Settings) + chat toggle. Avatar replaces logo at top.
-- Explorer removed entirely (git history preserves). Orders absorbed into Command/Newsfeed.
-- Chat detach uses fresh ViewModel per window (pragmatic — messages come from API)
-- Wavelength on macOS uses CGContext renderer at 30fps (ported from iOS simulator fallback)
-- Hero has no card background — contents sit on pure black, matching iOS pattern
-- Memory tab untouched. Settings/Onboarding deferred.
+- Tab structure: Dashboard/Activity/Orders — grouped by user intent (glance/review/build)
+- Send to Chat: NotificationCenter pattern (`hestiaSendToChat` with context in userInfo)
+- Canvas bridge: Bypass handler-chain, set `window.loadWorkflow` directly in useEffect
+- Newsfeed: Pull-based 30s TTL aggregation into SQLite
 
 ## Test Status
-- 2976 backend passing, 0 failing
-- macOS build: clean. iOS build: clean.
+- 42 newsfeed tests passing (verified)
+- macOS build: PASS, iOS build: PASS
+- Full suite running at handoff
 
 ## Uncommitted Changes
-- `hestia/data/` — runtime data directory (gitignored), no action needed
+None — all committed and pushed to `main`
 
 ## Known Issues / Landmines
-- **Sentinel API**: SystemAlertsTabViewModel calls `/sentinel/status` — Layer 0 not deployed on Mac Mini yet. Wrapped in try/catch.
-- **P&L lookback toggle**: Client-side only — backend doesn't support period filtering yet.
-- **Chat detach double-click**: `onTapGesture(count: 2)` must come before `onTapGesture(count: 1)` in modifier chain.
-- **iOS wavelength background**: macOS renderer uses transparent bg, iOS uses opaque near-black. Don't unify without checking iOS chat view.
-- **Wavelength waveScale**: Currently 0.25 — may need tuning if window size changes significantly.
+1. **Orders tab empty** — Mac Mini DB has zero workflows. "Evening Research" lost during migration. Recreate via + button
+2. **Health cards stale cache** — clean build may be needed (Shift+Cmd+K)
+3. **Research canvas decode error** — `keyNotFound "connectionCount"` in entity response. Unrelated to our work
+4. **Concurrent ChatMode refactor** — session overlapped with `feat/notion-style-chat-hero-redesign`. MainSplitViewController fixed to use `chatMode` enum
+5. **Trading lookback** — API param sent but backend ignores it. Needs backend update
+6. **Per-bot P&L** — shows "—" placeholder. Backend `TradingBotResponse` needs `pnl` field
+7. **Research canvas latent bug** — uses same `bridge.onLoadWorkflow` handler-chain we fixed in workflow canvas. May fail under same race condition
 
 ## Process Learnings
-- **First-pass success**: 7/7 tasks completed by subagents. QA added ~8 polish fixes.
-- **Top time sink**: Wavelength rendering (6 commits) — iOS particle system designed for full-screen, not 80pt hero.
-- **Subagent-driven dev worked well**: Fresh context per task, build validation as quality gate.
-- **Visual companion high-value**: 10 mockup iterations saved rework. Standard for all UI work.
+- **First-pass success**: 7/10 tasks (70%). Rework from canvas race condition (3 iterations), ChatMode conflict, stale build cache
+- **Top blocker**: WKWebView sandbox noise masked real canvas bug. Debug overlay (nodes:0) was the diagnostic that cracked it
+- **HOOK proposal**: Auto-run xcodegen when Swift files added/deleted
+- **AGENT miss**: Should dispatch @hestia-build-validator after file creation, not just edits
 
 ## Next Steps
-1. **Monitor GitHub Actions** — verify mac-v1.12.0 builds, signs, notarizes via Sparkle
-2. **Deploy Sentinel Layer 0 on Mac Mini** (~30 min manual) — still pending from previous session
-3. **iOS refresh remaining** — WS0 (TestFlight) and WS1 (voice modes) per `docs/superpowers/plans/2026-03-24-ios-refresh.md`
-4. **Settings/Onboarding redesign** — deferred, on the Notion whiteboard
+
+### Immediate
+1. Clean build: Shift+Cmd+K → Cmd+B — verify all 3 Dashboard rows render
+2. Deploy backend: `./scripts/deploy-to-mini.sh` — trading + sentinel aggregators need server restart
+3. Recreate "Evening Research" workflow via + button in Orders sidebar
+4. Verify Activity feed populates with trading fills after deploy
+
+### Polish Sprint
+5. Health trend deltas (wire `getHealthTrend()` API)
+6. Per-bot P&L (add `pnl` to `TradingBotResponse`)
+7. Backend lookback filtering on `/trading/summary`
+8. Activity feed mark-read/dismiss API wiring
+9. Order execution detail enrichment in newsfeed metadata
