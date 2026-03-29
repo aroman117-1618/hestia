@@ -59,6 +59,13 @@ extension APIClient {
         return response.run
     }
 
+    // MARK: - Prompt Refinement
+
+    func refinePrompt(_ prompt: String, inferenceRoute: String) async throws -> RefinePromptResponse {
+        let request = RefinePromptRequest(prompt: prompt, inferenceRoute: inferenceRoute)
+        return try await post("/workflows/refine-prompt", body: request)
+    }
+
     // MARK: - Node Update
 
     func patchNode(_ workflowId: String, nodeId: String, request: NodeUpdateRequest) async throws {
