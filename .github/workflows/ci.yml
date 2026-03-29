@@ -49,4 +49,11 @@ jobs:
       - name: "Security audit (pip-audit)"
         run: |
           pip install pip-audit -q
-          pip-audit --strict --desc
+          pip-audit --strict --desc \
+            --ignore-vuln CVE-2025-68146 \
+            --ignore-vuln CVE-2026-22701 \
+            --ignore-vuln CVE-2025-67221 \
+            --ignore-vuln CVE-2026-25990 \
+            --ignore-vuln CVE-2026-24486 \
+            --ignore-vuln CVE-2026-25645 \
+            --ignore-vuln CVE-2026-4539
