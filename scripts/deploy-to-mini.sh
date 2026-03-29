@@ -112,9 +112,9 @@ if [[ -d ".venv" ]]; then
     pip install -q --require-hashes -r requirements.txt
     echo "✓ Dependencies installed"
     echo "Scanning for malicious .pth files..."
-    bash "${HESTIA_HOME}/scripts/scan-pth-files.sh" "${HESTIA_HOME}/.venv" || { echo "✗ .pth scan failed — aborting deploy"; exit 1; }
+    bash ~/hestia/scripts/scan-pth-files.sh ~/hestia/.venv || { echo "✗ .pth scan failed — aborting deploy"; exit 1; }
     echo "✓ .pth scan passed"
-    if [[ -f "${HESTIA_HOME}/scripts/sentinel-baseline.sh" ]]; then bash "${HESTIA_HOME}/scripts/sentinel-baseline.sh" "${HESTIA_HOME}/.venv"; fi
+    if [[ -f ~/hestia/scripts/sentinel-baseline.sh ]]; then bash ~/hestia/scripts/sentinel-baseline.sh ~/hestia/.venv; fi
 else
     echo "⚠ Virtual environment not found at ~/hestia/.venv"
     echo "  Create with: python3 -m venv .venv"
