@@ -62,6 +62,12 @@ struct MacNodeInspectorView: View {
     @State private var saveError: String?
     @State private var didSave = false
 
+    // refine
+    @State private var isRefining: Bool = false
+    @State private var refineVariations: [PromptVariation] = []
+    @State private var showRefinePanel: Bool = false
+    @State private var refineError: String?
+
     // MARK: - Body
 
     var body: some View {
@@ -151,6 +157,37 @@ struct MacNodeInspectorView: View {
                             .stroke(MacColors.cardBorder, lineWidth: 1)
                     )
             }
+            // Refine button
+            HStack(spacing: MacSpacing.xs) {
+                Button {
+                    Task { await refineCurrentPrompt() }
+                } label: {
+                    HStack(spacing: 4) {
+                        if isRefining {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Image(systemName: "wand.and.stars")
+                                .font(.system(size: 11))
+                        }
+                        Text("Refine")
+                            .font(MacTypography.caption)
+                    }
+                    .padding(.horizontal, MacSpacing.sm)
+                    .padding(.vertical, 4)
+                    .background(MacColors.amberAccent)
+                    .foregroundStyle(MacColors.panelBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+                .buttonStyle(.plain)
+                .disabled(prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isRefining)
+                .help("Refine prompt using local AI with your personal context")
+
+                Text("Local")
+                    .font(.system(size: 10))
+                    .foregroundStyle(MacColors.textTertiary)
+            }
+            refinePanel
             fieldGroup("Inference") {
                 Picker("", selection: $inferenceRoute) {
                     Text("Local").tag("local")
@@ -385,6 +422,130 @@ struct MacNodeInspectorView: View {
                 .textCase(.uppercase)
             content()
         }
+    }
+
+    // MARK: - Refine Panel
+
+    @ViewBuilder
+    private var refinePanel: some View {
+        if showRefinePanel && !refineVariations.isEmpty {
+            VStack(alignment: .leading, spacing: MacSpacing.sm) {
+                HStack {
+                    Text("Refined Variations")
+                        .font(MacTypography.label)
+                        .foregroundStyle(MacColors.amberAccent)
+                    Spacer()
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showRefinePanel = false
+                        }
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 10))
+                            .foregroundStyle(MacColors.textSecondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                ForEach(refineVariations) { variation in
+                    VStack(alignment: .leading, spacing: MacSpacing.xs) {
+                        HStack {
+                            Text(variation.label)
+                                .font(MacTypography.caption.bold())
+                                .foregroundStyle(MacColors.textPrimary)
+                            Spacer()
+                            Text(variation.suitabilityBadge)
+                                .font(.system(size: 9))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(suitabilityColor(variation.modelSuitability).opacity(0.15))
+                                .foregroundStyle(suitabilityColor(variation.modelSuitability))
+                                .clipShape(RoundedRectangle(cornerRadius: 3))
+                        }
+
+                        Text(variation.prompt)
+                            .font(MacTypography.smallBody)
+                            .foregroundStyle(MacColors.textPrimary)
+                            .lineLimit(4)
+
+                        Text(variation.explanation)
+                            .font(.system(size: 10))
+                            .foregroundStyle(MacColors.textTertiary)
+                            .italic()
+
+                        HStack {
+                            Spacer()
+                            Button("Apply") {
+                                prompt = variation.prompt
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    showRefinePanel = false
+                                }
+                            }
+                            .font(MacTypography.caption)
+                            .padding(.horizontal, MacSpacing.sm)
+                            .padding(.vertical, 3)
+                            .background(MacColors.amberAccent)
+                            .foregroundStyle(MacColors.panelBackground)
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(MacSpacing.sm)
+                    .background(MacColors.searchInputBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(MacColors.cardBorder, lineWidth: 1)
+                    )
+                }
+
+                if let error = refineError {
+                    Text(error)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.red)
+                }
+            }
+            .padding(MacSpacing.sm)
+            .background(MacColors.panelBackground.opacity(0.95))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(MacColors.amberAccent.opacity(0.3), lineWidth: 1)
+            )
+            .transition(.opacity.combined(with: .move(edge: .trailing)))
+        }
+    }
+
+    private func suitabilityColor(_ suitability: String) -> Color {
+        switch suitability {
+        case "cloud_optimized": return .green
+        case "local_friendly": return MacColors.amberAccent
+        default: return MacColors.textSecondary
+        }
+    }
+
+    private func refineCurrentPrompt() async {
+        isRefining = true
+        refineError = nil
+        refineVariations = []
+
+        do {
+            let response = try await APIClient.shared.refinePrompt(
+                prompt,
+                inferenceRoute: inferenceRoute
+            )
+            refineVariations = response.variations
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showRefinePanel = true
+            }
+        } catch {
+            refineError = "Refinement failed — is the local model running?"
+            #if DEBUG
+            print("[Refine] Error: \(error)")
+            #endif
+        }
+
+        isRefining = false
     }
 
     // MARK: - Load / Save
