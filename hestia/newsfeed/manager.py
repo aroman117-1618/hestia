@@ -243,7 +243,7 @@ class NewsfeedManager:
                     icon=status_icon,
                     color=color,
                     action_type="order",
-                    action_id=run.get("workflow_id"),
+                    action_id=f"{run.get('workflow_id', '')}:{run.get('id', '')}",
                     metadata={
                         "status": status,
                         "duration_ms": str(run.get("duration_ms", "")),
