@@ -62,3 +62,163 @@ class TestRefinePromptEndpoint:
             json={"inference_route": "full_cloud"},
         )
         assert response.status_code == 422
+
+
+class TestRefinePromptLogic:
+    @pytest.mark.asyncio
+    async def test_happy_path_returns_variations(self, client: AsyncClient) -> None:
+        """Mock inference to return valid JSON, verify structured response."""
+        mock_inference_response = MagicMock()
+        mock_inference_response.content = json.dumps({
+            "variations": [
+                {
+                    "label": "Focused",
+                    "prompt": "Audit the top 5 issues in security and performance.",
+                    "explanation": "Scoped to actionable items.",
+                    "model_suitability": "cloud_optimized",
+                },
+                {
+                    "label": "Structured",
+                    "prompt": "Report findings as JSON with severity scores.",
+                    "explanation": "Machine-parseable output.",
+                    "model_suitability": "local_friendly",
+                },
+            ]
+        })
+
+        mock_user_config = MagicMock()
+        mock_user_config.context_block = "## User Profile\n\nAndrew is a software engineer."
+        mock_user_config.get_topic_context.return_value = ""
+
+        mock_loader = AsyncMock()
+        mock_loader.load.return_value = mock_user_config
+
+        mock_memory_results = [
+            MagicMock(content="Andrew prioritizes security and performance."),
+        ]
+
+        with patch("hestia.api.routes.workflows.get_user_config_loader", return_value=mock_loader), \
+             patch("hestia.api.routes.workflows.get_memory_manager") as mock_mem_factory, \
+             patch("hestia.api.routes.workflows.get_inference_client") as mock_inf_factory:
+            mock_mem = AsyncMock()
+            mock_mem.search.return_value = mock_memory_results
+            mock_mem_factory.return_value = mock_mem
+
+            mock_inference = AsyncMock()
+            mock_inference.complete.return_value = mock_inference_response
+            mock_inf_factory.return_value = mock_inference
+
+            response = await client.post(
+                "/v1/workflows/refine-prompt",
+                json={
+                    "prompt": "Hunt through the codebase for issues",
+                    "inference_route": "full_cloud",
+                },
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "variations" in data
+        assert len(data["variations"]) == 2
+        assert data["variations"][0]["label"] == "Focused"
+        assert "context_used" in data
+        assert "user_profile" in data["context_used"]
+        assert "memory" in data["context_used"]
+
+    @pytest.mark.asyncio
+    async def test_json_parse_failure_returns_single_variation(self, client: AsyncClient) -> None:
+        """When local model returns non-JSON, fall back to single variation."""
+        mock_inference_response = MagicMock()
+        mock_inference_response.content = "Here is an improved prompt: Analyze the codebase systematically."
+
+        mock_user_config = MagicMock()
+        mock_user_config.context_block = ""
+        mock_user_config.get_topic_context.return_value = ""
+
+        mock_loader = AsyncMock()
+        mock_loader.load.return_value = mock_user_config
+
+        with patch("hestia.api.routes.workflows.get_user_config_loader", return_value=mock_loader), \
+             patch("hestia.api.routes.workflows.get_memory_manager") as mock_mem_factory, \
+             patch("hestia.api.routes.workflows.get_inference_client") as mock_inf_factory:
+            mock_mem = AsyncMock()
+            mock_mem.search.return_value = []
+            mock_mem_factory.return_value = mock_mem
+
+            mock_inference = AsyncMock()
+            mock_inference.complete.return_value = mock_inference_response
+            mock_inf_factory.return_value = mock_inference
+
+            response = await client.post(
+                "/v1/workflows/refine-prompt",
+                json={"prompt": "Do something useful"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["variations"]) == 1
+        assert data["variations"][0]["label"] == "Improved"
+        assert "Analyze the codebase" in data["variations"][0]["prompt"]
+
+    @pytest.mark.asyncio
+    async def test_force_tier_primary_used(self, client: AsyncClient) -> None:
+        """Verify refinement always uses force_tier='primary' (local only)."""
+        mock_inference_response = MagicMock()
+        mock_inference_response.content = json.dumps({"variations": [{
+            "label": "Test", "prompt": "test", "explanation": "test",
+            "model_suitability": "universal",
+        }]})
+
+        mock_user_config = MagicMock()
+        mock_user_config.context_block = ""
+        mock_user_config.get_topic_context.return_value = ""
+        mock_loader = AsyncMock()
+        mock_loader.load.return_value = mock_user_config
+
+        with patch("hestia.api.routes.workflows.get_user_config_loader", return_value=mock_loader), \
+             patch("hestia.api.routes.workflows.get_memory_manager") as mock_mem_factory, \
+             patch("hestia.api.routes.workflows.get_inference_client") as mock_inf_factory:
+            mock_mem = AsyncMock()
+            mock_mem.search.return_value = []
+            mock_mem_factory.return_value = mock_mem
+
+            mock_inference = AsyncMock()
+            mock_inference.complete.return_value = mock_inference_response
+            mock_inf_factory.return_value = mock_inference
+
+            await client.post(
+                "/v1/workflows/refine-prompt",
+                json={"prompt": "Test prompt", "inference_route": "full_cloud"},
+            )
+
+            # Verify force_tier="primary" was passed
+            call_kwargs = mock_inference.complete.call_args
+            assert call_kwargs.kwargs.get("force_tier") == "primary" or \
+                   (len(call_kwargs.args) > 0 and "force_tier" in str(call_kwargs))
+
+    @pytest.mark.asyncio
+    async def test_inference_unavailable_returns_503(self, client: AsyncClient) -> None:
+        """When local model is down, return 503."""
+        mock_user_config = MagicMock()
+        mock_user_config.context_block = ""
+        mock_user_config.get_topic_context.return_value = ""
+        mock_loader = AsyncMock()
+        mock_loader.load.return_value = mock_user_config
+
+        with patch("hestia.api.routes.workflows.get_user_config_loader", return_value=mock_loader), \
+             patch("hestia.api.routes.workflows.get_memory_manager") as mock_mem_factory, \
+             patch("hestia.api.routes.workflows.get_inference_client") as mock_inf_factory:
+            mock_mem = AsyncMock()
+            mock_mem.search.return_value = []
+            mock_mem_factory.return_value = mock_mem
+
+            mock_inference = AsyncMock()
+            mock_inference.complete.side_effect = Exception("Connection refused")
+            mock_inf_factory.return_value = mock_inference
+
+            response = await client.post(
+                "/v1/workflows/refine-prompt",
+                json={"prompt": "Test prompt"},
+            )
+
+        assert response.status_code == 503

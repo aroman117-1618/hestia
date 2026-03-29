@@ -1,10 +1,11 @@
 """
 Workflow API routes — CRUD, lifecycle, execution, SSE streaming.
 
-15 endpoints under /v1/workflows.
+16 endpoints under /v1/workflows.
 """
 
 import asyncio
+import json as json_mod
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -13,7 +14,11 @@ from pydantic import BaseModel, Field
 
 from hestia.api.errors import sanitize_for_log
 from hestia.api.middleware.auth import get_device_token
+from hestia.inference import InferenceClient
 from hestia.logging import get_logger, LogComponent
+from hestia.memory.manager import get_memory_manager
+from hestia.user.config_loader import get_user_config_loader
+from hestia.user.config_models import UserConfigFile
 from hestia.workflows.manager import get_workflow_manager
 from hestia.workflows.scheduler import get_workflow_scheduler
 
@@ -112,6 +117,13 @@ def _expand_resource_categories(categories: List[str]) -> List[str]:
         tools = registry.get_tools_by_category(cat)
         tool_names.extend(t.name for t in tools)
     return tool_names
+
+
+def get_inference_client() -> InferenceClient:
+    """Get inference client singleton for refinement."""
+    from hestia.inference.client import get_inference_client as _get_client
+
+    return _get_client()
 
 
 # ── Workflow CRUD ────────────────────────────────────────────────────
@@ -522,6 +534,36 @@ async def get_run_detail(
 # ── Prompt Refinement ────────────────────────────────────────────────
 
 
+_REFINE_SYSTEM_PROMPT = """\
+You are a prompt engineering expert for Hestia, a personal AI assistant.
+
+Your task: take the user's raw workflow prompt and produce 2-3 improved variations.
+
+## Context About the User
+{user_context}
+
+## Relevant Memories
+{memory_context}
+
+## Target Inference
+The prompt will execute on: {inference_target}
+- "local" = Qwen 3.5 9B, 32K context — keep prompts concise, structured, avoid broad file scanning
+- "smart_cloud" = local-first with cloud fallback — moderate complexity is fine
+- "full_cloud" = Anthropic/OpenAI, 200K context — can handle rich, detailed prompts
+
+## Instructions
+1. Analyze the prompt for: vague scope, missing output format, context overflow risk, missed personalization opportunities
+2. Generate 2-3 variations with different strategies (e.g., Focused, Thorough, Structured)
+3. For each variation, consider the user's priorities, projects, and preferences from the context above
+4. Tag each with model_suitability: "cloud_optimized", "local_friendly", or "universal"
+
+Return ONLY valid JSON in this exact format:
+{{"variations": [
+  {{"label": "...", "prompt": "...", "explanation": "...", "model_suitability": "..."}},
+  ...
+]}}"""
+
+
 @router.post("/refine-prompt")
 async def refine_prompt(
     request: RefinePromptRequest,
@@ -531,11 +573,106 @@ async def refine_prompt(
     if not request.prompt.strip():
         return JSONResponse(status_code=400, content={"error": "Prompt cannot be empty"})
 
-    # Stub — will be implemented in Task 2
-    return JSONResponse(
-        status_code=501,
-        content={"error": "Not yet implemented"},
+    context_used: List[str] = []
+
+    # Load full user profile (safe — local inference only)
+    user_context = ""
+    try:
+        loader = await get_user_config_loader()
+        user_config = await loader.load()
+        user_context = user_config.context_block
+        # Add topic files for richer context
+        topic_ctx = user_config.get_topic_context([
+            UserConfigFile.BODY, UserConfigFile.SPIRIT, UserConfigFile.VITALS,
+        ])
+        if topic_ctx:
+            user_context = f"{user_context}\n\n{topic_ctx}" if user_context else topic_ctx
+        if user_context:
+            context_used.append("user_profile")
+    except Exception as e:
+        logger.warning(
+            f"Failed to load user profile for refinement: {type(e).__name__}",
+            component=LogComponent.WORKFLOW,
+        )
+
+    # Search memory for relevant context
+    memory_context = ""
+    try:
+        mem_manager = await get_memory_manager()
+        results = await mem_manager.search(request.prompt, limit=5)
+        if results:
+            memory_context = "\n".join(
+                f"- {r.content}" for r in results
+            )
+            context_used.append("memory")
+    except Exception as e:
+        logger.warning(
+            f"Failed to search memory for refinement: {type(e).__name__}",
+            component=LogComponent.WORKFLOW,
+        )
+
+    # Build system prompt
+    inference_target = request.inference_route or "smart_cloud"
+    system = _REFINE_SYSTEM_PROMPT.format(
+        user_context=user_context or "(No user profile loaded)",
+        memory_context=memory_context or "(No relevant memories found)",
+        inference_target=inference_target,
     )
+
+    # Call local inference
+    try:
+        inference = get_inference_client()
+        response = await inference.complete(
+            prompt=f"Refine this workflow prompt:\n\n{request.prompt}",
+            system=system,
+            force_tier="primary",
+            format="json",
+            temperature=0.7,
+            max_tokens=2048,
+        )
+    except Exception as e:
+        logger.error(
+            f"Refinement inference failed: {type(e).__name__}",
+            component=LogComponent.WORKFLOW,
+        )
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Refinement requires local inference", "detail": type(e).__name__},
+        )
+
+    # Parse response
+    variations = []
+    try:
+        parsed = json_mod.loads(response.content)
+        raw_variations = parsed.get("variations", [])
+        for v in raw_variations:
+            variations.append({
+                "label": v.get("label", "Improved"),
+                "prompt": v.get("prompt", ""),
+                "explanation": v.get("explanation", ""),
+                "model_suitability": v.get("model_suitability", "universal"),
+            })
+    except (json_mod.JSONDecodeError, KeyError, TypeError):
+        # Fallback: treat entire response as single improved prompt
+        variations.append({
+            "label": "Improved",
+            "prompt": response.content.strip(),
+            "explanation": "Direct refinement from local model.",
+            "model_suitability": "universal",
+        })
+
+    if not variations:
+        variations.append({
+            "label": "Improved",
+            "prompt": request.prompt,
+            "explanation": "No refinements generated.",
+            "model_suitability": "universal",
+        })
+
+    return JSONResponse(content={
+        "variations": variations,
+        "context_used": context_used,
+    })
 
 
 # ── SSE Stream ───────────────────────────────────────────────────────
